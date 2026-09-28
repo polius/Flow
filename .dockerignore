@@ -1,0 +1,14 @@
+.git
+node_modules
+**/node_modules
+frontend/dist
+**/.venv
+**/__pycache__
+**/*.pyc
+.data
+music
+*.db
+*.db-wal
+*.db-shm
+.DS_Store
+*.log

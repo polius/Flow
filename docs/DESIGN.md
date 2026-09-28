@@ -209,6 +209,7 @@ GET    /api/albums/{id}                → album detail + its tracks
 GET    /api/artists
 GET    /api/artists/{id}
 GET    /api/playlists
+GET    /api/playlists/{id}             → playlist detail + ordered tracks
 POST   /api/playlists
 PATCH  /api/playlists/{id}             → rename, edit description
 DELETE /api/playlists/{id}
@@ -405,3 +406,42 @@ contract exists, and do not polish before functionality is verified.
 - No decorative UI chrome: no pastel gradient cards, no fake data, no equalizer dots (§2, §8).
 - The owner's priorities, in order: **UI/UX first**, simplicity, lightweight footprint.
 - Keep diffs and scope tight to the current milestone; commit at meaningful checkpoints.
+
+---
+
+## 13. Addendum — recorded decisions from implementation review (2026-09-28)
+
+Settled with the owner immediately before Milestone 1. Same contract status as the rest of
+this document.
+
+1. **Streaming:** `/api/stream` resolves the track in FastAPI and answers with an
+   `X-Accel-Redirect`; nginx serves the bytes from an `internal` location (alias to the
+   library root) with native sendfile/Range. Dev (no nginx) uses a FastAPI Range-streaming
+   fallback behind the Vite proxy. Redirect paths must be URL-encoded.
+2. **Track-edit semantics:** per-track find-or-create. Editing artist/album re-groups that
+   track only; empty albums/artists are pruned. No "apply to album" affordance at MVP.
+3. **Artwork:** embedded art first; fallback to `cover.jpg` / `folder.jpg` / `front.png` in
+   the track's directory when a track has none. Artwork blobs stored as original bytes —
+   no re-encode, no Pillow.
+4. **Router:** react-router v7. Zustand / TanStack Query roles unchanged.
+5. **Network:** container binds `0.0.0.0:8080` — LAN access intended; the no-auth trade-off
+   is accepted.
+6. **Watcher:** `PollingObserver` inside Docker (inotify does not propagate through bind
+   mounts, especially from macOS hosts). Manual rescan always available. Auto-watch itself
+   is not in question — only the observer backend.
+7. **Move preservation:** moved files keep their `mtime`; the scanner matches same
+   size+mtime+duration at a new path and updates `path` in place so user edits survive.
+   A move must never look like delete+add.
+8. **Generated TS client:** `openapi-typescript` + `openapi-fetch`. uvicorn runs a single
+   worker (SSE and scanner-thread assumptions depend on it).
+9. **"Continue listening"** (Home) = last track + position + queue restored from
+   `localStorage`. No server-side play statistics (respects §1).
+10. **Playlist cards** render a 2×2 mosaic of their tracks' artwork (monochrome placeholder
+    when empty). No synthetic playlist colors; no greeting/identity UI anywhere.
+11. **Media Session API** integration approved as an M5 nicety (OS media keys, lock screen).
+
+Design-language additions carried over from the reference images (§2):
+- **Keep:** the "current track as dark pill" row treatment in track lists — monochrome
+  inversion, no accent color.
+- **Keep:** blurred-artwork ambience on the album detail view, not only Now Playing — same
+  token system, same restraint.

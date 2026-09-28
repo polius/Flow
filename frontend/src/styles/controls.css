@@ -1,0 +1,40 @@
+/* Range inputs — used by the scrubber and volume control.
+   Monochrome: track in the inset grey, thumb in primary ink. */
+
+input[type="range"].range {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 100%;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--bg-active);
+  margin: 0;
+}
+
+input[type="range"].range:disabled {
+  opacity: 0.45;
+}
+
+input[type="range"].range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--text-primary);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  transition: transform var(--dur-fast) var(--ease-out);
+}
+
+input[type="range"].range:active::-webkit-slider-thumb {
+  transform: scale(1.25);
+}
+
+input[type="range"].range::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border: none;
+  border-radius: 50%;
+  background: var(--text-primary);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}

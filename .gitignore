@@ -1,0 +1,20 @@
+# Node / frontend
+node_modules/
+frontend/dist/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+backend/.venv/
+
+# Local data
+.data/
+music/
+*.db
+*.db-wal
+*.db-shm
+
+# OS / editor
+.DS_Store
+*.log

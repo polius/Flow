@@ -1,0 +1,29 @@
+services:
+  flow:
+    build: .
+    image: flow:latest
+    ports:
+      # 0.0.0.0 — LAN access intended; no-auth trade-off accepted (DESIGN.md §13.5)
+      - "8080:8080"
+    environment:
+      FLOW_MUSIC_DIR: /music
+      FLOW_DATA_DIR: /data
+      FLOW_DIST_DIR: /app/static
+    volumes:
+      # The music folder is mounted READ-ONLY. Flow never writes to it. Ever.
+      - ${FLOW_MUSIC:-./music}:/music:ro
+      - flow-data:/data
+    restart: unless-stopped
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8080/api/health', timeout=4).status == 200 else 1)"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  flow-data:

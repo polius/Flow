@@ -1,0 +1,5 @@
+# Runtime dependencies only — pinned for reproducible images.
+fastapi==0.115.6
+uvicorn==0.34.0
+mutagen==1.47.0
+watchdog==6.0.0

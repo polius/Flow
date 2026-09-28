@@ -1,0 +1,26 @@
+/* App shell: sidebar | canvas, with the player bar overlaying the canvas
+   bottom (translucent, per DESIGN.md §8.5 — content scrolls beneath it). */
+
+.shell {
+  display: grid;
+  grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
+  height: 100dvh;
+}
+
+.shell--collapsed {
+  grid-template-columns: var(--sidebar-width-collapsed) minmax(0, 1fr);
+}
+
+.shell__main {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.shell__canvas {
+  flex: 1;
+  overflow-y: auto;
+  /* Keep content clear of the overlaid player bar. */
+  padding-bottom: calc(var(--player-height) + 16px);
+}

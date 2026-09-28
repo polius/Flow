@@ -1,0 +1,124 @@
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-sidebar);
+  border-right: 1px solid var(--separator);
+  padding: 14px 10px 12px;
+  overflow: hidden;
+}
+
+.sidebar__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 0 6px 14px;
+}
+
+.sidebar__brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  font-size: var(--text-regular);
+  font-weight: 700;
+  letter-spacing: var(--tracking-tight);
+}
+
+.sidebar__brand-mark {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  background: var(--text-primary);
+  color: var(--bg-sidebar);
+}
+
+.sidebar__toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  flex: none;
+  border-radius: var(--radius-s);
+  color: var(--text-tertiary);
+  transition: color var(--dur-fast) var(--ease-out),
+    background-color var(--dur-fast) var(--ease-out);
+}
+
+.sidebar__toggle:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+
+.sidebar__nav {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.sidebar__nav--footer {
+  margin-top: auto;
+}
+
+.sidebar__item {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 8px 11px;
+  border-radius: var(--radius-m);
+  font-size: var(--text-regular);
+  font-weight: 500;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  transition: color var(--dur-fast) var(--ease-out),
+    background-color var(--dur-fast) var(--ease-out);
+}
+
+.sidebar__item:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+
+.sidebar__item--active {
+  color: var(--accent);
+  background: var(--bg-active);
+}
+
+/* Collapsed: icon rail only. */
+.sidebar {
+  transition: width var(--dur-fast) var(--ease-out);
+  width: var(--sidebar-width);
+}
+
+.shell--collapsed .sidebar {
+  width: var(--sidebar-width-collapsed);
+}
+
+.sidebar__label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: opacity var(--dur-fast) var(--ease-out);
+}
+
+.shell--collapsed .sidebar__label {
+  opacity: 0;
+  width: 0;
+}
+
+.shell--collapsed .sidebar__top {
+  flex-direction: column;
+}
+
+.shell--collapsed .sidebar__item {
+  justify-content: center;
+  padding: 8px 0;
+  gap: 0;
+}

@@ -1,0 +1,90 @@
+/* ============================================================
+   Flow design tokens — the single source for all chrome styling.
+
+   Rules (DESIGN.md §8): near-monochrome greys, exactly one accent,
+   artwork is the only color in the UI. No gradients on UI surfaces.
+   The dark ramp below is tuned for dark surfaces, not an inversion
+   of the light values.
+   ============================================================ */
+
+:root {
+  color-scheme: light dark;
+
+  /* ---- surfaces (light) ---- */
+  --bg-canvas: #f5f5f7;
+  --bg-sidebar: #ebebee;
+  --bg-elevated: #ffffff;
+  --bg-inset: #e7e7ea;
+  --bg-hover: rgba(0, 0, 0, 0.05);
+  --bg-active: rgba(0, 0, 0, 0.09);
+
+  /* ---- text (light) ---- */
+  --text-primary: #1d1d1f;
+  --text-secondary: rgba(60, 60, 67, 0.6);
+  --text-tertiary: rgba(60, 60, 67, 0.34);
+
+  /* ---- lines ---- */
+  --separator: rgba(0, 0, 0, 0.09);
+  --control-border: rgba(0, 0, 0, 0.14);
+
+  /* ---- the one accent ----
+     Provisional; confirm with the owner before the M3 polish pass. */
+  --accent: #d64541;
+
+  /* ---- player translucency (DESIGN.md §8.5) ---- */
+  --bg-player: rgba(245, 245, 247, 0.72);
+  --player-blur: 24px;
+
+  /* ---- type ---- */
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI",
+    Roboto, "Helvetica Neue", Arial, sans-serif;
+  --text-caption: 11px;
+  --text-small: 12px;
+  --text-body: 13px;
+  --text-regular: 15px;
+  --text-title: 22px;
+  --text-large-title: 30px;
+  --leading-tight: 1.15;
+  --leading-normal: 1.45;
+  --tracking-tight: -0.015em;
+
+  /* ---- geometry ---- */
+  --radius-s: 6px;
+  --radius-m: 10px;
+  --radius-l: 14px;
+  --sidebar-width: 232px;
+  --sidebar-width-collapsed: 64px;
+  --player-height: 76px;
+
+  /* ---- motion: short, ease-out, communicates only (§8.4) ---- */
+  --dur-fast: 150ms;
+  --dur-normal: 220ms;
+  --ease-out: cubic-bezier(0.25, 0.8, 0.35, 1);
+
+  /* ---- layers ---- */
+  --z-player: 40;
+  --z-drawer: 60;
+  --z-modal: 80;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg-canvas: #161618;
+    --bg-sidebar: #1d1d20;
+    --bg-elevated: #26262a;
+    --bg-inset: #2c2c30;
+    --bg-hover: rgba(255, 255, 255, 0.06);
+    --bg-active: rgba(255, 255, 255, 0.1);
+
+    --text-primary: #f5f5f7;
+    --text-secondary: rgba(235, 235, 245, 0.6);
+    --text-tertiary: rgba(235, 235, 245, 0.34);
+
+    --separator: rgba(255, 255, 255, 0.1);
+    --control-border: rgba(255, 255, 255, 0.16);
+
+    --accent: #e5544e;
+
+    --bg-player: rgba(22, 22, 24, 0.72);
+  }
+}

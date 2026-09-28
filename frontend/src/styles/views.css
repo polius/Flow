@@ -1,0 +1,96 @@
+/* Views — large-title layout and designed empty states (DESIGN.md §8.8). */
+
+.view {
+  padding: 34px 40px 48px;
+  max-width: 1480px;
+}
+
+.view__title {
+  margin: 0;
+  font-size: var(--text-large-title);
+  font-weight: 700;
+  letter-spacing: var(--tracking-tight);
+  line-height: var(--leading-tight);
+}
+
+.view__subtitle {
+  margin: 4px 0 0;
+  color: var(--text-secondary);
+}
+
+/* Empty state: centered, quiet, instructive — never a broken-looking list. */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 96px 24px;
+  color: var(--text-secondary);
+}
+
+.empty-state__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  margin-bottom: 20px;
+  border-radius: var(--radius-l);
+  background: var(--bg-inset);
+  color: var(--text-tertiary);
+}
+
+.empty-state__title {
+  margin: 0;
+  font-size: var(--text-title);
+  font-weight: 600;
+  letter-spacing: var(--tracking-tight);
+  color: var(--text-primary);
+}
+
+.empty-state__hint {
+  margin: 8px 0 0;
+  max-width: 420px;
+  font-size: var(--text-regular);
+  color: var(--text-secondary);
+}
+
+/* Settings rows (grows in Milestone 2 with the live scan API). */
+.settings-group {
+  margin-top: 28px;
+  max-width: 560px;
+}
+
+.settings-group h2 {
+  margin: 0 0 8px;
+  font-size: var(--text-small);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-tertiary);
+}
+
+.settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 14px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--separator);
+  border-radius: var(--radius-m);
+}
+
+.settings-row + .settings-row {
+  margin-top: 8px;
+}
+
+.settings-row__label {
+  font-size: var(--text-regular);
+}
+
+.settings-row__value {
+  font-size: var(--text-small);
+  color: var(--text-secondary);
+}

@@ -1,0 +1,129 @@
+.player {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: var(--player-height);
+  z-index: var(--z-player);
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) minmax(0, 2.4fr) minmax(150px, 1fr);
+  align-items: center;
+  gap: 24px;
+  padding: 0 20px;
+  background: var(--bg-player);
+  -webkit-backdrop-filter: blur(var(--player-blur));
+  backdrop-filter: blur(var(--player-blur));
+  border-top: 1px solid var(--separator);
+}
+
+.player__meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.player__artwork {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 46px;
+  height: 46px;
+  border-radius: var(--radius-s);
+  background: var(--bg-inset);
+  color: var(--text-tertiary);
+}
+
+.player__titles {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.player__title {
+  font-size: var(--text-body);
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.player__center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+
+.player__transport {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+.player__btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+  transition: color var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out);
+}
+
+.player__btn:hover:not(:disabled) {
+  color: var(--text-primary);
+}
+
+.player__btn:active:not(:disabled) {
+  transform: scale(0.92);
+}
+
+.player__btn:disabled {
+  opacity: 0.4;
+}
+
+.player__btn--play {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--text-primary);
+  color: var(--bg-canvas);
+}
+
+.player__btn--play:hover:not(:disabled) {
+  color: var(--bg-canvas);
+}
+
+.player__progress {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  max-width: 640px;
+}
+
+.player__time {
+  flex: none;
+  font-size: var(--text-caption);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-tertiary);
+  min-width: 34px;
+}
+
+.player__time:last-child {
+  text-align: right;
+}
+
+.player__volume {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  color: var(--text-secondary);
+}
+
+.player__volume .range {
+  max-width: 110px;
+}
