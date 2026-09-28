@@ -7,10 +7,9 @@ folder**. Metadata edits live in SQLite as overlays.
 `docs/DESIGN.md` is the product and engineering contract: scope, API shape,
 design system, milestones, and non-goals. Read it before adding anything.
 
-**Status:** Milestone 2 — scanner. Library scan with mutagen, overlay-safe
-rescans (user edits survive), move preservation, artwork extraction +
-dedup, SSE scan progress, filesystem watcher. Library browsing UI and
-playback land in Milestone 3.
+**Status:** Milestone 3 — library browsing + playback. Cover grids, album/
+artist details, full-library track table, working player (queue, shuffle,
+repeat, seek, persisted volume), nginx-accelerated streaming with Range.
 
 ## Quick start (Docker)
 
@@ -72,6 +71,7 @@ Commit the regenerated `src/api/schema.d.ts` whenever the API changes.
 | `FLOW_MUSIC_DIR` | `/music` | Library root, mounted read-only |
 | `FLOW_DATA_DIR` | `/data` | SQLite database location |
 | `FLOW_DIST_DIR` | `/app/static` | Built frontend served by uvicorn (nginx does the same in front) |
+| `FLOW_STREAM_MODE` | `nginx` in Docker, `direct` in dev | `nginx` = X-Accel-Redirect into the internal music location (native sendfile/Range); `direct` = FastAPI streams with Range |
 | `FLOW_WATCHER` | `auto` | `auto` (polling in Docker, native elsewhere), `native`, or `polling` |
 | `FLOW_POLL_INTERVAL` | `5` | Polling observer interval (seconds), Docker only |
 | `FLOW_WATCH_DEBOUNCE` | `2` | Debounce window before a watch-triggered rescan |

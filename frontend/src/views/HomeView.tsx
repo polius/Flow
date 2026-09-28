@@ -1,10 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
 
 import { api } from "../api/client";
+import { AlbumCard } from "../components/AlbumCard";
+import { EmptyState } from "../components/EmptyState";
+import { IconMusicNote } from "../components/icons";
 import { fmtCount, scanProgressLabel } from "../lib/format";
 import { useScanStore } from "../stores/scan";
-import { IconMusicNote } from "../components/icons";
-import { EmptyState } from "../components/EmptyState";
 
 export function HomeView() {
   const scan = useScanStore((s) => s.status);
@@ -18,8 +19,19 @@ export function HomeView() {
     },
   });
 
+  const { data: recent } = useQuery({
+    queryKey: ["albums", "recent"],
+    queryFn: async () => {
+      const { data } = await api.GET("/api/albums", {
+        params: { query: { sort: "recent", limit: 12 } },
+      });
+      return data;
+    },
+  });
+
   const counts = settings?.counts;
   const hasLibrary = (counts?.tracks ?? 0) > 0;
+  const recentAlbums = recent?.items ?? [];
 
   const summary = counts
     ? `${fmtCount(counts.tracks)} tracks · ${fmtCount(counts.albums)} albums · ${fmtCount(counts.artists)} artists`
@@ -35,6 +47,17 @@ export function HomeView() {
       ) : hasLibrary ? (
         <p className="view__subtitle">{summary}</p>
       ) : null}
+
+      {hasLibrary && recentAlbums.length > 0 && (
+        <div className="libsection">
+          <h2>Recently added</h2>
+          <div className="covergrid covergrid--home">
+            {recentAlbums.map((album) => (
+              <AlbumCard key={album.id} album={album} />
+            ))}
+          </div>
+        </div>
+      )}
 
       {!scanning && !hasLibrary && (
         <EmptyState

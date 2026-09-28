@@ -44,3 +44,23 @@ def scanner(db, music):
 @pytest.fixture
 def conn(db):
     return db.connect()
+
+
+@pytest.fixture
+def client(monkeypatch, tmp_path, library):
+    """TestClient with lifespan; background scans disabled, library scanned
+    synchronously so tests are deterministic. Depends on `library` (not
+    `music`) so files exist before the scan runs."""
+    from fastapi.testclient import TestClient
+
+    from app import config
+    from app.main import create_app
+
+    monkeypatch.setattr(config, "DB_PATH", tmp_path / "api.db")
+    monkeypatch.setattr(config, "MUSIC_DIR", library)
+    monkeypatch.setattr(config, "DIST_DIR", None)
+    app = create_app()
+    monkeypatch.setattr(app.state.scanner, "start_scan", lambda trigger: False)
+    with TestClient(app) as c:
+        app.state.scanner.run_scan("test")
+        yield c

@@ -1,7 +1,9 @@
 import { createBrowserRouter } from "react-router";
 
 import { AppShell } from "./components/AppShell";
+import { AlbumDetailView } from "./views/AlbumDetailView";
 import { AlbumsView } from "./views/AlbumsView";
+import { ArtistDetailView } from "./views/ArtistDetailView";
 import { ArtistsView } from "./views/ArtistsView";
 import { HomeView } from "./views/HomeView";
 import { PlaylistsView } from "./views/PlaylistsView";
@@ -15,7 +17,9 @@ export const router = createBrowserRouter([
     children: [
       { path: "/", element: <HomeView /> },
       { path: "/albums", element: <AlbumsView /> },
+      { path: "/albums/:albumId", element: <AlbumDetailView /> },
       { path: "/artists", element: <ArtistsView /> },
+      { path: "/artists/:artistId", element: <ArtistDetailView /> },
       { path: "/tracks", element: <TracksView /> },
       { path: "/playlists", element: <PlaylistsView /> },
       { path: "/search", element: <SearchView /> },

@@ -29,7 +29,7 @@ export function SettingsView() {
     <section className="view">
       <h1 className="view__title">Settings</h1>
       <p className="view__subtitle">
-        Keyboard shortcuts are documented here from Milestone 5.
+        Library status and scan controls. Playback shortcuts will be listed here once they ship.
       </p>
 
       <div className="settings-group">

@@ -56,10 +56,237 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/tracks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Tracks */
+        get: operations["list_tracks_api_tracks_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/tracks/{track_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Track */
+        get: operations["get_track_api_tracks__track_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/albums": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Albums */
+        get: operations["list_albums_api_albums_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/albums/{album_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Album */
+        get: operations["get_album_api_albums__album_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/artists": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Artists */
+        get: operations["list_artists_api_artists_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/artists/{artist_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Artist */
+        get: operations["get_artist_api_artists__artist_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/stream/{track_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Stream Track */
+        get: operations["stream_track_api_stream__track_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/artwork/{artwork_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Artwork */
+        get: operations["get_artwork_api_artwork__artwork_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** AlbumDetail */
+        AlbumDetail: {
+            /** Id */
+            id: number;
+            /** Title */
+            title: string;
+            /** Artist */
+            artist: string | null;
+            /** Artist Id */
+            artist_id: number | null;
+            /** Year */
+            year: number | null;
+            /** Artwork Id */
+            artwork_id: number | null;
+            /** Track Count */
+            track_count: number;
+            /** Duration Total */
+            duration_total: number;
+            /** Tracks */
+            tracks: components["schemas"]["TrackOut"][];
+        };
+        /** AlbumListOut */
+        AlbumListOut: {
+            /** Items */
+            items: components["schemas"]["AlbumSummary"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+        };
+        /** AlbumSummary */
+        AlbumSummary: {
+            /** Id */
+            id: number;
+            /** Title */
+            title: string;
+            /** Artist */
+            artist: string | null;
+            /** Artist Id */
+            artist_id: number | null;
+            /** Year */
+            year: number | null;
+            /** Artwork Id */
+            artwork_id: number | null;
+            /** Track Count */
+            track_count: number;
+        };
+        /** ArtistDetail */
+        ArtistDetail: {
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+            /** Album Count */
+            album_count: number;
+            /** Track Count */
+            track_count: number;
+            /** Albums */
+            albums: components["schemas"]["AlbumSummary"][];
+            /** Tracks */
+            tracks: components["schemas"]["TrackOut"][];
+        };
+        /** ArtistListOut */
+        ArtistListOut: {
+            /** Items */
+            items: components["schemas"]["ArtistSummary"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+        };
+        /** ArtistSummary */
+        ArtistSummary: {
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+            /** Album Count */
+            album_count: number;
+            /** Track Count */
+            track_count: number;
+        };
+        /** HTTPValidationError */
+        HTTPValidationError: {
+            /** Detail */
+            detail?: components["schemas"]["ValidationError"][];
+        };
         /** LibraryCounts */
         LibraryCounts: {
             /** Tracks */
@@ -97,6 +324,55 @@ export interface components {
             library_exists: boolean;
             scan: components["schemas"]["ScanStatus"];
             counts: components["schemas"]["LibraryCounts"];
+        };
+        /** TrackListOut */
+        TrackListOut: {
+            /** Items */
+            items: components["schemas"]["TrackOut"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+        };
+        /** TrackOut */
+        TrackOut: {
+            /** Id */
+            id: number;
+            /** Title */
+            title: string;
+            /** Artist */
+            artist: string | null;
+            /** Artist Id */
+            artist_id: number | null;
+            /** Album */
+            album: string | null;
+            /** Album Id */
+            album_id: number | null;
+            /** Track No */
+            track_no: number | null;
+            /** Disc No */
+            disc_no: number | null;
+            /** Year */
+            year: number | null;
+            /** Duration */
+            duration: number;
+            /** Format */
+            format: string;
+            /** Favorite */
+            favorite: boolean;
+            /** Artwork Id */
+            artwork_id: number | null;
+        };
+        /** ValidationError */
+        ValidationError: {
+            /** Location */
+            loc: (string | number)[];
+            /** Message */
+            msg: string;
+            /** Error Type */
+            type: string;
         };
     };
     responses: never;
@@ -187,6 +463,264 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SettingsOut"];
+                };
+            };
+        };
+    };
+    list_tracks_api_tracks_get: {
+        parameters: {
+            query?: {
+                q?: string | null;
+                artist_id?: number | null;
+                album_id?: number | null;
+                sort?: string;
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TrackListOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_track_api_tracks__track_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                track_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TrackOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_albums_api_albums_get: {
+        parameters: {
+            query?: {
+                q?: string | null;
+                sort?: string;
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AlbumListOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_album_api_albums__album_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                album_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AlbumDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_artists_api_artists_get: {
+        parameters: {
+            query?: {
+                q?: string | null;
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArtistListOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_artist_api_artists__artist_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                artist_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArtistDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    stream_track_api_stream__track_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                track_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_artwork_api_artwork__artwork_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                artwork_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

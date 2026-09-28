@@ -19,6 +19,8 @@ from app import config
 from app.db import Database
 from app.events import ScanBus
 from app.scanner import LibraryScanner
+from app.routers import library as library_router
+from app.routers import media as media_router
 from app.routers import scan as scan_router
 from app.routers import settings as settings_router
 from app.watcher import LibraryWatcher
@@ -87,6 +89,8 @@ def create_app() -> FastAPI:
 
     app.include_router(scan_router.router)
     app.include_router(settings_router.router)
+    app.include_router(library_router.router)
+    app.include_router(media_router.router)
 
     if config.DIST_DIR is not None and config.DIST_DIR.is_dir():
         _mount_spa(app, config.DIST_DIR)

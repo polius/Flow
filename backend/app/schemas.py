@@ -33,3 +33,70 @@ class SettingsOut(BaseModel):
 
 class ScanTriggered(BaseModel):
     state: Literal["scanning"]
+
+
+# ---- Library (Milestone 3) ---------------------------------------------------
+
+
+class TrackOut(BaseModel):
+    id: int
+    title: str
+    artist: str | None
+    artist_id: int | None
+    album: str | None
+    album_id: int | None
+    track_no: int | None
+    disc_no: int | None
+    year: int | None
+    duration: float
+    format: str
+    favorite: bool
+    artwork_id: int | None
+
+
+class TrackListOut(BaseModel):
+    items: list[TrackOut]
+    total: int
+    limit: int
+    offset: int
+
+
+class AlbumSummary(BaseModel):
+    id: int
+    title: str
+    artist: str | None
+    artist_id: int | None
+    year: int | None
+    artwork_id: int | None
+    track_count: int
+
+
+class AlbumListOut(BaseModel):
+    items: list[AlbumSummary]
+    total: int
+    limit: int
+    offset: int
+
+
+class AlbumDetail(AlbumSummary):
+    duration_total: float
+    tracks: list[TrackOut]
+
+
+class ArtistSummary(BaseModel):
+    id: int
+    name: str
+    album_count: int
+    track_count: int
+
+
+class ArtistListOut(BaseModel):
+    items: list[ArtistSummary]
+    total: int
+    limit: int
+    offset: int
+
+
+class ArtistDetail(ArtistSummary):
+    albums: list[AlbumSummary]
+    tracks: list[TrackOut]

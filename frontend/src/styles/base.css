@@ -86,3 +86,18 @@ a {
   background: var(--control-border);
   background-clip: content-box;
 }
+
+/* Artwork — images and the monochrome placeholder share one shape. */
+.artwork {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  object-fit: cover;
+  background: var(--bg-inset);
+  color: var(--text-tertiary);
+  flex: none;
+}
+
+.artwork--r-s { border-radius: var(--radius-s); }
+.artwork--r-m { border-radius: var(--radius-m); }
+.artwork--r-l { border-radius: var(--radius-l); }

@@ -43,7 +43,8 @@ USER flow
 ENV PATH="/opt/venv/bin:$PATH" \
     FLOW_MUSIC_DIR=/music \
     FLOW_DATA_DIR=/data \
-    FLOW_DIST_DIR=/app/static
+    FLOW_DIST_DIR=/app/static \
+    FLOW_STREAM_MODE=nginx
 
 EXPOSE 8080
 

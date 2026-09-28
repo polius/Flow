@@ -1,0 +1,313 @@
+/* Library UI: cover grids, cards, track tables, detail headers.
+   Rules in play (DESIGN.md §8): near-monochrome chrome, artwork is the only
+   color, hover-revealed actions, disciplined density. */
+
+/* ---- cover grid + cards ------------------------------------------------- */
+
+.covergrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
+  gap: 24px 20px;
+  margin-top: 24px;
+}
+
+.album-card {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.album-card__artwrap {
+  position: relative;
+  margin-bottom: 10px;
+}
+
+.album-card__artlink {
+  display: block;
+  border-radius: var(--radius-m);
+  overflow: hidden;
+}
+
+.album-card__art {
+  width: 100%;
+  height: auto;
+  display: block;
+  aspect-ratio: 1;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+}
+
+.album-card__play {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--text-primary);
+  color: var(--bg-canvas);
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.3);
+  opacity: 0;
+  transform: translateY(4px);
+  transition: opacity var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out);
+}
+
+.album-card__artwrap:hover .album-card__play,
+.album-card__play:focus-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.album-card__play:hover {
+  transform: translateY(0) scale(1.06);
+}
+
+.album-card__title {
+  font-size: var(--text-body);
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.album-card__meta {
+  margin-top: 2px;
+  font-size: var(--text-small);
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---- section headers on composite pages --------------------------------- */
+
+.libsection {
+  margin-top: 36px;
+}
+
+.libsection > h2 {
+  margin: 0 0 14px;
+  font-size: var(--text-title);
+  font-weight: 700;
+  letter-spacing: var(--tracking-tight);
+}
+
+/* ---- detail header ------------------------------------------------------ */
+
+.detailhead {
+  display: flex;
+  align-items: flex-end;
+  gap: 28px;
+  margin-top: 24px;
+}
+
+.detailhead__art {
+  flex: none;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.28);
+}
+
+.detailhead__info {
+  min-width: 0;
+}
+
+.detailhead__kind {
+  margin: 0 0 6px;
+  font-size: var(--text-caption);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-tertiary);
+}
+
+.detailhead__title {
+  margin: 0;
+  font-size: var(--text-large-title);
+  font-weight: 800;
+  letter-spacing: var(--tracking-tight);
+  line-height: var(--leading-tight);
+}
+
+.detailhead__meta {
+  margin: 8px 0 0;
+  font-size: var(--text-small);
+  color: var(--text-secondary);
+}
+
+.detailhead__meta a:hover {
+  text-decoration: underline;
+}
+
+.detailhead__actions {
+  margin-top: 16px;
+  display: flex;
+  gap: 10px;
+}
+
+/* Monochrome primary action — chrome stays out of the accent's way. */
+.btn--primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 18px;
+  border-radius: 999px;
+  background: var(--text-primary);
+  color: var(--bg-canvas);
+  font-size: var(--text-body);
+  font-weight: 600;
+  transition: transform var(--dur-fast) var(--ease-out),
+    opacity var(--dur-fast) var(--ease-out);
+}
+
+.btn--primary:hover {
+  opacity: 0.85;
+}
+
+.btn--primary:active {
+  transform: scale(0.97);
+}
+
+/* ---- track table --------------------------------------------------------- */
+
+.tracktable {
+  margin-top: 18px;
+}
+
+.trackrow {
+  display: grid;
+  align-items: center;
+  gap: 14px;
+  padding: 7px 12px;
+  border-radius: var(--radius-m);
+  font-size: var(--text-body);
+  min-height: 38px;
+}
+
+.trackrow--album,
+.trackrow--artist,
+.trackrow--all {
+  grid-template-columns: 32px minmax(0, 2.2fr) minmax(0, 60px);
+}
+
+.trackrow--all,
+.trackrow--artist {
+  grid-template-columns: 32px minmax(0, 2fr) minmax(0, 1.4fr) minmax(0, 60px);
+}
+
+.trackrow--all {
+  grid-template-columns: 32px minmax(0, 2fr) minmax(0, 1.3fr) minmax(0, 1.3fr) minmax(0, 60px);
+}
+
+.trackrow:hover {
+  background: var(--bg-hover);
+}
+
+.trackrow--selected {
+  background: var(--bg-active);
+}
+
+.trackrow__index {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+
+.trackrow__play {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-primary);
+  opacity: 0;
+  transition: opacity var(--dur-fast) var(--ease-out);
+}
+
+.trackrow:hover .trackrow__play,
+.trackrow__play:focus-visible {
+  opacity: 1;
+}
+
+.trackrow:hover .trackrow__num {
+  opacity: 0;
+}
+
+.trackrow__title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 500;
+}
+
+.trackrow__secondary {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-secondary);
+}
+
+.trackrow__secondary a:hover {
+  text-decoration: underline;
+}
+
+.trackrow__time {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+}
+
+/* Current track — monochrome inversion, the "dark pill" (DESIGN.md §13). */
+.trackrow--playing {
+  background: var(--text-primary);
+  color: var(--bg-canvas);
+}
+
+.trackrow--playing .trackrow__secondary,
+.trackrow--playing .trackrow__time,
+.trackrow--playing .trackrow__index {
+  color: color-mix(in srgb, var(--bg-canvas) 62%, transparent);
+}
+
+.trackrow--playing .trackrow__play {
+  color: var(--bg-canvas);
+}
+
+/* Truncation notice until list virtualization lands (§11.6). */
+.libnote {
+  margin-top: 18px;
+  font-size: var(--text-small);
+  color: var(--text-tertiary);
+}
+
+/* ---- artist list --------------------------------------------------------- */
+
+.artistlist {
+  margin-top: 24px;
+  max-width: 640px;
+}
+
+.artistrow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 11px 14px;
+  border-radius: var(--radius-m);
+  font-size: var(--text-regular);
+  font-weight: 500;
+}
+
+.artistrow:hover {
+  background: var(--bg-hover);
+}
+
+.artistrow__counts {
+  font-size: var(--text-small);
+  font-weight: 400;
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
