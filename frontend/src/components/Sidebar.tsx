@@ -14,6 +14,8 @@ import {
   IconTracks,
   type IconProps,
 } from "./icons";
+import { scanProgressLabel } from "../lib/format";
+import { useScanStore } from "../stores/scan";
 import { useUiStore } from "../stores/ui";
 import "../styles/sidebar.css";
 
@@ -35,6 +37,8 @@ const NAV: NavEntry[] = [
 export function Sidebar() {
   const collapsed = useUiStore((s) => s.sidebarCollapsed);
   const toggleSidebar = useUiStore((s) => s.toggleSidebar);
+  const scan = useScanStore((s) => s.status);
+  const scanning = scan?.state === "scanning";
 
   const itemClass = ({ isActive }: { isActive: boolean }) =>
     `sidebar__item${isActive ? " sidebar__item--active" : ""}`;
@@ -73,6 +77,15 @@ export function Sidebar() {
           </li>
         ))}
       </ul>
+
+      {scanning && scan && (
+        <div
+          className="sidebar__scanstatus"
+          title={scan.phase === "watch" ? "Library changed — updating" : "Library scan in progress"}
+        >
+          {scanProgressLabel(scan.current, scan.total)}
+        </div>
+      )}
 
       <ul className="sidebar__nav sidebar__nav--footer">
         <li>

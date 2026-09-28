@@ -93,4 +93,32 @@
 .settings-row__value {
   font-size: var(--text-small);
   color: var(--text-secondary);
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.settings-row__action {
+  flex: none;
+}
+
+/* Small monochrome action button. */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 12px;
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius-s);
+  font-size: var(--text-small);
+  font-weight: 500;
+  color: var(--text-primary);
+  transition: background-color var(--dur-fast) var(--ease-out);
+}
+
+.btn:hover:not(:disabled) {
+  background: var(--bg-hover);
+}
+
+.btn:disabled {
+  opacity: 0.4;
 }

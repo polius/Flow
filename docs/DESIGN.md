@@ -445,3 +445,18 @@ Design-language additions carried over from the reference images (§2):
   inversion, no accent color.
 - **Keep:** blurred-artwork ambience on the album detail view, not only Now Playing — same
   token system, same restraint.
+
+## 14. Addendum — decisions recorded during Milestone 2 (2026-09-29)
+
+1. **Broken-mount guard (refines §5 "simple deletion is acceptable"):** when a scan's walk
+   finds 0 files while the index holds tracks, removals are skipped and the scan is marked
+   with an error. A wrong/missing bind mount must never mass-delete the library.
+   Deliberately emptying the library is done by resetting the data volume, not by emptying
+   the folder. Verified against a real container.
+2. **Watcher strategy (refines §7 "targeted reindex"):** debounced watch events trigger a
+   full *reconcile* scan instead of a strictly targeted reindex. At the target scale
+   (10k files) an mtime-skip reconcile is fast, and it guarantees one code path for overlay,
+   move, and removal semantics — no divergence between manual and watch scans.
+3. **Startup auto-scan:** on boot, an empty index next to a non-empty library folder
+   triggers a scan automatically (first-run UX, Plex-like). Later restarts rely on the
+   watcher; the Rescan button in Settings always remains available.

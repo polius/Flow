@@ -68,6 +68,24 @@
   margin-top: auto;
 }
 
+/* Library scan indicator (DESIGN.md §9.6) — quiet, tabular, honest. */
+.sidebar__scanstatus {
+  margin: 0 6px 8px;
+  padding: 6px 11px;
+  border-radius: var(--radius-s);
+  background: var(--bg-active);
+  font-size: var(--text-caption);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.shell--collapsed .sidebar__scanstatus {
+  display: none;
+}
+
 .sidebar__item {
   display: flex;
   align-items: center;

@@ -36,6 +36,13 @@ class Database:
             self._local.conn = conn
         return conn
 
+    def close_thread(self) -> None:
+        """Close this thread's connection (scanner threads are ephemeral)."""
+        conn: sqlite3.Connection | None = getattr(self._local, "conn", None)
+        if conn is not None:
+            conn.close()
+            self._local.conn = None
+
     def migrate(self, conn: sqlite3.Connection) -> None:
         """Apply migrations/*.sql in order, tracking progress via user_version."""
         current = conn.execute("PRAGMA user_version").fetchone()[0]

@@ -25,3 +25,12 @@ DIST_DIR = Path(os.environ["FLOW_DIST_DIR"]).resolve() if "FLOW_DIST_DIR" in os.
 
 # Supported audio formats for the MVP scanner (DESIGN.md §3).
 LIBRARY_EXTENSIONS: frozenset[str] = frozenset({".mp3", ".flac", ".m4a", ".ogg"})
+
+# Filesystem watcher (DESIGN.md §13.6): inotify does not propagate through
+# Docker bind mounts (especially from macOS hosts), so "auto" picks the
+# polling observer inside containers. Override: "native" | "polling".
+WATCHER_MODE = os.environ.get("FLOW_WATCHER", "auto")
+POLL_INTERVAL = float(os.environ.get("FLOW_POLL_INTERVAL", "5.0"))
+
+# Watcher events are debounced before a reconcile scan runs.
+WATCH_DEBOUNCE = float(os.environ.get("FLOW_WATCH_DEBOUNCE", "2.0"))

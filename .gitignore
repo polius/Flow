@@ -10,7 +10,10 @@ backend/.venv/
 
 # Local data
 .data/
+backend/.test-data/
+backend/.test-music/
 music/
+music-demo/
 *.db
 *.db-wal
 *.db-shm
