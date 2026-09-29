@@ -116,6 +116,52 @@ export function IconHeart(props: IconProps) {
   );
 }
 
+export function IconHeartFill(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path
+        d="M12 19.6C7.3 15.7 4 12.8 4 9.6 4 7.1 5.9 5.3 8.2 5.3c1.5 0 2.9.75 3.8 2 .9-1.25 2.3-2 3.8-2 2.3 0 4.2 1.8 4.2 4.3 0 3.2-3.3 6.1-8 10Z"
+        fill="currentColor"
+        strokeWidth={1.4}
+      />
+    </Icon>
+  );
+}
+
+export function IconMore(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <circle cx="5.4" cy="12" r="1.15" fill="currentColor" stroke="none" />
+      <circle cx="12" cy="12" r="1.15" fill="currentColor" stroke="none" />
+      <circle cx="18.6" cy="12" r="1.15" fill="currentColor" stroke="none" />
+    </Icon>
+  );
+}
+
+export function IconPlus(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M12 5v14M5 12h14" />
+    </Icon>
+  );
+}
+
+export function IconClose(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="m6 6 12 12M18 6 6 18" />
+    </Icon>
+  );
+}
+
+export function IconGrip(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M5 9h14M5 15h14" />
+    </Icon>
+  );
+}
+
 /* --- transport (filled glyphs, like SF Symbols) --- */
 
 export function IconPlay(props: IconProps) {

@@ -1,9 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
+import { Link } from "react-router";
 
 import { api } from "../api/client";
 import { AlbumCard } from "../components/AlbumCard";
 import { EmptyState } from "../components/EmptyState";
 import { IconMusicNote } from "../components/icons";
+import { PlaylistArt } from "../components/PlaylistArt";
 import { fmtCount, scanProgressLabel } from "../lib/format";
 import { useScanStore } from "../stores/scan";
 
@@ -24,6 +26,16 @@ export function HomeView() {
     queryFn: async () => {
       const { data } = await api.GET("/api/albums", {
         params: { query: { sort: "recent", limit: 12 } },
+      });
+      return data;
+    },
+  });
+
+  const { data: playlistsData } = useQuery({
+    queryKey: ["playlists", "home"],
+    queryFn: async () => {
+      const { data } = await api.GET("/api/playlists", {
+        params: { query: { limit: 12 } },
       });
       return data;
     },
@@ -50,10 +62,42 @@ export function HomeView() {
 
       {hasLibrary && recentAlbums.length > 0 && (
         <div className="libsection">
-          <h2>Recently added</h2>
+          <div className="libsection__head">
+            <h2>Recently added</h2>
+            <Link to="/albums" className="libsection__more">
+              Show all
+            </Link>
+          </div>
           <div className="covergrid covergrid--home">
             {recentAlbums.map((album) => (
               <AlbumCard key={album.id} album={album} />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {hasLibrary && (playlistsData?.items.length ?? 0) > 0 && (
+        <div className="libsection">
+          <div className="libsection__head">
+            <h2>Playlists</h2>
+            <Link to="/playlists" className="libsection__more">
+              Show all
+            </Link>
+          </div>
+          <div className="covergrid covergrid--home">
+            {playlistsData!.items.map((playlist) => (
+              <Link key={playlist.id} to={`/playlists/${playlist.id}`} className="album-card">
+                <PlaylistArt
+                  artworkIds={playlist.artwork_ids}
+                  size={180}
+                  radius="m"
+                  className="album-card__art"
+                />
+                <span className="album-card__title">{playlist.name}</span>
+                <span className="album-card__meta">
+                  {fmtCount(playlist.track_count)} track{playlist.track_count === 1 ? "" : "s"}
+                </span>
+              </Link>
             ))}
           </div>
         </div>

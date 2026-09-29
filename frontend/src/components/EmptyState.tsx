@@ -5,7 +5,7 @@ import type { ReactNode } from "react";
 interface EmptyStateProps {
   icon: ReactNode;
   title: string;
-  hint: string;
+  hint: ReactNode;
 }
 
 export function EmptyState({ icon, title, hint }: EmptyStateProps) {

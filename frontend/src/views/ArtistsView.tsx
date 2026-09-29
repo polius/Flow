@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { Link } from "react-router";
+import { Link, useSearchParams } from "react-router";
 
 import { api } from "../api/client";
 import { EmptyState } from "../components/EmptyState";
@@ -7,11 +7,14 @@ import { IconArtists } from "../components/icons";
 import { fmtCount } from "../lib/format";
 
 export function ArtistsView() {
+  const [searchParams] = useSearchParams();
+  const q = searchParams.get("q") ?? "";
+
   const { data } = useQuery({
-    queryKey: ["artists"],
+    queryKey: ["artists", q],
     queryFn: async () => {
       const { data } = await api.GET("/api/artists", {
-        params: { query: { limit: 1000 } },
+        params: { query: { limit: 1000, ...(q ? { q } : {}) } },
       });
       return data;
     },
@@ -25,8 +28,12 @@ export function ArtistsView() {
       {artists.length === 0 ? (
         <EmptyState
           icon={<IconArtists size={26} />}
-          title="No artists yet"
-          hint="Artists appear here once the library has been scanned."
+          title={q ? `No artists match “${q}”` : "No artists yet"}
+          hint={
+            q
+              ? "Try a different word, or search everything from the Search view."
+              : "Artists appear here once the library has been scanned."
+          }
         />
       ) : (
         <div className="artistlist">

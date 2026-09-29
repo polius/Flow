@@ -24,6 +24,7 @@ from pathlib import Path
 from app import config
 from app.artwork import ArtworkStore
 from app.db import Database
+from app.entities import find_or_create_album, find_or_create_artist, prune_orphans
 from app.events import ScanBus
 from app.tags import derive_from_filename, parse_audio
 
@@ -220,7 +221,7 @@ class LibraryScanner:
             conn.execute("DELETE FROM tracks WHERE id = ?", (db_rows[rel]["id"],))
             tick()
 
-        _prune_orphans(conn)
+        prune_orphans(conn)
         self._persist_finish(conn, errors=errors)
         conn.commit()
         artstore.reset()
@@ -301,15 +302,15 @@ class LibraryScanner:
         if Edited.ARTIST in edited and existing:
             artist_id = existing["artist_id"]
         else:
-            artist_id = self._find_or_create_artist(conn, parsed.artist)
+            artist_id = find_or_create_artist(conn, parsed.artist)
 
-        album_artist_id = self._find_or_create_artist(
+        album_artist_id = find_or_create_artist(
             conn, parsed.album_artist or parsed.artist
         )
         if Edited.ALBUM in edited and existing:
             album_id = existing["album_id"]
         else:
-            album_id = self._find_or_create_album(
+            album_id = find_or_create_album(
                 conn, parsed.album, album_artist_id, parsed.year
             )
 
@@ -357,40 +358,6 @@ class LibraryScanner:
             )
         return True
 
-    def _find_or_create_artist(self, conn, name: str | None) -> int | None:
-        if not name or not name.strip():
-            return None
-        name = name.strip()
-        row = conn.execute(
-            "SELECT id FROM artists WHERE name = ? COLLATE NOCASE", (name,)
-        ).fetchone()
-        if row:
-            return row["id"]
-        cur = conn.execute("INSERT INTO artists (name) VALUES (?)", (name,))
-        return int(cur.lastrowid)
-
-    def _find_or_create_album(
-        self, conn, title: str | None, artist_id: int | None, year: int | None
-    ) -> int | None:
-        if not title or not title.strip():
-            return None
-        title = title.strip()
-        row = conn.execute(
-            "SELECT id, year, artwork_id FROM albums "
-            "WHERE title = ? COLLATE NOCASE AND artist_id IS ?",
-            (title, artist_id),
-        ).fetchone()
-        if row:
-            # Backfill album-level facts from tracks that carry them.
-            if row["year"] is None and year is not None:
-                conn.execute("UPDATE albums SET year = ? WHERE id = ?", (year, row["id"]))
-            return row["id"]
-        cur = conn.execute(
-            "INSERT INTO albums (title, artist_id, year) VALUES (?, ?, ?)",
-            (title, artist_id, year),
-        )
-        return int(cur.lastrowid)
-
     # -- walk --------------------------------------------------------------
 
     def _walk(self) -> list[WalkedFile]:
@@ -434,22 +401,3 @@ class LibraryScanner:
         _settings_upsert(conn, "scan_state", "idle")
         _settings_upsert(conn, "scan_finished_at", _utcnow())
         _settings_upsert(conn, "scan_errors", str(errors))
-
-
-def _prune_orphans(conn) -> None:
-    """Derived entities (§13.2): rows with no referencing track are removed."""
-    conn.execute(
-        "DELETE FROM albums WHERE id NOT IN "
-        "(SELECT album_id FROM tracks WHERE album_id IS NOT NULL)"
-    )
-    conn.execute(
-        "DELETE FROM artists WHERE id NOT IN ("
-        "  SELECT artist_id FROM tracks WHERE artist_id IS NOT NULL"
-        "  UNION SELECT album_artist_id FROM tracks WHERE album_artist_id IS NOT NULL"
-        "  UNION SELECT artist_id FROM albums WHERE artist_id IS NOT NULL)"
-    )
-    conn.execute(
-        "DELETE FROM artwork WHERE id NOT IN ("
-        "  SELECT artwork_id FROM tracks WHERE artwork_id IS NOT NULL"
-        "  UNION SELECT artwork_id FROM albums WHERE artwork_id IS NOT NULL)"
-    )

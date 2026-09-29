@@ -1,7 +1,6 @@
 """Flow — FastAPI application factory (DESIGN.md §6, §7).
 
-Milestone 2: scanner. Library walk + mutagen parsing, overlay-safe upserts,
-scan API with SSE progress, filesystem watcher.
+Routers: scan/settings (M2), library/media (M3), editing/playlists/search (M4).
 """
 
 from __future__ import annotations
@@ -19,9 +18,12 @@ from app import config
 from app.db import Database
 from app.events import ScanBus
 from app.scanner import LibraryScanner
+from app.routers import editing as editing_router
 from app.routers import library as library_router
 from app.routers import media as media_router
+from app.routers import playlists as playlists_router
 from app.routers import scan as scan_router
+from app.routers import search as search_router
 from app.routers import settings as settings_router
 from app.watcher import LibraryWatcher
 
@@ -90,6 +92,9 @@ def create_app() -> FastAPI:
     app.include_router(scan_router.router)
     app.include_router(settings_router.router)
     app.include_router(library_router.router)
+    app.include_router(editing_router.router)
+    app.include_router(playlists_router.router)
+    app.include_router(search_router.router)
     app.include_router(media_router.router)
 
     if config.DIST_DIR is not None and config.DIST_DIR.is_dir():

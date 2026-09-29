@@ -6,6 +6,7 @@ import { AlbumsView } from "./views/AlbumsView";
 import { ArtistDetailView } from "./views/ArtistDetailView";
 import { ArtistsView } from "./views/ArtistsView";
 import { HomeView } from "./views/HomeView";
+import { PlaylistDetailView } from "./views/PlaylistDetailView";
 import { PlaylistsView } from "./views/PlaylistsView";
 import { SearchView } from "./views/SearchView";
 import { SettingsView } from "./views/SettingsView";
@@ -22,6 +23,7 @@ export const router = createBrowserRouter([
       { path: "/artists/:artistId", element: <ArtistDetailView /> },
       { path: "/tracks", element: <TracksView /> },
       { path: "/playlists", element: <PlaylistsView /> },
+      { path: "/playlists/:playlistId", element: <PlaylistDetailView /> },
       { path: "/search", element: <SearchView /> },
       { path: "/settings", element: <SettingsView /> },
     ],

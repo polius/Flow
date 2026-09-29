@@ -136,6 +136,15 @@
   color: var(--text-secondary);
 }
 
+/* Stacked editable block (playlist description) above the meta line. */
+.detailhead__meta--stack {
+  margin-top: 10px;
+  font-size: var(--text-regular);
+  color: var(--text-secondary);
+  max-width: 560px;
+  white-space: pre-line;
+}
+
 .detailhead__meta a:hover {
   text-decoration: underline;
 }
@@ -185,19 +194,26 @@
   min-height: 38px;
 }
 
-.trackrow--album,
-.trackrow--artist,
-.trackrow--all {
-  grid-template-columns: 32px minmax(0, 2.2fr) minmax(0, 60px);
+.trackrow--album {
+  grid-template-columns: 32px minmax(0, 2.2fr) minmax(0, 60px) 30px 30px;
+}
+
+.trackrow--artist {
+  grid-template-columns: 32px minmax(0, 2fr) minmax(0, 1.4fr) minmax(0, 60px) 30px 30px;
 }
 
 .trackrow--all,
-.trackrow--artist {
-  grid-template-columns: 32px minmax(0, 2fr) minmax(0, 1.4fr) minmax(0, 60px);
+.trackrow--playlist {
+  grid-template-columns: 32px minmax(0, 2fr) minmax(0, 1.3fr) minmax(0, 1.3fr) minmax(0, 60px) 30px 30px;
 }
 
-.trackrow--all {
-  grid-template-columns: 32px minmax(0, 2fr) minmax(0, 1.3fr) minmax(0, 1.3fr) minmax(0, 60px);
+/* Playlist rows are grabbable anywhere (§9.3 drag-reorder). */
+.trackrow--playlist {
+  cursor: grab;
+}
+
+.trackrow--playlist:active {
+  cursor: grabbing;
 }
 
 .trackrow:hover {
@@ -281,6 +297,33 @@
   margin-top: 18px;
   font-size: var(--text-small);
   color: var(--text-tertiary);
+}
+
+/* ---- section headers with a trailing link (Home, Search) ----------------- */
+
+.libsection__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+
+.libsection__head h2 {
+  margin: 0;
+  font-size: var(--text-title);
+  font-weight: 700;
+  letter-spacing: var(--tracking-tight);
+}
+
+.libsection__more {
+  font-size: var(--text-small);
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.libsection__more:hover {
+  color: var(--text-primary);
 }
 
 /* ---- artist list --------------------------------------------------------- */

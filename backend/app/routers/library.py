@@ -61,8 +61,13 @@ LEFT JOIN artists ar ON ar.id = t.artist_id
 LEFT JOIN albums al ON al.id = t.album_id
 """
 
+# Same shape with the playlist position prepended (playlists router).
+PLAYLIST_TRACK_SELECT = TRACK_SELECT.replace(
+    "SELECT", "SELECT pt.position AS position,", 1
+)
 
-def _track_out(row) -> TrackOut:
+
+def track_out(row) -> TrackOut:
     return TrackOut(
         id=row["id"],
         title=row["title"],
@@ -122,7 +127,7 @@ def list_tracks(
         [*params, limit, offset],
     ).fetchall()
     return TrackListOut(
-        items=[_track_out(r) for r in rows], total=total, limit=limit, offset=offset
+        items=[track_out(r) for r in rows], total=total, limit=limit, offset=offset
     )
 
 
@@ -132,7 +137,7 @@ def get_track(request: Request, track_id: int) -> TrackOut:
     row = conn.execute(f"{TRACK_SELECT} WHERE t.id = ?", (track_id,)).fetchone()
     if row is None:
         raise HTTPException(status_code=404, detail="Track not found")
-    return _track_out(row)
+    return track_out(row)
 
 
 @router.get("/api/albums", response_model=AlbumListOut)
@@ -206,7 +211,7 @@ def get_album(request: Request, album_id: int) -> AlbumDetail:
         f"ORDER BY t.disc_no, t.track_no, t.title COLLATE NOCASE",
         (album_id,),
     ).fetchall()
-    tracks = [_track_out(r) for r in rows]
+    tracks = [track_out(r) for r in rows]
     return AlbumDetail(
         id=album["id"],
         title=album["title"],
@@ -299,7 +304,7 @@ def get_artist(request: Request, artist_id: int) -> ArtistDetail:
         )
         for r in album_rows
     ]
-    tracks = [_track_out(r) for r in track_rows]
+    tracks = [track_out(r) for r in track_rows]
     return ArtistDetail(
         id=artist["id"],
         name=artist["name"],
