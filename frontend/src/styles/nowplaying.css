@@ -166,6 +166,7 @@
   letter-spacing: var(--tracking-tight);
 }
 
+/* Position in the queue — the "you are here" of the full list. */
 .queue__count {
   font-size: var(--text-small);
   color: var(--text-tertiary);
@@ -178,7 +179,7 @@
   padding: 0 10px 20px;
 }
 
-/* Upcoming rows are windowed (§9.2): the window owns the scroll height and
+/* The whole list is windowed: the window owns the scroll height and
    positions rows absolutely inside it. */
 .queue__window {
   position: relative;
@@ -191,31 +192,43 @@
   right: 0;
 }
 
-.queue__label {
-  padding: 10px 10px 6px;
-  font-size: var(--text-caption);
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--text-tertiary);
-}
-
 .queue__row {
   position: relative;
-  display: grid;
-  grid-template-columns: 38px minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 11px;
-  padding: 7px 10px;
   border-radius: var(--radius-m);
+  transition: background-color var(--dur-fast) var(--ease-out);
 }
 
 .queue__row:hover {
   background: var(--bg-hover);
 }
 
-.queue__row--current {
+.queue__row--current,
+.queue__row--current:hover {
   background: var(--bg-active);
+}
+
+/* The row is one click target (click-to-jump, §17.7); the remove button
+   floats above it as a sibling. */
+.queue__main {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 11px;
+  width: 100%;
+  padding: 7px 10px;
+  border-radius: var(--radius-m);
+  cursor: pointer;
+}
+
+.queue__main:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.queue__art {
+  position: relative;
+  width: 38px;
+  height: 38px;
 }
 
 .queue__meta {
@@ -246,9 +259,103 @@
   font-size: var(--text-caption);
   font-variant-numeric: tabular-nums;
   color: var(--text-tertiary);
+  transition: opacity var(--dur-fast) var(--ease-out);
 }
 
-/* Hover-revealed removal (§8.7) — the one queue action. */
+/* ---- the playing marker (§17.7): accent bars over a scrimmed artwork.
+   Frozen while paused; static under prefers-reduced-motion via the global
+   motion rule. The single accent moment in the drawer. */
+.queue__scrim {
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radius-s);
+  background: rgba(0, 0, 0, 0.42);
+}
+
+.eq {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  transition: opacity var(--dur-fast) var(--ease-out);
+}
+
+.eq span {
+  width: 3px;
+  border-radius: 1px;
+  background: var(--accent);
+  animation: queue-eq 1s ease-in-out infinite;
+}
+
+.eq span:nth-child(1) {
+  height: 8px;
+  animation-delay: -0.53s;
+}
+
+.eq span:nth-child(2) {
+  height: 14px;
+  animation-delay: -0.26s;
+}
+
+.eq span:nth-child(3) {
+  height: 10px;
+  animation-delay: -0.79s;
+}
+
+.eq--paused span {
+  animation-play-state: paused;
+}
+
+@keyframes queue-eq {
+  0%,
+  100% {
+    transform: scaleY(0.3);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
+
+/* Hover/focus swaps the bars for a play/pause glyph — the row itself is
+   the toggle (same reveal grammar as the library rows, §8.7). */
+.queue__toggle {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  opacity: 0;
+  transition: opacity var(--dur-fast) var(--ease-out);
+}
+
+.queue__row--current:hover .eq,
+.queue__main:focus-visible .eq {
+  opacity: 0;
+}
+
+.queue__row--current:hover .queue__toggle,
+.queue__main:focus-visible .queue__toggle {
+  opacity: 1;
+}
+
+/* Played tracks stay in the list — read as memory, not as action. */
+.queue__row--played .queue__art,
+.queue__row--played .queue__meta {
+  opacity: 0.5;
+  transition: opacity var(--dur-fast) var(--ease-out);
+}
+
+.queue__row--played:hover .queue__art,
+.queue__row--played:hover .queue__meta,
+.queue__row--played .queue__main:focus-visible .queue__art,
+.queue__row--played .queue__main:focus-visible .queue__meta {
+  opacity: 1;
+}
+
+/* Hover-revealed removal (§8.7) — the one queue action besides jumping. */
 .queue__remove {
   position: absolute;
   top: 50%;

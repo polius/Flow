@@ -27,6 +27,8 @@ interface PlayerState {
   playNext: (track: Track) => void;
   /** Removes an upcoming track from the queue (§9.4). No-op for the current one. */
   removeFromQueue: (queueIndex: number) => void;
+  /** Click-to-jump (§17.7): start playback at any position in the play order. */
+  playAt: (orderIndex: number) => void;
   togglePlay: () => void;
   next: () => void;
   prev: () => void;
@@ -116,6 +118,13 @@ export const usePlayerStore = create<PlayerState>()(
           order: newOrder,
           orderPos: newOrder.indexOf(currentQueueIndex),
         });
+      },
+
+      playAt: (orderIndex) => {
+        const { order, queue } = get();
+        if (orderIndex < 0 || orderIndex >= order.length) return;
+        usePlayerStore.setState({ orderPos: orderIndex });
+        load(queue[order[orderIndex]], true);
       },
 
       togglePlay: () => {

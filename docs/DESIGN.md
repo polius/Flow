@@ -326,7 +326,8 @@ This is the **top priority** of the project. These rules are the product.
 
 ### 9.4 Player behavior
 - Native `HTMLAudioElement`; no server-side transcode.
-- Shuffle, repeat off/all/one; queue manipulation (play next, remove from queue).
+- Shuffle, repeat off/all/one; queue manipulation (play next, remove from queue,
+  click-to-jump from the drawer — §17.7).
 - Volume persisted to `localStorage`.
 - Continue playing through view changes (SPA — player state lives in a Zustand store outside
   the view lifecycle).
@@ -553,7 +554,8 @@ Design-language additions carried over from the reference images (§2):
    Get Info), not a route — playback lives outside the view lifecycle anyway.
    Entry point: the player-bar artwork thumb. The queue drawer hides below
    940px. Queue rows are not click-to-jump — queue manipulation is play-next
-   and remove (§9.4), nothing more.
+   and remove (§9.4), nothing more. (Superseded by §17.7: the full-list queue
+   made the rows click-to-jump.)
 
 ## 17. Addendum — decisions recorded during Milestone 6 (2026-09-29)
 
@@ -593,3 +595,19 @@ Design-language additions carried over from the reference images (§2):
    `backend/scripts/dev_library.py` generates a ~10k-track scratch library
    with real renderable PNG covers (stdlib zlib/struct), committed as a dev
    utility.
+7. **Full-list queue (§9.2, §9.4):** the drawer's "Now playing"/"Up next"
+   split dropped each track from view the moment it finished — the list kept
+   shrinking while the user watched it, with no sense of the whole. The
+   drawer now renders the entire queue as one continuous list in play order
+   (the store's `order` remains the truth): played rows stay in place,
+   dimmed to half strength; the playing row carries the drawer's single
+   accent moment — three pulsing accent bars over a scrimmed artwork,
+   frozen while paused, static under `prefers-reduced-motion`; the head
+   shows position ("12 of 48") instead of a shrinking "up next" count.
+   Rows are click-to-jump, backwards included (supersedes §16.8): any row
+   starts playback from there via `playAt(orderIndex)`; the playing row
+   toggles playback; hovering it swaps the bars for a play/pause glyph,
+   the same reveal grammar as the library rows (§8.7). Remove stays
+   hover-revealed on non-playing rows. The drawer centers on the playing
+   row when opened (or when the queue is replaced) and follows it only
+   when it scrolls out of view — never yanking the list mid-read.
