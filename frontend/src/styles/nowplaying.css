@@ -178,6 +178,19 @@
   padding: 0 10px 20px;
 }
 
+/* Upcoming rows are windowed (§9.2): the window owns the scroll height and
+   positions rows absolutely inside it. */
+.queue__window {
+  position: relative;
+}
+
+.queue__window .queue__row {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+}
+
 .queue__label {
   padding: 10px 10px 6px;
   font-size: var(--text-caption);

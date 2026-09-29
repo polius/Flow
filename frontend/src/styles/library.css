@@ -292,11 +292,18 @@
   color: var(--bg-canvas);
 }
 
-/* Truncation notice until list virtualization lands (§11.6). */
-.libnote {
-  margin-top: 18px;
-  font-size: var(--text-small);
-  color: var(--text-tertiary);
+/* Windowed rows (§9.2, §11.6): the virtual table owns the full scroll height
+   and positions each row absolutely; the canvas stays the scroller, so rows
+   still glide beneath the translucent player bar (§8.5). */
+.tracktable--virtual {
+  position: relative;
+}
+
+.tracktable--virtual .trackrow {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
 }
 
 /* ---- section headers with a trailing link (Home, Search) ----------------- */

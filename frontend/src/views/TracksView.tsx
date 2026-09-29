@@ -1,38 +1,52 @@
-import { useQuery } from "@tanstack/react-query";
+import { useCallback, useMemo } from "react";
+import { useInfiniteQuery } from "@tanstack/react-query";
 import { useSearchParams } from "react-router";
 
 import { api } from "../api/client";
-import { TrackTable } from "../components/TrackTable";
+import { VirtualTrackTable } from "../components/VirtualTrackTable";
 import { EmptyState } from "../components/EmptyState";
 import { LoadingState } from "../components/LoadingState";
 import { IconTracks } from "../components/icons";
-import { fmtCount } from "../lib/format";
 
-// Full-library windowing lands with hardening (§11.6); until then the table
-// fetches the first page and says so honestly.
+/* Full-library view, windowed (§9.2, §11.6). Pages of 1000 stream in behind
+   the virtualizer as the user scrolls — the M3 "first 1000" cap and its
+   truncation notice are gone. */
 const PAGE_SIZE = 1000;
 
 export function TracksView() {
   const [searchParams] = useSearchParams();
   const q = searchParams.get("q") ?? "";
 
-  const { data } = useQuery({
+  const query = useInfiniteQuery({
     queryKey: ["tracks", "all", q],
-    queryFn: async () => {
+    queryFn: async ({ pageParam }) => {
       const { data } = await api.GET("/api/tracks", {
-        params: { query: { limit: PAGE_SIZE, ...(q ? { q } : {}) } },
+        params: {
+          query: { limit: PAGE_SIZE, offset: pageParam, ...(q ? { q } : {}) },
+        },
       });
       return data;
     },
+    initialPageParam: 0,
+    getNextPageParam: (lastPage, allPages) => {
+      const loaded = allPages.reduce((n, p) => n + (p?.items.length ?? 0), 0);
+      return loaded < (lastPage?.total ?? 0) ? loaded : undefined;
+    },
   });
 
-  const tracks = data?.items ?? [];
-  const hidden = (data?.total ?? 0) - tracks.length;
+  const tracks = useMemo(
+    () => query.data?.pages.flatMap((p) => p?.items ?? []) ?? [],
+    [query.data],
+  );
+
+  const handleNearEnd = useCallback(() => {
+    if (query.hasNextPage && !query.isFetchingNextPage) void query.fetchNextPage();
+  }, [query.hasNextPage, query.isFetchingNextPage, query.fetchNextPage]);
 
   return (
     <section className="view">
       <h1 className="view__title">Tracks</h1>
-      {data === undefined ? (
+      {query.isPending ? (
         <LoadingState variant="rows" />
       ) : tracks.length === 0 ? (
         <EmptyState
@@ -45,15 +59,7 @@ export function TracksView() {
           }
         />
       ) : (
-        <>
-          <TrackTable tracks={tracks} variant="all" />
-          {hidden > 0 && (
-            <p className="libnote">
-              Showing the first {fmtCount(tracks.length)} of {fmtCount(data!.total)} tracks —
-              the full list arrives with list virtualization.
-            </p>
-          )}
-        </>
+        <VirtualTrackTable tracks={tracks} onNearEnd={handleNearEnd} />
       )}
     </section>
   );
