@@ -8,6 +8,7 @@ never crashes (DESIGN.md §11.6).
 from __future__ import annotations
 
 import logging
+import math
 import re
 from dataclasses import dataclass
 from pathlib import Path
@@ -38,17 +39,27 @@ class ParsedTags:
 
 
 def parse_audio(path: Path) -> ParsedTags | None:
+    """Parse one file. The whole body runs inside the guarded call: mutagen
+    can raise while *reading* (truncated/zero-byte, wrong container) or while
+    *decoding frames* (malformed text encodings), and neither may crash the
+    scan (DESIGN.md §11.6)."""
     try:
-        audio = MutagenFile(str(path), easy=False)
+        return _parse_audio(path)
     except Exception:  # noqa: BLE001
         log.warning("Unreadable audio file skipped: %s", path, exc_info=True)
         return None
+
+
+def _parse_audio(path: Path) -> ParsedTags:
+    audio = MutagenFile(str(path), easy=False)
     if audio is None or audio.info is None:
         log.warning("Unrecognized audio file skipped: %s", path)
         return None
 
     info = audio.info
     duration = float(info.length) if info.length is not None else 0.0
+    if not math.isfinite(duration) or duration < 0:
+        duration = 0.0
     bitrate = getattr(info, "bitrate", None)
     sample_rate = getattr(info, "sample_rate", None)
 
@@ -101,7 +112,7 @@ def parse_audio(path: Path) -> ParsedTags | None:
         disc_no=disc_no,
         year=year,
         duration=duration,
-        bitrate=int(bitrate) if bitrate else None,
+        bitrate=int(bitrate) if bitrate and math.isfinite(bitrate) else None,
         sample_rate=int(sample_rate) if sample_rate else None,
         picture=picture,
     )
