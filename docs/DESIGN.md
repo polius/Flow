@@ -4,6 +4,8 @@
 > A prior design session made and agreed every decision below with the project owner.
 > **Do not re-litigate settled decisions.** If something here seems questionable, raise it with
 > the user before changing course. Do not implement beyond the current milestone without asking.
+> **Apple-level quality (§8.0) is a standing constraint on every change** — it applies in
+> every session without the user having to repeat it.
 
 ---
 
@@ -18,8 +20,10 @@
   These edits are stored in SQLite as overlays — the audio files themselves are never modified.
 - **Single user, local/self-hosted. No login system, no multi-user.** Auth is a future
   iteration — do not add it, and do not build abstractions "for when auth arrives".
-- **UI/UX is the top priority.** Apple-like design quality. The visual bar is Apple Music,
-  not Dribbble. See §8 and §9.
+- **UI/UX is the top priority.** Apple-like design quality — a standing constraint on every
+  change, not a final polish pass. The bar is Apple Music, not Dribbble: interactions, states,
+  edge cases, and invisible details are engineered to the same level as the visuals.
+  See §8 and §9.
 
 ### Non-goals (explicit, agreed — do not add)
 
@@ -274,6 +278,27 @@ fallback (mount-over-image trick) may be documented in README but is not the pri
 ## 8. Design system — the "Apple-like" rules
 
 This is the **top priority** of the project. These rules are the product.
+
+### 8.0 The quality bar — standing constraint for every session
+
+"Apple-level quality" is not a phase or a styling pass; it is the acceptance criterion for
+every change, applied in every fresh session without the user repeating it:
+
+1. **Finish means finished.** A feature ships with all of its states designed — hover,
+   focus-visible, active, disabled, loading, empty, error — not a happy path with gaps.
+2. **Edge cases are designed, not just handled.** Queue end, empty library, 10k rows, long
+   titles, missing artwork: each gets a decision, even when the decision is restraint.
+3. **Restraint by default.** Every element earns its place; when in doubt, remove. One
+   accent; motion only where it communicates (visual rules 1 and 4, below).
+4. **Consistency beats invention.** Reuse existing patterns and tokens (`tokens.css` is the
+   single source). Invent only when no pattern fits, and record the pattern in this document
+   when it generalizes.
+5. **Invisible details are still details.** Keyboard access, a11y semantics, both themes,
+   reduced motion, tabular numerals, focus rings, text truncation.
+6. **Verify in the running app before calling it done.** Click through the real flow, check
+   light and dark, confirm the build is green. Screenshots over assumptions.
+
+The visual rules, agreed with the owner:
 
 1. **Artwork is the only color.** All chrome (sidebars, tables, controls) is near-monochrome
    greys; exactly **one accent color**. No gradients on UI surfaces. No pastel cards.
