@@ -460,3 +460,44 @@ Design-language additions carried over from the reference images (§2):
 3. **Startup auto-scan:** on boot, an empty index next to a non-empty library folder
    triggers a scan automatically (first-run UX, Plex-like). Later restarts rely on the
    watcher; the Rescan button in Settings always remains available.
+
+## 15. Addendum — decisions recorded during Milestone 4 (2026-09-29)
+
+1. **Inline rename vs §9.3 "double-click":** row double-click is play/pause, so the
+   title text itself is **click-to-edit** (a focused click on the words — not the row).
+   Enter commits, Esc cancels; in multiline fields (playlist description) Shift+Enter
+   inserts a newline. Empty/unchanged commits are no-ops. Settled — the single-click
+   target is deliberate, not a deviation to fix.
+2. **PATCH /api/tracks/{id} field semantics:** a field absent from the JSON body never
+   touches the column; an explicit `null` clears it (track number); `0` normalizes to
+   null; empty artist/album strings clear the reference. `favorite` is a plain flag
+   outside the `user_edited` overlay — rescans never touch it (§5).
+3. **Playlist reorder:** the PUT is a full-replace with a multiset match (duplicate
+   entries of one track are legal). The client applies the move optimistically; the
+   server response is the source of truth. Removals recompact positions.
+4. **Playlist mosaics (§13.10):** first four tracks' artwork ids in playlist order.
+   Because artwork dedups by sha1 (§5), tracks sharing a cover collapse to one tile —
+   correct behavior, not a bug.
+5. **Search (§9.2):** the query lives in the URL (`/search?q=…`), debounced ~200 ms.
+   ⌘F/Ctrl+F *navigates to the search route* and focuses the field (route-based, no
+   overlay). Group results are capped (20/group); "Show all" links into the filtered
+   list views (`/tracks?q=…`), which all support `?q=`.
+6. **Context menus are drill-down** ("Add to Playlist…" swaps content in place) —
+   no nested hover menus, per §8.7's restraint.
+7. **What M5 inherits:** Esc already closes menus/Get Info/inline edits (local
+   handlers); global shortcuts (Space, arrows) do **not** exist yet. Volume is
+   persisted; there is **no manual theme override yet** (tokens respond only to
+   `prefers-color-scheme`). Now Playing full-screen and the queue drawer are not
+   started. Media Session API remains an approved M5 nicety (§13.11).
+
+### Dev environment notes (browser verification recipe)
+
+- Local `./music` is empty; the Docker container on :8080 holds a stale 4-track
+  library from a removed mount. Don't trust it for visual work — run dev mode.
+- Dev: `uvicorn app.main:app --port 8000` from `backend/` with
+  `FLOW_MUSIC_DIR` / `FLOW_DATA_DIR` pointed at scratch dirs, plus `npm run dev`
+  from `frontend/`. Ports 5173/5174 are typically occupied by other projects —
+  Vite auto-increments (5175). Kill stale uvicorns on :8000 from old sessions.
+- A scratch library can be generated from `backend/tests/audio_fixtures.py`
+  (add a real-PNG cover generator — fixture art bytes don't render in `<img>`).
+  The scanner auto-scans on boot (§14.3), so no manual trigger is needed.
