@@ -131,8 +131,62 @@
   width: 0;
 }
 
+/* Collapsed header — the logo mark anchors the rail alone; the expand control
+   swaps into its place on hover/focus so the two never stack and glue. */
 .shell--collapsed .sidebar__top {
   flex-direction: column;
+  gap: 0;
+  position: relative;
+}
+
+.shell--collapsed .sidebar__brand {
+  /* Kill the label's phantom gap so the mark centers truly. */
+  gap: 0;
+}
+
+.shell--collapsed .sidebar__brand-mark,
+.shell--collapsed .sidebar__toggle {
+  transition: opacity var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out),
+    background-color var(--dur-fast) var(--ease-out);
+}
+
+.shell--collapsed .sidebar__toggle {
+  position: absolute;
+  top: -1px; /* optically center the 28px control over the 26px mark */
+  left: 50%;
+  transform: translateX(-50%);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.shell--collapsed .sidebar__top:hover .sidebar__toggle,
+.shell--collapsed .sidebar__top:has(.sidebar__toggle:focus-visible) .sidebar__toggle {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.shell--collapsed .sidebar__top:hover .sidebar__brand-mark,
+.shell--collapsed .sidebar__top:has(.sidebar__toggle:focus-visible) .sidebar__brand-mark {
+  opacity: 0;
+}
+
+/* Touch has no hover — keep both controls, stacked with clear rhythm. */
+@media (hover: none) {
+  .shell--collapsed .sidebar__toggle {
+    position: static;
+    transform: none;
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .shell--collapsed .sidebar__top {
+    gap: 10px;
+  }
+
+  .shell--collapsed .sidebar__top:hover .sidebar__brand-mark {
+    opacity: 1;
+  }
 }
 
 .shell--collapsed .sidebar__item {
