@@ -550,3 +550,42 @@ Design-language additions carried over from the reference images (§2):
    Entry point: the player-bar artwork thumb. The queue drawer hides below
    940px. Queue rows are not click-to-jump — queue manipulation is play-next
    and remove (§9.4), nothing more.
+
+## 17. Addendum — decisions recorded during Milestone 6 (2026-09-29)
+
+1. **Virtualization shipped here (completes §9.2):** the Tracks view windows
+   rows with `@tanstack/react-virtual` and feeds them from an infinite query
+   (pages of 1,000 behind the window) — the M3 first-1000 cap and its
+   truncation notice are gone; the promise came due and was paid. The queue
+   drawer windows too: a full-library queue holds ~10k rows and previously
+   rendered every one of them, images included. Album/artist/playlist detail
+   tables stay plain on purpose: their endpoints return unpaginated payloads
+   at curated scale, and windowing drag-to-reorder adds risk for no real
+   case. Row markup lives in one shared `TrackRow` so both paths render
+   identically.
+2. **Shell scroller fact (layout contract):** the app's scroll element is
+   the WINDOW — the shell grid row grows with content and `.shell__canvas`
+   never scrolls internally. The Tracks windowing is built on
+   `useWindowVirtualizer` for this reason; anyone who later makes the canvas
+   the scroller must revisit this.
+3. **Corrupt files (§11.6):** `parse_audio` guards its entire body (mutagen
+   can raise while decoding malformed frames, not only while opening), and
+   duration/bitrate are coerced finite so NaN can't reach the NOT NULL
+   column. `tests/test_corrupt_files.py` pins: zero-byte/truncated/garbage
+   and wrong-extension files, unreadable files and unreadable sidecar
+   covers, broken symlinks, garbage tags (NULs, emoji/CJK, non-numeric
+   frames, 100KB titles) — skip + log, errors counted, scan stays idle, and
+   the §14.1 mount guard stays silent around bad files.
+4. **Base image switch (supersedes §10.4):** the owner directed Alpine. The
+   slim-based image measured 235MB (slim base alone ~202MB by
+   `docker image ls`) against the §10 ~150–200MB budget; the original
+   "~40MB premium" estimate was off by ~135MB. Alpine lands at ~99MB. All
+   runtime deps ship musl wheels (pydantic-core included), so no compiler;
+   `bash` stays in the runtime for the §10.1 start script's `wait -n`.
+5. **Final image size:** ~99MB (`docker image ls`), ~23MB compressed
+   (`docker save`); pip removed from the runtime venv. The budget is met
+   with margin — no further shaving attempted.
+6. **Dev library generator (§15 note satisfied):**
+   `backend/scripts/dev_library.py` generates a ~10k-track scratch library
+   with real renderable PNG covers (stdlib zlib/struct), committed as a dev
+   utility.
