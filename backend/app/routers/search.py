@@ -15,6 +15,7 @@ from app.schemas import (
     SearchOut,
     TrackOut,
 )
+from app.routers.playlists import tags_of
 
 router = APIRouter(tags=["search"])
 
@@ -102,21 +103,24 @@ def search(request: Request, q: str = Query(min_length=1)) -> SearchOut:
             id=r["id"],
             name=r["name"],
             description=r["description"],
+            tags=tags_of(r),
             created_at=r["created_at"],
             track_count=r["track_count"],
             duration_total=r["duration_total"],
+            cover_artwork_id=r["cover_artwork_id"],
             artwork_ids=[],
         )
         for r in conn.execute(
-            "SELECT p.id, p.name, p.description, p.created_at, "
+            "SELECT p.id, p.name, p.description, p.tags, p.cover_artwork_id, "
+            "p.created_at, "
             "COUNT(pt.track_id) AS track_count, "
             "COALESCE(SUM(t.duration), 0) AS duration_total "
             "FROM playlists p "
             "LEFT JOIN playlist_tracks pt ON pt.playlist_id = p.id "
             "LEFT JOIN tracks t ON t.id = pt.track_id "
-            "WHERE p.name LIKE ? ESCAPE '\\' "
+            "WHERE p.name LIKE ? ESCAPE '\\' OR p.tags LIKE ? ESCAPE '\\' "
             "GROUP BY p.id ORDER BY p.name COLLATE NOCASE LIMIT ?",
-            (term, GROUP_LIMIT),
+            (term, term, GROUP_LIMIT),
         ).fetchall()
     ]
 

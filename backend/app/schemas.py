@@ -125,9 +125,13 @@ class PlaylistSummary(BaseModel):
     id: int
     name: str
     description: str | None
+    # Canonical (trimmed, case-insensitively deduped) — edited in Manage.
+    tags: list[str]
     created_at: str
     track_count: int
     duration_total: float
+    # User-set cover; overrides the 2×2 card mosaic while set (§13.10).
+    cover_artwork_id: int | None
     # Up to four artwork ids, in playlist order — the 2×2 card mosaic (§13.10).
     artwork_ids: list[int]
 
@@ -155,6 +159,9 @@ class PlaylistCreate(BaseModel):
 class PlaylistUpdate(BaseModel):
     name: str | None = None
     description: str | None = None
+    tags: list[str] | None = None
+    # Null resets the custom cover back to the track mosaic.
+    cover_artwork_id: int | None = None
 
 
 class PlaylistTracksIn(BaseModel):

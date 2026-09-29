@@ -1,9 +1,17 @@
-"""Playlist CRUD, membership, and ordering — DESIGN.md §6, §11.4."""
+"""Playlist CRUD, membership, ordering, tags, and covers — DESIGN.md §6, §11.4."""
 
 from __future__ import annotations
 
+import base64
+
 import pytest
 from tests.audio_fixtures import make_mp3
+
+# 1×1 PNG, for cover uploads.
+PNG_1X1 = (
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQ"
+    "AAAABJRU5ErkJggg=="
+)
 
 
 @pytest.fixture
@@ -151,3 +159,72 @@ def test_track_deletion_cascades_out_of_playlists(client, library):
     # client's full-reorder PUT (multiset of ids) is unaffected.
     positions = [t["position"] for t in detail["tracks"]]
     assert positions == sorted(positions)
+
+
+def test_playlist_tags_roundtrip_and_normalization(client, library):
+    pid = client.post("/api/playlists", json={"name": "Tagged"}).json()["id"]
+    assert client.get(f"/api/playlists/{pid}").json()["tags"] == []
+
+    patched = client.patch(
+        f"/api/playlists/{pid}",
+        json={"tags": ["  Road Trip ", "road trip", "", "Night", "  "]},
+    )
+    assert patched.status_code == 200
+    # Trimmed, empties dropped, case-insensitive dedupe keeps the first.
+    assert patched.json()["tags"] == ["Road Trip", "Night"]
+
+    assert client.patch(f"/api/playlists/{pid}", json={"tags": []}).json()["tags"] == []
+
+    # Search matches playlists by tag as well as by name.
+    client.patch(f"/api/playlists/{pid}", json={"tags": ["workout"]})
+    hits = client.get("/api/search", params={"q": "work"}).json()["playlists"]
+    assert [p["id"] for p in hits] == [pid]
+
+
+def test_playlist_cover_upload_reset_and_validation(client, library):
+    pid = client.post("/api/playlists", json={"name": "Covers"}).json()["id"]
+    assert client.get(f"/api/playlists/{pid}").json()["cover_artwork_id"] is None
+
+    png = base64.b64decode(PNG_1X1)
+    uploaded = client.put(
+        f"/api/playlists/{pid}/cover",
+        files={"file": ("cover.png", png, "image/png")},
+    )
+    assert uploaded.status_code == 200
+    cover_id = uploaded.json()["cover_artwork_id"]
+    assert cover_id is not None
+
+    # Served bytes are the uploaded bytes, content-addressed.
+    art = client.get(f"/api/artwork/{cover_id}")
+    assert art.status_code == 200
+    assert art.content == png
+    assert art.headers["content-type"] == "image/png"
+
+    # Re-uploading identical bytes dedupes to the same artwork row.
+    again = client.put(
+        f"/api/playlists/{pid}/cover", files={"file": ("again.png", png, "image/png")}
+    )
+    assert again.json()["cover_artwork_id"] == cover_id
+
+    # PATCH null resets the custom cover back to the track mosaic.
+    reset = client.patch(f"/api/playlists/{pid}", json={"cover_artwork_id": None})
+    assert reset.status_code == 200
+    assert reset.json()["cover_artwork_id"] is None
+
+    assert (
+        client.put(
+            f"/api/playlists/{pid}/cover",
+            files={"file": ("x.png", b"not-an-image", "image/png")},
+        ).status_code
+        == 415
+    )
+    assert (
+        client.patch(f"/api/playlists/{pid}", json={"cover_artwork_id": 99999}).status_code
+        == 422
+    )
+    assert (
+        client.put(
+            "/api/playlists/99999/cover", files={"file": ("c.png", png, "image/png")}
+        ).status_code
+        == 404
+    )

@@ -219,33 +219,6 @@ textarea.inlineedit__input {
   object-fit: cover;
 }
 
-/* Card corner menu (playlist cards). */
-.playlist-card__more {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  color: var(--text-primary);
-  background: color-mix(in srgb, var(--bg-elevated) 78%, transparent);
-  backdrop-filter: blur(8px);
-  opacity: 0;
-  transition: opacity var(--dur-fast) var(--ease-out);
-}
-
-.album-card:hover .playlist-card__more,
-.playlist-card__more:focus-visible {
-  opacity: 1;
-}
-
-.playlist-card__more:hover {
-  background: var(--bg-elevated);
-}
-
 .album-card .playlistart {
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
 }
@@ -501,4 +474,261 @@ textarea.inlineedit__input {
 .getinfo__cancel:hover {
   color: var(--text-primary);
   background: var(--bg-hover);
+}
+
+/* ---- tag chips (detail header + Manage dialog) ----------------------------- */
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 9px;
+  border-radius: 999px;
+  background: var(--bg-inset);
+  font-size: var(--text-small);
+  font-weight: 500;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.chip__x {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  color: var(--text-tertiary);
+}
+
+.chip__x:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+
+.detailhead__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+  max-width: 560px;
+}
+
+/* ---- Manage Playlist dialog -------------------------------------------------- */
+
+.manage__scrim {
+  position: fixed;
+  inset: 0;
+  z-index: calc(var(--z-modal) - 1);
+  background: rgba(0, 0, 0, 0.18);
+}
+
+.manage {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: var(--z-modal);
+  display: flex;
+  flex-direction: column;
+  width: min(440px, 92vw);
+  max-height: min(680px, 92vh);
+  background: var(--bg-elevated);
+  border: 1px solid var(--separator);
+  border-radius: var(--radius-l);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.32);
+  animation: manage-in var(--dur-normal) var(--ease-out);
+}
+
+@keyframes manage-in {
+  from {
+    transform: translate(-50%, calc(-50% + 10px));
+    opacity: 0;
+  }
+}
+
+.manage__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 22px 12px;
+}
+
+.manage__title {
+  margin: 0;
+  font-size: var(--text-title);
+  font-weight: 700;
+  letter-spacing: var(--tracking-tight);
+}
+
+.manage__close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  color: var(--text-secondary);
+}
+
+.manage__close:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.manage__body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 4px 22px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.manage__cover {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  padding: 14px;
+  border-radius: var(--radius-m);
+  background: var(--bg-inset);
+}
+
+.manage__coveractions {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.manage__hint {
+  margin: 0;
+  font-size: var(--text-caption);
+  color: var(--text-tertiary);
+}
+
+.manage__field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.manage__label {
+  font-size: var(--text-caption);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-tertiary);
+}
+
+.manage__input {
+  padding: 8px 10px;
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius-s);
+  background: var(--bg-canvas);
+  font-size: var(--text-regular);
+  color: var(--text-primary);
+  outline: none;
+}
+
+.manage__input--area {
+  resize: vertical;
+  min-height: 3.2em;
+  font: inherit;
+  line-height: var(--leading-normal, 1.45);
+}
+
+.manage__input:focus {
+  border-color: color-mix(in srgb, var(--text-primary) 40%, transparent);
+}
+
+.manage__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 6px 10px;
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius-s);
+  background: var(--bg-canvas);
+}
+
+.manage__tags:focus-within {
+  border-color: color-mix(in srgb, var(--text-primary) 40%, transparent);
+}
+
+.manage__tagsinput {
+  flex: 1;
+  min-width: 90px;
+  padding: 2px 0;
+  border: none;
+  background: transparent;
+  font-size: var(--text-regular);
+  color: var(--text-primary);
+  outline: none;
+}
+
+.manage__tagsinput::placeholder {
+  color: var(--text-tertiary);
+}
+
+.manage__actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 22px;
+  border-top: 1px solid var(--separator);
+}
+
+.manage__cancel {
+  padding: 8px 16px;
+  border-radius: 999px;
+  font-size: var(--text-body);
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.manage__cancel:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+
+.manage__danger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 14px 22px 18px;
+  border-top: 1px solid var(--separator);
+}
+
+.manage__dangerhint {
+  margin: 0;
+  font-size: var(--text-caption);
+  color: var(--text-tertiary);
+}
+
+.manage__delete {
+  flex: none;
+  padding: 8px 16px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
+  font-size: var(--text-body);
+  font-weight: 600;
+  color: var(--accent);
+  white-space: nowrap;
+  transition: background var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out);
+}
+
+.manage__delete:hover {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+.manage__delete--confirm,
+.manage__delete--confirm:hover {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
 }

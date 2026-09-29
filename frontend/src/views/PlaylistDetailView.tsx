@@ -1,20 +1,18 @@
-/* Playlist detail — renameable header, mosaic art, drag-to-reorder tracks
-   (§9.2, §9.3, §13.10). Reorder is optimistic; the PUT is the source of truth. */
+/* Playlist detail — read-only header, mosaic or custom cover, drag-to-reorder
+   tracks (§9.2, §9.3, §13.10). All editing lives behind the Manage dialog;
+   reorder is optimistic and the PUT is the source of truth. */
 
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Link, useParams } from "react-router";
+import { Link, useNavigate, useParams } from "react-router";
 
 import { api } from "../api/client";
 import type { PlaylistDetail as PlaylistDetailT } from "../api/types";
-import {
-  useRemoveFromPlaylist,
-  useRenamePlaylist,
-  useReorderPlaylist,
-} from "../api/mutations";
+import { useRemoveFromPlaylist, useReorderPlaylist } from "../api/mutations";
 import { EmptyState } from "../components/EmptyState";
 import { LoadingState } from "../components/LoadingState";
+import { ManagePlaylistDialog } from "../components/ManagePlaylistDialog";
 import { IconPlay, IconPlaylists } from "../components/icons";
-import { InlineEdit } from "../components/InlineEdit";
 import { PlaylistArt } from "../components/PlaylistArt";
 import { TrackTable } from "../components/TrackTable";
 import { fmtCount, fmtDateTime, fmtMinutes } from "../lib/format";
@@ -25,10 +23,11 @@ import "../styles/editing.css";
 
 export function PlaylistDetailView() {
   const playlistId = Number(useParams().playlistId);
+  const navigate = useNavigate();
   const playTracks = usePlayerStore((s) => s.playTracks);
-  const renamePlaylist = useRenamePlaylist();
   const reorderPlaylist = useReorderPlaylist();
   const removeFromPlaylist = useRemoveFromPlaylist();
+  const [managing, setManaging] = useState(false);
   const queryClient = useQueryClient();
 
   const { data: playlist } = useQuery({
@@ -90,30 +89,28 @@ export function PlaylistDetailView() {
       <header className="detailhead">
         <PlaylistArt
           artworkIds={playlist.artwork_ids}
+          coverArtworkId={playlist.cover_artwork_id}
           size={220}
           radius="l"
           className="detailhead__art"
         />
         <div className="detailhead__info">
           <p className="detailhead__kind">Playlist</p>
-          <h1 className="detailhead__title">
-            <InlineEdit
-              value={playlist.name}
-              ariaLabel="Rename playlist"
-              onCommit={(name) => void renamePlaylist(playlistId, { name })}
-            />
-          </h1>
-          <p className="detailhead__meta detailhead__meta--stack">
-            <InlineEdit
-              value={playlist.description ?? ""}
-              placeholder="Add a description…"
-              ariaLabel="Edit playlist description"
-              multiline
-              onCommit={(description) =>
-                void renamePlaylist(playlistId, { description })
-              }
-            />
-          </p>
+          <h1 className="detailhead__title">{playlist.name}</h1>
+          {playlist.description && (
+            <p className="detailhead__meta detailhead__meta--stack">
+              {playlist.description}
+            </p>
+          )}
+          {playlist.tags.length > 0 && (
+            <div className="detailhead__tags">
+              {playlist.tags.map((tag) => (
+                <span key={tag} className="chip">
+                  {tag}
+                </span>
+              ))}
+            </div>
+          )}
           <p className="detailhead__meta">
             {metaBits.map((bit, i) => (
               <span key={i}>
@@ -131,6 +128,13 @@ export function PlaylistDetailView() {
             >
               <IconPlay size={15} />
               Play
+            </button>
+            <button
+              type="button"
+              className="view__action"
+              onClick={() => setManaging(true)}
+            >
+              Manage
             </button>
           </div>
         </div>
@@ -156,6 +160,17 @@ export function PlaylistDetailView() {
           variant="playlist"
           onMove={move}
           onRemoveTrack={(track) => void removeFromPlaylist(playlistId, track.id)}
+        />
+      )}
+
+      {managing && (
+        <ManagePlaylistDialog
+          playlist={playlist}
+          onClose={() => setManaging(false)}
+          onDeleted={() => {
+            setManaging(false);
+            navigate("/playlists");
+          }}
         />
       )}
     </section>

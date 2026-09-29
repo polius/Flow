@@ -149,7 +149,12 @@ export function SearchView() {
                 {results.playlists.map((playlist) => (
                   <li key={playlist.id}>
                     <Link to={`/playlists/${playlist.id}`} className="searchplaylists__row">
-                      <PlaylistArt artworkIds={playlist.artwork_ids} size={44} radius="s" />
+                      <PlaylistArt
+                        artworkIds={playlist.artwork_ids}
+                        coverArtworkId={playlist.cover_artwork_id}
+                        size={44}
+                        radius="s"
+                      />
                       <span className="searchplaylists__name">{playlist.name}</span>
                       <span className="searchplaylists__meta">
                         {playlist.track_count} track{playlist.track_count === 1 ? "" : "s"}

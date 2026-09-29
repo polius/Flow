@@ -1,5 +1,6 @@
 # Runtime dependencies only — pinned for reproducible images.
 fastapi==0.115.6
+python-multipart==0.0.20
 uvicorn==0.34.0
 mutagen==1.47.0
 watchdog==6.0.0

@@ -165,11 +165,16 @@ export function useReorderPlaylist() {
   };
 }
 
-export function useRenamePlaylist() {
+export function useUpdatePlaylist() {
   const queryClient = useQueryClient();
   return async (
     playlistId: number,
-    body: { name?: string; description?: string | null },
+    body: {
+      name?: string;
+      description?: string | null;
+      tags?: string[];
+      cover_artwork_id?: number | null;
+    },
   ): Promise<boolean> => {
     const { response } = await api.PATCH("/api/playlists/{playlist_id}", {
       params: { path: { playlist_id: playlistId } },
@@ -181,6 +186,25 @@ export function useRenamePlaylist() {
       void queryClient.invalidateQueries({ queryKey: ["search"] });
     }
     return response.ok;
+  };
+}
+
+export function useUploadPlaylistCover() {
+  const queryClient = useQueryClient();
+  return async (playlistId: number, file: File): Promise<PlaylistDetail | null> => {
+    // openapi-typescript types multipart bodies as { file: string }; the
+    // runtime contract is FormData (hand-built here).
+    const form = new FormData();
+    form.append("file", file);
+    const { data, response } = await api.PUT("/api/playlists/{playlist_id}/cover", {
+      params: { path: { playlist_id: playlistId } },
+      body: form as unknown as { file: string },
+    });
+    if (!response.ok || !data) return null;
+    void queryClient.invalidateQueries({ queryKey: ["playlists"] });
+    void queryClient.invalidateQueries({ queryKey: ["playlist", playlistId] });
+    void queryClient.invalidateQueries({ queryKey: ["search"] });
+    return data;
   };
 }
 

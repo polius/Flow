@@ -196,6 +196,28 @@ export interface paths {
         patch: operations["update_playlist_api_playlists__playlist_id__patch"];
         trace?: never;
     };
+    "/api/playlists/{playlist_id}/cover": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set Playlist Cover
+         * @description Store an uploaded cover image and set it as the playlist's cover,
+         *     overriding the 2×2 track mosaic. Bytes are stored as-is in the
+         *     content-addressed `artwork` table (sha1 dedup), like scan-derived art.
+         */
+        put: operations["set_playlist_cover_api_playlists__playlist_id__cover_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/playlists/{playlist_id}/tracks": {
         parameters: {
             query?: never;
@@ -388,6 +410,14 @@ export interface components {
             /** Track Count */
             track_count: number;
         };
+        /** Body_set_playlist_cover_api_playlists__playlist_id__cover_put */
+        Body_set_playlist_cover_api_playlists__playlist_id__cover_put: {
+            /**
+             * File
+             * Format: binary
+             */
+            file: string;
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -419,12 +449,16 @@ export interface components {
             name: string;
             /** Description */
             description: string | null;
+            /** Tags */
+            tags: string[];
             /** Created At */
             created_at: string;
             /** Track Count */
             track_count: number;
             /** Duration Total */
             duration_total: number;
+            /** Cover Artwork Id */
+            cover_artwork_id: number | null;
             /** Artwork Ids */
             artwork_ids: number[];
             /** Tracks */
@@ -454,12 +488,16 @@ export interface components {
             name: string;
             /** Description */
             description: string | null;
+            /** Tags */
+            tags: string[];
             /** Created At */
             created_at: string;
             /** Track Count */
             track_count: number;
             /** Duration Total */
             duration_total: number;
+            /** Cover Artwork Id */
+            cover_artwork_id: number | null;
             /** Artwork Ids */
             artwork_ids: number[];
         };
@@ -505,6 +543,10 @@ export interface components {
             name?: string | null;
             /** Description */
             description?: string | null;
+            /** Tags */
+            tags?: string[] | null;
+            /** Cover Artwork Id */
+            cover_artwork_id?: number | null;
         };
         /** ScanStatus */
         ScanStatus: {
@@ -1076,6 +1118,41 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["PlaylistUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlaylistDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_playlist_cover_api_playlists__playlist_id__cover_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                playlist_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_set_playlist_cover_api_playlists__playlist_id__cover_put"];
             };
         };
         responses: {
