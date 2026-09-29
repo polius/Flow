@@ -501,3 +501,52 @@ Design-language additions carried over from the reference images (§2):
 - A scratch library can be generated from `backend/tests/audio_fixtures.py`
   (add a real-PNG cover generator — fixture art bytes don't render in `<img>`).
   The scanner auto-scans on boot (§14.3), so no manual trigger is needed.
+- Artwork responses are `Cache-Control: immutable` (§6). When a dev session
+  reuses a port with a **different data dir**, artwork ids recur with different
+  bytes and the browser serves stale images from its disk cache — hard-reload
+  or verify in a fresh browser context. Not a bug: ids are stable within one
+  library, which is the production case.
+
+## 16. Addendum — decisions recorded during Milestone 5 (2026-09-29)
+
+1. **Ambience shipped here (completes §13):** the blurred-artwork ambience on
+   album detail was agreed in §13 but had not actually been implemented; M5
+   introduced one shared `Ambience` component + `--ambience-*` tokens used by
+   both album detail and Now Playing. No artwork → no ambience (monochrome,
+   §8.1). The dissolve before the track list is a CSS **mask on the artwork
+   layer**, not painted chrome — §8's "no gradients" governs UI surfaces, and
+   the wash itself is artwork-derived color.
+2. **`playNext` insert semantics (fix):** the M3 implementation rebuilt the
+   whole order (reshuffling it when shuffle was on), so a "Play Next" track was
+   not guaranteed to play next. It now inserts into the existing order right
+   after the current position; duplicates remain legal (§14-adjacent multiset
+   reasoning), and the rest of a shuffled order is preserved.
+3. **Shortcut guard:** Space/arrows yield whenever focus sits in an
+   interactive control — `input`, `textarea`, `select`, `button`, `a`,
+   `contenteditable` (which covers inline rename, §15.1) — so native
+   activation (Space on a focused button, arrows on a slider) is preserved and
+   nothing double-fires. Volume steps are 5%; seek is ±10s (§9.5).
+4. **Esc precedence:** context menus → Get Info → Now Playing. Now Playing
+   listens in the capture phase and defers when `contextMenuOpen` or
+   `getInfoTrackId` is set in the ui store; while an inline edit is focused,
+   the shortcut guard defers everything. Local Esc handlers (§15.7) are
+   untouched.
+5. **Theme mechanics (§8.6):** the resolved theme is always written to
+   `data-theme` on `<html>` (`light`/`dark`); `tokens.css`'s dark block is now
+   attribute-driven — **same tuned values, unchanged**. The ui store persists
+   `themeMode` (`system|light|dark`) in the `flow.ui` localStorage entry, and
+   `index.html` carries a matching boot snippet so the first paint already has
+   the right ramp.
+6. **Loading states:** a shared `LoadingState` skeleton (quiet inset blocks,
+   slow opacity pulse) renders while server state is in flight — a loading
+   list must never read as "empty library", and the empty state no longer
+   flashes on Home/lists. The pulse stops under `prefers-reduced-motion`,
+   which also disables all transitions/animations (§8.4).
+7. **Media Session (§13.11):** metadata (title/artist/album/artwork),
+   play/pause/previous/next action handlers, and `playbackState` updates. No
+   position state — not in the approved scope.
+8. **Now Playing shape:** a takeover overlay mounted in the app shell (like
+   Get Info), not a route — playback lives outside the view lifecycle anyway.
+   Entry point: the player-bar artwork thumb. The queue drawer hides below
+   940px. Queue rows are not click-to-jump — queue manipulation is play-next
+   and remove (§9.4), nothing more.
