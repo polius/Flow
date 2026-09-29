@@ -16,6 +16,10 @@
   display: flex;
   flex-direction: column;
   min-width: 0;
+  /* Grid item: without this the row grows past 100dvh when a view is taller
+     than the viewport, pushing the sidebar footer and player bar off-screen
+     instead of letting the canvas scroll beneath them. */
+  min-height: 0;
 }
 
 .shell__canvas {
