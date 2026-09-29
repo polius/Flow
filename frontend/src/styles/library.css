@@ -202,9 +202,13 @@
   grid-template-columns: 32px minmax(0, 2fr) minmax(0, 1.4fr) minmax(0, 60px) 30px 30px;
 }
 
-.trackrow--all,
-.trackrow--playlist {
+.trackrow--all {
   grid-template-columns: 32px minmax(0, 2fr) minmax(0, 1.3fr) minmax(0, 1.3fr) minmax(0, 60px) 30px 30px;
+}
+
+/* Playlist rows add a trailing slot for the hover-revealed remove button. */
+.trackrow--playlist {
+  grid-template-columns: 32px minmax(0, 2fr) minmax(0, 1.3fr) minmax(0, 1.3fr) minmax(0, 60px) 30px 30px 30px;
 }
 
 /* Playlist rows are grabbable anywhere (§9.3 drag-reorder). */

@@ -10,6 +10,7 @@ import { fmtDuration } from "../lib/format";
 import {
   IconHeart,
   IconHeartFill,
+  IconMinus,
   IconMore,
   IconPause,
   IconPlay,
@@ -44,6 +45,8 @@ interface TrackRowProps {
   onMenu: (track: Track, x: number, y: number) => void;
   /** Playlist variant: drag-to-reorder handlers (§9.3). */
   dragHandlers?: HTMLAttributes<HTMLDivElement>;
+  /** Playlist variant: one-click removal, hover-revealed (§9.2). */
+  onRemove?: (track: Track) => void;
 }
 
 export function TrackRow({
@@ -62,6 +65,7 @@ export function TrackRow({
   onToggleFavorite,
   onMenu,
   dragHandlers,
+  onRemove,
 }: TrackRowProps) {
   const activate = () => (isCurrent ? onTogglePlay() : onActivate(index));
   const classes = [
@@ -157,6 +161,22 @@ export function TrackRow({
           <IconMore size={16} />
         </button>
       </span>
+      {onRemove && (
+        <span className="trackrow__remove">
+          <button
+            type="button"
+            className="trackrow__removebtn"
+            aria-label={`Remove ${track.title} from this playlist`}
+            title="Remove from playlist"
+            onClick={(e) => {
+              e.stopPropagation();
+              onRemove(track);
+            }}
+          >
+            <IconMinus size={15} />
+          </button>
+        </span>
+      )}
     </div>
   );
 }

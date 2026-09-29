@@ -1,18 +1,20 @@
-/* Playlist detail — read-only header, mosaic or custom cover, drag-to-reorder
-   tracks (§9.2, §9.3, §13.10). All editing lives behind the Manage dialog;
-   reorder is optimistic and the PUT is the source of truth. */
+/* Playlist detail — header, mosaic or custom cover, drag-to-reorder tracks
+   (§9.2, §9.3, §13.10). Adding tracks opens the in-place Add Tracks picker;
+   metadata editing lives behind the Manage dialog; reorder is optimistic and
+   the PUT is the source of truth. */
 
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Link, useNavigate, useParams } from "react-router";
+import { useNavigate, useParams } from "react-router";
 
 import { api } from "../api/client";
 import type { PlaylistDetail as PlaylistDetailT } from "../api/types";
 import { useRemoveFromPlaylist, useReorderPlaylist } from "../api/mutations";
+import { AddTracksDialog } from "../components/AddTracksDialog";
 import { EmptyState } from "../components/EmptyState";
 import { LoadingState } from "../components/LoadingState";
 import { ManagePlaylistDialog } from "../components/ManagePlaylistDialog";
-import { IconPlay, IconPlaylists } from "../components/icons";
+import { IconPlay, IconPlaylists, IconPlus } from "../components/icons";
 import { PlaylistArt } from "../components/PlaylistArt";
 import { TrackTable } from "../components/TrackTable";
 import { fmtCount, fmtDateTime, fmtMinutes } from "../lib/format";
@@ -28,6 +30,7 @@ export function PlaylistDetailView() {
   const reorderPlaylist = useReorderPlaylist();
   const removeFromPlaylist = useRemoveFromPlaylist();
   const [managing, setManaging] = useState(false);
+  const [adding, setAdding] = useState(false);
   const queryClient = useQueryClient();
 
   const { data: playlist } = useQuery({
@@ -129,6 +132,10 @@ export function PlaylistDetailView() {
               <IconPlay size={15} />
               Play
             </button>
+            <button type="button" className="view__action" onClick={() => setAdding(true)}>
+              <IconPlus size={14} />
+              Add Tracks
+            </button>
             <button
               type="button"
               className="view__action"
@@ -146,11 +153,10 @@ export function PlaylistDetailView() {
           title="This playlist is empty"
           hint={
             <>
-              Find a song in{" "}
-              <Link to="/tracks" className="empty-state__link">
-                Tracks
-              </Link>{" "}
-              and use the ··· menu to add it here.
+              Search your library right here — pick a song, an album, anything.{" "}
+              <button type="button" className="empty-state__link" onClick={() => setAdding(true)}>
+                Add your first tracks
+              </button>
             </>
           }
         />
@@ -161,6 +167,10 @@ export function PlaylistDetailView() {
           onMove={move}
           onRemoveTrack={(track) => void removeFromPlaylist(playlistId, track.id)}
         />
+      )}
+
+      {adding && (
+        <AddTracksDialog playlist={playlist} onClose={() => setAdding(false)} />
       )}
 
       {managing && (

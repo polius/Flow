@@ -22,7 +22,7 @@ interface TrackTableProps {
   context?: Track[];
   /** Playlist variant: drop handler for drag-to-reorder. */
   onMove?: (fromIndex: number, toIndex: number) => void;
-  /** Playlist variant: removes a track from the playlist. */
+  /** Playlist variant: removes a track from the playlist (row button + menu). */
   onRemoveTrack?: (track: Track) => void;
 }
 
@@ -111,6 +111,7 @@ export function TrackTable({
         onToggleFavorite={toggleFavorite}
         onMenu={(track, x, y) => setMenu({ track, x, y })}
         dragHandlers={dragHandlers(index)}
+        onRemove={variant === "playlist" && onRemoveTrack ? onRemoveTrack : undefined}
       />
     );
   });

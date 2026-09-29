@@ -146,6 +146,22 @@ export function IconPlus(props: IconProps) {
   );
 }
 
+export function IconMinus(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M5 12h14" />
+    </Icon>
+  );
+}
+
+export function IconCheck(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="m5 12.5 4.5 4.5L19 7.5" />
+    </Icon>
+  );
+}
+
 export function IconClose(props: IconProps) {
   return (
     <Icon {...props}>

@@ -42,6 +42,35 @@
   color: var(--text-primary);
 }
 
+/* Playlist rows: a third hover slot removes the track in one click (§9.2). */
+.trackrow__remove {
+  display: flex;
+  justify-content: center;
+}
+
+.trackrow__removebtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  color: var(--text-secondary);
+  opacity: 0;
+  transition: opacity var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out);
+}
+
+.trackrow:hover .trackrow__removebtn,
+.trackrow__removebtn:focus-visible {
+  opacity: 1;
+}
+
+.trackrow__removebtn:hover {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
 .trackrow__heartbtn--on {
   color: var(--accent);
 }
@@ -55,6 +84,15 @@
 .trackrow--playing .trackrow__heartbtn:hover,
 .trackrow--playing .trackrow__morebtn:hover {
   color: var(--bg-canvas);
+}
+
+.trackrow--playing .trackrow__removebtn {
+  color: color-mix(in srgb, var(--bg-canvas) 72%, transparent);
+}
+
+.trackrow--playing .trackrow__removebtn:hover {
+  color: var(--bg-canvas);
+  background: color-mix(in srgb, var(--bg-canvas) 16%, transparent);
 }
 
 .trackrow--playing .trackrow__heartbtn--on {
@@ -454,6 +492,311 @@ textarea.inlineedit__input {
 .getinfo__cancel:hover {
   color: var(--text-primary);
   background: var(--bg-hover);
+}
+
+/* ---- Add Tracks picker (playlist detail) ---------------------------------- */
+
+.addtracks__scrim {
+  position: fixed;
+  inset: 0;
+  z-index: calc(var(--z-modal) - 1);
+  background: rgba(0, 0, 0, 0.18);
+}
+
+.addtracks {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: var(--z-modal);
+  display: flex;
+  flex-direction: column;
+  width: min(620px, 94vw);
+  height: min(640px, 90vh);
+  overflow: hidden;
+  background: var(--bg-elevated);
+  border: 1px solid var(--separator);
+  border-radius: var(--radius-l);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.32);
+  animation: manage-in var(--dur-normal) var(--ease-out);
+}
+
+.addtracks__head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 18px 22px 14px;
+}
+
+.addtracks__identity {
+  flex: 1;
+  min-width: 0;
+}
+
+.addtracks__title {
+  margin: 0;
+  font-size: var(--text-title);
+  font-weight: 700;
+  letter-spacing: var(--tracking-tight);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.addtracks__sub {
+  margin: 3px 0 0;
+  font-size: var(--text-small);
+  color: var(--text-secondary);
+}
+
+.addtracks__close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  color: var(--text-secondary);
+}
+
+.addtracks__close:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.addtracks__search {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 0 22px 12px;
+  padding: 9px 12px;
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius-m);
+  background: var(--bg-canvas);
+  transition: border-color var(--dur-fast) var(--ease-out);
+}
+
+.addtracks__search:focus-within {
+  border-color: color-mix(in srgb, var(--text-primary) 40%, transparent);
+}
+
+.addtracks__searchicon {
+  display: flex;
+  color: var(--text-tertiary);
+}
+
+.addtracks__searchinput {
+  flex: 1;
+  border: none;
+  background: transparent;
+  font-size: var(--text-regular);
+  color: var(--text-primary);
+  outline: none;
+}
+
+.addtracks__searchinput::placeholder {
+  color: var(--text-tertiary);
+}
+
+/* Focus is carried by the wrapper's border (§8 chrome) — never the global
+   accent ring, which reads as an error state on a search field. */
+.addtracks__searchinput:focus,
+.addtracks__searchinput:focus-visible {
+  outline: none;
+}
+
+.addtracks__listhead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 22px 8px;
+}
+
+.addtracks__listmeta {
+  font-size: var(--text-caption);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-tertiary);
+}
+
+.addtracks__bulk {
+  display: flex;
+  gap: 4px;
+}
+
+.addtracks__bulkbtn {
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: var(--text-small);
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.addtracks__bulkbtn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.addtracks__list {
+  flex: 1;
+  overflow-y: auto;
+  margin: 0 12px;
+  padding: 0 10px;
+}
+
+.addtracks__placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  height: 200px;
+  font-size: var(--text-body);
+  color: var(--text-secondary);
+  text-align: center;
+}
+
+.addtracks__placeholdersub {
+  font-size: var(--text-small);
+  color: var(--text-tertiary);
+}
+
+.addtracks__row {
+  display: grid;
+  grid-template-columns: 20px 34px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 7px 10px;
+  border-radius: var(--radius-m);
+  text-align: left;
+}
+
+.addtracks__row--cursor {
+  background: var(--bg-hover);
+}
+
+.addtracks__row--selected {
+  background: var(--bg-active);
+}
+
+.addtracks__row--in {
+  opacity: 0.62;
+}
+
+/* The custom checkbox: an empty circle until selected, then a filled check. */
+.addtracks__box {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border: 1.5px solid var(--control-border);
+  border-radius: 50%;
+  color: var(--bg-elevated);
+  transition: background var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out);
+}
+
+.addtracks__row:hover .addtracks__box {
+  border-color: var(--text-tertiary);
+}
+
+.addtracks__row--selected .addtracks__box {
+  border-color: var(--text-primary);
+  background: var(--text-primary);
+}
+
+.addtracks__row--in .addtracks__box {
+  border-color: transparent;
+  color: var(--text-tertiary);
+}
+
+.addtracks__names {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.addtracks__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--text-body);
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.addtracks__artist {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--text-small);
+  color: var(--text-secondary);
+}
+
+.addtracks__duration {
+  font-size: var(--text-small);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-tertiary);
+}
+
+.addtracks__inplaylist {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 9px;
+  border-radius: 999px;
+  background: var(--bg-inset);
+  font-size: var(--text-small);
+  font-weight: 500;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.addtracks__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 14px 22px;
+  border-top: 1px solid var(--separator);
+}
+
+.addtracks__summary {
+  margin: 0;
+  font-size: var(--text-small);
+  font-weight: 500;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.addtracks__actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.addtracks__cancel {
+  padding: 8px 16px;
+  border-radius: 999px;
+  font-size: var(--text-body);
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.addtracks__cancel:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+
+.addtracks__actions .btn--primary {
+  min-width: 128px;
+  justify-content: center;
 }
 
 /* ---- tag chips (detail header + Manage dialog) ----------------------------- */

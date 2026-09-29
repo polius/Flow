@@ -72,6 +72,25 @@
   color: var(--text-secondary);
 }
 
+/* Inline action inside an empty-state hint — works for links and buttons. */
+.empty-state__link {
+  display: inline;
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  font-weight: 600;
+  color: var(--text-primary);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.empty-state__link:hover {
+  color: var(--text-primary);
+  text-decoration-thickness: 2px;
+}
+
 /* Settings rows (grows in Milestone 2 with the live scan API). */
 .settings-group {
   margin-top: 28px;
