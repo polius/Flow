@@ -1,5 +1,5 @@
-import { useEffect } from "react";
-import { Outlet } from "react-router";
+import { useEffect, useLayoutEffect, useRef } from "react";
+import { Outlet, useLocation } from "react-router";
 
 import { ensureScanSync } from "../api/scanSync";
 import { useGlobalShortcuts } from "../lib/shortcuts";
@@ -14,11 +14,22 @@ import "../styles/shell.css";
 export function AppShell() {
   const collapsed = useUiStore((s) => s.sidebarCollapsed);
   const focusSearch = useUiStore((s) => s.focusSearch);
+  const location = useLocation();
+  const canvasRef = useRef<HTMLElement>(null);
   useGlobalShortcuts();
 
   useEffect(() => {
     ensureScanSync();
   }, []);
+
+  // The canvas is one shared scroll container across views, so an offset from
+  // one section would leak into the next — the new view could land mid-list
+  // (or pinned past its content) on first open. Reset synchronously before
+  // paint (useLayoutEffect) so the leaked offset is never visible. Search-term
+  // updates keep their scroll: only the pathname is reset.
+  useLayoutEffect(() => {
+    canvasRef.current?.scrollTo(0, 0);
+  }, [location.pathname]);
 
   // ⌘F / Ctrl+F focuses the top-bar search field from anywhere (§9.5).
   useEffect(() => {
@@ -37,7 +48,7 @@ export function AppShell() {
       <Sidebar />
       <div className="shell__main">
         <TopBar />
-        <main className="shell__canvas">
+        <main ref={canvasRef} className="shell__canvas">
           <Outlet />
         </main>
         <PlayerBar />

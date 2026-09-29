@@ -1,8 +1,20 @@
 /* Views — large-title layout and designed empty states (DESIGN.md §8.8). */
 
+/* View entry (§8.4): a section change is otherwise a hard cut, which reads
+   as a glitch on a cold first visit (skeleton + content arriving in stages).
+   A quiet fade on mount is the "view transition" the design allows — subtle,
+   short, ease-out; no movement. Skipped under prefers-reduced-motion via the
+   global override in base.css. */
+@keyframes view-in {
+  from {
+    opacity: 0;
+  }
+}
+
 .view {
   padding: 34px 40px 48px;
   max-width: 1480px;
+  animation: view-in var(--dur-normal) var(--ease-out);
 }
 
 /* Album detail ambience (§8.5, §13): the blurred cover sits behind the
