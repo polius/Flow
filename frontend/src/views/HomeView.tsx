@@ -4,6 +4,7 @@ import { Link } from "react-router";
 import { api } from "../api/client";
 import { AlbumCard } from "../components/AlbumCard";
 import { EmptyState } from "../components/EmptyState";
+import { LoadingState } from "../components/LoadingState";
 import { IconMusicNote } from "../components/icons";
 import { PlaylistArt } from "../components/PlaylistArt";
 import { fmtCount, scanProgressLabel } from "../lib/format";
@@ -103,13 +104,16 @@ export function HomeView() {
         </div>
       )}
 
-      {!scanning && !hasLibrary && (
-        <EmptyState
-          icon={<IconMusicNote size={26} />}
-          title="Your library is empty"
-          hint="Point Flow at your music folder and it will scan, index, and stream it — without ever touching your files."
-        />
-      )}
+      {!scanning && !hasLibrary &&
+        (settings === undefined ? (
+          <LoadingState variant="rows" />
+        ) : (
+          <EmptyState
+            icon={<IconMusicNote size={26} />}
+            title="Your library is empty"
+            hint="Point Flow at your music folder and it will scan, index, and stream it — without ever touching your files."
+          />
+        ))}
     </section>
   );
 }

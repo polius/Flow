@@ -154,6 +154,14 @@ export function IconClose(props: IconProps) {
   );
 }
 
+export function IconChevronDown(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="m6 9.5 6 6 6-6" />
+    </Icon>
+  );
+}
+
 export function IconGrip(props: IconProps) {
   return (
     <Icon {...props}>

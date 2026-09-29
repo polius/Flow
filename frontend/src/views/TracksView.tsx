@@ -4,6 +4,7 @@ import { useSearchParams } from "react-router";
 import { api } from "../api/client";
 import { TrackTable } from "../components/TrackTable";
 import { EmptyState } from "../components/EmptyState";
+import { LoadingState } from "../components/LoadingState";
 import { IconTracks } from "../components/icons";
 import { fmtCount } from "../lib/format";
 
@@ -31,7 +32,9 @@ export function TracksView() {
   return (
     <section className="view">
       <h1 className="view__title">Tracks</h1>
-      {tracks.length === 0 ? (
+      {data === undefined ? (
+        <LoadingState variant="rows" />
+      ) : tracks.length === 0 ? (
         <EmptyState
           icon={<IconTracks size={26} />}
           title={q ? `No tracks match “${q}”` : "No tracks yet"}

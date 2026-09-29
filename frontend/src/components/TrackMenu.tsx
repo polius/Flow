@@ -42,6 +42,9 @@ export function TrackMenu({ track, anchor, onClose, onRemoveFromPlaylist }: Trac
   const playlists = playlistsData?.items ?? [];
 
   useEffect(() => {
+    // Registered so global Esc/shortcut handling knows a menu is on top
+    // (§15.7 precedence: menus close before panels and views).
+    useUiStore.getState().setContextMenuOpen(true);
     const onPointerDown = (e: PointerEvent) => {
       if (!menuRef.current?.contains(e.target as Node)) onClose();
     };
@@ -51,6 +54,7 @@ export function TrackMenu({ track, anchor, onClose, onRemoveFromPlaylist }: Trac
     window.addEventListener("pointerdown", onPointerDown);
     window.addEventListener("keydown", onKeyDown);
     return () => {
+      useUiStore.getState().setContextMenuOpen(false);
       window.removeEventListener("pointerdown", onPointerDown);
       window.removeEventListener("keydown", onKeyDown);
     };

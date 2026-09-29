@@ -4,6 +4,7 @@ import { useParams } from "react-router";
 import { api } from "../api/client";
 import { AlbumCard } from "../components/AlbumCard";
 import { EmptyState } from "../components/EmptyState";
+import { LoadingState } from "../components/LoadingState";
 import { IconArtists } from "../components/icons";
 import { fmtCount } from "../lib/format";
 import { TrackTable } from "../components/TrackTable";
@@ -36,7 +37,13 @@ export function ArtistDetailView() {
     );
   }
 
-  if (artist === undefined) return <section className="view" />;
+  if (artist === undefined) {
+    return (
+      <section className="view">
+        <LoadingState variant="detail" />
+      </section>
+    );
+  }
 
   return (
     <section className="view">

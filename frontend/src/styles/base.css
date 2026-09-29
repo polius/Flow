@@ -101,3 +101,45 @@ a {
 .artwork--r-s { border-radius: var(--radius-s); }
 .artwork--r-m { border-radius: var(--radius-m); }
 .artwork--r-l { border-radius: var(--radius-l); }
+
+/* Artwork ambience (§8.5, §13) — blurred cover wash behind a view. The flat
+   canvas-color wash on ::after keeps text legible; contrast comes from the
+   token, never from a painted gradient. */
+.ambience {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.ambience__img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  filter: blur(var(--ambience-blur)) saturate(1.5);
+  opacity: var(--ambience-opacity);
+  /* Oversize so the blur never reveals the image edge. */
+  transform: scale(1.4);
+}
+
+.ambience::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--bg-canvas);
+  opacity: var(--ambience-wash);
+}
+
+/* Motion restraint (§8.4): users who ask for less motion get the states
+   without the transitions. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}

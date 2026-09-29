@@ -3,6 +3,7 @@ import { Link, useSearchParams } from "react-router";
 
 import { api } from "../api/client";
 import { EmptyState } from "../components/EmptyState";
+import { LoadingState } from "../components/LoadingState";
 import { IconArtists } from "../components/icons";
 import { fmtCount } from "../lib/format";
 
@@ -25,7 +26,9 @@ export function ArtistsView() {
   return (
     <section className="view">
       <h1 className="view__title">Artists</h1>
-      {artists.length === 0 ? (
+      {data === undefined ? (
+        <LoadingState variant="rows" />
+      ) : artists.length === 0 ? (
         <EmptyState
           icon={<IconArtists size={26} />}
           title={q ? `No artists match “${q}”` : "No artists yet"}

@@ -5,6 +5,22 @@
   max-width: 1480px;
 }
 
+/* Album detail ambience (§8.5, §13): the blurred cover sits behind the
+   header and dissolves before the track table. isolation keeps the negative
+   z-index local; the mask lives on the artwork layer, not painted chrome. */
+.view--ambient {
+  position: relative;
+  isolation: isolate;
+}
+
+.view--ambient .ambience--banner {
+  inset: -34px -40px auto -40px;
+  height: 480px;
+  z-index: -1;
+  -webkit-mask-image: radial-gradient(120% 100% at 30% 0%, black 52%, transparent 98%);
+  mask-image: radial-gradient(120% 100% at 30% 0%, black 52%, transparent 98%);
+}
+
 .view__title {
   margin: 0;
   font-size: var(--text-large-title);
@@ -121,4 +137,107 @@
 
 .btn:disabled {
   opacity: 0.4;
+}
+
+/* Theme override — three-way segmented control (§8.6). */
+.segmented {
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 8px;
+  background: var(--bg-inset);
+}
+
+.segmented__item {
+  padding: 4px 14px;
+  border-radius: 6px;
+  font-size: var(--text-small);
+  font-weight: 500;
+  color: var(--text-secondary);
+  transition: background-color var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out);
+}
+
+.segmented__item:hover {
+  color: var(--text-primary);
+}
+
+.segmented__item--active,
+.segmented__item--active:hover {
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+
+/* Keyboard chips in the shortcuts list. */
+.settings-kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  padding: 2px 7px;
+  border: 1px solid var(--control-border);
+  border-bottom-width: 2px;
+  border-radius: 5px;
+  background: var(--bg-elevated);
+  font-family: var(--font-sans);
+  font-size: var(--text-caption);
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+/* Loading placeholders (§8.8) — quiet inset blocks, slow pulse (§8.4). */
+.skeleton {
+  background: var(--bg-inset);
+  border-radius: var(--radius-s);
+  animation: skeleton-pulse 1.6s ease-in-out infinite alternate;
+}
+
+@keyframes skeleton-pulse {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0.45;
+  }
+}
+
+.skeleton--square {
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: var(--radius-m);
+}
+
+.skeleton--detail {
+  width: 220px;
+  flex: none;
+}
+
+.skeleton--line {
+  height: 13px;
+  margin-top: 10px;
+}
+
+.skeleton--thin {
+  height: 11px;
+}
+
+.skeleton--title {
+  width: 55%;
+  height: 24px;
+  margin-top: 0;
+}
+
+.skeleton--row {
+  height: 38px;
+  margin-top: 8px;
+}
+
+.loading-detail {
+  flex: 1;
+  min-width: 0;
+}
+
+.loading-rows {
+  margin-top: 18px;
 }

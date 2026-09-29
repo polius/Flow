@@ -7,9 +7,10 @@ folder**. Metadata edits live in SQLite as overlays.
 `docs/DESIGN.md` is the product and engineering contract: scope, API shape,
 design system, milestones, and non-goals. Read it before adding anything.
 
-**Status:** Milestone 4 — playlists + editing. Playlist CRUD with drag-to-reorder
-and 2×2 artwork mosaics, track ··· menu (play next / add to playlist), Get Info
-panel, inline rename, favorites, and grouped cross-entity search.
+**Status:** Milestone 5 — Now Playing + polish. Full-screen Now Playing with
+blurred-artwork ambience (album detail too) and a removable queue drawer,
+global keyboard shortcuts (documented in Settings), light/dark/auto theme
+override, designed loading/empty states, and Media Session integration.
 
 ## Quick start (Docker)
 

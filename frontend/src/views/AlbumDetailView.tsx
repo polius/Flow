@@ -2,8 +2,10 @@ import { useQuery } from "@tanstack/react-query";
 import { Link, useParams } from "react-router";
 
 import { api } from "../api/client";
+import { Ambience } from "../components/Ambience";
 import { Artwork } from "../components/Artwork";
 import { EmptyState } from "../components/EmptyState";
+import { LoadingState } from "../components/LoadingState";
 import { IconAlbums, IconPlay } from "../components/icons";
 import { fmtMinutes } from "../lib/format";
 import { usePlayerStore } from "../stores/player";
@@ -38,7 +40,13 @@ export function AlbumDetailView() {
     );
   }
 
-  if (album === undefined) return <section className="view" />;
+  if (album === undefined) {
+    return (
+      <section className="view">
+        <LoadingState variant="detail" />
+      </section>
+    );
+  }
 
   const metaBits = [
     album.artist_id != null ? (
@@ -54,7 +62,8 @@ export function AlbumDetailView() {
   ].filter(Boolean);
 
   return (
-    <section className="view">
+    <section className="view view--ambient">
+      <Ambience artworkId={album.artwork_id} variant="banner" />
       <header className="detailhead">
         <Artwork artworkId={album.artwork_id} size={220} radius="l" className="detailhead__art" />
         <div className="detailhead__info">

@@ -23,6 +23,22 @@
   min-width: 0;
 }
 
+/* Artwork thumb doubles as the Now Playing entry point (§9.2). */
+.player__art {
+  flex: none;
+  display: flex;
+  border-radius: var(--radius-s);
+  transition: transform var(--dur-fast) var(--ease-out);
+}
+
+.player__art:hover {
+  transform: scale(1.05);
+}
+
+.player__art:active {
+  transform: scale(0.97);
+}
+
 .player__artwork {
   display: flex;
   align-items: center;
@@ -158,4 +174,38 @@
 
 .player__volume .range {
   max-width: 110px;
+}
+
+/* Play/pause glyph crossfade — play-state motion (§8.4), 150ms ease-out. */
+.transport-glyph {
+  position: relative;
+  display: flex;
+  width: 19px;
+  height: 19px;
+}
+
+.transport-glyph__play,
+.transport-glyph__pause {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out);
+}
+
+.transport-glyph__pause {
+  opacity: 0;
+  transform: scale(0.7);
+}
+
+.transport-glyph--alt .transport-glyph__pause {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.transport-glyph--alt .transport-glyph__play {
+  opacity: 0;
+  transform: scale(0.7);
 }

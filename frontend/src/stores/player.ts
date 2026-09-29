@@ -1,7 +1,8 @@
 /* Player state + audio engine — one module, deliberately.
    The <audio> element lives outside React's lifecycle so playback continues
    across navigation (DESIGN.md §9.4). Store holds state; the thin engine
-   layer below the store binds element events back into it. */
+   layer below the store binds element events back into it. M5 adds queue
+   removal (§9.4) and Media Session integration (§13.11). */
 
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
@@ -24,6 +25,8 @@ interface PlayerState {
 
   playTracks: (tracks: Track[], startIndex: number) => void;
   playNext: (track: Track) => void;
+  /** Removes an upcoming track from the queue (§9.4). No-op for the current one. */
+  removeFromQueue: (queueIndex: number) => void;
   togglePlay: () => void;
   next: () => void;
   prev: () => void;
@@ -79,7 +82,7 @@ export const usePlayerStore = create<PlayerState>()(
       },
 
       playNext: (track) => {
-        const { queue, order, orderPos, shuffle } = get();
+        const { queue, order, orderPos } = get();
         if (queue.length === 0) {
           get().playTracks([track], 0);
           return;
@@ -87,9 +90,32 @@ export const usePlayerStore = create<PlayerState>()(
         const currentQueueIndex = order[orderPos];
         const newQueue = [...queue];
         newQueue.splice(currentQueueIndex + 1, 0, track);
-        const rebuilt = buildOrder(newQueue.length, shuffle, currentQueueIndex);
+        // Insert into the existing order right after the current position:
+        // the track is guaranteed to play next, and with shuffle on the rest
+        // of the planned order stays put (a full rebuild would reshuffle it).
+        const remapped = order.map((i) => (i > currentQueueIndex ? i + 1 : i));
+        remapped.splice(orderPos + 1, 0, currentQueueIndex + 1);
         // Seamless: the audio element keeps playing; only the plan changes.
-        set({ queue: newQueue, order: rebuilt.order, orderPos: rebuilt.pos });
+        set({ queue: newQueue, order: remapped, orderPos });
+      },
+
+      removeFromQueue: (queueIndex) => {
+        const { order, orderPos } = get();
+        const currentQueueIndex = order[orderPos];
+        if (queueIndex === currentQueueIndex) return;
+        const orderIdx = order.indexOf(queueIndex);
+        if (orderIdx === -1) return;
+        // The current track keeps playing untouched — drop it from the plan
+        // only, recompacting both arrays around it.
+        const newQueue = get().queue.filter((_, i) => i !== queueIndex);
+        const newOrder = order
+          .filter((i) => i !== queueIndex)
+          .map((i) => (i > queueIndex ? i - 1 : i));
+        set({
+          queue: newQueue,
+          order: newOrder,
+          orderPos: newOrder.indexOf(currentQueueIndex),
+        });
       },
 
       togglePlay: () => {
@@ -152,9 +178,43 @@ function load(track: Track, autoplay: boolean): void {
   if (!audio) return;
   audio.src = `/api/stream/${track.id}`;
   usePlayerStore.setState({ position: 0, duration: track.duration || 0, buffered: 0 });
+  syncMediaSessionMetadata(track);
   if (autoplay) {
     void audio.play().catch(() => usePlayerStore.setState({ isPlaying: false }));
   }
+}
+
+/* ---- Media Session (approved nicety, §13.11) — OS media keys + lock screen */
+
+function syncMediaSessionMetadata(track: Track): void {
+  if (typeof navigator === "undefined" || !("mediaSession" in navigator)) return;
+  const artwork =
+    track.artwork_id != null
+      ? [{ src: `/api/artwork/${track.artwork_id}`, sizes: "512x512" }]
+      : [];
+  navigator.mediaSession.metadata = new MediaMetadata({
+    title: track.title,
+    artist: track.artist ?? "",
+    album: track.album ?? "",
+    artwork,
+  });
+}
+
+function setupMediaSession(): void {
+  if (typeof navigator === "undefined" || !("mediaSession" in navigator) || !audio) return;
+  navigator.mediaSession.setActionHandler("play", () => void audio!.play());
+  navigator.mediaSession.setActionHandler("pause", () => audio!.pause());
+  navigator.mediaSession.setActionHandler("previoustrack", () =>
+    usePlayerStore.getState().prev(),
+  );
+  navigator.mediaSession.setActionHandler("nexttrack", () =>
+    usePlayerStore.getState().next(),
+  );
+}
+
+function setPlaybackState(state: "playing" | "paused"): void {
+  if (typeof navigator === "undefined" || !("mediaSession" in navigator)) return;
+  navigator.mediaSession.playbackState = state;
 }
 
 function advance(step: number, auto: boolean): void {
@@ -179,9 +239,16 @@ function advance(step: number, auto: boolean): void {
 
 if (audio) {
   audio.volume = usePlayerStore.getState().volume;
+  setupMediaSession();
 
-  audio.addEventListener("play", () => usePlayerStore.setState({ isPlaying: true }));
-  audio.addEventListener("pause", () => usePlayerStore.setState({ isPlaying: false }));
+  audio.addEventListener("play", () => {
+    usePlayerStore.setState({ isPlaying: true });
+    setPlaybackState("playing");
+  });
+  audio.addEventListener("pause", () => {
+    usePlayerStore.setState({ isPlaying: false });
+    setPlaybackState("paused");
+  });
   audio.addEventListener("timeupdate", () =>
     usePlayerStore.setState({ position: audio!.currentTime }),
   );

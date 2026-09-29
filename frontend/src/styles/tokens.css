@@ -7,8 +7,13 @@
    of the light values.
    ============================================================ */
 
+/* The resolved theme is set as data-theme on <html> by lib/theme.ts (§8.6):
+   "light" or "dark" always present, with "dark" either chosen manually or
+   following prefers-color-scheme. The dark ramp below is tuned for dark
+   surfaces, not an inversion of the light values. */
+
 :root {
-  color-scheme: light dark;
+  color-scheme: light;
 
   /* ---- surfaces (light) ---- */
   --bg-canvas: #f5f5f7;
@@ -34,6 +39,11 @@
   /* ---- player translucency (DESIGN.md §8.5) ---- */
   --bg-player: rgba(245, 245, 247, 0.72);
   --player-blur: 24px;
+
+  /* ---- artwork ambience (§8.5, §13) — blurred cover wash behind a view ---- */
+  --ambience-blur: 90px;
+  --ambience-opacity: 0.5;
+  --ambience-wash: 0.62;
 
   /* ---- type ---- */
   --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI",
@@ -67,24 +77,24 @@
   --z-modal: 80;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg-canvas: #161618;
-    --bg-sidebar: #1d1d20;
-    --bg-elevated: #26262a;
-    --bg-inset: #2c2c30;
-    --bg-hover: rgba(255, 255, 255, 0.06);
-    --bg-active: rgba(255, 255, 255, 0.1);
+:root[data-theme="dark"] {
+  color-scheme: dark;
 
-    --text-primary: #f5f5f7;
-    --text-secondary: rgba(235, 235, 245, 0.6);
-    --text-tertiary: rgba(235, 235, 245, 0.34);
+  --bg-canvas: #161618;
+  --bg-sidebar: #1d1d20;
+  --bg-elevated: #26262a;
+  --bg-inset: #2c2c30;
+  --bg-hover: rgba(255, 255, 255, 0.06);
+  --bg-active: rgba(255, 255, 255, 0.1);
 
-    --separator: rgba(255, 255, 255, 0.1);
-    --control-border: rgba(255, 255, 255, 0.16);
+  --text-primary: #f5f5f7;
+  --text-secondary: rgba(235, 235, 245, 0.6);
+  --text-tertiary: rgba(235, 235, 245, 0.34);
 
-    --accent: #e5544e;
+  --separator: rgba(255, 255, 255, 0.1);
+  --control-border: rgba(255, 255, 255, 0.16);
 
-    --bg-player: rgba(22, 22, 24, 0.72);
-  }
+  --accent: #e5544e;
+
+  --bg-player: rgba(22, 22, 24, 0.72);
 }

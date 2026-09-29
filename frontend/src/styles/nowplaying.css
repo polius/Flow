@@ -1,0 +1,287 @@
+/* Now Playing takeover (§9.2) + queue drawer (§9.4). The ambience supplies
+   the only color (§8.5, §13); every control here reuses the shared chrome
+   tokens. Motion: one entrance for the takeover, one slide for the queue —
+   both short and ease-out (§8.4). */
+
+.nowplaying {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal);
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-canvas);
+  animation: nowplaying-in var(--dur-normal) var(--ease-out);
+}
+
+@keyframes nowplaying-in {
+  from {
+    opacity: 0;
+    transform: scale(1.015);
+  }
+}
+
+.nowplaying__close {
+  position: absolute;
+  top: 18px;
+  left: 20px;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  color: var(--text-secondary);
+  background: color-mix(in srgb, var(--bg-elevated) 72%, transparent);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  transition: color var(--dur-fast) var(--ease-out),
+    background-color var(--dur-fast) var(--ease-out);
+}
+
+.nowplaying__close:hover {
+  color: var(--text-primary);
+  background: var(--bg-elevated);
+}
+
+/* ---- layout: stage + queue ------------------------------------------------ */
+
+.nowplaying__layout {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 340px);
+  flex: 1;
+  min-height: 0;
+}
+
+.nowplaying__stage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  min-width: 0;
+  padding: 64px 44px;
+  overflow-y: auto;
+}
+
+.nowplaying__art {
+  width: min(380px, 42vh);
+  height: auto;
+  box-shadow: 0 22px 60px rgba(0, 0, 0, 0.35);
+}
+
+.nowplaying__meta {
+  text-align: center;
+  max-width: 640px;
+}
+
+.nowplaying__title {
+  margin: 0;
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: var(--tracking-tight);
+  line-height: var(--leading-tight);
+}
+
+.nowplaying__artist {
+  margin: 6px 0 0;
+  font-size: var(--text-regular);
+  color: var(--text-secondary);
+}
+
+.nowplaying__album {
+  margin: 3px 0 0;
+  font-size: var(--text-small);
+  color: var(--text-tertiary);
+}
+
+.nowplaying__controls {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: min(520px, 100%);
+}
+
+.nowplaying__transport {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 26px;
+}
+
+/* The Scrubber carries .player__time/.player__scrubber classes — same
+   components as the bar, only the container differs. */
+.nowplaying__progress {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+}
+
+.nowplaying__volume {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: var(--text-secondary);
+}
+
+.nowplaying__volume .range {
+  max-width: 200px;
+}
+
+/* ---- queue drawer ---------------------------------------------------------- */
+
+.queue {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border-left: 1px solid var(--separator);
+  background: var(--bg-player);
+  -webkit-backdrop-filter: blur(var(--player-blur));
+  backdrop-filter: blur(var(--player-blur));
+  animation: queue-in var(--dur-normal) var(--ease-out);
+}
+
+@keyframes queue-in {
+  from {
+    transform: translateX(18px);
+    opacity: 0;
+  }
+}
+
+.queue__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 20px 20px 10px;
+}
+
+.queue__title {
+  margin: 0;
+  font-size: var(--text-title);
+  font-weight: 700;
+  letter-spacing: var(--tracking-tight);
+}
+
+.queue__count {
+  font-size: var(--text-small);
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+
+.queue__list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 10px 20px;
+}
+
+.queue__label {
+  padding: 10px 10px 6px;
+  font-size: var(--text-caption);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-tertiary);
+}
+
+.queue__row {
+  position: relative;
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 11px;
+  padding: 7px 10px;
+  border-radius: var(--radius-m);
+}
+
+.queue__row:hover {
+  background: var(--bg-hover);
+}
+
+.queue__row--current {
+  background: var(--bg-active);
+}
+
+.queue__meta {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: var(--leading-tight);
+}
+
+.queue__name {
+  font-size: var(--text-body);
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.queue__sub {
+  margin-top: 2px;
+  font-size: var(--text-small);
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.queue__time {
+  font-size: var(--text-caption);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-tertiary);
+}
+
+/* Hover-revealed removal (§8.7) — the one queue action. */
+.queue__remove {
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  color: var(--text-secondary);
+  background: var(--bg-elevated);
+  opacity: 0;
+  transition: opacity var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out);
+}
+
+.queue__row:hover .queue__remove,
+.queue__remove:focus-visible {
+  opacity: 1;
+}
+
+.queue__remove:hover {
+  color: var(--accent);
+}
+
+/* Time yields to the remove button on hover. */
+.queue__row:hover .queue__time {
+  opacity: 0;
+}
+
+.queue__empty {
+  margin: 14px 10px 0;
+  font-size: var(--text-small);
+  color: var(--text-tertiary);
+}
+
+/* ---- narrow windows: the stage alone carries the view ---------------------- */
+
+@media (max-width: 940px) {
+  .nowplaying__layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .queue {
+    display: none;
+  }
+}

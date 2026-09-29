@@ -5,6 +5,20 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="color-scheme" content="light dark" />
     <title>Flow</title>
+    <script>
+      // Set the theme ramp before first paint (§8.6) — mirrors lib/theme.ts.
+      try {
+        var stored = JSON.parse(localStorage.getItem("flow.ui") || "{}");
+        var mode = stored.state ? stored.state.themeMode : null;
+        var dark =
+          mode === "dark" ||
+          ((mode === null || mode === "system") &&
+            matchMedia("(prefers-color-scheme: dark)").matches);
+        document.documentElement.dataset.theme = dark ? "dark" : "light";
+      } catch (e) {
+        document.documentElement.dataset.theme = "light";
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>

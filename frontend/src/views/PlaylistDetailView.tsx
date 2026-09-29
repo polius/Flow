@@ -12,6 +12,7 @@ import {
   useReorderPlaylist,
 } from "../api/mutations";
 import { EmptyState } from "../components/EmptyState";
+import { LoadingState } from "../components/LoadingState";
 import { IconPlay, IconPlaylists } from "../components/icons";
 import { InlineEdit } from "../components/InlineEdit";
 import { PlaylistArt } from "../components/PlaylistArt";
@@ -54,7 +55,13 @@ export function PlaylistDetailView() {
     );
   }
 
-  if (playlist === undefined) return <section className="view" />;
+  if (playlist === undefined) {
+    return (
+      <section className="view">
+        <LoadingState variant="detail" />
+      </section>
+    );
+  }
 
   const move = (fromIndex: number, toIndex: number) => {
     const ids = playlist.tracks.map((t) => t.id);

@@ -8,6 +8,7 @@ import { api } from "../api/client";
 import type { PlaylistSummary } from "../api/types";
 import { useCreatePlaylist, useDeletePlaylist } from "../api/mutations";
 import { EmptyState } from "../components/EmptyState";
+import { LoadingState } from "../components/LoadingState";
 import { IconMore, IconPlay, IconPlaylists } from "../components/icons";
 import { PlaylistArt } from "../components/PlaylistArt";
 import { fmtCount, fmtMinutes } from "../lib/format";
@@ -49,7 +50,9 @@ export function PlaylistsView() {
         </button>
       </header>
 
-      {playlists.length === 0 ? (
+      {data === undefined ? (
+        <LoadingState variant="grid" />
+      ) : playlists.length === 0 ? (
         <EmptyState
           icon={<IconPlaylists size={26} />}
           title="No playlists yet"

@@ -4,6 +4,7 @@ import { useSearchParams } from "react-router";
 import { api } from "../api/client";
 import { AlbumCard } from "../components/AlbumCard";
 import { EmptyState } from "../components/EmptyState";
+import { LoadingState } from "../components/LoadingState";
 import { IconAlbums } from "../components/icons";
 
 export function AlbumsView() {
@@ -25,7 +26,9 @@ export function AlbumsView() {
   return (
     <section className="view">
       <h1 className="view__title">Albums</h1>
-      {albums.length === 0 ? (
+      {data === undefined ? (
+        <LoadingState variant="grid" />
+      ) : albums.length === 0 ? (
         <EmptyState
           icon={<IconAlbums size={26} />}
           title={q ? `No albums match “${q}”` : "No albums yet"}

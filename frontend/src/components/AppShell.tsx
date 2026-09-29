@@ -2,7 +2,9 @@ import { useEffect } from "react";
 import { Outlet, useNavigate } from "react-router";
 
 import { ensureScanSync } from "../api/scanSync";
+import { useGlobalShortcuts } from "../lib/shortcuts";
 import { GetInfoPanel } from "./GetInfoPanel";
+import { NowPlaying } from "./NowPlaying";
 import { PlayerBar } from "./PlayerBar";
 import { Sidebar } from "./Sidebar";
 import { useUiStore } from "../stores/ui";
@@ -12,6 +14,7 @@ export function AppShell() {
   const collapsed = useUiStore((s) => s.sidebarCollapsed);
   const focusSearch = useUiStore((s) => s.focusSearch);
   const navigate = useNavigate();
+  useGlobalShortcuts();
 
   useEffect(() => {
     ensureScanSync();
@@ -40,6 +43,7 @@ export function AppShell() {
         <PlayerBar />
       </div>
       <GetInfoPanel />
+      <NowPlaying />
     </div>
   );
 }
