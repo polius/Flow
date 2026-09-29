@@ -1,0 +1,57 @@
+/* Top bar — persistent search field above the canvas (§9.1, §9.2). The field
+   mirrors the old in-view .searchbar look, sized as chrome (13px text). */
+
+.topbar {
+  display: flex;
+  align-items: center;
+  padding: 12px 40px;
+  background: var(--bg-canvas);
+  border-bottom: 1px solid var(--separator);
+}
+
+.topbar__search {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 9px;
+  max-width: 560px;
+  padding: 7px 14px;
+  border-radius: 999px;
+  background: var(--bg-inset);
+  color: var(--text-tertiary);
+  transition:
+    background var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-fast) var(--ease-out);
+}
+
+/* The pill carries the focus state — a quiet darkening plus a hairline ring,
+   never the accent (§8: chrome is near-monochrome). */
+.topbar__search:focus-within {
+  background: var(--bg-active);
+  box-shadow: inset 0 0 0 1px var(--control-border);
+}
+
+/* Text inputs always match :focus-visible, so the global accent ring
+   (base.css) would paint a 2px red border around the field while typing.
+   The pill's focus-within treatment above replaces it. */
+.topbar__input:focus,
+.topbar__input:focus-visible {
+  outline: none;
+}
+
+.topbar__input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  font-size: var(--text-body);
+  color: var(--text-primary);
+}
+
+.topbar__input::placeholder {
+  color: var(--text-tertiary);
+}
+
+.topbar__input::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+}

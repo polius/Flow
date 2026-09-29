@@ -25,7 +25,7 @@ interface UiState {
   /** Theme override; default follows the OS (§8.6). */
   themeMode: ThemeMode;
   setThemeMode: (mode: ThemeMode) => void;
-  /** Bumped to focus the search field from anywhere (Cmd/Ctrl+F, §9.5). */
+  /** Bumped to focus the top-bar search field from anywhere (Cmd/Ctrl+F, §9.5). */
   searchFocusSignal: number;
   focusSearch: () => void;
 }

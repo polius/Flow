@@ -301,6 +301,8 @@ This is the **top priority** of the project. These rules are the product.
 ### 9.1 App shell
 - **Left sidebar** (icon + label, collapsible): Home, Albums, Artists, Tracks, Playlists,
   Settings. A library-status indicator lives here ("Scanning 34/1204…" while active).
+- **Top bar** (persistent): the search field — the single search input in the app. Typing
+  navigates to `/search?q=…` (debounced ~200 ms); `Cmd/Ctrl+F` focuses it from anywhere.
 - **Main canvas**: content per view.
 - **Bottom player bar** (persistent, translucent): artwork thumb, title/artist, transport
   controls, scrubber with buffered-range indication, volume slider (persisted).
@@ -312,7 +314,8 @@ This is the **top priority** of the project. These rules are the product.
 - **Tracks**: virtualized table — title, artist, album, duration, favorite heart. At 10k+
   tracks this must stay smooth (windowing, e.g. `@tanstack/react-virtual`).
 - **Playlists**: list + detail view with drag-to-reorder, remove tracks.
-- **Search**: `Cmd/Ctrl+F`-focusable, results grouped by entity type.
+- **Search**: results grouped by entity type. The field lives in the top bar (§9.1);
+  this view is the results page for `/search?q=…`.
 - **Now Playing**: full-screen takeover — large art, blurred-art ambient background, queue
   drawer on the right. `Esc` closes. (This is the strongest idea from the reference images.)
 
@@ -478,9 +481,10 @@ Design-language additions carried over from the reference images (§2):
 4. **Playlist mosaics (§13.10):** first four tracks' artwork ids in playlist order.
    Because artwork dedups by sha1 (§5), tracks sharing a cover collapse to one tile —
    correct behavior, not a bug.
-5. **Search (§9.2):** the query lives in the URL (`/search?q=…`), debounced ~200 ms.
-   ⌘F/Ctrl+F *navigates to the search route* and focuses the field (route-based, no
-   overlay). Group results are capped (20/group); "Show all" links into the filtered
+5. **Search (§9.2):** the top bar's field is the single search input. The query lives in
+   the URL (`/search?q=…`), debounced ~200 ms, and typing from any view navigates to the
+   search route. ⌘F/Ctrl+F focuses the top-bar field (route-based results, no overlay).
+   Group results are capped (20/group); "Show all" links into the filtered
    list views (`/tracks?q=…`), which all support `?q=`.
 6. **Context menus are drill-down** ("Add to Playlist…" swaps content in place) —
    no nested hover menus, per §8.7's restraint.

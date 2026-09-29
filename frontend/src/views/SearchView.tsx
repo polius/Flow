@@ -1,7 +1,7 @@
 /* Search — grouped results over one debounced query (§6, §9.2).
-   The query lives in the URL so ⌘F lands here and deep links work. */
+   The query lives in the URL so deep links work; the field lives in the
+   top bar (§9.1), which owns the typing → /search?q=… flow. */
 
-import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useSearchParams } from "react-router";
 
@@ -12,40 +12,11 @@ import { IconSearch } from "../components/icons";
 import { PlaylistArt } from "../components/PlaylistArt";
 import { TrackTable } from "../components/TrackTable";
 import { fmtMinutes } from "../lib/format";
-import { useUiStore } from "../stores/ui";
 import "../styles/library.css";
-import "../styles/editing.css";
-
-const DEBOUNCE_MS = 200;
 
 export function SearchView() {
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchParams] = useSearchParams();
   const urlQuery = searchParams.get("q") ?? "";
-  const [text, setText] = useState(urlQuery);
-  const inputRef = useRef<HTMLInputElement>(null);
-  const focusSignal = useUiStore((s) => s.searchFocusSignal);
-
-  // ⌘F / Ctrl+F from anywhere: AppShell navigates here and bumps the signal.
-  useEffect(() => {
-    inputRef.current?.focus();
-    inputRef.current?.select();
-  }, [focusSignal]);
-
-  // Debounce typing into the URL (the query key).
-  useEffect(() => {
-    const handle = setTimeout(() => {
-      const next = text.trim();
-      if (next !== urlQuery) {
-        setSearchParams(next ? { q: next } : {}, { replace: true });
-      }
-    }, DEBOUNCE_MS);
-    return () => clearTimeout(handle);
-  }, [text, urlQuery, setSearchParams]);
-
-  // External navigation (back button) updates the field.
-  useEffect(() => {
-    setText(urlQuery);
-  }, [urlQuery]);
 
   const { data, isFetching } = useQuery({
     queryKey: ["search", urlQuery],
@@ -70,19 +41,6 @@ export function SearchView() {
   return (
     <section className="view">
       <h1 className="view__title">Search</h1>
-      <div className="searchbar">
-        <IconSearch size={15} />
-        <input
-          ref={inputRef}
-          className="searchbar__input"
-          type="search"
-          placeholder="Artists, albums, tracks, playlists…"
-          value={text}
-          aria-label="Search library"
-          onChange={(e) => setText(e.target.value)}
-          autoFocus
-        />
-      </div>
 
       {!hasQuery ? (
         <EmptyState
@@ -99,17 +57,17 @@ export function SearchView() {
       ) : results ? (
         <div className="libsection">
           {results.tracks.length > 0 && (
-            <>
+            <section className="searchgroup">
               <SectionHeader
                 title="Tracks"
                 more={{ to: `/tracks?q=${encodeURIComponent(urlQuery)}`, label: "Show all in Tracks" }}
               />
               <TrackTable tracks={results.tracks} variant="all" />
-            </>
+            </section>
           )}
 
           {results.albums.length > 0 && (
-            <>
+            <section className="searchgroup">
               <SectionHeader
                 title="Albums"
                 more={{ to: `/albums?q=${encodeURIComponent(urlQuery)}`, label: "Show all in Albums" }}
@@ -119,11 +77,11 @@ export function SearchView() {
                   <AlbumCard key={album.id} album={album} />
                 ))}
               </div>
-            </>
+            </section>
           )}
 
           {results.artists.length > 0 && (
-            <>
+            <section className="searchgroup">
               <SectionHeader
                 title="Artists"
                 more={{ to: `/artists?q=${encodeURIComponent(urlQuery)}`, label: "Show all in Artists" }}
@@ -139,11 +97,11 @@ export function SearchView() {
                   </Link>
                 ))}
               </div>
-            </>
+            </section>
           )}
 
           {results.playlists.length > 0 && (
-            <>
+            <section className="searchgroup">
               <SectionHeader title="Playlists" />
               <ul className="searchplaylists">
                 {results.playlists.map((playlist) => (
@@ -166,7 +124,7 @@ export function SearchView() {
                   </li>
                 ))}
               </ul>
-            </>
+            </section>
           )}
         </div>
       ) : null}
