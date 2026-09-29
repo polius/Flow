@@ -153,6 +153,16 @@ textarea.inlineedit__input {
   min-height: 2.4em;
 }
 
+/* This field is always focused while it exists (auto-focused on activate),
+   so its outline is its focus state. Re-assert it on focus — text fields
+   match :focus-visible, which would otherwise paint the global accent ring
+   (base.css) as a 2px red border instead. */
+.inlineedit__input:focus,
+.inlineedit__input:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--text-primary) 25%, transparent);
+  outline-offset: -1px;
+}
+
 /* ---- context menu (row ··· and playlist cards) ---------------------------- */
 
 .trackmenu {
@@ -465,8 +475,12 @@ textarea.inlineedit__input {
   outline: none;
 }
 
-.getinfo__input:focus {
+/* As with the manage fields, the global accent ring (base.css) reads as an
+   error state here — focus is the border-color change only. */
+.getinfo__input:focus,
+.getinfo__input:focus-visible {
   border-color: color-mix(in srgb, var(--text-primary) 40%, transparent);
+  outline: none;
 }
 
 .getinfo__hint {
@@ -962,8 +976,13 @@ textarea.inlineedit__input {
   line-height: var(--leading-normal, 1.45);
 }
 
-.manage__input:focus {
+/* Text fields always match :focus-visible, so the global accent ring
+   (base.css) would paint a 2px red border around the field while typing.
+   Focus here is the border-color change; the outline is suppressed. */
+.manage__input:focus,
+.manage__input:focus-visible {
   border-color: color-mix(in srgb, var(--text-primary) 40%, transparent);
+  outline: none;
 }
 
 .manage__tags {
@@ -993,6 +1012,14 @@ textarea.inlineedit__input {
 
 .manage__tagsinput::placeholder {
   color: var(--text-tertiary);
+}
+
+/* Same as the fields above: the tag input always matches :focus-visible, so
+   the global accent ring would read as an error border; the wrapper's
+   focus-within border carries focus instead. */
+.manage__tagsinput:focus,
+.manage__tagsinput:focus-visible {
+  outline: none;
 }
 
 .manage__actions {
