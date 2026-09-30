@@ -845,3 +845,73 @@ through the same overlay path as Get Info (§15.2) and survives rescans.
     collisions got their own popover (group → album pills → filter) rather
     than a bare count.
 
+## 23. Addendum — Tracks/queue simplification (2026-09-30)
+
+Owner decision set: Tracks becomes a pure listening surface; the per-row
+"···" menu is removed outright; editing centralizes in Organize; the queue
+panel becomes where a queue is built. Supersedes parts of §9.3, §15.1,
+§16.8, §21.5, and §22.1 as noted.
+
+1. **Rows are playback-only (supersedes §15.1):** clicking a row — the
+   title included — plays that track. The old select-on-click /
+   double-click-to-play / click-title-to-rename grammar is gone, as is the
+   dead-end selection highlight. Activation is **idempotent**: clicking the
+   current track's row does nothing, so a habitual double-click cannot
+   flash play→pause; toggling stays with the play glyph, Space, and the
+   player bar. Inline rename left the library rows — it lives in the
+   Organize cells and Get Info. §9.3's "queue supports play next from any
+   context menu" is superseded by §23.5.
+2. **The "···" menu is gone** (component deleted). Row actions are now:
+   play (row click / glyph), favorite (heart), playlist-remove (playlist
+   variant only). The row context menu items were re-homed, not all kept:
+   **Get Info** → Organize (§23.3); **Add to Playlist** → the playlist's
+   own Add Tracks dialog — the ONE path for getting a track into a
+   playlist is now "open the playlist → Add Tracks", a deliberate
+   centralization the owner chose over a per-row affordance; **Play
+   Next** → the queue panel's Add button (§23.5). No right-click menus
+   were added (explicitly out of scope). §21.5's touch reveal loses its
+   "···" item; heart/remove reveal on touch unchanged.
+3. **Get Info is Organize-only.** Desktop: a hover-revealed ⓘ cell on each
+   Organize row (§8.7 grammar; the grid gains a trailing 30px column).
+   Phones: unchanged — a tap on the compact row opens it (§22.9). The
+   panel itself is unchanged; it is the phone's only editing surface.
+4. **Organize moved out of the nav (supersedes §22.1's placement):** the
+   Tracks view header carries a right-aligned Organize pill button
+   (`/organize` stays a real route; URL filters and deep links
+   unaffected). The pill shows the "needs attention" count (sum of the
+   review summary) — the task launches from where the mess is visible.
+   Nothing needs attention → the pill is just "Organize".
+5. **Queue building (supersedes the "Play Next" row action):** the queue
+   panel header gains **Add**, opening the shared library picker in
+   "Add to Queue" mode — `AddTracksDialog` is now one component with two
+   targets (playlist / queue), search + multi-select shared. Added tracks
+   **append to the end of the play order** (chosen over insert-after-
+   current; click-to-jump already gives "play that one next" by
+   composition). A new `addToQueue` store action does the append; no
+   playback side effect.
+6. **Idle Now Playing (two zones, always):** the takeover renders the
+   stage + queue layout even with nothing playing — the stage shows a
+   quiet idle block (placeholder tile, "Nothing Playing", hint) and the
+   queue's empty state carries its own Add button. A queue can be built,
+   then started by clicking a row (`playAt`). Store convention:
+   `orderPos = -1` means "queue built, nothing loaded" —
+   `useCurrentTrack` returns null, the queue head shows "N tracks"
+   instead of a position, and no row renders as current. Playing anywhere
+   in the library still replaces the queue, as before.
+7. **Narrow windows (supersedes §16.8's hidden drawer):** below 940px the
+   queue no longer disappears — it slides up over the stage as a sheet
+   behind a queue button in the takeover's top-right corner (34px, the
+   close button's grammar, mirrored side). The sheet's header gains a
+   back chevron; Esc closes the sheet before the takeover. 150–250ms
+   ease-out translateY, disabled by the global reduced-motion override.
+   Below 640px (phones, §19/§20) this is THE queue surface — designed in
+   this pass, not deferred. The Add Tracks dialog becomes a full-screen
+   sheet on phones (it is now the only path into playlists).
+8. **Nav order (§18 grammar):** Tracks, Albums, Artists, Playlists,
+   separator, Settings — frequency-of-use order, owner's call. The phone
+   nav sheet (§19) inherits it.
+9. **Global shortcuts defer while the library picker is open** (`pickerOpen`
+   in the ui store, checked by `useGlobalShortcuts` and Now Playing's Esc
+   precedence, joining `contextMenuOpen`/`getInfoTrackId`).
+
+

@@ -129,16 +129,6 @@ export function IconHeartFill(props: IconProps) {
   );
 }
 
-export function IconMore(props: IconProps) {
-  return (
-    <Icon {...props}>
-      <circle cx="5.4" cy="12" r="1.15" fill="currentColor" stroke="none" />
-      <circle cx="12" cy="12" r="1.15" fill="currentColor" stroke="none" />
-      <circle cx="18.6" cy="12" r="1.15" fill="currentColor" stroke="none" />
-    </Icon>
-  );
-}
-
 export function IconPlus(props: IconProps) {
   return (
     <Icon {...props}>
@@ -167,6 +157,29 @@ export function IconClose(props: IconProps) {
   return (
     <Icon {...props}>
       <path d="m6 6 12 12M18 6 6 18" />
+    </Icon>
+  );
+}
+
+/* The queue's Add affordance (§23): a bulleted list — line up what plays. */
+export function IconQueue(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M9 7h11M9 12h11M9 17h11" />
+      <circle cx="4.7" cy="7" r="1.05" fill="currentColor" stroke="none" />
+      <circle cx="4.7" cy="12" r="1.05" fill="currentColor" stroke="none" />
+      <circle cx="4.7" cy="17" r="1.05" fill="currentColor" stroke="none" />
+    </Icon>
+  );
+}
+
+/* Get Info (Organize-only, §23): the classic ⓘ. */
+export function IconInfo(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <circle cx="12" cy="12" r="8.6" />
+      <path d="M12 11.2V16" />
+      <path d="M12 8.1h.01" />
     </Icon>
   );
 }

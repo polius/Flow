@@ -191,6 +191,7 @@ export function OrganizeGrid({
         <span className="orghead__label" role="columnheader">
           Album
         </span>
+        <span className="orghead__info" aria-hidden="true" />
       </div>
       <div className="orggrid__body" style={{ height: virtualizer.getTotalSize() }}>
         {virtualizer.getVirtualItems().map((item) => {

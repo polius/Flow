@@ -1,6 +1,7 @@
 # Node / frontend
 node_modules/
 frontend/dist/
+frontend/*.tsbuildinfo
 
 # Python
 __pycache__/

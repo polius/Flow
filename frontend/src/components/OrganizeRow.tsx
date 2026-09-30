@@ -2,15 +2,16 @@
    The editing grammar matches the library's click-to-edit (§15.1) — a
    focused click on the words opens the editor; row clicks select. No
    playback here: this view organizes (§22), and row click must stay
-   unambiguous. Phones re-template to art + title/meta and tap opens
-   Get Info (§21's designed-refusal pattern, §22). */
+   unambiguous. Get Info lives HERE now (§23): the hover-revealed ⓘ is its
+   only desktop entry, and on phones — where cells are not editable — a tap
+   on the re-templated row opens it (§21's designed-refusal pattern, §22). */
 
 import type { CSSProperties } from "react";
 
 import type { Track } from "../api/types";
 import { Artwork } from "./Artwork";
 import { InlineEdit } from "./InlineEdit";
-import { IconCheck } from "./icons";
+import { IconCheck, IconInfo } from "./icons";
 
 const ROW_HEIGHT = 38;
 
@@ -177,6 +178,17 @@ export function OrganizeRow({
           allowEmpty
           onCommit={(album) => onCommitAlbum(track, album)}
         />
+      </span>
+      <span className="orgrow__infocell" onClick={(e) => e.stopPropagation()}>
+        <button
+          type="button"
+          className="orgrow__infobtn"
+          aria-label={`Get Info for ${track.title}`}
+          title="Get Info"
+          onClick={() => onOpenInfo(track)}
+        >
+          <IconInfo size={15} />
+        </button>
       </span>
     </div>
   );

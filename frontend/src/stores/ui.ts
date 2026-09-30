@@ -20,6 +20,10 @@ interface UiState {
   /** True while any context menu is up — Esc and shortcuts defer to it. */
   contextMenuOpen: boolean;
   setContextMenuOpen: (open: boolean) => void;
+  /** True while the library picker (Add to Playlist / Add to Queue) is up —
+      Esc precedence and the global shortcut guard defer to it (§23). */
+  pickerOpen: boolean;
+  setPickerOpen: (open: boolean) => void;
   /** Theme override; default follows the OS (§8.6). */
   themeMode: ThemeMode;
   setThemeMode: (mode: ThemeMode) => void;
@@ -39,6 +43,8 @@ export const useUiStore = create<UiState>()(
       closeNowPlaying: () => set({ nowPlayingOpen: false }),
       contextMenuOpen: false,
       setContextMenuOpen: (contextMenuOpen) => set({ contextMenuOpen }),
+      pickerOpen: false,
+      setPickerOpen: (pickerOpen) => set({ pickerOpen }),
       themeMode: "system",
       setThemeMode: (themeMode) => set({ themeMode }),
       searchFocusSignal: 0,

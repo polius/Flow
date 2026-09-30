@@ -195,23 +195,28 @@
 }
 
 .trackrow--album {
-  grid-template-columns: 32px minmax(0, 2.2fr) minmax(0, 60px) 30px 30px;
+  grid-template-columns: 32px minmax(0, 2.2fr) minmax(0, 60px) 30px;
 }
 
 .trackrow--artist {
-  grid-template-columns: 32px minmax(0, 2fr) minmax(0, 1.4fr) minmax(0, 60px) 30px 30px;
+  grid-template-columns: 32px minmax(0, 2fr) minmax(0, 1.4fr) minmax(0, 60px) 30px;
 }
 
 .trackrow--all {
-  grid-template-columns: 32px minmax(0, 2fr) minmax(0, 1.3fr) minmax(0, 1.3fr) minmax(0, 60px) 30px 30px;
+  grid-template-columns: 32px minmax(0, 2fr) minmax(0, 1.3fr) minmax(0, 1.3fr) minmax(0, 60px) 30px;
 }
 
 /* Playlist rows add a trailing slot for the hover-revealed remove button. */
 .trackrow--playlist {
-  grid-template-columns: 32px minmax(0, 2fr) minmax(0, 1.3fr) minmax(0, 1.3fr) minmax(0, 60px) 30px 30px 30px;
+  grid-template-columns: 32px minmax(0, 2fr) minmax(0, 1.3fr) minmax(0, 1.3fr) minmax(0, 60px) 30px 30px;
 }
 
-/* Playlist rows are grabbable anywhere (§9.3 drag-reorder). */
+/* Rows are one click-to-play target (§23). Playlist rows stay grabbable
+   anywhere (§9.3 drag-reorder). */
+.trackrow {
+  cursor: pointer;
+}
+
 .trackrow--playlist {
   cursor: grab;
 }
@@ -222,13 +227,6 @@
 
 .trackrow:hover {
   background: var(--bg-hover);
-}
-
-/* Hover must not out-shout state (same specificity trap as --playing below):
-   a click-selected row keeps its fill while the pointer is over it. */
-.trackrow--selected,
-.trackrow--selected:hover {
-  background: var(--bg-active);
 }
 
 .trackrow__index {
@@ -350,11 +348,11 @@
   .trackrow--album,
   .trackrow--artist,
   .trackrow--all {
-    grid-template-columns: 32px minmax(0, 1fr) minmax(0, 60px) 30px 30px;
+    grid-template-columns: 32px minmax(0, 1fr) minmax(0, 60px) 30px;
   }
 
   .trackrow--playlist {
-    grid-template-columns: 32px minmax(0, 1fr) minmax(0, 60px) 30px 30px 30px;
+    grid-template-columns: 32px minmax(0, 1fr) minmax(0, 60px) 30px 30px;
   }
 }
 

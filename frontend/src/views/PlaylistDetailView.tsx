@@ -170,7 +170,7 @@ export function PlaylistDetailView() {
       )}
 
       {adding && (
-        <AddTracksDialog playlist={playlist} onClose={() => setAdding(false)} />
+        <AddTracksDialog kind="playlist" playlist={playlist} onClose={() => setAdding(false)} />
       )}
 
       {managing && (

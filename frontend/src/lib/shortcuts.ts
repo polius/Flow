@@ -10,6 +10,7 @@
 import { useEffect } from "react";
 
 import { usePlayerStore } from "../stores/player";
+import { useUiStore } from "../stores/ui";
 
 const VOLUME_STEP = 0.05;
 const SEEK_STEP = 10;
@@ -33,6 +34,8 @@ export function useGlobalShortcuts(): void {
       // Modifier chords belong to browser and app shortcuts (⌘F, ⌘R, …).
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       if (isTypingTarget(document.activeElement)) return;
+      // The library picker is a modal (§23): Space/arrows belong to it.
+      if (useUiStore.getState().pickerOpen) return;
 
       const player = usePlayerStore.getState();
       const hasQueue = player.queue.length > 0;

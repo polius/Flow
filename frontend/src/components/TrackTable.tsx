@@ -2,18 +2,17 @@
    (§9.2). M6: row markup extracted into TrackRow so the windowed
    VirtualTrackTable (Tracks view, §11.6) renders the exact same rows —
    these variants render full detail payloads at curated scale, so they stay
-   plain. */
+   plain. Rows are playback-only (§23); editing lives in Organize. */
 
 import { useState } from "react";
 import type { HTMLAttributes } from "react";
 
 import type { Track } from "../api/types";
-import { usePatchTrack, useToggleFavorite } from "../api/mutations";
+import { useToggleFavorite } from "../api/mutations";
 import { useCurrentTrack, usePlayerStore } from "../stores/player";
 import "../styles/library.css";
 import "../styles/editing.css";
-import { TrackMenu } from "./TrackMenu";
-import { TrackRow, type MenuState, type TrackVariant } from "./TrackRow";
+import { TrackRow, type TrackVariant } from "./TrackRow";
 
 interface TrackTableProps {
   tracks: Track[];
@@ -22,7 +21,7 @@ interface TrackTableProps {
   context?: Track[];
   /** Playlist variant: drop handler for drag-to-reorder. */
   onMove?: (fromIndex: number, toIndex: number) => void;
-  /** Playlist variant: removes a track from the playlist (row button + menu). */
+  /** Playlist variant: removes a track from the playlist (row button). */
   onRemoveTrack?: (track: Track) => void;
 }
 
@@ -33,8 +32,6 @@ export function TrackTable({
   onMove,
   onRemoveTrack,
 }: TrackTableProps) {
-  const [selectedId, setSelectedId] = useState<number | null>(null);
-  const [menu, setMenu] = useState<MenuState | null>(null);
   // Drag state for the playlist variant.
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [dropAt, setDropAt] = useState<number | null>(null); // insertion slot
@@ -43,13 +40,8 @@ export function TrackTable({
   const playTracks = usePlayerStore((s) => s.playTracks);
   const togglePlay = usePlayerStore((s) => s.togglePlay);
   const toggleFavorite = useToggleFavorite();
-  const patchTrack = usePatchTrack();
 
   const play = (index: number) => playTracks(context ?? tracks, index);
-
-  const commitTitle = async (track: Track, title: string) => {
-    await patchTrack(track.id, { title });
-  };
 
   const handleDrop = () => {
     if (dragIndex != null && dropAt != null && onMove) {
@@ -102,14 +94,10 @@ export function TrackTable({
         variant={variant}
         isCurrent={current?.id === track.id}
         isPlaying={isPlaying}
-        selected={selectedId === track.id}
         extraClassName={extraClassName}
         onActivate={play}
         onTogglePlay={togglePlay}
-        onSelect={(track) => setSelectedId(track.id)}
-        onCommitTitle={commitTitle}
         onToggleFavorite={toggleFavorite}
-        onMenu={(track, x, y) => setMenu({ track, x, y })}
         dragHandlers={dragHandlers(index)}
         onRemove={variant === "playlist" && onRemoveTrack ? onRemoveTrack : undefined}
       />
@@ -117,20 +105,8 @@ export function TrackTable({
   });
 
   return (
-    <>
-      <div className={`tracktable tracktable--${variant}`} role="table" aria-label="Tracks">
-        {rows}
-      </div>
-      {menu && (
-        <TrackMenu
-          track={menu.track}
-          anchor={{ x: menu.x, y: menu.y }}
-          onClose={() => setMenu(null)}
-          onRemoveFromPlaylist={
-            onRemoveTrack ? () => onRemoveTrack(menu.track) : undefined
-          }
-        />
-      )}
-    </>
+    <div className={`tracktable tracktable--${variant}`} role="table" aria-label="Tracks">
+      {rows}
+    </div>
   );
 }

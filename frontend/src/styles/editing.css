@@ -1,17 +1,16 @@
-/* Milestone 4 editing surfaces: row actions, inline rename, context menu,
-   playlist mosaic + cards, search bar, Get Info panel (DESIGN.md §8, §9.2–§9.3).
-   Chrome stays near-monochrome; artwork remains the only color. */
+/* Milestone 4 editing surfaces: row actions, inline rename, playlist mosaic
+   + cards, search bar, Get Info panel, and the shared library picker (§23)
+   (DESIGN.md §8, §9.2–§9.3). Chrome stays near-monochrome; artwork remains
+   the only color. */
 
-/* ---- track row extras: heart + more -------------------------------------- */
+/* ---- track row extras: heart ---------------------------------------------- */
 
-.trackrow__heart,
-.trackrow__more {
+.trackrow__heart {
   display: flex;
   justify-content: center;
 }
 
-.trackrow__heartbtn,
-.trackrow__morebtn {
+.trackrow__heartbtn {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -24,21 +23,17 @@
 }
 
 /* Hover-revealed (§8.7): only a favorited heart stays visible. */
-.trackrow__heartbtn,
-.trackrow__morebtn {
+.trackrow__heartbtn {
   opacity: 0;
 }
 
 .trackrow:hover .trackrow__heartbtn,
-.trackrow:hover .trackrow__morebtn,
 .trackrow__heartbtn:focus-visible,
-.trackrow__morebtn:focus-visible,
 .trackrow__heartbtn--on {
   opacity: 1;
 }
 
-.trackrow__heartbtn:hover,
-.trackrow__morebtn:hover {
+.trackrow__heartbtn:hover {
   color: var(--text-primary);
 }
 
@@ -75,25 +70,22 @@
   color: var(--accent);
 }
 
-/* Touch devices have no hover: favorite, actions, and playlist-remove must
-   be reachable, so they reveal for good (§21) — quiet colors carry the
+/* Touch devices have no hover: favorite and playlist-remove must be
+   reachable, so they reveal for good (§21) — quiet colors carry the
    hierarchy the hover reveal otherwise provides. */
 @media (hover: none) {
   .trackrow__heartbtn,
-  .trackrow__morebtn,
   .trackrow__removebtn {
     opacity: 1;
   }
 }
 
 /* The playing pill inverts chrome — keep its actions legible (§13). */
-.trackrow--playing .trackrow__heartbtn,
-.trackrow--playing .trackrow__morebtn {
+.trackrow--playing .trackrow__heartbtn {
   color: color-mix(in srgb, var(--bg-canvas) 72%, transparent);
 }
 
-.trackrow--playing .trackrow__heartbtn:hover,
-.trackrow--playing .trackrow__morebtn:hover {
+.trackrow--playing .trackrow__heartbtn:hover {
   color: var(--bg-canvas);
 }
 
@@ -323,6 +315,12 @@ textarea.inlineedit__input {
 
 .view__action:hover {
   background: var(--bg-hover);
+}
+
+/* The "needs attention" count on the Tracks header's Organize entry (§23). */
+.view__actioncount {
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
 }
 
 /* The search field lives in the top bar (styles/topbar.css). */
@@ -607,6 +605,20 @@ textarea.inlineedit__input {
   color: var(--text-primary);
 }
 
+/* Queue mode (§23): the identity slot carries the queue glyph instead of a
+   playlist's mosaic — same 52px tile, same grammar. */
+.addtracks__queuetile {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 52px;
+  height: 52px;
+  border-radius: var(--radius-m);
+  background: var(--bg-inset);
+  color: var(--text-tertiary);
+}
+
 .addtracks__search {
   display: flex;
   align-items: center;
@@ -839,6 +851,43 @@ textarea.inlineedit__input {
 .addtracks__actions .btn--primary {
   min-width: 128px;
   justify-content: center;
+}
+
+/* Phones (§21/§23): the centered floating card is desktop chrome — the
+   picker becomes a full-screen sheet. This dialog is now the only way
+   tracks enter playlists, so it must be first-class at 375px. */
+@media (max-width: 640px) {
+  .addtracks {
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100vh;
+    height: 100dvh;
+    transform: none;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .addtracks__head {
+    padding: 16px 16px 12px;
+  }
+
+  .addtracks__search {
+    margin: 0 16px 10px;
+  }
+
+  .addtracks__list {
+    margin: 0 8px;
+  }
+
+  .addtracks__foot {
+    padding: 12px 16px;
+  }
+
+  .addtracks__actions .btn--primary {
+    min-width: 0;
+  }
 }
 
 /* ---- tag chips (detail header + Manage dialog) ----------------------------- */

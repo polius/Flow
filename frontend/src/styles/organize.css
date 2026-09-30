@@ -236,11 +236,13 @@
   outline: none;
 }
 
-/* Sticky column header: pins below the top bar as rows scroll beneath. */
+/* Sticky column header: pins below the top bar as rows scroll beneath.
+   The trailing 30px slot carries the hover-revealed Get Info button (§23) —
+   Get Info's only desktop entry now lives here. */
 .orghead,
 .orgrow {
   display: grid;
-  grid-template-columns: 26px 40px minmax(0, 1.5fr) minmax(0, 1fr) minmax(0, 1.2fr);
+  grid-template-columns: 26px 40px minmax(0, 1.5fr) minmax(0, 1fr) minmax(0, 1.2fr) 30px;
   align-items: center;
   gap: 12px;
   padding: 7px 12px;
@@ -402,6 +404,47 @@
 .orgrow--playing .inlineedit__input,
 .orgrow--playing .inlineedit__placeholder {
   color: var(--text-primary);
+}
+
+/* Get Info (§23): hover-revealed ⓘ, the same reveal grammar as the library
+   rows' heart (§8.7). The cell swallows clicks so row selection stays
+   unambiguous. */
+.orgrow__infocell {
+  display: flex;
+  justify-content: center;
+}
+
+.orgrow__infobtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  color: var(--text-secondary);
+  opacity: 0;
+  transition: opacity var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out);
+}
+
+.orgrow:hover .orgrow__infobtn,
+.orgrow__infobtn:focus-visible {
+  opacity: 1;
+}
+
+.orgrow__infobtn:hover {
+  color: var(--text-primary);
+}
+
+/* Touch has no hover — but phones use the compact template (§22.9), where
+   the whole row tap opens Get Info; the button never renders there. */
+
+.orgrow--playing .orgrow__infobtn {
+  color: color-mix(in srgb, var(--bg-canvas) 72%, transparent);
+}
+
+.orgrow--playing .orgrow__infobtn:hover {
+  color: var(--bg-canvas);
 }
 
 /* ---- floating selection bar / banner ------------------------------------------- */

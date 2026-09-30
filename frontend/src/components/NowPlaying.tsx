@@ -1,22 +1,28 @@
 /* Full-screen Now Playing (§9.2): large art, blurred-artwork ambience on the
    same token system as album detail (§8.5, §13), full transport, and the
-   queue drawer on the right (§9.4). A takeover overlay rather than a route —
-   the audio element lives outside the view lifecycle, so playback simply
-   continues underneath. Esc closes (§9.5). */
+   queue panel on the right (§9.4). A takeover overlay rather than a route —
+   the audio element lives outside React's lifecycle, so playback simply
+   continues underneath. Esc closes (§9.5).
 
-import { useEffect } from "react";
+   §23: the two-zone layout is permanent — the stage shows a quiet idle
+   state when nothing plays, and the queue (with its Add button) is present
+   from the start, so a queue can be built before anything plays. Below
+   940px, where the side-by-side drawer can't fit, the queue slides up over
+   the stage as a sheet behind the header's queue button. */
+
+import { useEffect, useState } from "react";
 
 import { isTypingTarget } from "../lib/shortcuts";
 import { useCurrentTrack, usePlayerStore } from "../stores/player";
 import { useUiStore } from "../stores/ui";
 import { Ambience } from "./Ambience";
 import { Artwork } from "./Artwork";
-import { EmptyState } from "./EmptyState";
 import {
   IconChevronDown,
   IconMusicNote,
   IconNext,
   IconPrev,
+  IconQueue,
   IconRepeat,
   IconShuffle,
   IconVolume,
@@ -24,6 +30,19 @@ import {
 import { QueuePanel } from "./QueuePanel";
 import { PlayPauseButton, Scrubber, TransportButton } from "./transport";
 import "../styles/nowplaying.css";
+
+const NARROW_BP = "(max-width: 940px)";
+
+function useMediaQuery(query: string): boolean {
+  const [matches, setMatches] = useState(() => window.matchMedia(query).matches);
+  useEffect(() => {
+    const mq = window.matchMedia(query);
+    const onChange = () => setMatches(mq.matches);
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, [query]);
+  return matches;
+}
 
 export function NowPlaying() {
   const open = useUiStore((s) => s.nowPlayingOpen);
@@ -39,41 +58,76 @@ export function NowPlaying() {
   const setShuffle = usePlayerStore((s) => s.setShuffle);
   const cycleRepeat = usePlayerStore((s) => s.cycleRepeat);
 
+  const narrow = useMediaQuery(NARROW_BP);
+  const [queueOpen, setQueueOpen] = useState(false);
+
+  const handleClose = () => {
+    setQueueOpen(false);
+    close();
+  };
+
   // Esc closes the takeover — but yields to whatever sits above it (§15.7):
-  // context menus, the Get Info panel, and inline edits close first. Capture
-  // phase so this decision happens before the other window listeners run.
+  // the library picker, context menus, the Get Info panel, and inline edits
+  // close first. Capture phase so this decision happens before the other
+  // window listeners run. On narrow windows the queue sheet — the takeover's
+  // own second layer — closes before the takeover itself.
   useEffect(() => {
     if (!open) return;
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
       const ui = useUiStore.getState();
-      if (ui.contextMenuOpen || ui.getInfoTrackId != null) return;
+      if (ui.pickerOpen || ui.contextMenuOpen || ui.getInfoTrackId != null) return;
       if (isTypingTarget(document.activeElement)) return;
       e.preventDefault();
+      if (queueOpen) {
+        setQueueOpen(false);
+        return;
+      }
       close();
     };
     window.addEventListener("keydown", onKeyDown, true);
     return () => window.removeEventListener("keydown", onKeyDown, true);
-  }, [open, close]);
+  }, [open, close, queueOpen]);
 
   if (!open) return null;
 
+  const classes = [
+    "nowplaying",
+    narrow && queueOpen ? "nowplaying--queue" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+
   return (
-    <div className="nowplaying" role="dialog" aria-modal="true" aria-label="Now Playing">
+    <div className={classes} role="dialog" aria-modal="true" aria-label="Now Playing">
       <Ambience artworkId={track?.artwork_id ?? null} />
 
       <button
         type="button"
         className="nowplaying__close"
-        onClick={close}
+        onClick={handleClose}
         aria-label="Close Now Playing"
         title="Close (Esc)"
       >
         <IconChevronDown size={18} />
       </button>
 
-      {track ? (
-        <div className="nowplaying__layout">
+      {narrow ? (
+        <button
+          type="button"
+          className="nowplaying__queuebtn"
+          onClick={() => setQueueOpen(true)}
+          aria-haspopup="dialog"
+          aria-controls="queue-panel"
+          aria-expanded={queueOpen}
+          title="Queue"
+        >
+          <IconQueue size={18} />
+        </button>
+      ) : null}
+
+      <div className="nowplaying__layout">
+        {track ? (
           <div className="nowplaying__stage">
             <Artwork
               artworkId={track.artwork_id}
@@ -131,18 +185,23 @@ export function NowPlaying() {
               </div>
             </div>
           </div>
+        ) : (
+          <div className="nowplaying__stage">
+            <div className="nowplaying__idle">
+              <span className="nowplaying__idleart" aria-hidden="true">
+                <IconMusicNote size={30} />
+              </span>
+              <h1 className="nowplaying__title">Nothing Playing</h1>
+              <p className="nowplaying__hint">
+                Add tracks to the queue, then tap one to start — or play an
+                album or playlist anywhere in Flow.
+              </p>
+            </div>
+          </div>
+        )}
 
-          <QueuePanel />
-        </div>
-      ) : (
-        <div className="nowplaying__stage">
-          <EmptyState
-            icon={<IconMusicNote size={26} />}
-            title="Nothing playing"
-            hint="Double-click any track to start — the queue and full-screen view follow along."
-          />
-        </div>
-      )}
+        <QueuePanel onCollapse={narrow ? () => setQueueOpen(false) : undefined} />
+      </div>
     </div>
   );
 }

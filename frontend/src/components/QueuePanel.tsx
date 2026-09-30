@@ -6,22 +6,31 @@
    backwards included; the playing row toggles playback. Remove stays
    hover-revealed on non-playing rows. Queue manipulation only — no
    ratings, no play counts (§1).
-   The list is windowed — playing a full library queues 10k rows, and the
-   drawer must open as smoothly as the Tracks view. */
+   The queue is also where one is BUILT (§23): the header's Add button opens
+   the shared library picker and appends to the end of the play order —
+   before playback too (an idle-built queue shows "N tracks", not a
+   position). The list is windowed — playing a full library queues 10k
+   rows, and the drawer must open as smoothly as the Tracks view. */
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 
 import { fmtDuration } from "../lib/format";
 import { usePlayerStore } from "../stores/player";
+import { AddTracksDialog } from "./AddTracksDialog";
 import { Artwork } from "./Artwork";
-import { IconClose, IconPause, IconPlay } from "./icons";
+import { IconChevronDown, IconClose, IconPause, IconPlay, IconPlus } from "./icons";
 import "../styles/nowplaying.css";
 
 /* .queue__row: 38px artwork + 7px padding × 2 — fixed-height rows. */
 const ROW_HEIGHT = 52;
 
-export function QueuePanel() {
+interface QueuePanelProps {
+  /** Narrow-window sheet mode (§23): a chevron returns to the stage. */
+  onCollapse?: () => void;
+}
+
+export function QueuePanel({ onCollapse }: QueuePanelProps) {
   const queue = usePlayerStore((s) => s.queue);
   const order = usePlayerStore((s) => s.order);
   const orderPos = usePlayerStore((s) => s.orderPos);
@@ -29,6 +38,7 @@ export function QueuePanel() {
   const playAt = usePlayerStore((s) => s.playAt);
   const removeFromQueue = usePlayerStore((s) => s.removeFromQueue);
   const togglePlay = usePlayerStore((s) => s.togglePlay);
+  const [adding, setAdding] = useState(false);
 
   const listRef = useRef<HTMLDivElement>(null);
   const mountedRef = useRef(false);
@@ -49,7 +59,7 @@ export function QueuePanel() {
     if (!list || order.length === 0 || orderPos >= order.length) return;
     const isNewQueue = lastOrderRef.current !== order;
     lastOrderRef.current = order;
-    const top = orderPos * ROW_HEIGHT;
+    const top = Math.max(0, orderPos) * ROW_HEIGHT;
     const inView =
       top >= list.scrollTop &&
       top + ROW_HEIGHT <= list.scrollTop + list.clientHeight;
@@ -63,111 +73,147 @@ export function QueuePanel() {
   }, [order, orderPos]);
 
   return (
-    <aside className="queue" aria-label="Queue">
-      <header className="queue__head">
-        <h2 className="queue__title">Queue</h2>
-        {order.length > 0 && (
-          <span className="queue__count">
-            {orderPos + 1} of {order.length}
-          </span>
-        )}
-      </header>
-
-      <div className="queue__list" ref={listRef}>
-        {order.length === 0 ? (
-          <p className="queue__empty">
-            Nothing queued yet — play an album or playlist, or use “Play Next”
-            in any track’s ··· menu.
-          </p>
-        ) : (
-          <div
-            className="queue__window"
-            style={{ height: virtualizer.getTotalSize() }}
-          >
-            {virtualizer.getVirtualItems().map((item) => {
-              const t = queue[order[item.index]];
-              if (!t) return null;
-              const isCurrent = item.index === orderPos;
-              const played = item.index < orderPos;
-              const rowClass = [
-                "queue__row",
-                isCurrent && "queue__row--current",
-                played && "queue__row--played",
-              ]
-                .filter(Boolean)
-                .join(" ");
-              const activate = () =>
-                isCurrent ? togglePlay() : playAt(item.index);
-              return (
-                <div
-                  key={`${order[item.index]}-${t.id}-${item.index}`}
-                  className={rowClass}
-                  style={{ transform: `translateY(${item.start}px)` }}
-                >
-                  <div
-                    className="queue__main"
-                    role="button"
-                    tabIndex={0}
-                    aria-current={isCurrent ? "true" : undefined}
-                    onClick={activate}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" || e.key === " ") {
-                        e.preventDefault();
-                        activate();
-                      }
-                    }}
-                    title={isCurrent ? undefined : `Play ${t.title}`}
-                  >
-                    <div className="queue__art">
-                      <Artwork artworkId={t.artwork_id} size={38} radius="s" />
-                      {isCurrent && (
-                        <>
-                          <span className="queue__scrim" aria-hidden="true" />
-                          <span
-                            className={
-                              isPlaying ? "eq" : "eq eq--paused"
-                            }
-                            aria-hidden="true"
-                          >
-                            <span />
-                            <span />
-                            <span />
-                          </span>
-                          <span className="queue__toggle" aria-hidden="true">
-                            {isPlaying ? (
-                              <IconPause size={14} />
-                            ) : (
-                              <IconPlay size={14} />
-                            )}
-                          </span>
-                        </>
-                      )}
-                    </div>
-                    <div className="queue__meta">
-                      <span className="queue__name">{t.title}</span>
-                      <span className="queue__sub">{t.artist ?? " "}</span>
-                    </div>
-                    <span className="queue__time">
-                      {fmtDuration(t.duration)}
-                    </span>
-                  </div>
-                  {!isCurrent && (
-                    <button
-                      type="button"
-                      className="queue__remove"
-                      aria-label={`Remove ${t.title} from queue`}
-                      title="Remove from queue"
-                      onClick={() => removeFromQueue(order[item.index])}
-                    >
-                      <IconClose size={13} />
-                    </button>
-                  )}
-                </div>
-              );
-            })}
+    <>
+      <aside className="queue" id="queue-panel" aria-label="Queue">
+        <header className="queue__head">
+          <div className="queue__headleft">
+            {onCollapse && (
+              <button
+                type="button"
+                className="queue__back"
+                onClick={onCollapse}
+                aria-label="Close queue"
+                title="Close queue"
+              >
+                <IconChevronDown size={16} />
+              </button>
+            )}
+            <h2 className="queue__title">Queue</h2>
           </div>
-        )}
-      </div>
-    </aside>
+          <div className="queue__headright">
+            <button
+              type="button"
+              className="queue__add"
+              onClick={() => setAdding(true)}
+              aria-haspopup="dialog"
+            >
+              <IconPlus size={13} />
+              Add
+            </button>
+            {order.length > 0 && (
+              <span className="queue__count">
+                {orderPos >= 0
+                  ? `${orderPos + 1} of ${order.length}`
+                  : `${order.length} ${order.length === 1 ? "track" : "tracks"}`}
+              </span>
+            )}
+          </div>
+        </header>
+
+        <div className="queue__list" ref={listRef}>
+          {order.length === 0 ? (
+            <div className="queue__empty">
+              <p className="queue__emptytitle">Nothing queued</p>
+              <p className="queue__emptyhint">
+                Play an album or playlist anywhere in Flow — or add tracks here to
+                line up what plays next.
+              </p>
+              <button type="button" className="queue__add" onClick={() => setAdding(true)}>
+                <IconPlus size={13} />
+                Add Tracks
+              </button>
+            </div>
+          ) : (
+            <div
+              className="queue__window"
+              style={{ height: virtualizer.getTotalSize() }}
+            >
+              {virtualizer.getVirtualItems().map((item) => {
+                const t = queue[order[item.index]];
+                if (!t) return null;
+                const isCurrent = item.index === orderPos;
+                const played = orderPos >= 0 && item.index < orderPos;
+                const rowClass = [
+                  "queue__row",
+                  isCurrent && "queue__row--current",
+                  played && "queue__row--played",
+                ]
+                  .filter(Boolean)
+                  .join(" ");
+                const activate = () =>
+                  isCurrent ? togglePlay() : playAt(item.index);
+                return (
+                  <div
+                    key={`${order[item.index]}-${t.id}-${item.index}`}
+                    className={rowClass}
+                    style={{ transform: `translateY(${item.start}px)` }}
+                  >
+                    <div
+                      className="queue__main"
+                      role="button"
+                      tabIndex={0}
+                      aria-current={isCurrent ? "true" : undefined}
+                      onClick={activate}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          activate();
+                        }
+                      }}
+                      title={isCurrent ? undefined : `Play ${t.title}`}
+                    >
+                      <div className="queue__art">
+                        <Artwork artworkId={t.artwork_id} size={38} radius="s" />
+                        {isCurrent && (
+                          <>
+                            <span className="queue__scrim" aria-hidden="true" />
+                            <span
+                              className={
+                                isPlaying ? "eq" : "eq eq--paused"
+                              }
+                              aria-hidden="true"
+                            >
+                              <span />
+                              <span />
+                              <span />
+                            </span>
+                            <span className="queue__toggle" aria-hidden="true">
+                              {isPlaying ? (
+                                <IconPause size={14} />
+                              ) : (
+                                <IconPlay size={14} />
+                              )}
+                            </span>
+                          </>
+                        )}
+                      </div>
+                      <div className="queue__meta">
+                        <span className="queue__name">{t.title}</span>
+                        <span className="queue__sub">{t.artist ?? " "}</span>
+                      </div>
+                      <span className="queue__time">
+                        {fmtDuration(t.duration)}
+                      </span>
+                    </div>
+                    {!isCurrent && (
+                      <button
+                        type="button"
+                        className="queue__remove"
+                        aria-label={`Remove ${t.title} from queue`}
+                        title="Remove from queue"
+                        onClick={() => removeFromQueue(order[item.index])}
+                      >
+                        <IconClose size={13} />
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </aside>
+      {adding && <AddTracksDialog kind="queue" onClose={() => setAdding(false)} />}
+    </>
   );
 }

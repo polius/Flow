@@ -17,12 +17,11 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 import { useVirtualizer } from "@tanstack/react-virtual";
 
 import type { Track } from "../api/types";
-import { usePatchTrack, useToggleFavorite } from "../api/mutations";
+import { useToggleFavorite } from "../api/mutations";
 import { useCurrentTrack, usePlayerStore } from "../stores/player";
 import "../styles/library.css";
 import "../styles/editing.css";
-import { TrackMenu } from "./TrackMenu";
-import { TrackRow, type MenuState } from "./TrackRow";
+import { TrackRow } from "./TrackRow";
 
 /* .trackrow: 7px padding × 2 + one 24px line → fixed-height rows by design. */
 const ROW_HEIGHT = 38;
@@ -39,14 +38,11 @@ interface VirtualTrackTableProps {
 export function VirtualTrackTable({ tracks, onNearEnd }: VirtualTrackTableProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [scrollEl, setScrollEl] = useState<HTMLElement | null>(null);
-  const [selectedId, setSelectedId] = useState<number | null>(null);
-  const [menu, setMenu] = useState<MenuState | null>(null);
   const current = useCurrentTrack();
   const isPlaying = usePlayerStore((s) => s.isPlaying);
   const playTracks = usePlayerStore((s) => s.playTracks);
   const togglePlay = usePlayerStore((s) => s.togglePlay);
   const toggleFavorite = useToggleFavorite();
-  const patchTrack = usePatchTrack();
 
   // The grid never scrolls itself — the shell canvas does (§18). Binding the
   // virtualizer to the canvas keeps windowing honest inside the shared
@@ -73,54 +69,34 @@ export function VirtualTrackTable({ tracks, onNearEnd }: VirtualTrackTableProps)
     [playTracks, tracks],
   );
 
-  const commitTitle = useCallback(
-    async (track: Track, title: string) => {
-      await patchTrack(track.id, { title });
-    },
-    [patchTrack],
-  );
-
   return (
-    <>
-      <div
-        ref={containerRef}
-        className="tracktable tracktable--all tracktable--virtual"
-        role="table"
-        aria-label="Tracks"
-        style={{ height: virtualizer.getTotalSize() }}
-      >
-        {virtualizer.getVirtualItems().map((item) => {
-          const track = tracks[item.index];
-          if (!track) return null;
-          return (
-            <TrackRow
-              key={track.id}
-              track={track}
-              index={item.index}
-              variant="all"
-              isCurrent={current?.id === track.id}
-              isPlaying={isPlaying}
-              selected={selectedId === track.id}
-              style={{
-                transform: `translateY(${item.start}px)`,
-              }}
-              onActivate={play}
-              onTogglePlay={togglePlay}
-              onSelect={(track) => setSelectedId(track.id)}
-              onCommitTitle={commitTitle}
-              onToggleFavorite={toggleFavorite}
-              onMenu={(track, x, y) => setMenu({ track, x, y })}
-            />
-          );
-        })}
-      </div>
-      {menu && (
-        <TrackMenu
-          track={menu.track}
-          anchor={{ x: menu.x, y: menu.y }}
-          onClose={() => setMenu(null)}
-        />
-      )}
-    </>
+    <div
+      ref={containerRef}
+      className="tracktable tracktable--all tracktable--virtual"
+      role="table"
+      aria-label="Tracks"
+      style={{ height: virtualizer.getTotalSize() }}
+    >
+      {virtualizer.getVirtualItems().map((item) => {
+        const track = tracks[item.index];
+        if (!track) return null;
+        return (
+          <TrackRow
+            key={track.id}
+            track={track}
+            index={item.index}
+            variant="all"
+            isCurrent={current?.id === track.id}
+            isPlaying={isPlaying}
+            style={{
+              transform: `translateY(${item.start}px)`,
+            }}
+            onActivate={play}
+            onTogglePlay={togglePlay}
+            onToggleFavorite={toggleFavorite}
+          />
+        );
+      })}
+    </div>
   );
 }

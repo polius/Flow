@@ -20,7 +20,6 @@ import {
   IconClose,
   IconMenu,
   IconMusicNote,
-  IconOrganize,
   IconPlaylists,
   IconSearch,
   IconSettings,
@@ -41,13 +40,14 @@ interface NavEntry {
 }
 
 /* Section nav — the brand lockup is the Home affordance (§18), so "/" is
-   not repeated here. Settings is kept apart from the library sections,
-   mirroring the hairline break in both nav forms. */
+   not repeated here. Listening sections only, ordered by the owner's
+   frequency of use (§23): Tracks, Albums, Artists, Playlists — Organize
+   lives in the Tracks view's header now. Settings is kept apart from the
+   library sections, mirroring the hairline break in both nav forms. */
 const NAV: NavEntry[] = [
+  { to: "/tracks", label: "Tracks", Icon: IconTracks },
   { to: "/albums", label: "Albums", Icon: IconAlbums },
   { to: "/artists", label: "Artists", Icon: IconArtists },
-  { to: "/tracks", label: "Tracks", Icon: IconTracks },
-  { to: "/organize", label: "Organize", Icon: IconOrganize },
   { to: "/playlists", label: "Playlists", Icon: IconPlaylists },
 ];
 

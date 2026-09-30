@@ -20,10 +20,10 @@
   }
 }
 
-.nowplaying__close {
+.nowplaying__close,
+.nowplaying__queuebtn {
   position: absolute;
   top: 18px;
-  left: 20px;
   z-index: 1;
   display: flex;
   align-items: center;
@@ -39,7 +39,18 @@
     background-color var(--dur-fast) var(--ease-out);
 }
 
-.nowplaying__close:hover {
+.nowplaying__close {
+  left: 20px;
+}
+
+/* The queue entry on narrow windows (§23) — the drawer's side-by-side home
+   can't fit, so the queue sheet slides up behind this button. */
+.nowplaying__queuebtn {
+  right: 20px;
+}
+
+.nowplaying__close:hover,
+.nowplaying__queuebtn:hover {
   color: var(--text-primary);
   background: var(--bg-elevated);
 }
@@ -131,6 +142,35 @@
   max-width: 200px;
 }
 
+/* ---- idle stage (§23): the queue is present before anything plays --------- */
+
+.nowplaying__idle {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 0;
+  max-width: 460px;
+}
+
+.nowplaying__idleart {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 96px;
+  height: 96px;
+  margin-bottom: 22px;
+  border-radius: var(--radius-l);
+  background: var(--bg-inset);
+  color: var(--text-tertiary);
+}
+
+.nowplaying__hint {
+  margin: 8px 0 0;
+  font-size: var(--text-regular);
+  color: var(--text-secondary);
+}
+
 /* ---- queue drawer ---------------------------------------------------------- */
 
 .queue {
@@ -153,10 +193,18 @@
 
 .queue__head {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
   gap: 12px;
   padding: 20px 20px 10px;
+}
+
+.queue__headleft,
+.queue__headright {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
 }
 
 .queue__title {
@@ -166,11 +214,51 @@
   letter-spacing: var(--tracking-tight);
 }
 
+/* Sheet mode's back chevron (§23): narrow windows only — the prop that
+   renders it is only passed there. */
+.queue__back {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  color: var(--text-secondary);
+  transition: color var(--dur-fast) var(--ease-out),
+    background-color var(--dur-fast) var(--ease-out);
+}
+
+.queue__back:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+
+/* The Add affordance (§23): the queue is where one is built. Quiet pill,
+   the .view__action grammar at drawer scale. */
+.queue__add {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 12px;
+  border: 1px solid var(--control-border);
+  border-radius: 999px;
+  font-size: var(--text-small);
+  font-weight: 600;
+  color: var(--text-primary);
+  transition: background var(--dur-fast) var(--ease-out);
+}
+
+.queue__add:hover {
+  background: var(--bg-hover);
+}
+
 /* Position in the queue — the "you are here" of the full list. */
 .queue__count {
   font-size: var(--text-small);
   color: var(--text-tertiary);
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .queue__list {
@@ -404,13 +492,39 @@
   opacity: 0;
 }
 
+/* Empty state (§23): the queue is now where a queue gets built — the empty
+   state invites the Add action instead of pointing at a removed menu. */
 .queue__empty {
-  margin: 14px 10px 0;
-  font-size: var(--text-small);
-  color: var(--text-tertiary);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  margin: 56px 20px 0;
 }
 
-/* ---- narrow windows: the stage alone carries the view ---------------------- */
+.queue__emptytitle {
+  margin: 0;
+  font-size: var(--text-body);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.queue__emptyhint {
+  margin: 6px 0 0;
+  font-size: var(--text-small);
+  color: var(--text-secondary);
+}
+
+.queue__empty .queue__add {
+  margin-top: 16px;
+}
+
+/* ---- narrow windows: the queue becomes a slide-up sheet (§23) ---------------
+
+ Below 940px the side-by-side drawer can't fit; instead of disappearing, the
+ queue now lives one tap away: the header's queue button slides it over the
+ stage (motion that communicates where it came from, §8.4 — short, ease-out,
+ and static under prefers-reduced-motion via the global override). */
 
 @media (max-width: 940px) {
   .nowplaying__layout {
@@ -418,6 +532,17 @@
   }
 
   .queue {
-    display: none;
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    border-left: none;
+    box-shadow: 0 -18px 44px rgba(0, 0, 0, 0.28);
+    animation: none;
+    transform: translateY(103%);
+    transition: transform var(--dur-normal) var(--ease-out);
+  }
+
+  .nowplaying--queue .queue {
+    transform: translateY(0);
   }
 }

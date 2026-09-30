@@ -25,6 +25,10 @@ interface PlayerState {
 
   playTracks: (tracks: Track[], startIndex: number) => void;
   playNext: (track: Track) => void;
+  /** Appends tracks to the END of the play order (§23 — the queue's Add
+      button). Plays nothing: the queue can be built before playback starts,
+      in which case `orderPos` sits at -1 until a row is clicked. */
+  addToQueue: (tracks: Track[]) => void;
   /** Removes an upcoming track from the queue (§9.4). No-op for the current one. */
   removeFromQueue: (queueIndex: number) => void;
   /** Click-to-jump (§17.7): start playback at any position in the play order. */
@@ -99,6 +103,19 @@ export const usePlayerStore = create<PlayerState>()(
         remapped.splice(orderPos + 1, 0, currentQueueIndex + 1);
         // Seamless: the audio element keeps playing; only the plan changes.
         set({ queue: newQueue, order: remapped, orderPos });
+      },
+
+      addToQueue: (tracks) => {
+        if (tracks.length === 0) return;
+        const { queue, order, orderPos } = get();
+        const base = queue.length;
+        set({
+          queue: [...queue, ...tracks],
+          order: [...order, ...tracks.map((_, i) => base + i)],
+          // An idle-built queue plays nothing yet: orderPos -1 means "no
+          // current track" (useCurrentTrack reads order[-1] → undefined).
+          orderPos: queue.length === 0 ? -1 : orderPos,
+        });
       },
 
       removeFromQueue: (queueIndex) => {

@@ -1,8 +1,9 @@
-/* Add Tracks — the playlist's own library picker (§9.2, §9.3).
-   Search the whole library — title, artist, or album, so typing an album
-   name surfaces its songs — select any number of tracks, and add them in
-   one commit. Tracks already in the playlist are marked and stay
-   unselectable; Enter toggles the highlighted row, Esc closes. */
+/* Add Tracks — the one library picker (§23): search the whole library —
+   title, artist, or album, so typing an album name surfaces its songs —
+   select any number of tracks, and add them in one commit. Two targets:
+   a playlist (its detail view owns membership) and the QUEUE (the queue
+   panel's Add button; tracks land at the end of the play order). Enter
+   toggles the highlighted row, Esc closes. */
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -10,23 +11,26 @@ import { useQuery } from "@tanstack/react-query";
 import { api } from "../api/client";
 import type { PlaylistDetail, Track } from "../api/types";
 import { useAddToPlaylist } from "../api/mutations";
+import { usePlayerStore } from "../stores/player";
+import { useUiStore } from "../stores/ui";
 import { Artwork } from "./Artwork";
-import { IconCheck, IconClose, IconPlus, IconSearch } from "./icons";
+import { IconCheck, IconClose, IconPlus, IconQueue, IconSearch } from "./icons";
 import { PlaylistArt } from "./PlaylistArt";
 import { fmtDuration, fmtMinutes } from "../lib/format";
 import "../styles/editing.css";
 
-interface AddTracksDialogProps {
-  playlist: PlaylistDetail;
-  onClose: () => void;
-}
+type AddTracksDialogProps =
+  | { kind: "playlist"; playlist: PlaylistDetail; onClose: () => void }
+  | { kind: "queue"; onClose: () => void };
 
 /** The picker reads one page of results; the search field narrows the rest. */
 const RESULT_LIMIT = 200;
 const SEARCH_DEBOUNCE_MS = 150;
 
-export function AddTracksDialog({ playlist, onClose }: AddTracksDialogProps) {
+export function AddTracksDialog(props: AddTracksDialogProps) {
+  const { onClose } = props;
   const addToPlaylist = useAddToPlaylist();
+  const addToQueue = usePlayerStore((s) => s.addToQueue);
 
   const [input, setInput] = useState("");
   const [q, setQ] = useState("");
@@ -34,6 +38,13 @@ export function AddTracksDialog({ playlist, onClose }: AddTracksDialogProps) {
   const [selected, setSelected] = useState<Map<number, Track>>(new Map());
   const [adding, setAdding] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
+
+  // Registered like any modal (§15.7): Now Playing's Esc and the global
+  // shortcut guard defer while the picker is up.
+  useEffect(() => {
+    useUiStore.getState().setPickerOpen(true);
+    return () => useUiStore.getState().setPickerOpen(false);
+  }, []);
 
   // Debounce the query so fast typing doesn't thrash the library table.
   useEffect(() => {
@@ -69,10 +80,13 @@ export function AddTracksDialog({ playlist, onClose }: AddTracksDialogProps) {
   const total = data?.total ?? 0;
 
   const existingIds = useMemo(
-    () => new Set(playlist.tracks.map((t) => t.id)),
-    [playlist.tracks],
+    () =>
+      props.kind === "playlist"
+        ? new Set(props.playlist.tracks.map((t) => t.id))
+        : new Set<number>(),
+    [props],
   );
-  // Selectable = everything not already in the playlist.
+  // Selectable = everything not already in the playlist (queue: everything).
   const selectable = useMemo(
     () => results.filter((t) => !existingIds.has(t.id)),
     [results, existingIds],
@@ -99,13 +113,21 @@ export function AddTracksDialog({ playlist, onClose }: AddTracksDialogProps) {
 
   const commit = async () => {
     if (selected.size === 0 || adding) return;
-    setAdding(true);
-    const ok = await addToPlaylist(
-      playlist.id,
-      [...selected.keys()].sort((a, b) => a - b),
-    );
-    setAdding(false);
-    if (ok) onClose();
+    const tracks = [...selected.values()];
+    if (props.kind === "playlist") {
+      setAdding(true);
+      const ok = await addToPlaylist(
+        props.playlist.id,
+        [...selected.keys()].sort((a, b) => a - b),
+      );
+      setAdding(false);
+      if (ok) onClose();
+    } else {
+      // Append to the end of the play order — the queue panel is where a
+      // queue gets built (§23); click-to-jump starts any of them.
+      addToQueue(tracks);
+      onClose();
+    }
   };
 
   // Arrows move the highlight, Enter/Space toggles — from the search field,
@@ -136,6 +158,40 @@ export function AddTracksDialog({ playlist, onClose }: AddTracksDialogProps) {
   );
   const allSelected = selectable.length > 0 && selectedCount >= selectable.length;
 
+  const identity =
+    props.kind === "playlist" ? (
+      <>
+        <PlaylistArt
+          artworkIds={props.playlist.artwork_ids}
+          coverArtworkId={props.playlist.cover_artwork_id}
+          size={52}
+          radius="m"
+        />
+        <div className="addtracks__identity">
+          <h2 className="addtracks__title">Add to {props.playlist.name}</h2>
+          <p className="addtracks__sub">
+            {props.playlist.track_count === 0
+              ? "Search your library, then select the tracks to add."
+              : `Search your library — ${props.playlist.track_count} ${
+                  props.playlist.track_count === 1 ? "track is" : "tracks are"
+                } already in this playlist.`}
+          </p>
+        </div>
+      </>
+    ) : (
+      <>
+        <span className="addtracks__queuetile" aria-hidden="true">
+          <IconQueue size={22} />
+        </span>
+        <div className="addtracks__identity">
+          <h2 className="addtracks__title">Add to Queue</h2>
+          <p className="addtracks__sub">
+            Search your library — tracks are added to the end of the queue.
+          </p>
+        </div>
+      </>
+    );
+
   return (
     <>
       <div className="addtracks__scrim" onClick={onClose} aria-hidden="true" />
@@ -143,25 +199,14 @@ export function AddTracksDialog({ playlist, onClose }: AddTracksDialogProps) {
         className="addtracks"
         role="dialog"
         aria-modal="true"
-        aria-label={`Add tracks to ${playlist.name}`}
+        aria-label={
+          props.kind === "playlist"
+            ? `Add tracks to ${props.playlist.name}`
+            : "Add tracks to the queue"
+        }
       >
         <header className="addtracks__head">
-          <PlaylistArt
-            artworkIds={playlist.artwork_ids}
-            coverArtworkId={playlist.cover_artwork_id}
-            size={52}
-            radius="m"
-          />
-          <div className="addtracks__identity">
-            <h2 className="addtracks__title">Add to {playlist.name}</h2>
-            <p className="addtracks__sub">
-              {playlist.track_count === 0
-                ? "Search your library, then select the tracks to add."
-                : `Search your library — ${playlist.track_count} ${
-                    playlist.track_count === 1 ? "track is" : "tracks are"
-                  } already in this playlist.`}
-            </p>
-          </div>
+          {identity}
           <button
             type="button"
             className="addtracks__close"
