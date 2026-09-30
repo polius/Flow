@@ -659,10 +659,43 @@ on wayfinding that six icons can carry. **Supersedes §9.1's sidebar:**
    canvas edges), so its dissolves remain correct.
 4. Narrow windows shed gracefully: the brand wordmark hides below 760px, the
    scan pill collapses to its spinner below 640px; the nav is never hidden.
+   (Superseded below 640px by §19: on phones the nav collapses into an
+   overflow sheet.)
 5. **Follow-up (same day):** Home was removed from the nav — the brand
    lockup is the home affordance. It was upgraded to carry that role
    properly: a 32px toolbar target with hover/press fills (the nav items'
    grammar), a larger 28px mark that inverts with the theme, a "Home"
    tooltip, and a dedicated `--text-brand` wordmark size (16px, one step
    above body copy). `IconHome` left the icon set with it.
+
+## 19. Addendum — top bar nav on phones (2026-09-30)
+
+Owner decision: below the 640px phone breakpoint, the icon-only section nav
+is replaced by a single overflow button — six 32px targets plus separator
+leave the search field ~140px at iPhone widths and the row would truncate.
+Supersedes §18.4's "the nav is never hidden" below 640px; desktop is
+untouched.
+
+1. **The button** reuses the nav items' 32px toolbar grammar with a
+   hamburger glyph (new `IconMenu`), swapping to ✕ while open. It carries
+   `aria-haspopup="menu"`, `aria-expanded`, and `aria-controls`.
+2. **The sheet** is a small pull-down panel anchored to the bar's right
+   edge, using the context menu's surface language (§15.6): elevated panel,
+   hairline border, `--radius-m`, 150ms scale-in from the button with
+   transform-origin top right (§8.4 — motion that communicates where it
+   came from). Rows are icon + label at 40px height — a touch target, not
+   the desktop's 32px hover row.
+3. **Active state** is the established active-nav language, unchanged:
+   accent icon on a quiet `--bg-active` pill (§8.1, §18.1). A hairline
+   separator keeps Settings grouped off, mirroring the desktop break.
+4. **Closing:** item activation, outside pointerdown (the button itself is
+   exempt so its toggle can't double-fire), Esc, route change, or crossing
+   back to desktop (matchMedia — plus a CSS guard so it can never paint
+   there). While open it registers as a context menu in the ui store, so
+   Esc precedence (§15.7, §16.4) and the shortcut guard (§16.3) treat it
+   like any menu.
+5. **Breakpoint rationale:** 640px is the bar's established phone
+   breakpoint, and it is honest here: above it the icon row never truncates
+   (measured floor ~473px), below it the menu-button layout fits down to
+   320px (~300px floor).
 

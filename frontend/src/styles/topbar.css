@@ -1,10 +1,12 @@
 /* Top bar — the full-width chrome bar (§9.1, §18). Brand and scan status sit
    left, the search field floats centered in the free space, and the section
-   nav (icon-only) sits right. Chrome stays near-monochrome (§8): the accent
-   appears only as the active section's icon, on a quiet pill — the same
-   active-nav language the sidebar used. */
+   nav (icon-only) sits right — collapsing into an overflow pull-down sheet
+   on phones (§19). Chrome stays near-monochrome (§8): the accent appears
+   only as the active section's icon, on a quiet pill — the same active-nav
+   language the sidebar used. */
 
 .topbar {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 16px;
@@ -197,6 +199,85 @@
   background: var(--separator);
 }
 
+/* ---- overflow nav (phones, §19) ----
+   Below the phone breakpoint the icon row is replaced by one 32px toolbar
+   button (the nav items' grammar) that opens a pull-down sheet anchored to
+   the bar's right edge. The sheet reuses the context menu's surface
+   language (§15.6): elevated panel, hairline border, short scale-in from
+   the button — motion that communicates where it came from (§8.4). */
+
+.topbar__navmenu-btn {
+  flex: none;
+  display: none; /* desktop shows the icon row instead */
+}
+
+.topbar__navmenu-btn--open {
+  color: var(--text-primary);
+  background: var(--bg-active);
+}
+
+.topbar__sheet {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 20px;
+  z-index: var(--z-modal);
+  width: min(224px, calc(100vw - 40px));
+  padding: 5px;
+  border-radius: var(--radius-m);
+  border: 1px solid var(--separator);
+  background: var(--bg-elevated);
+  box-shadow: 0 10px 34px rgba(0, 0, 0, 0.24);
+  transform-origin: top right;
+  animation: sheet-in var(--dur-fast) var(--ease-out);
+}
+
+@keyframes sheet-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(-4px);
+  }
+}
+
+.topbar__sheet-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  height: 40px; /* touch target, not the desktop's 32px hover row */
+  padding: 0 12px;
+  border-radius: var(--radius-s);
+  font-size: var(--text-regular);
+  font-weight: 500;
+  color: var(--text-primary);
+  transition: background-color var(--dur-fast) var(--ease-out);
+}
+
+.topbar__sheet-item:hover {
+  background: var(--bg-hover);
+}
+
+.topbar__sheet-item:active {
+  background: var(--bg-active);
+}
+
+/* The established active-nav language (§8.1, §18.1): the accent's one
+   chrome appearance — the active section's icon on a quiet pill. */
+.topbar__sheet-item--active,
+.topbar__sheet-item--active:hover {
+  background: var(--bg-active);
+}
+
+.topbar__sheet-item--active svg {
+  color: var(--accent);
+}
+
+/* Hairline group break, mirroring the desktop nav's separator. */
+.topbar__sheet-sep {
+  height: 1px;
+  margin: 4px 6px;
+  background: var(--separator);
+}
+
 /* ---- narrow windows: the wordmark goes first, then the scan text ---- */
 
 @media (max-width: 760px) {
@@ -206,6 +287,16 @@
 }
 
 @media (max-width: 640px) {
+  /* The icon row gives way to the overflow sheet (§19): six 32px targets
+     plus separator leave the search field ~140px at iPhone widths. */
+  .topbar__nav {
+    display: none;
+  }
+
+  .topbar__navmenu-btn {
+    display: flex;
+  }
+
   .topbar__scan {
     padding: 4px 8px;
   }
@@ -217,5 +308,13 @@
   .topbar__scan-spin {
     border-color: var(--bg-active);
     border-top-color: var(--text-secondary);
+  }
+}
+
+/* Belt and braces for the resize edge: the sheet unmounts on crossing back
+   to desktop (matchMedia in TopBar), but it must never paint there. */
+@media (min-width: 641px) {
+  .topbar__sheet {
+    display: none;
   }
 }
