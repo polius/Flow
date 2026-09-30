@@ -110,6 +110,13 @@
   color: var(--bg-canvas);
 }
 
+/* Renaming inside the playing pill: the input's color:inherit picks up the
+   pill's inverted (canvas) ink, which is unreadable on its elevated
+   background — restore the theme's normal text color. */
+.trackrow--playing .inlineedit__input {
+  color: var(--text-primary);
+}
+
 /* Drag-reorder feedback: lifted row + insertion line. */
 .trackrow--dragging {
   opacity: 0.35;
@@ -121,6 +128,16 @@
 
 .trackrow--dropafter {
   box-shadow: inset 0 -2px 0 var(--text-primary);
+}
+
+/* On the playing pill the insertion line above would be ink-on-ink —
+   invert it along with the row. */
+.trackrow--playing.trackrow--dropbefore {
+  box-shadow: inset 0 2px 0 var(--bg-canvas);
+}
+
+.trackrow--playing.trackrow--dropafter {
+  box-shadow: inset 0 -2px 0 var(--bg-canvas);
 }
 
 /* ---- inline edit (double-click rename, §9.3) ------------------------------ */

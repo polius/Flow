@@ -224,7 +224,10 @@
   background: var(--bg-hover);
 }
 
-.trackrow--selected {
+/* Hover must not out-shout state (same specificity trap as --playing below):
+   a click-selected row keeps its fill while the pointer is over it. */
+.trackrow--selected,
+.trackrow--selected:hover {
   background: var(--bg-active);
 }
 
@@ -280,8 +283,13 @@
   color: var(--text-secondary);
 }
 
-/* Current track — monochrome inversion, the "dark pill" (DESIGN.md §13). */
-.trackrow--playing {
+/* Current track — monochrome inversion, the "dark pill" (DESIGN.md §13).
+   The :hover restatement matters: .trackrow:hover out-specifies this rule,
+   and without it the pill loses its inverted fill on hover while the text
+   keeps the inverted color — dark-on-dark in dark theme (the queue drawer
+   solves the same trap with .queue__row--current:hover). */
+.trackrow--playing,
+.trackrow--playing:hover {
   background: var(--text-primary);
   color: var(--bg-canvas);
 }
