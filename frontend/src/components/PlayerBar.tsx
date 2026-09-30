@@ -72,6 +72,7 @@ export function PlayerBar() {
           <TransportButton
             label="Shuffle"
             active={shuffle}
+            secondary
             onClick={() => setShuffle(!shuffle)}
           >
             <IconShuffle size={16} />
@@ -87,6 +88,7 @@ export function PlayerBar() {
             label={`Repeat: ${repeat}`}
             active={repeat !== "off"}
             badge={repeat === "one" ? "1" : undefined}
+            secondary
             onClick={cycleRepeat}
           >
             <IconRepeat size={16} />

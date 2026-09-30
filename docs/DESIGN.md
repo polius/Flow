@@ -699,3 +699,29 @@ untouched.
    (measured floor ~473px), below it the menu-button layout fits down to
    320px (~300px floor).
 
+## 20. Addendum — phone mini player bar (2026-09-30)
+
+Owner decision: below the 640px phone breakpoint the player bar becomes the
+iOS mini-player — the desktop 3-column grid (meta · transport+scrubber ·
+volume) has a ~642px floor and overlapped at phone widths. Desktop is
+untouched; the breakpoint matches the top bar's (§19).
+
+1. **One row, 62px:** artwork · title/artist · prev/play/next. The
+   `--player-height` token drops to 62px on phones, so the canvas padding
+   and any other consumer follows the bar automatically.
+2. **The scrubber is the bar's top edge** — a full-width hairline
+   straddling the border-top, Apple Music mini-player style. The seek hit
+   box is 24px tall; the visible track is a 3px background-image layer
+   centered in it (the Scrubber's fill moved to the background-image
+   longhand so CSS can size the layer independently of the hit box; the
+   override out-specifies the base `.range` rule so it never depends on
+   CSS import order). Time labels are hidden — they live in Now Playing.
+3. **Shed, not lost:** shuffle, repeat, and volume leave the mini bar (a
+   `secondary` flag marks the mode switches); all three remain first-class
+   in Now Playing, which the artwork thumb opens (§9.2, §16.8). Volume on
+   a phone is hardware keys.
+4. **Touch targets:** transport buttons get real 36/38px boxes on phones
+   (the icons alone are ~17px).
+5. The row carries a 4px top inset so the seek box pinned above it never
+   collides with the artwork's tap target.
+

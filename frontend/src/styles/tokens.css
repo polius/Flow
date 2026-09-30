@@ -75,6 +75,14 @@
   --z-modal: 80;
 }
 
+/* Phones (§20): the mini player bar is one row — 62px, iOS-like. The canvas
+   and any other consumer of --player-height follow the bar automatically. */
+@media (max-width: 640px) {
+  :root {
+    --player-height: 62px;
+  }
+}
+
 :root[data-theme="dark"] {
   color-scheme: dark;
 

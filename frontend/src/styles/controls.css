@@ -8,6 +8,10 @@ input[type="range"].range {
   height: 4px;
   border-radius: 2px;
   background: var(--bg-active);
+  /* The progress fill arrives as a background-image layer (Scrubber), so the
+     layer can be sized independently of the element's hit box. */
+  background-repeat: no-repeat;
+  background-position: center;
   margin: 0;
 }
 

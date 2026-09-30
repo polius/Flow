@@ -21,7 +21,11 @@ export function Scrubber() {
   const pct = (v: number) => (max > 0 ? Math.min(100, (v / max) * 100) : 0);
 
   const trackStyle = {
-    background: `linear-gradient(to right,
+    // Longhand on purpose: the element's background *image* is the progress
+    // fill; CSS is free to size that layer (the phone bar paints it as a
+    // 3px hairline inside a taller touch target — §20) without the shorthand
+    // resetting background-size.
+    backgroundImage: `linear-gradient(to right,
       var(--text-tertiary) 0% ${pct(value)}%,
       var(--control-border) ${pct(value)}% ${pct(buffered)}%,
       var(--bg-active) ${pct(buffered)}% 100%)`,
@@ -72,6 +76,7 @@ export function TransportButton({
   disabled,
   badge,
   primary,
+  secondary,
 }: {
   label: string;
   active?: boolean;
@@ -80,13 +85,16 @@ export function TransportButton({
   disabled?: boolean;
   badge?: string;
   primary?: boolean;
+  /** Mode switches (shuffle/repeat): outside the phone mini bar's one job —
+      hidden there, still first-class in Now Playing (§20). */
+  secondary?: boolean;
 }) {
   return (
     <button
       type="button"
       className={`player__btn${active ? " player__btn--active" : ""}${
         primary ? " player__btn--play" : ""
-      }`}
+      }${secondary ? " player__btn--secondary" : ""}`}
       onClick={onClick}
       disabled={disabled}
       aria-label={label}

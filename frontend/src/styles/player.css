@@ -176,6 +176,73 @@
   max-width: 110px;
 }
 
+/* ---- phone mini bar (§20) ----
+   Below the phone breakpoint the bar becomes the iOS mini-player: one row —
+   artwork · title/artist · prev/play/next — with the scrubber as a
+   full-width hairline straddling the bar's top edge. Everything that has a
+   first-class home in Now Playing (shuffle, repeat, volume, time labels)
+   leaves the mini bar; the artwork thumb opens that view (§9.2). */
+
+@media (max-width: 640px) {
+  .player {
+    display: flex;
+    gap: 12px;
+    /* 4px top inset keeps the row clear of the seek box pinned above it. */
+    padding: 4px 12px 0;
+  }
+
+  .player__meta {
+    flex: 1;
+  }
+
+  /* Out of flow: it leaves the row and pins to the bar's top edge below. */
+  .player__progress {
+    position: absolute;
+    top: -13px; /* the 24px hit box centers its 3px line on the border */
+    left: 0;
+    right: 0;
+    width: auto;
+    max-width: none;
+    gap: 0;
+  }
+
+  /* The hit box is 24px tall; the visible track is a 3px layer centered in
+     it (the fill arrives as a background-image, sized here). Full-bleed,
+     square — it reads as the bar's edge. The selector out-specifies the
+     base .range rule so the override never depends on import order. */
+  input[type="range"].range.player__scrubber {
+    height: 24px;
+    border-radius: 0;
+    background-color: transparent;
+    background-size: 100% 3px;
+  }
+
+  .player__time {
+    display: none;
+  }
+
+  .player__transport {
+    flex: none;
+    gap: 10px;
+  }
+
+  /* Touch targets: icon buttons get a real box; the play circle grows. */
+  .player__btn {
+    width: 36px;
+    height: 36px;
+  }
+
+  .player__btn--play {
+    width: 38px;
+    height: 38px;
+  }
+
+  .player__btn--secondary,
+  .player__volume {
+    display: none;
+  }
+}
+
 /* Play/pause glyph crossfade — play-state motion (§8.4), 150ms ease-out. */
 .transport-glyph {
   position: relative;
