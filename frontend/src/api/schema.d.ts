@@ -443,6 +443,8 @@ export interface components {
             album_count: number;
             /** Track Count */
             track_count: number;
+            /** Artwork Id */
+            artwork_id?: number | null;
             /** Albums */
             albums: components["schemas"]["AlbumSummary"][];
             /** Tracks */
@@ -469,6 +471,8 @@ export interface components {
             album_count: number;
             /** Track Count */
             track_count: number;
+            /** Artwork Id */
+            artwork_id?: number | null;
         };
         /** Body_set_playlist_cover_api_playlists__playlist_id__cover_put */
         Body_set_playlist_cover_api_playlists__playlist_id__cover_put: {
@@ -892,7 +896,9 @@ export interface operations {
                 artist_id?: number | null;
                 album_id?: number | null;
                 review?: string | null;
+                favorite?: boolean | null;
                 sort?: string;
+                dir?: string;
                 limit?: number;
                 offset?: number;
             };
@@ -1057,6 +1063,7 @@ export interface operations {
         parameters: {
             query?: {
                 q?: string | null;
+                sort?: string;
                 limit?: number;
                 offset?: number;
             };

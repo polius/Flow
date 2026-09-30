@@ -88,6 +88,10 @@ class ArtistSummary(BaseModel):
     name: str
     album_count: int
     track_count: int
+    # The latest album's cover, as the artist's stand-in portrait (the Artists
+    # grid reads as a wall of circular covers, Apple-Music style). None → the
+    # client renders a monogram.
+    artwork_id: int | None = None
 
 
 class ArtistListOut(BaseModel):

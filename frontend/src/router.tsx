@@ -1,17 +1,32 @@
-import { createBrowserRouter } from "react-router";
+import { createBrowserRouter, useNavigate } from "react-router";
 
 import { AppShell } from "./components/AppShell";
 import { AlbumDetailView } from "./views/AlbumDetailView";
 import { AlbumsView } from "./views/AlbumsView";
 import { ArtistDetailView } from "./views/ArtistDetailView";
 import { ArtistsView } from "./views/ArtistsView";
+import { FavoritesView } from "./views/FavoritesView";
 import { HomeView } from "./views/HomeView";
 import { PlaylistDetailView } from "./views/PlaylistDetailView";
 import { PlaylistsView } from "./views/PlaylistsView";
 import { SearchView } from "./views/SearchView";
 import { SettingsView } from "./views/SettingsView";
 import { TracksView } from "./views/TracksView";
-import { OrganizeView } from "./views/OrganizeView";
+import { useEffect } from "react";
+import { useUiStore } from "./stores/ui";
+
+/* Old deep links to /organize (pre-sheet) land here: the task opens over
+   Tracks, where it belongs — the URL stops advertising a section that
+   doesn't exist. */
+function OrganizeRedirect() {
+  const openOrganize = useUiStore((s) => s.openOrganize);
+  const navigate = useNavigate();
+  useEffect(() => {
+    openOrganize();
+    navigate("/tracks", { replace: true });
+  }, [openOrganize, navigate]);
+  return null;
+}
 
 export const router = createBrowserRouter([
   {
@@ -23,7 +38,10 @@ export const router = createBrowserRouter([
       { path: "/artists", element: <ArtistsView /> },
       { path: "/artists/:artistId", element: <ArtistDetailView /> },
       { path: "/tracks", element: <TracksView /> },
-      { path: "/organize", element: <OrganizeView /> },
+      // Organize is a task, not a section: it lives in a full-screen sheet
+      // opened from the Tracks view (§23) — no route, no nav slot.
+      { path: "/organize", element: <OrganizeRedirect /> },
+      { path: "/favorites", element: <FavoritesView /> },
       { path: "/playlists", element: <PlaylistsView /> },
       { path: "/playlists/:playlistId", element: <PlaylistDetailView /> },
       { path: "/search", element: <SearchView /> },

@@ -11,6 +11,7 @@ import { EmptyState } from "../components/EmptyState";
 import { IconSearch } from "../components/icons";
 import { PlaylistArt } from "../components/PlaylistArt";
 import { TrackTable } from "../components/TrackTable";
+import { ArtistPortrait } from "./ArtistsView";
 import { fmtMinutes } from "../lib/format";
 import "../styles/library.css";
 
@@ -89,6 +90,9 @@ export function SearchView() {
               <div className="artistlist">
                 {results.artists.map((artist) => (
                   <Link key={artist.id} to={`/artists/${artist.id}`} className="artistrow">
+                    <span className="artistrow__portrait">
+                      <ArtistPortrait artworkId={artist.artwork_id} name={artist.name} />
+                    </span>
                     <span>{artist.name}</span>
                     <span className="artistrow__counts">
                       {artist.album_count} album{artist.album_count === 1 ? "" : "s"} ·{" "}

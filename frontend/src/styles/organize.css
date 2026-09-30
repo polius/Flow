@@ -229,6 +229,72 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* ---- sortable column headers ------------------------------------------------
+   Finder grammar: click a column to sort, click again to flip. The № header
+   restores the curated order (the grid's native grouping). */
+
+.orghead__sort {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  border: none;
+  background: none;
+  padding: 0;
+  text-align: left;
+  transition: color var(--dur-fast) var(--ease-out);
+}
+
+button.orghead__sort:hover {
+  color: var(--text-primary);
+}
+
+.orghead__sort[aria-sort="ascending"],
+.orghead__sort[aria-sort="descending"] {
+  color: var(--text-primary);
+}
+
+.orghead__arrow {
+  flex: none;
+  opacity: 0.6;
+}
+
+.orghead__arrow--asc {
+  transform: rotate(-180deg);
+}
+
+.orghead__no .orghead__nobtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  border: none;
+  background: none;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+.orghead__no .orghead__nobtn:hover {
+  color: var(--text-primary);
+}
+
+/* Undo sits with the filter — one quiet row of working controls. */
+.orgfilter__undo {
+  flex: none;
+  padding: 4px 12px;
+  border: 1px solid var(--control-border);
+  border-radius: 999px;
+  font-size: var(--text-small);
+  font-weight: 600;
+  color: var(--text-primary);
+  transition: background var(--dur-fast) var(--ease-out);
+}
+
+.orgfilter__undo:hover {
+  background: var(--bg-hover);
+}
+
 /* ---- the grid ------------------------------------------------------------------ */
 
 .orggrid {
@@ -700,5 +766,120 @@
     text-overflow: ellipsis;
     white-space: nowrap;
     font-weight: 500;
+  }
+}
+
+/* ---- the sheet (§23 revision) -------------------------------------------------------
+   Organize is a task, not a section: it slides up over the whole app —
+   playback continues, Tracks stays put behind it — and Done/Esc returns
+   exactly where the user was. Same full-screen grammar as Now Playing. */
+
+.orgsheetwrap {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal);
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-canvas);
+  animation: orgsheet-in var(--dur-normal) var(--ease-out);
+}
+
+@keyframes orgsheet-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+}
+
+.orgsheetwrap__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 20px 12px;
+  border-bottom: 1px solid var(--separator);
+  background: var(--bg-canvas);
+}
+
+.orgsheetwrap__id {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.orgsheetwrap__mark {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-m);
+  background: var(--bg-inset);
+  color: var(--text-secondary);
+}
+
+.orgsheetwrap__title {
+  margin: 0;
+  font-size: var(--text-title);
+  font-weight: 700;
+  letter-spacing: var(--tracking-tight);
+  line-height: var(--leading-tight);
+}
+
+.orgsheetwrap__sub {
+  margin: 1px 0 0;
+  font-size: var(--text-small);
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Done — the sheet's primary exit, the Now Playing chevron's sibling. */
+.orgsheetwrap__done {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  padding: 7px 16px;
+  border-radius: 999px;
+  background: var(--text-primary);
+  color: var(--bg-canvas);
+  font-size: var(--text-body);
+  font-weight: 600;
+  transition: opacity var(--dur-fast) var(--ease-out);
+}
+
+.orgsheetwrap__done:hover {
+  opacity: 0.85;
+}
+
+/* The sheet owns its scroll surface (it carries .shell__canvas for the
+   virtualizer's binding). No player bar beneath it here — only the
+   floating bulk bar needs clearance. */
+.orgsheetwrap__canvas {
+  padding-bottom: 24px;
+}
+
+.orgsheetwrap__canvas .view--organize {
+  padding-bottom: 128px;
+}
+
+/* The floating bulk bar hugs the sheet's bottom edge, not the player's. */
+.orgsheetwrap__canvas .orgbar {
+  bottom: 20px;
+}
+
+/* Phones: the sheet is edge-to-edge (nothing to inset), and the header
+   compresses — the subtitle drops first. */
+@media (max-width: 640px) {
+  .orgsheetwrap__bar {
+    padding: 12px 14px 10px;
+  }
+
+  .orgsheetwrap__sub {
+    display: none;
   }
 }

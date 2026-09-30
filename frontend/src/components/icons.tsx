@@ -200,6 +200,30 @@ export function IconGrip(props: IconProps) {
   );
 }
 
+/* View sorting (Finder grammar): paired up/down arrows. */
+export function IconSort(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M8 5.5V19" />
+      <path d="m4.8 15.8 3.2 3.2 3.2-3.2" />
+      <path d="M16 18.5V5" />
+      <path d="m12.8 8.2 3.2-3.2 3.2 3.2" />
+    </Icon>
+  );
+}
+
+/* Swipe-to-remove in the queue: the iOS gesture's backdrop glyph. */
+export function IconTrash(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M5 7h14" />
+      <path d="M9.5 7V5.6a1.1 1.1 0 0 1 1.1-1.1h2.8a1.1 1.1 0 0 1 1.1 1.1V7" />
+      <path d="M6.6 7l.8 11.2a1.6 1.6 0 0 0 1.6 1.5h6a1.6 1.6 0 0 0 1.6-1.5L17.4 7" />
+      <path d="M10.2 10.5v5.5M13.8 10.5v5.5" />
+    </Icon>
+  );
+}
+
 /* --- transport (filled glyphs, like SF Symbols) --- */
 
 export function IconPlay(props: IconProps) {

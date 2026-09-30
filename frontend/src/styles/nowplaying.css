@@ -430,7 +430,9 @@
 }
 
 /* Touch has no hover: the current row shows its play/pause glyph for good —
-   tap-to-toggle must be visible to be used (§21). */
+   tap-to-toggle must be visible to be used (§21). The remove button is
+   always visible too; the row reserves room so the ✕ never sits on top of
+   the duration (a real overlap on phones before this fix). */
 @media (hover: none) {
   .queue__row--current .eq {
     opacity: 0;
@@ -442,6 +444,10 @@
 
   .queue__remove {
     opacity: 1;
+  }
+
+  .queue__main {
+    padding-right: 34px;
   }
 }
 
@@ -456,6 +462,53 @@
 .queue__row--played:hover .queue__meta,
 .queue__row--played .queue__main:focus-visible .queue__art,
 .queue__row--played .queue__main:focus-visible .queue__meta {
+  opacity: 1;
+}
+
+/* Drag-reorder feedback: lifted row + insertion line (same grammar as the
+   playlist table). */
+.queue__row--dragging {
+  opacity: 0.35;
+}
+
+.queue__row--dropbefore {
+  box-shadow: inset 0 2px 0 var(--text-primary);
+}
+
+.queue__row--dropafter {
+  box-shadow: inset 0 -2px 0 var(--text-primary);
+}
+
+/* The row's content may slide left for swipe-to-remove: transitions when
+   resting (snap-back reads as a spring), none mid-gesture (the finger owns
+   the position). pan-y keeps vertical scrolling native. */
+.queue__main {
+  touch-action: pan-y;
+  transition: transform var(--dur-fast) var(--ease-out);
+}
+
+.queue__main--swiping {
+  transition: none;
+}
+
+/* The field the swipe reveals: an accent-red wash with the remove glyph,
+   so the gesture's consequence is legible before it commits. (:has covers
+   the mid-gesture state — the backdrop sits before the row content.) */
+.queue__swipebg {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: 18px;
+  border-radius: var(--radius-m);
+  background: color-mix(in srgb, var(--accent) 18%, var(--bg-elevated));
+  color: var(--accent);
+  opacity: 0;
+  transition: opacity var(--dur-fast) var(--ease-out);
+}
+
+.queue__row:has(.queue__main--swiping) .queue__swipebg {
   opacity: 1;
 }
 

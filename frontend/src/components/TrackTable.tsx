@@ -10,6 +10,7 @@ import type { HTMLAttributes } from "react";
 import type { Track } from "../api/types";
 import { useToggleFavorite } from "../api/mutations";
 import { useCurrentTrack, usePlayerStore } from "../stores/player";
+import { useUiStore } from "../stores/ui";
 import "../styles/library.css";
 import "../styles/editing.css";
 import { TrackRow, type TrackVariant } from "./TrackRow";
@@ -42,6 +43,12 @@ export function TrackTable({
   const toggleFavorite = useToggleFavorite();
 
   const play = (index: number) => playTracks(context ?? tracks, index);
+
+  // Row action menu (right-click / long-press): carries the table's context
+  // so "Play" from the menu plays in place.
+  const openTrackMenu = useUiStore((s) => s.openTrackMenu);
+  const trackMenu = (track: Track, x: number, y: number) =>
+    openTrackMenu({ track, x, y, context: context ?? tracks });
 
   const handleDrop = () => {
     if (dragIndex != null && dropAt != null && onMove) {
@@ -98,6 +105,7 @@ export function TrackTable({
         onActivate={play}
         onTogglePlay={togglePlay}
         onToggleFavorite={toggleFavorite}
+        onTrackMenu={trackMenu}
         dragHandlers={dragHandlers(index)}
         onRemove={variant === "playlist" && onRemoveTrack ? onRemoveTrack : undefined}
       />

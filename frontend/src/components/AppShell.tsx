@@ -5,8 +5,10 @@ import { ensureScanSync } from "../api/scanSync";
 import { useGlobalShortcuts } from "../lib/shortcuts";
 import { GetInfoPanel } from "./GetInfoPanel";
 import { NowPlaying } from "./NowPlaying";
+import { OrganizeSheet } from "./OrganizeSheet";
 import { PlayerBar } from "./PlayerBar";
 import { TopBar } from "./TopBar";
+import { TrackActionsMenu } from "./TrackActionsMenu";
 import { useUiStore } from "../stores/ui";
 import "../styles/shell.css";
 
@@ -51,6 +53,8 @@ export function AppShell() {
         <PlayerBar />
       </div>
       <GetInfoPanel />
+      <TrackActionsMenu />
+      <OrganizeSheet />
       <NowPlaying />
     </div>
   );

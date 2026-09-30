@@ -9,6 +9,7 @@
    habitual double-click can't flash play→pause; toggling stays with the
    play glyph, Space, and the player bar. Editing lives in Organize. */
 
+import { useRef } from "react";
 import type { CSSProperties, HTMLAttributes } from "react";
 import { Link } from "react-router";
 
@@ -24,6 +25,9 @@ import {
 
 export type TrackVariant = "album" | "all" | "artist" | "playlist";
 
+const LONG_PRESS_MS = 480;
+const LONG_PRESS_MOVE_PX = 10;
+
 interface TrackRowProps {
   track: Track;
   index: number;
@@ -38,6 +42,8 @@ interface TrackRowProps {
   onActivate: (index: number) => void;
   onTogglePlay: () => void;
   onToggleFavorite: (track: Track) => void;
+  /** Opens the row action menu (right-click / long-press, see TrackActionsMenu). */
+  onTrackMenu?: (track: Track, x: number, y: number) => void;
   /** Playlist variant: drag-to-reorder handlers (§9.3). */
   dragHandlers?: HTMLAttributes<HTMLDivElement>;
   /** Playlist variant: one-click removal, hover-revealed (§9.2). */
@@ -55,9 +61,48 @@ export function TrackRow({
   onActivate,
   onTogglePlay,
   onToggleFavorite,
+  onTrackMenu,
   dragHandlers,
   onRemove,
 }: TrackRowProps) {
+  // Long-press → action menu (the touch path for everything the desktop row
+  // reveals on hover). The press that opens the menu must not also play the
+  // track, so the row swallows the click the gesture leaves behind.
+  const pressRef = useRef<{
+    timer: number | null;
+    x: number;
+    y: number;
+    fired: boolean;
+  }>({ timer: null, x: 0, y: 0, fired: false });
+
+  const clearPress = () => {
+    if (pressRef.current.timer != null) {
+      window.clearTimeout(pressRef.current.timer);
+      pressRef.current.timer = null;
+    }
+  };
+
+  const onTouchStart = (e: React.TouchEvent) => {
+    if (!onTrackMenu || e.touches.length !== 1) return;
+    const t = e.touches[0];
+    pressRef.current = { timer: null, x: t.clientX, y: t.clientY, fired: false };
+    pressRef.current.timer = window.setTimeout(() => {
+      pressRef.current.fired = true;
+      onTrackMenu(track, pressRef.current.x, pressRef.current.y);
+    }, LONG_PRESS_MS);
+  };
+
+  const onTouchMove = (e: React.TouchEvent) => {
+    if (pressRef.current.timer == null) return;
+    const t = e.touches[0];
+    const dx = t.clientX - pressRef.current.x;
+    const dy = t.clientY - pressRef.current.y;
+    // Any real movement cancels: scrolling is not a menu request.
+    if (dx * dx + dy * dy > LONG_PRESS_MOVE_PX * LONG_PRESS_MOVE_PX) clearPress();
+  };
+
+  const onTouchEnd = () => clearPress();
+
   const classes = [
     "trackrow",
     `trackrow--${variant}`,
@@ -74,9 +119,26 @@ export function TrackRow({
       role="row"
       onClick={() => {
         // Idempotent play (§23): never toggles — a second click (the tail of
-        // a double-click, a restless re-click) must not pause.
+        // a double-click, a restless re-click) must not pause. The click a
+        // long-press leaves behind is swallowed too.
+        if (pressRef.current.fired) {
+          pressRef.current.fired = false;
+          return;
+        }
         if (!isCurrent) onActivate(index);
       }}
+      onContextMenu={
+        onTrackMenu
+          ? (e) => {
+              e.preventDefault();
+              onTrackMenu(track, e.clientX, e.clientY);
+            }
+          : undefined
+      }
+      onTouchStart={onTouchStart}
+      onTouchMove={onTouchMove}
+      onTouchEnd={onTouchEnd}
+      onTouchCancel={onTouchEnd}
       {...dragHandlers}
     >
       <span className="trackrow__index" aria-hidden="true">

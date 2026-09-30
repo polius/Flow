@@ -3,7 +3,12 @@
    edits; select + bulk set). Files are never touched — every edit is an
    overlay through the same path as Get Info (§15.2), so rescans preserve
    it. Grid keys: arrows move the cursor, Space selects, Enter edits,
-   ⌘A selects all matching, ⌘Z undoes the last bulk apply. */
+   ⌘A selects all matching, ⌘Z undoes the last bulk apply.
+
+   §23 revision: Organize is a task, not a destination — it renders inside
+   the full-screen OrganizeSheet (opened from Tracks) instead of living as
+   its own route, so the user launches it from where the mess is visible
+   and returns exactly where they were. */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
@@ -58,6 +63,9 @@ export function OrganizeView() {
   const artistParam = searchParams.get("artist_id");
   const albumId = albumParam != null ? Number(albumParam) : null;
   const artistId = artistParam != null ? Number(artistParam) : null;
+  const urlSort = searchParams.get("sort") ?? "curate";
+  const sort = urlSort; // whitelisted server-side; unknown → server default
+  const dir = searchParams.get("dir") === "desc" ? "desc" : "asc";
 
   const compact = useCompactMode();
   const openGetInfo = useUiStore((s) => s.openGetInfo);
@@ -105,14 +113,15 @@ export function OrganizeView() {
 
   // ---- data ---------------------------------------------------------------
   const query = useInfiniteQuery({
-    queryKey: ["tracks", "organize", { q: urlQ, review, albumId, artistId }],
+    queryKey: ["tracks", "organize", { q: urlQ, review, albumId, artistId, sort, dir }],
     queryFn: async ({ pageParam }) => {
       const { data } = await api.GET("/api/tracks", {
         params: {
           query: {
             limit: PAGE_SIZE,
             offset: pageParam,
-            sort: "curate",
+            sort,
+            dir,
             ...(urlQ ? { q: urlQ } : {}),
             ...(review ? { review } : {}),
             ...(albumId != null ? { album_id: albumId } : {}),
@@ -138,6 +147,23 @@ export function OrganizeView() {
   const handleNearEnd = useCallback(() => {
     if (query.hasNextPage && !query.isFetchingNextPage) void query.fetchNextPage();
   }, [query.hasNextPage, query.isFetchingNextPage, query.fetchNextPage]);
+
+  // Column sorting (Finder grammar): click a header to sort by it, click
+  // again to flip. The № header restores the curate order (the grid's
+  // native grouping).
+  const onSort = useCallback(
+    (key: string, nextDir: "asc" | "desc") => {
+      const next = new URLSearchParams(searchParams);
+      next.set("sort", key);
+      next.set("dir", nextDir);
+      setSearchParams(next, { replace: true });
+    },
+    [searchParams, setSearchParams],
+  );
+
+  useEffect(() => {
+    document.querySelector<HTMLElement>(".shell__canvas")?.scrollTo(0, 0);
+  }, [sort, dir]);
 
   // ---- selection -----------------------------------------------------------
   const [selected, setSelected] = useState<Map<number, Track>>(new Map());
@@ -356,21 +382,6 @@ export function OrganizeView() {
 
   return (
     <section className="view view--organize">
-      <div className="view__head">
-        <div>
-          <h1 className="view__title">Organize</h1>
-          <p className="view__subtitle">
-            Group tracks into albums and artists. Edits live in Flow — your files are
-            never touched.
-          </p>
-        </div>
-        {undoAvailable && !compact && (
-          <button type="button" className="view__action" onClick={() => void undo()}>
-            Undo last apply
-          </button>
-        )}
-      </div>
-
       <div className="orgfilter">
         <span className="orgfilter__icon" aria-hidden="true">
           <IconSearch size={15} />
@@ -390,6 +401,16 @@ export function OrganizeView() {
             onClick={() => setFilterText("")}
           >
             <IconClose size={13} />
+          </button>
+        )}
+        {undoAvailable && !compact && (
+          <button
+            type="button"
+            className="orgfilter__undo"
+            onClick={() => void undo()}
+            title="Undo the last bulk apply (⌘Z)"
+          >
+            Undo
           </button>
         )}
       </div>
@@ -461,6 +482,9 @@ export function OrganizeView() {
           compact={compact}
           cursorIndex={compact ? null : cursorIndex}
           editTrackId={compact ? null : editTrackId}
+          sort={sort}
+          dir={dir}
+          onSort={onSort}
           onNearEnd={handleNearEnd}
           onToggleAll={toggleAll}
           onToggleRow={toggleRow}

@@ -12,6 +12,7 @@
 
 import { useEffect, useState } from "react";
 
+import { useMediaQuery } from "../lib/media";
 import { isTypingTarget } from "../lib/shortcuts";
 import { useCurrentTrack, usePlayerStore } from "../stores/player";
 import { useUiStore } from "../stores/ui";
@@ -32,17 +33,6 @@ import { PlayPauseButton, Scrubber, TransportButton } from "./transport";
 import "../styles/nowplaying.css";
 
 const NARROW_BP = "(max-width: 940px)";
-
-function useMediaQuery(query: string): boolean {
-  const [matches, setMatches] = useState(() => window.matchMedia(query).matches);
-  useEffect(() => {
-    const mq = window.matchMedia(query);
-    const onChange = () => setMatches(mq.matches);
-    mq.addEventListener("change", onChange);
-    return () => mq.removeEventListener("change", onChange);
-  }, [query]);
-  return matches;
-}
 
 export function NowPlaying() {
   const open = useUiStore((s) => s.nowPlayingOpen);

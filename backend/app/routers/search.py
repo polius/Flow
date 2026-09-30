@@ -87,9 +87,13 @@ def search(request: Request, q: str = Query(min_length=1)) -> SearchOut:
         ArtistSummary(
             id=r["id"], name=r["name"],
             album_count=r["album_count"], track_count=r["track_count"],
+            artwork_id=r["artwork_id"],
         )
         for r in conn.execute(
             "SELECT ar.id, ar.name, "
+            "(SELECT al2.artwork_id FROM albums al2 WHERE al2.artist_id = ar.id "
+            "AND al2.artwork_id IS NOT NULL "
+            "ORDER BY (al2.year IS NULL), al2.year DESC LIMIT 1) AS artwork_id, "
             "(SELECT COUNT(*) FROM albums al WHERE al.artist_id = ar.id) AS album_count, "
             "(SELECT COUNT(*) FROM tracks t WHERE t.artist_id = ar.id) AS track_count "
             "FROM artists ar WHERE ar.name LIKE ? ESCAPE '\\' "

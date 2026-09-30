@@ -70,11 +70,33 @@
   color: var(--accent);
 }
 
-/* Touch devices have no hover: favorite and playlist-remove must be
-   reachable, so they reveal for good (§21) — quiet colors carry the
-   hierarchy the hover reveal otherwise provides. */
+/* The action menu's favorite row shows the filled heart in accent when the
+   track is already loved — same state language as the row heart. */
+.trackmenu__heart--on {
+  color: var(--accent);
+}
+
+/* Long-press belongs to the row action menu — the OS text-selection
+   callout must not compete with it on iOS/Android. */
+.trackrow {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* Touch devices have no hover — but a row of hearts is noise, not function
+   (§21 revision). The ACTION lives in the row's long-press menu
+   (TrackActionsMenu), always reachable; the heart here is a STATE marker:
+   loved songs stay visibly loved, un-loved rows stay quiet. */
 @media (hover: none) {
-  .trackrow__heartbtn,
+  .trackrow__heartbtn {
+    opacity: 0.4;
+  }
+
+  .trackrow__heartbtn--on {
+    opacity: 1;
+  }
+
   .trackrow__removebtn {
     opacity: 1;
   }
@@ -207,6 +229,44 @@ textarea.inlineedit__input {
   }
 }
 
+/* The row action menu (TrackActionsMenu) is positioned by the component —
+   viewport-clamped so a right-click near an edge never clips. */
+.trackmenu--fixed {
+  min-width: 224px;
+}
+
+.trackmenu__identity {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px 9px;
+  margin-bottom: 3px;
+  border-bottom: 1px solid var(--separator);
+}
+
+.trackmenu__identitymeta {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.trackmenu__identitytitle {
+  font-size: var(--text-body);
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.trackmenu__identitysub {
+  font-size: var(--text-small);
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .trackmenu__item {
   display: flex;
   align-items: center;
@@ -233,6 +293,16 @@ textarea.inlineedit__input {
   font-weight: 600;
 }
 
+/* The check slot in radio-style menus (Sort): reserved width keeps labels
+   aligned whether or not a check is drawn. */
+.trackmenu__check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 15px;
+  flex: none;
+}
+
 .trackmenu__separator {
   height: 1px;
   margin: 4px 6px;
@@ -243,6 +313,93 @@ textarea.inlineedit__input {
   padding: 7px 10px;
   font-size: var(--text-small);
   color: var(--text-tertiary);
+}
+
+/* ---- row action sheet (phones) ---------------------------------------------
+   The action menu's compact form: an iOS action sheet. The menu slides up
+   from the bottom edge; the scrim taps it away. Same items, same order. */
+
+.tracksheet__scrim {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal);
+  background: rgba(0, 0, 0, 0.28);
+  animation: tracksheet-fade var(--dur-fast) var(--ease-out);
+}
+
+@keyframes tracksheet-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+.tracksheet {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: 8px;
+  padding: 6px 6px 8px;
+  border-radius: var(--radius-l);
+  border: 1px solid var(--separator);
+  background: var(--bg-elevated);
+  box-shadow: 0 -10px 44px rgba(0, 0, 0, 0.3);
+  animation: tracksheet-up var(--dur-normal) var(--ease-out);
+}
+
+@keyframes tracksheet-up {
+  from {
+    opacity: 0;
+    transform: translateY(28px);
+  }
+}
+
+.tracksheet .trackmenu__item {
+  height: 44px; /* touch rows, not the desktop's text-height rows */
+}
+
+.tracksheet__grabber {
+  display: block;
+  width: 36px;
+  height: 4px;
+  margin: 4px auto 8px;
+  border-radius: 2px;
+  background: var(--separator);
+}
+
+/* ---- sort pill + menu (Tracks / Favorites / Artists) ----------------------- */
+
+.sortmenu,
+.artistsort {
+  position: relative;
+  display: inline-flex;
+}
+
+/* The shared .trackmenu surface, anchored to its pill. */
+.sortmenu__pop,
+.artistsort__pop {
+  position: absolute;
+  top: calc(100% + 6px);
+  min-width: 190px;
+  max-height: none;
+}
+
+.sortmenu__pop {
+  left: 0;
+}
+
+.artistsort__pop {
+  right: 0;
+}
+
+/* Direction caret on the pill: a chevron that flips with the direction. */
+.sortmenu__dir {
+  display: inline-flex;
+  transition: transform var(--dur-fast) var(--ease-out);
+  opacity: 0.55;
+}
+
+.sortmenu__dir--desc {
+  transform: rotate(-180deg);
 }
 
 /* ---- playlist mosaic (§13.10) --------------------------------------------- */

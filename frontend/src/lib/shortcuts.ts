@@ -38,7 +38,11 @@ export function useGlobalShortcuts(): void {
       if (useUiStore.getState().pickerOpen) return;
 
       const player = usePlayerStore.getState();
+      const ui = useUiStore.getState();
       const hasQueue = player.queue.length > 0;
+
+      // Any open menu owns the keyboard until it's dismissed.
+      if (ui.contextMenuOpen) return;
 
       switch (e.key) {
         case " ": {

@@ -36,8 +36,24 @@ TRACK_SORTS = {
     "track_no": "t.disc_no, t.track_no",
     "year": "t.year",
     "duration": "t.duration",
-    "added_at": "t.added_at DESC",
+    "added_at": "t.added_at",
 }
+
+# Direction is applied per term by the endpoint (`dir` query param) so the
+# whitelisted expressions above stay direction-neutral.
+
+ARTIST_SORTS = {
+    "name": "ar.name COLLATE NOCASE",
+    # Count sorts read most-first by design — no direction param for now.
+    "albums": "album_count DESC, ar.name COLLATE NOCASE",
+    "songs": "track_count DESC, ar.name COLLATE NOCASE",
+}
+
+# The artist's portrait: their latest album's cover (NULL year last).
+ARTIST_ARTWORK_SQL = (
+    "(SELECT al2.artwork_id FROM albums al2 WHERE al2.artist_id = ar.id "
+    "AND al2.artwork_id IS NOT NULL ORDER BY (al2.year IS NULL), al2.year DESC LIMIT 1) "
+)
 
 ALBUM_SORTS = {
     "title": "al.title COLLATE NOCASE",
@@ -50,6 +66,15 @@ ALBUM_SORTS = {
 def _like(term: str) -> str:
     """Escape LIKE wildcards in user input."""
     return f"%{term.replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_')}%"
+
+
+def _directed(order_sql: str, desc: bool) -> str:
+    """Apply one direction to every term of a whitelisted ORDER BY expression.
+    Sort expressions stay direction-neutral above; DESC here means a full
+    reverse of the chosen ordering (nulls-first clauses flip with it, which
+    reads as the honest inverse of the ascending view)."""
+    terms = [t.strip() for t in order_sql.split(",")]
+    return ", ".join(f"{t} DESC" for t in terms) if desc else ", ".join(terms)
 
 
 def _clamp(limit: int, offset: int) -> tuple[int, int]:
@@ -88,6 +113,7 @@ def track_filter_where(
     artist_id: int | None = None,
     album_id: int | None = None,
     review: str | None = None,
+    favorite: bool | None = None,
 ) -> tuple[str, list]:
     """Shared WHERE builder for GET /api/tracks and the bulk apply (§22):
     a filter-based selection must resolve to exactly what the grid showed.
@@ -110,6 +136,9 @@ def track_filter_where(
         if clause is None:
             raise HTTPException(status_code=422, detail="Unknown review filter")
         where.append(clause)
+    if favorite is not None:
+        where.append("t.favorite = ?")
+        params.append(1 if favorite else 0)
     return (f"WHERE {' AND '.join(where)}" if where else ""), params
 
 # Same shape with the playlist position prepended (playlists router).
@@ -143,7 +172,9 @@ def list_tracks(
     artist_id: int | None = None,
     album_id: int | None = None,
     review: str | None = None,
+    favorite: bool | None = None,
     sort: str = "title",
+    dir: str = "asc",
     limit: int = Query(DEFAULT_LIMIT, ge=1),
     offset: int = Query(0, ge=0),
 ) -> TrackListOut:
@@ -151,9 +182,14 @@ def list_tracks(
     limit, offset = _clamp(limit, offset)
 
     clause, params = track_filter_where(
-        q=q, artist_id=artist_id, album_id=album_id, review=review
+        q=q,
+        artist_id=artist_id,
+        album_id=album_id,
+        review=review,
+        favorite=favorite,
     )
 
+    desc = dir == "desc"
     order = TRACK_SORTS.get(sort, TRACK_SORTS["title"])
 
     total = conn.execute(
@@ -163,8 +199,8 @@ def list_tracks(
         params,
     ).fetchone()["c"]
     rows = conn.execute(
-        f"{TRACK_SELECT} {clause} ORDER BY {order}, t.title COLLATE NOCASE "
-        f"LIMIT ? OFFSET ?",
+        f"{TRACK_SELECT} {clause} ORDER BY {_directed(order, desc)}, "
+        f"t.title COLLATE NOCASE {'DESC' if desc else ''} LIMIT ? OFFSET ?",
         [*params, limit, offset],
     ).fetchall()
     return TrackListOut(
@@ -270,6 +306,7 @@ def get_album(request: Request, album_id: int) -> AlbumDetail:
 def list_artists(
     request: Request,
     q: str | None = None,
+    sort: str = "name",
     limit: int = Query(DEFAULT_LIMIT, ge=1),
     offset: int = Query(0, ge=0),
 ) -> ArtistListOut:
@@ -285,12 +322,13 @@ def list_artists(
     total = conn.execute(
         f"SELECT COUNT(*) AS c FROM artists ar {clause}", params
     ).fetchone()["c"]
+    order = ARTIST_SORTS.get(sort, ARTIST_SORTS["name"])
     rows = conn.execute(
-        f"SELECT ar.id, ar.name, "
+        f"SELECT ar.id, ar.name, {ARTIST_ARTWORK_SQL} AS artwork_id, "
         f"(SELECT COUNT(*) FROM albums al WHERE al.artist_id = ar.id) AS album_count, "
         f"(SELECT COUNT(*) FROM tracks t WHERE t.artist_id = ar.id) AS track_count "
         f"FROM artists ar {clause} "
-        f"ORDER BY ar.name COLLATE NOCASE LIMIT ? OFFSET ?",
+        f"ORDER BY {order} LIMIT ? OFFSET ?",
         [*params, limit, offset],
     ).fetchall()
     return ArtistListOut(
@@ -300,6 +338,7 @@ def list_artists(
                 name=r["name"],
                 album_count=r["album_count"],
                 track_count=r["track_count"],
+                artwork_id=r["artwork_id"],
             )
             for r in rows
         ],
@@ -313,7 +352,9 @@ def list_artists(
 def get_artist(request: Request, artist_id: int) -> ArtistDetail:
     conn = request.app.state.db.connect()
     artist = conn.execute(
-        "SELECT id, name FROM artists WHERE id = ?", (artist_id,)
+        f"SELECT ar.id, ar.name, {ARTIST_ARTWORK_SQL} AS artwork_id "
+        f"FROM artists ar WHERE ar.id = ?",
+        (artist_id,),
     ).fetchone()
     if artist is None:
         raise HTTPException(status_code=404, detail="Artist not found")
@@ -351,6 +392,7 @@ def get_artist(request: Request, artist_id: int) -> ArtistDetail:
         name=artist["name"],
         album_count=len(albums),
         track_count=len(tracks),
+        artwork_id=artist["artwork_id"],
         albums=albums,
         tracks=tracks,
     )

@@ -19,6 +19,7 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 import type { Track } from "../api/types";
 import { useToggleFavorite } from "../api/mutations";
 import { useCurrentTrack, usePlayerStore } from "../stores/player";
+import { useUiStore } from "../stores/ui";
 import "../styles/library.css";
 import "../styles/editing.css";
 import { TrackRow } from "./TrackRow";
@@ -69,6 +70,14 @@ export function VirtualTrackTable({ tracks, onNearEnd }: VirtualTrackTableProps)
     [playTracks, tracks],
   );
 
+  // Row action menu (right-click / long-press) with the full loaded context.
+  const openTrackMenu = useUiStore((s) => s.openTrackMenu);
+  const trackMenu = useCallback(
+    (track: Track, x: number, y: number) =>
+      openTrackMenu({ track, x, y, context: tracks }),
+    [openTrackMenu, tracks],
+  );
+
   return (
     <div
       ref={containerRef}
@@ -94,6 +103,7 @@ export function VirtualTrackTable({ tracks, onNearEnd }: VirtualTrackTableProps)
             onActivate={play}
             onTogglePlay={togglePlay}
             onToggleFavorite={toggleFavorite}
+            onTrackMenu={trackMenu}
           />
         );
       })}

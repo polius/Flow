@@ -10,7 +10,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 import { useVirtualizer } from "@tanstack/react-virtual";
 
 import type { Track } from "../api/types";
-import { IconCheck, IconMinus } from "./icons";
+import { IconCheck, IconChevronDown, IconMinus } from "./icons";
 import { OrganizeRow, ROW_HEIGHT, type RowMods } from "./OrganizeRow";
 
 const OVERSCAN = 12;
@@ -29,6 +29,10 @@ interface OrganizeGridProps {
   cursorIndex: number | null;
   /** Track id whose title editor opens (grid Enter). */
   editTrackId: number | null;
+  /** Current column sort (URL state owned by OrganizeView). */
+  sort: string;
+  dir: "asc" | "desc";
+  onSort: (key: string, dir: "asc" | "desc") => void;
   onNearEnd: () => void;
   onToggleAll: () => void;
   onToggleRow: (track: Track, index: number, mods: RowMods) => void;
@@ -63,6 +67,9 @@ export function OrganizeGrid({
   compact,
   cursorIndex,
   editTrackId,
+  sort,
+  dir,
+  onSort,
   onNearEnd,
   onToggleAll,
   onToggleRow,
@@ -155,6 +162,43 @@ export function OrganizeGrid({
     [tracks.length, cursorIndex, onCursorMove, onCursorToggle, onCursorEdit, onToggleAll],
   );
 
+  // Column sort (Finder grammar): click sorts, click again flips. The
+  // № column restores the curate order — the grid's native grouping.
+  const sortClick = (key: string) => {
+    if (key === "curate") {
+      onSort("curate", "asc");
+      return;
+    }
+    if (sort === key) onSort(key, dir === "asc" ? "desc" : "asc");
+    else onSort(key, "asc");
+  };
+
+  const headerArrow = (key: string) =>
+    sort === key ? (
+      <IconChevronDown
+        size={10}
+        className={`orghead__arrow${dir === "asc" ? " orghead__arrow--asc" : ""}`}
+      />
+    ) : null;
+
+  const headerButton = (key: string, label: string, className?: string) => (
+    <button
+      type="button"
+      role="columnheader"
+      aria-sort={sort === key ? (dir === "asc" ? "ascending" : "descending") : "none"}
+      className={`orghead__label orghead__sort${className ? ` ${className}` : ""}`}
+      onClick={() => sortClick(key)}
+      title={
+        sort === key && key !== "curate"
+          ? `Sorted by ${label} — click to reverse`
+          : `Sort by ${label}`
+      }
+    >
+      {label}
+      {headerArrow(key)}
+    </button>
+  );
+
   return (
     <div
       ref={containerRef}
@@ -179,18 +223,24 @@ export function OrganizeGrid({
             {selectAllState === "some" && <IconMinus size={11} />}
           </button>
         </span>
-        <span className="orghead__label orghead__no" aria-hidden="true">
-          №
+        <span
+          className="orghead__label orghead__no orghead__sort"
+          role="columnheader"
+          aria-sort={sort === "track_no" ? (dir === "asc" ? "ascending" : "descending") : "none"}
+        >
+          <button
+            type="button"
+            className="orghead__nobtn"
+            onClick={() => sortClick("track_no")}
+            title="Sort by track number — or reset to the curated order"
+          >
+            №
+            {sort === "track_no" && headerArrow("track_no")}
+          </button>
         </span>
-        <span className="orghead__label" role="columnheader">
-          Title
-        </span>
-        <span className="orghead__label" role="columnheader">
-          Artist
-        </span>
-        <span className="orghead__label" role="columnheader">
-          Album
-        </span>
+        {headerButton("title", "Title")}
+        {headerButton("artist", "Artist")}
+        {headerButton("album", "Album")}
         <span className="orghead__info" aria-hidden="true" />
       </div>
       <div className="orggrid__body" style={{ height: virtualizer.getTotalSize() }}>

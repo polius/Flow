@@ -3,32 +3,44 @@
    lives here and the canvas gets the whole window (§18).
    Zones: brand · scan status · search · section nav. On phones (§19) the
    section nav collapses into an overflow button + pull-down sheet.
-   The search field is still the single search input: typing navigates to
-   /search?q=… (debounced ~200 ms) so the query lives in the URL (§9.2). */
+
+   Search (§9.2 revision): typing NEVER navigates. Results drop from the
+   field as a Spotlight-style panel, in place — the user keeps their
+   context; their eyes stay where their hands are. The /search route
+   survives as the explicit "See all results" destination (the panel's
+   footer), not as a redirect. */
 
 import {
   useEffect,
+  useMemo,
   useRef,
   useState,
   type KeyboardEvent as ReactKeyboardEvent,
 } from "react";
 import { NavLink, useLocation, useNavigate, useSearchParams } from "react-router";
+import { useQuery } from "@tanstack/react-query";
 
+import { api } from "../api/client";
+import { fmtCount, scanProgressLabel } from "../lib/format";
+import { useScanStore } from "../stores/scan";
+import { usePlayerStore } from "../stores/player";
+import { useUiStore } from "../stores/ui";
+import { Artwork } from "./Artwork";
+import { PlaylistArt } from "./PlaylistArt";
 import {
   IconAlbums,
   IconArtists,
   IconClose,
+  IconHeart,
   IconMenu,
   IconMusicNote,
+  IconPlay,
   IconPlaylists,
   IconSearch,
   IconSettings,
   IconTracks,
   type IconProps,
 } from "./icons";
-import { fmtCount, scanProgressLabel } from "../lib/format";
-import { useScanStore } from "../stores/scan";
-import { useUiStore } from "../stores/ui";
 import "../styles/topbar.css";
 
 const DEBOUNCE_MS = 200;
@@ -41,13 +53,15 @@ interface NavEntry {
 
 /* Section nav — the brand lockup is the Home affordance (§18), so "/" is
    not repeated here. Listening sections only, ordered by the owner's
-   frequency of use (§23): Tracks, Albums, Artists, Playlists — Organize
-   lives in the Tracks view's header now. Settings is kept apart from the
-   library sections, mirroring the hairline break in both nav forms. */
+   frequency of use (§23): Tracks, Albums, Artists, Favorites, Playlists.
+   Organize lives behind Tracks' header button (a task, not a section).
+   Settings is kept apart from the library sections, mirroring the hairline
+   break in both nav forms. */
 const NAV: NavEntry[] = [
   { to: "/tracks", label: "Tracks", Icon: IconTracks },
   { to: "/albums", label: "Albums", Icon: IconAlbums },
   { to: "/artists", label: "Artists", Icon: IconArtists },
+  { to: "/favorites", label: "Favorites", Icon: IconHeart },
   { to: "/playlists", label: "Playlists", Icon: IconPlaylists },
 ];
 
@@ -84,21 +98,18 @@ export function TopBar() {
     setText(urlQuery);
   }, [urlQuery]);
 
-  // Debounce typing into the URL (the query key). The effect re-runs on any
-  // route change, cancelling a pending write — navigating away mid-type must
-  // not yank the user into /search.
+  // On /search the field edits THAT page's query, live (deep-link state).
+  // Everywhere else typing stays put: the spotlight panel below the field
+  // carries the results — no section change mid-sentence.
   useEffect(() => {
+    if (pathname !== "/search") return;
     const handle = setTimeout(() => {
       const next = text.trim();
-      if (next === urlQuery) return; // already reflected in the URL
-      if (pathname === "/search") {
-        setSearchParams(next ? { q: next } : {}, { replace: true });
-      } else if (next) {
-        navigate(`/search?q=${encodeURIComponent(next)}`);
-      }
+      if (next === urlQuery) return;
+      setSearchParams(next ? { q: next } : {}, { replace: true });
     }, DEBOUNCE_MS);
     return () => clearTimeout(handle);
-  }, [text, urlQuery, pathname, navigate, setSearchParams]);
+  }, [text, urlQuery, pathname, setSearchParams]);
 
   // The overflow sheet (§19) closes with its context: navigation, outside
   // tap, Esc, or growing back past the phone breakpoint.
@@ -171,20 +182,13 @@ export function TopBar() {
         </div>
       )}
 
-      <div className="topbar__search">
-        <IconSearch size={15} />
-        <input
-          ref={inputRef}
-          className="topbar__input"
-          type="search"
-          name="q"
-          placeholder="Albums, artists, tracks, playlists…"
-          value={text}
-          aria-label="Search library"
-          onChange={(e) => setText(e.target.value)}
-          onKeyDown={onKeyDown}
-        />
-      </div>
+      <SearchZone
+        text={text}
+        setText={setText}
+        inputRef={inputRef}
+        onKeyDown={onKeyDown}
+        navigate={navigate}
+      />
 
       {/* Desktop: the icon-only row (§18). Phone: collapsed into the
           overflow sheet below (§19) — the CSS swaps the two forms at the
@@ -269,5 +273,272 @@ export function TopBar() {
         </div>
       )}
     </header>
+  );
+}
+
+/* ---- spotlight search -----------------------------------------------------
+   The field plus its drop panel, as one zone. The panel is deliberately
+   position-anchored chrome (not a route): results appear under the user's
+   hands while the page behind never changes. */
+
+interface SuggestItem {
+  key: string;
+  render: () => React.ReactNode;
+  activate: () => void;
+}
+
+function SearchZone({
+  text,
+  setText,
+  inputRef,
+  onKeyDown,
+  navigate,
+}: {
+  text: string;
+  setText: (t: string) => void;
+  inputRef: React.RefObject<HTMLInputElement | null>;
+  onKeyDown: (e: ReactKeyboardEvent<HTMLInputElement>) => void;
+  navigate: (to: string) => void;
+}) {
+  const { pathname } = useLocation();
+  const q = text.trim();
+  const [open, setOpen] = useState(false);
+  const [activeIdx, setActiveIdx] = useState(-1);
+  const zoneRef = useRef<HTMLDivElement>(null);
+
+  const search = useQuery({
+    queryKey: ["search", q],
+    queryFn: async () => {
+      const { data } = await api.GET("/api/search", {
+        params: { query: { q } },
+      });
+      return data;
+    },
+    // On /search the page below IS the results — the panel stays shut.
+    enabled: q.length > 0 && open && pathname !== "/search",
+    placeholderData: (prev) => prev,
+  });
+
+  const results = q.length > 0 ? search.data : undefined;
+
+  const playTracks = usePlayerStore((s) => s.playTracks);
+
+  const go = (to: string) => {
+    setOpen(false);
+    inputRef.current?.blur();
+    navigate(to);
+  };
+
+  const items = useMemo<SuggestItem[]>(() => {
+    if (!results) return [];
+    const list: SuggestItem[] = [];
+    results.tracks.slice(0, 4).forEach((t, i) => {
+      list.push({
+        key: `t-${t.id}`,
+        render: () => (
+          <>
+            <Artwork artworkId={t.artwork_id} size={28} radius="s" />
+            <span className="suggest__name">{t.title}</span>
+            <span className="suggest__meta">{t.artist ?? " "}</span>
+          </>
+        ),
+        activate: () => {
+          setOpen(false);
+          inputRef.current?.blur();
+          playTracks(results.tracks, i);
+        },
+      });
+    });
+    results.albums.slice(0, 4).forEach((a) => {
+      list.push({
+        key: `a-${a.id}`,
+        render: () => (
+          <>
+            <Artwork artworkId={a.artwork_id} size={28} radius="s" />
+            <span className="suggest__name">{a.title}</span>
+            <span className="suggest__meta">{a.artist ?? " "}</span>
+          </>
+        ),
+        activate: () => go(`/albums/${a.id}`),
+      });
+    });
+    results.artists.slice(0, 3).forEach((a) => {
+      list.push({
+        key: `r-${a.id}`,
+        render: () => (
+          <>
+            <span className="suggest__avatar" aria-hidden="true">
+              <Artwork artworkId={a.artwork_id} size={28} radius="s" />
+            </span>
+            <span className="suggest__name">{a.name}</span>
+            <span className="suggest__meta">Artist</span>
+          </>
+        ),
+        activate: () => go(`/artists/${a.id}`),
+      });
+    });
+    results.playlists.slice(0, 3).forEach((p) => {
+      list.push({
+        key: `p-${p.id}`,
+        render: () => (
+          <>
+            <PlaylistArt
+              artworkIds={p.artwork_ids}
+              coverArtworkId={p.cover_artwork_id}
+              size={28}
+              radius="s"
+            />
+            <span className="suggest__name">{p.name}</span>
+            <span className="suggest__meta">
+              {fmtCount(p.track_count)} track{p.track_count === 1 ? "" : "s"}
+            </span>
+          </>
+        ),
+        activate: () => go(`/playlists/${p.id}`),
+      });
+    });
+    return list;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [results]);
+
+  // Groups are views over the flat list, so keyboard order == visual order.
+  const groups = useMemo(() => {
+    if (items.length === 0) return [];
+    const spans: { label: string; count: number }[] = [
+      { label: "Tracks", count: Math.min(4, results?.tracks.length ?? 0) },
+      { label: "Albums", count: Math.min(4, results?.albums.length ?? 0) },
+      { label: "Artists", count: Math.min(3, results?.artists.length ?? 0) },
+      { label: "Playlists", count: Math.min(3, results?.playlists.length ?? 0) },
+    ];
+    let cursor = 0;
+    return spans
+      .filter((s) => s.count > 0)
+      .map((s) => {
+        const from = cursor;
+        cursor += s.count;
+        return { label: s.label, from, count: s.count };
+      });
+  }, [items, results]);
+
+  useEffect(() => setActiveIdx(-1), [q]);
+
+  // Panel lifecycle: outside tap and route changes close it. Esc is the
+  // field's own handler (clears first, blurs second) — the panel simply
+  // follows the text.
+  useEffect(() => {
+    if (!open) return;
+    const onPointerDown = (e: PointerEvent) => {
+      if (zoneRef.current?.contains(e.target as Node)) return;
+      setOpen(false);
+    };
+    window.addEventListener("pointerdown", onPointerDown);
+    return () => window.removeEventListener("pointerdown", onPointerDown);
+  }, [open]);
+
+  useEffect(() => {
+    setOpen(false);
+  }, [pathname]);
+
+  const panelOpen = open && q.length > 0 && pathname !== "/search";
+
+  const onInputKeyDown = (e: ReactKeyboardEvent<HTMLInputElement>) => {
+    if (panelOpen && results) {
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setActiveIdx((i) => Math.min(items.length - 1, i + 1));
+        return;
+      }
+      if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setActiveIdx((i) => Math.max(-1, i - 1));
+        return;
+      }
+      if (e.key === "Enter") {
+        e.preventDefault();
+        if (activeIdx >= 0 && items[activeIdx]) {
+          items[activeIdx].activate();
+          return;
+        }
+        // No highlight: Enter means "everything", the /search page.
+        go(`/search?q=${encodeURIComponent(q)}`);
+        return;
+      }
+    }
+    onKeyDown(e);
+  };
+
+  return (
+    <div className="topbar__searchzone" ref={zoneRef}>
+      <div className="topbar__search">
+        <IconSearch size={15} />
+        <input
+          ref={inputRef}
+          className="topbar__input"
+          type="search"
+          name="q"
+          placeholder="Albums, artists, tracks, playlists…"
+          value={text}
+          aria-label="Search library"
+          onChange={(e) => {
+            setText(e.target.value);
+            if (e.target.value.trim()) setOpen(true);
+          }}
+          onFocus={() => {
+            if (text.trim()) setOpen(true);
+          }}
+          onKeyDown={onInputKeyDown}
+        />
+      </div>
+
+      {panelOpen && (
+        <div className="suggest" role="listbox" aria-label="Search results">
+          {search.isFetching && !results ? (
+            <div className="suggest__loading">Searching…</div>
+          ) : results && items.length === 0 ? (
+            <div className="suggest__loading">No results for “{q}”</div>
+          ) : results ? (
+            <>
+              {groups.map((g) => (
+                <div key={g.label} className="suggest__group">
+                  <span className="suggest__grouplabel">{g.label}</span>
+                  {items
+                    .slice(g.from, g.from + g.count)
+                    .map((item, i) => {
+                      const idx = g.from + i;
+                      return (
+                        <button
+                          key={item.key}
+                          type="button"
+                          role="option"
+                          aria-selected={activeIdx === idx}
+                          className={`suggest__item${
+                            activeIdx === idx ? " suggest__item--active" : ""
+                          }`}
+                          onMouseEnter={() => setActiveIdx(idx)}
+                          onClick={item.activate}
+                        >
+                          {item.render()}
+                          <span className="suggest__play" aria-hidden="true">
+                            <IconPlay size={11} />
+                          </span>
+                        </button>
+                      );
+                    })}
+                </div>
+              ))}
+              <button
+                type="button"
+                className={`suggest__all${
+                  activeIdx === -1 ? " suggest__all--active" : ""
+                }`}
+                onClick={() => go(`/search?q=${encodeURIComponent(q)}`)}
+              >
+                See all results for “{q}”
+              </button>
+            </>
+          ) : null}
+        </div>
+      )}
+    </div>
   );
 }

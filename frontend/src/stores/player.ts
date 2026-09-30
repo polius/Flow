@@ -31,6 +31,10 @@ interface PlayerState {
   addToQueue: (tracks: Track[]) => void;
   /** Removes an upcoming track from the queue (§9.4). No-op for the current one. */
   removeFromQueue: (queueIndex: number) => void;
+  /** Drag-to-reorder in the queue drawer: moves one entry of the PLAY ORDER
+      (order indexes, not queue indexes — shuffle is respected). The playing
+      row stays put; everything else reorders around it. */
+  moveInQueue: (fromOrder: number, toOrder: number) => void;
   /** Click-to-jump (§17.7): start playback at any position in the play order. */
   playAt: (orderIndex: number) => void;
   togglePlay: () => void;
@@ -142,6 +146,26 @@ export const usePlayerStore = create<PlayerState>()(
         if (orderIndex < 0 || orderIndex >= order.length) return;
         usePlayerStore.setState({ orderPos: orderIndex });
         load(queue[order[orderIndex]], true);
+      },
+
+      moveInQueue: (fromOrder, toOrder) => {
+        const { order, orderPos } = get();
+        if (fromOrder === toOrder) return;
+        if (fromOrder < 0 || fromOrder >= order.length) return;
+        if (fromOrder === orderPos) return; // the playing row is anchored
+        const next = order.slice();
+        const [moved] = next.splice(fromOrder, 1);
+        // `toOrder` is an insertion slot in the pre-move list; after splicing
+        // the source out, slots past it shift back by one.
+        let to = toOrder;
+        if (to > fromOrder) to -= 1;
+        to = Math.max(0, Math.min(next.length, to));
+        next.splice(to, 0, moved);
+        // Follow the playing row as the world shifts around it.
+        let pos = orderPos;
+        if (fromOrder < orderPos) pos -= 1;
+        if (to <= pos) pos += 1;
+        set({ order: next, orderPos: pos });
       },
 
       togglePlay: () => {

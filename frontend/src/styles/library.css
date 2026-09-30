@@ -316,6 +316,100 @@
   right: 0;
 }
 
+/* ---- view header action groups (Tracks / Favorites) ------------------------ */
+
+.view__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+}
+
+.view__action--play {
+  background: var(--text-primary);
+  color: var(--bg-canvas);
+  border-color: var(--text-primary);
+}
+
+.view__action--play:hover {
+  background: var(--text-primary);
+  opacity: 0.85;
+}
+
+/* ---- sticky sortable table head (Tracks / Favorites) -----------------------
+   Same grid, gap, and padding as `.trackrow--all` so header columns sit
+   exactly over the virtual rows below. Click a column to sort; click again
+   to flip (Finder). */
+
+.trackhead {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: grid;
+  grid-template-columns: 32px minmax(0, 2fr) minmax(0, 1.3fr) minmax(0, 1.3fr) minmax(0, 60px) 30px;
+  align-items: center;
+  gap: 14px;
+  margin-top: 18px;
+  padding: 7px 12px;
+  background: var(--bg-canvas);
+  border-bottom: 1px solid var(--separator);
+}
+
+.trackhead__index,
+.trackhead__heart {
+  font-size: var(--text-caption);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-tertiary);
+  text-align: center;
+}
+
+.trackhead__sort {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  padding: 0;
+  border: none;
+  background: none;
+  font-size: var(--text-caption);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-tertiary);
+  text-align: left;
+  transition: color var(--dur-fast) var(--ease-out);
+}
+
+.trackhead__sort:hover {
+  color: var(--text-primary);
+}
+
+.trackhead__time {
+  font-size: var(--text-caption);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-tertiary);
+  text-align: right;
+}
+
+/* The active column reads as ink; its arrow points at the direction. */
+.trackhead__sort[aria-sort="ascending"],
+.trackhead__sort[aria-sort="descending"] {
+  color: var(--text-primary);
+}
+
+.trackhead__arrow {
+  flex: none;
+  opacity: 0.6;
+}
+
+.trackhead__arrow--asc {
+  transform: rotate(-180deg);
+}
+
 /* ---- phones (§21) --------------------------------------------------------- */
 /* Two adjustments, both measured at 375px: the cover grid collapses to one
    full-bleed album per row, and track rows shed the artist/album columns
@@ -353,6 +447,16 @@
 
   .trackrow--playlist {
     grid-template-columns: 32px minmax(0, 1fr) minmax(0, 60px) 30px 30px;
+  }
+
+  /* The head mirrors its rows: artist/album columns collapse away. */
+  .trackhead {
+    gap: 10px;
+    grid-template-columns: 32px minmax(0, 1fr) minmax(0, 60px) 30px;
+  }
+
+  .trackhead__secondary {
+    display: none;
   }
 }
 
@@ -401,7 +505,7 @@
   color: var(--text-primary);
 }
 
-/* ---- artist list --------------------------------------------------------- */
+/* ---- artist list (search results) ------------------------------------------ */
 
 .artistlist {
   margin-top: 24px;
@@ -419,6 +523,32 @@
   font-weight: 500;
 }
 
+.artistrow__portrait {
+  display: flex;
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  overflow: hidden;
+  background: var(--bg-inset);
+  color: var(--text-tertiary);
+}
+
+.artistrow__portrait .artistcard__img,
+.artistrow__portrait .artistcard__monogram {
+  width: 100%;
+  height: 100%;
+  border-radius: 0;
+}
+
+.artistrow__portrait .artistcard__monogram {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--text-small);
+  font-weight: 600;
+}
+
 .artistrow:hover {
   background: var(--bg-hover);
 }
@@ -428,4 +558,95 @@
   font-weight: 400;
   color: var(--text-tertiary);
   font-variant-numeric: tabular-nums;
+}
+
+/* ---- artist grid (Artists view) ---------------------------------------------
+   A wall of circular portraits, Apple-Music style: the latest album's cover
+   stands in for the artist photo; no cover reads as a quiet monogram. Cards
+   center their text under the portrait — faces first, names beneath. */
+
+.artistgrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+  gap: 28px 20px;
+  margin-top: 28px;
+}
+
+.artistcard {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 0;
+  text-align: center;
+}
+
+.artistcard__portrait {
+  display: flex;
+  width: 100%;
+  max-width: 128px;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  overflow: hidden;
+  background: var(--bg-inset);
+  color: var(--text-secondary);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.14);
+  transition: transform var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-fast) var(--ease-out);
+}
+
+.artistcard:hover .artistcard__portrait {
+  transform: scale(1.03);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.2);
+}
+
+.artistcard__img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.artistcard__monogram {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  font-size: 34px;
+  font-weight: 600;
+  letter-spacing: var(--tracking-tight);
+  color: var(--text-secondary);
+}
+
+.artistcard__name {
+  margin-top: 10px;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--text-body);
+  font-weight: 600;
+}
+
+.artistcard__meta {
+  margin-top: 2px;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--text-small);
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Phones: slightly tighter tiles, same grammar. */
+@media (max-width: 640px) {
+  .artistgrid {
+    grid-template-columns: repeat(auto-fill, minmax(88px, 1fr));
+    gap: 22px 14px;
+  }
+
+  .artistcard__monogram {
+    font-size: 26px;
+  }
 }

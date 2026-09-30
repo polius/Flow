@@ -8,20 +8,14 @@ import { TrackTableHead, type TrackSortKey } from "../components/TrackTableHead"
 import { VirtualTrackTable } from "../components/VirtualTrackTable";
 import { EmptyState } from "../components/EmptyState";
 import { LoadingState } from "../components/LoadingState";
-import { useReviewSummary } from "../components/ReviewStrip";
-import { IconOrganize, IconTracks } from "../components/icons";
+import { IconHeart, IconPlay } from "../components/icons";
 import { fmtCount } from "../lib/format";
-import { useUiStore } from "../stores/ui";
+import { usePlayerStore } from "../stores/player";
 
-/* Full-library view, windowed (§9.2, §11.6). Pages of 1000 stream in behind
-   the virtualizer as the user scrolls.
-
-   §23 revision: the header carries the Organize entry with the "needs
-   attention" count riding along — but Organize is a TASK, not a section,
-   so it now opens a full-screen sheet over the app (nothing is lost: the
-   user returns exactly here, mid-scroll). Sorting is URL state
-   (?sort=&dir=): clickable column headers in the sticky table head, plus a
-   compact Sort pill for Year / Recently added, both server-side. */
+/* Favorites — the library's loved songs, first-class (§9.1). The heart is a
+   state indicator on every row; this view is where the state lands. Same
+   windowed table + URL sort state as Tracks, so the two views share one
+   mental model and one set of gestures (headers, long-press menu). */
 const PAGE_SIZE = 1000;
 
 const SORT_OPTIONS: SortOption[] = [
@@ -35,36 +29,24 @@ const SORT_OPTIONS: SortOption[] = [
 
 const SORT_KEYS = new Set(SORT_OPTIONS.map((o) => o.key));
 
-export function TracksView() {
+export function FavoritesView() {
   const [searchParams, setSearchParams] = useSearchParams();
   const q = searchParams.get("q") ?? "";
-  const urlSort = searchParams.get("sort") ?? "title";
-  const sort = (SORT_KEYS.has(urlSort) ? urlSort : "title") as TrackSortKey;
-  const dir = searchParams.get("dir") === "desc" ? "desc" : "asc";
+  const urlSort = searchParams.get("sort") ?? "added_at";
+  const sort = (SORT_KEYS.has(urlSort) ? urlSort : "added_at") as TrackSortKey;
+  const dir = searchParams.get("dir") === "asc" ? "asc" : "desc";
 
-  const openOrganize = useUiStore((s) => s.openOrganize);
-
-  const summary = useReviewSummary();
-  const reviewCount = useMemo(() => {
-    const s = summary.data;
-    if (!s) return 0;
-    return (
-      s.no_album +
-      s.single_track_albums +
-      s.mixed_album_artist_albums +
-      s.missing_track_no +
-      s.suffix_collisions
-    );
-  }, [summary.data]);
+  const playTracks = usePlayerStore((s) => s.playTracks);
 
   const query = useInfiniteQuery({
-    queryKey: ["tracks", "all", q, sort, dir],
+    queryKey: ["tracks", "favorites", q, sort, dir],
     queryFn: async ({ pageParam }) => {
       const { data } = await api.GET("/api/tracks", {
         params: {
           query: {
             limit: PAGE_SIZE,
             offset: pageParam,
+            favorite: true,
             sort,
             dir,
             ...(q ? { q } : {}),
@@ -100,8 +82,6 @@ export function TracksView() {
     [searchParams, setSearchParams],
   );
 
-  // A new ordering is a new list: land at its top, not wherever the old
-  // order's scroll offset happens to fall.
   useEffect(() => {
     document.querySelector<HTMLElement>(".shell__canvas")?.scrollTo(0, 0);
   }, [sort, dir]);
@@ -110,11 +90,11 @@ export function TracksView() {
     <section className="view">
       <div className="view__head">
         <div>
-          <h1 className="view__title">Tracks</h1>
+          <h1 className="view__title">Favorites</h1>
           <p className="view__subtitle">
             {q
               ? `${fmtCount(total)} ${total === 1 ? "match" : "matches"} for “${q}”`
-              : `${fmtCount(total)} ${total === 1 ? "song" : "songs"}`}
+              : `${fmtCount(total)} ${total === 1 ? "song" : "songs"} you’ve loved`}
           </p>
         </div>
         <div className="view__actions">
@@ -123,35 +103,32 @@ export function TracksView() {
             value={sort}
             dir={dir}
             onChange={(key, nextDir) => onSort(key as TrackSortKey, nextDir)}
-            label="Sort tracks"
+            label="Sort favorites"
           />
-          <button
-            type="button"
-            className="view__action"
-            onClick={openOrganize}
-            aria-label={
-              reviewCount > 0
-                ? `Organize — ${reviewCount} ${reviewCount === 1 ? "item needs" : "items need"} attention`
-                : "Organize"
-            }
-            title="Organize — group tracks into albums and artists"
-          >
-            <IconOrganize size={15} />
-            Organize
-            {reviewCount > 0 && <span className="view__actioncount">{reviewCount}</span>}
-          </button>
+          {tracks.length > 0 && (
+            <button
+              type="button"
+              className="view__action view__action--play"
+              onClick={() => playTracks(tracks, 0)}
+              aria-label="Play favorites"
+              title="Play all favorites"
+            >
+              <IconPlay size={13} />
+              Play
+            </button>
+          )}
         </div>
       </div>
       {query.isPending ? (
         <LoadingState variant="rows" />
       ) : tracks.length === 0 ? (
         <EmptyState
-          icon={<IconTracks size={26} />}
-          title={q ? `No tracks match “${q}”` : "No tracks yet"}
+          icon={<IconHeart size={26} />}
+          title={q ? `No favorites match “${q}”` : "No favorites yet"}
           hint={
             q
-              ? "Try a different word, or search everything from the Search view."
-              : "Every song in your library will live here, in a table built to stay smooth at ten thousand tracks."
+              ? "Try a different word."
+              : "Touch the heart on any track’s menu — press and hold a row (or right-click it) and choose Add to Favorites."
           }
         />
       ) : (
