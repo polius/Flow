@@ -75,6 +75,17 @@
   color: var(--accent);
 }
 
+/* Touch devices have no hover: favorite, actions, and playlist-remove must
+   be reachable, so they reveal for good (§21) — quiet colors carry the
+   hierarchy the hover reveal otherwise provides. */
+@media (hover: none) {
+  .trackrow__heartbtn,
+  .trackrow__morebtn,
+  .trackrow__removebtn {
+    opacity: 1;
+  }
+}
+
 /* The playing pill inverts chrome — keep its actions legible (§13). */
 .trackrow--playing .trackrow__heartbtn,
 .trackrow--playing .trackrow__morebtn {

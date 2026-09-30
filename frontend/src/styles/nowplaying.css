@@ -341,6 +341,22 @@
   opacity: 1;
 }
 
+/* Touch has no hover: the current row shows its play/pause glyph for good —
+   tap-to-toggle must be visible to be used (§21). */
+@media (hover: none) {
+  .queue__row--current .eq {
+    opacity: 0;
+  }
+
+  .queue__row--current .queue__toggle {
+    opacity: 1;
+  }
+
+  .queue__remove {
+    opacity: 1;
+  }
+}
+
 /* Played tracks stay in the list — read as memory, not as action. */
 .queue__row--played .queue__art,
 .queue__row--played .queue__meta {

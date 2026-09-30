@@ -16,6 +16,19 @@
   animation: view-in var(--dur-normal) var(--ease-out);
 }
 
+/* Phones (§21): 40px side padding is desktop chrome; iOS-scale insets give
+   the content back 48px of width. The ambience banner offsets by the same
+   padding so it stays anchored to the canvas edges. */
+@media (max-width: 640px) {
+  .view {
+    padding: 24px 16px 40px;
+  }
+
+  .view--ambient .ambience--banner {
+    inset: -24px -16px auto -16px;
+  }
+}
+
 /* Album detail ambience (§8.5, §13): the blurred cover sits behind the
    header and dissolves before the track table. isolation keeps the negative
    z-index local; the mask lives on the artwork layer, not painted chrome. */
@@ -142,6 +155,10 @@
   display: inline-flex;
   align-items: center;
   gap: 10px;
+  /* Long values (a library path) must wrap inside the row, not bleed past
+     the card — shrink-to-fit plus anywhere breaks keeps it honest (§21). */
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .settings-row__action {

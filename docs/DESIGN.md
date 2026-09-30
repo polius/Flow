@@ -725,3 +725,38 @@ untouched; the breakpoint matches the top bar's (§19).
 5. The row carries a 4px top inset so the seek box pinned above it never
    collides with the artwork's tap target.
 
+## 21. Addendum — phone sweep of the whole app (2026-09-30)
+
+Follow-up to §19/§20: with the top bar and player bar phone-ready, the rest
+of the app was reviewed at 375×812 (and 320×568 worst case) in both themes.
+Findings and fixes — all ≤640px unless noted; desktop is untouched:
+
+1. **View insets:** 40px side padding is desktop chrome — 16px on phones
+   (24px top). The ambient banner offsets by the same padding so it stays
+   anchored to the canvas edges.
+2. **Cover grids** (Albums, Artists, Home, Search): 2-up on phones like iOS
+   Music. A `minmax(132px, 1fr)` floor keeps two columns down to 320px;
+   3-up from ~500px; desktop's 168px floor resumes above the breakpoint.
+3. **Detail headers** (album, playlist): the side-by-side header squeezed
+   its text column to ~100px, wrapping the meta line over six lines. They
+   stack on phones — the fixed 220px artwork fits down to 320px.
+4. **Track rows shed the artist/album columns** on phones: at 375px those
+   columns truncated to one or two characters ("T.. A A"). The title
+   carries the row, the grids are re-templated per variant, and the row
+   still fits at 320px.
+5. **Touch reachability (`@media (hover: none)`):** the hover-revealed
+   grammar (§8.7) has no hover on touch, so the row's play glyph (in the
+   number's slot), heart, ··· menu, playlist remove, album-card play, and
+   the queue row's toggle + remove reveal for good. Desktop hover behavior
+   is unchanged; quiet colors carry the hierarchy the reveal provided.
+6. **Settings values** shrink (`min-width: 0`) and wrap with
+   `overflow-wrap: anywhere` — a long library path wraps inside its card
+   instead of bleeding past it.
+
+Verified in the running app at 320/375/641/700/1200, light + dark: Home,
+Albums, album detail, Artists, artist detail, Tracks, Search, Settings,
+Now Playing (already phone-shaped), Get Info (`min(380px, 92vw)` fits),
+the row context menu, the nav sheet (§19), and the mini player bar (§20).
+Known scope note: playlist drag-to-reorder remains a pointer-first
+interaction (§9.3); reorder on touch was not re-designed in this pass.
+

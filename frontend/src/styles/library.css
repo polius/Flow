@@ -310,6 +310,64 @@
   right: 0;
 }
 
+/* ---- phones (§21) --------------------------------------------------------- */
+/* Two adjustments, both measured at 375px: the cover grid collapses to one
+   full-bleed album per row, and track rows shed the artist/album columns
+   that truncate to one or two characters. */
+
+@media (max-width: 640px) {
+  .covergrid {
+    /* 2-up at phone widths (iOS Music) — the 132px floor keeps two columns
+       even at 320px — 3-up from ~500px, desktop rule resumes above 640px. */
+    grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
+  }
+
+  .detailhead {
+    /* The side-by-side header squeezes its text column to ~100px on phones;
+       stacked, the 220px artwork fits down to 320px. */
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+    margin-top: 16px;
+  }
+
+  .trackrow {
+    gap: 10px;
+  }
+
+  .trackrow__secondary {
+    display: none;
+  }
+
+  .trackrow--album,
+  .trackrow--artist,
+  .trackrow--all {
+    grid-template-columns: 32px minmax(0, 1fr) minmax(0, 60px) 30px 30px;
+  }
+
+  .trackrow--playlist {
+    grid-template-columns: 32px minmax(0, 1fr) minmax(0, 60px) 30px 30px 30px;
+  }
+}
+
+/* Touch devices have no hover — without this the row's play affordance is
+   unreachable (§8.0: a11y semantics are part of every change). The play
+   glyph takes the number's slot, as it does on hover. */
+@media (hover: none) {
+  .trackrow__play {
+    opacity: 1;
+  }
+
+  .trackrow__num {
+    opacity: 0;
+  }
+
+  .album-card__play {
+    opacity: 1;
+    transform: none;
+  }
+}
+
 /* ---- section headers with a trailing link (Home, Search) ----------------- */
 
 .libsection__head {
