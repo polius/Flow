@@ -20,6 +20,7 @@ import {
   IconClose,
   IconMenu,
   IconMusicNote,
+  IconOrganize,
   IconPlaylists,
   IconSearch,
   IconSettings,
@@ -46,6 +47,7 @@ const NAV: NavEntry[] = [
   { to: "/albums", label: "Albums", Icon: IconAlbums },
   { to: "/artists", label: "Artists", Icon: IconArtists },
   { to: "/tracks", label: "Tracks", Icon: IconTracks },
+  { to: "/organize", label: "Organize", Icon: IconOrganize },
   { to: "/playlists", label: "Playlists", Icon: IconPlaylists },
 ];
 

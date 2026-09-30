@@ -159,6 +159,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/tracks/bulk": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Bulk Apply Tracks */
+        post: operations["bulk_apply_tracks_api_tracks_bulk_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/tracks/bulk/undo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Bulk Undo */
+        post: operations["bulk_undo_api_tracks_bulk_undo_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/review/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Review Summary */
+        get: operations["review_summary_api_review_summary_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/playlists": {
         parameters: {
             query?: never;
@@ -356,6 +407,15 @@ export interface components {
             /** Offset */
             offset: number;
         };
+        /** AlbumRef */
+        AlbumRef: {
+            /** Id */
+            id: number;
+            /** Title */
+            title: string;
+            /** Track Count */
+            track_count: number;
+        };
         /** AlbumSummary */
         AlbumSummary: {
             /** Id */
@@ -417,6 +477,59 @@ export interface components {
              * Format: binary
              */
             file: string;
+        };
+        /**
+         * BulkApplyIn
+         * @description Mass edit from the Organize view (§22). Selection is either explicit
+         *     `track_ids` or the same filter contract as GET /api/tracks minus
+         *     pagination (`q` / `artist_id` / `album_id` / `review`, minus
+         *     `except_ids`) — so a filter-wide apply touches exactly what the grid
+         *     showed. Change fields carry the §15.2 semantics via the shared apply
+         *     path: a field absent from the JSON never touches the column; an
+         *     explicit null clears the track number; empty artist/album strings clear
+         *     the reference; 0 normalizes to null. `favorite` is intentionally not a
+         *     bulk field.
+         */
+        BulkApplyIn: {
+            /** Track Ids */
+            track_ids?: number[] | null;
+            /** Q */
+            q?: string | null;
+            /** Artist Id */
+            artist_id?: number | null;
+            /** Album Id */
+            album_id?: number | null;
+            /** Review */
+            review?: string | null;
+            /**
+             * Except Ids
+             * @default []
+             */
+            except_ids: number[];
+            /** Title */
+            title?: string | null;
+            /** Artist */
+            artist?: string | null;
+            /** Album */
+            album?: string | null;
+            /** Track No */
+            track_no?: number | null;
+        };
+        /** BulkApplyOut */
+        BulkApplyOut: {
+            /** Applied */
+            applied: number;
+        };
+        /**
+         * CollisionGroup
+         * @description Albums whose titles collapse onto one normalized key (§22): the
+         *     scanner groups on exact strings, so suffix variants become siblings.
+         */
+        CollisionGroup: {
+            /** Key */
+            key: string;
+            /** Albums */
+            albums: components["schemas"]["AlbumRef"][];
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -547,6 +660,28 @@ export interface components {
             tags?: string[] | null;
             /** Cover Artwork Id */
             cover_artwork_id?: number | null;
+        };
+        /**
+         * ReviewSummary
+         * @description The "Needs attention" strip (§22). Deterministic counts only — no
+         *     fuzzy matching. `undo_available` rides along: the view needs both on
+         *     load, and undo state lives server-side (one generation).
+         */
+        ReviewSummary: {
+            /** No Album */
+            no_album: number;
+            /** Single Track Albums */
+            single_track_albums: number;
+            /** Mixed Album Artist Albums */
+            mixed_album_artist_albums: number;
+            /** Missing Track No */
+            missing_track_no: number;
+            /** Suffix Collisions */
+            suffix_collisions: number;
+            /** Collision Groups */
+            collision_groups: components["schemas"]["CollisionGroup"][];
+            /** Undo Available */
+            undo_available: boolean;
         };
         /** ScanStatus */
         ScanStatus: {
@@ -756,6 +891,7 @@ export interface operations {
                 q?: string | null;
                 artist_id?: number | null;
                 album_id?: number | null;
+                review?: string | null;
                 sort?: string;
                 limit?: number;
                 offset?: number;
@@ -977,6 +1113,79 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    bulk_apply_tracks_api_tracks_bulk_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BulkApplyIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BulkApplyOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    bulk_undo_api_tracks_bulk_undo_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BulkApplyOut"];
+                };
+            };
+        };
+    };
+    review_summary_api_review_summary_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReviewSummary"];
                 };
             };
         };

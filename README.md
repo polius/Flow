@@ -14,6 +14,11 @@ files instead of crashing, and the image stays inside the ~150–200MB budget
 (see [Docker image size](#docker-image-size)). Milestones 1–5 cover scan,
 browsing + playback, playlists + editing, and the Now Playing polish pass.
 
+Post-M6 addition: the **Organize** view (`/organize`) — mass curation of the
+library's metadata over the same SQLite overlays (bulk re-grouping, inline
+cell edits, a "Needs attention" review strip, one-generation undo). Files are
+never written (DESIGN.md §22).
+
 ## Quick start (Docker)
 
 ```sh

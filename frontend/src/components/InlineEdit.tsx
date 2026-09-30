@@ -11,6 +11,11 @@ interface InlineEditProps {
   ariaLabel: string;
   /** Rendered text may span lines (playlist description). */
   multiline?: boolean;
+  /** Empty commits are allowed (clearing artist/album in Organize, §22);
+      default refuses them — a title can never be empty. */
+  allowEmpty?: boolean;
+  /** Render straight into the editor (grid keyboard: Enter to edit). */
+  startInEdit?: boolean;
 }
 
 export function InlineEdit({
@@ -20,8 +25,10 @@ export function InlineEdit({
   placeholder,
   ariaLabel,
   multiline = false,
+  allowEmpty = false,
+  startInEdit = false,
 }: InlineEditProps) {
-  const [editing, setEditing] = useState(false);
+  const [editing, setEditing] = useState(startInEdit);
   const [draft, setDraft] = useState(value);
   const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement | null>(null);
 
@@ -39,7 +46,9 @@ export function InlineEdit({
   const commit = () => {
     setEditing(false);
     const trimmed = draft.trim();
-    if (trimmed && trimmed !== value) onCommit(trimmed);
+    if (allowEmpty ? trimmed !== value : trimmed && trimmed !== value) {
+      onCommit(trimmed);
+    }
   };
 
   const cancel = () => {

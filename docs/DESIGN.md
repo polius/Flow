@@ -760,3 +760,88 @@ the row context menu, the nav sheet (§19), and the mini player bar (§20).
 Known scope note: playlist drag-to-reorder remains a pointer-first
 interaction (§9.3); reorder on touch was not re-designed in this pass.
 
+## 22. Addendum — Organize view: mass curation (2026-09-30)
+
+Owner decision: a mass-editing surface over the library's SQLite metadata,
+to reconcile what the scanner grouped literally after scans (suffix-variant
+albums, loose tracks, typos). **Files stay read-only — this is curation of
+overlays, not a tag editor.** §1's non-goal is untouched; every edit lands
+through the same overlay path as Get Info (§15.2) and survives rescans.
+
+1. **Placement & name:** new nav section "Organize" (`/organize`, §18
+   grammar — one more 32px icon target; the §19 phone sheet inherits the
+   entry). Not a mode over Tracks: the view has its own information
+   architecture (review strip, filter, bulk bar).
+2. **Fields:** Title, Artist, Album, Track № — exactly the overlay fields
+   (`Edited` bits). **Album Artist is intentionally absent**: it follows
+   tags on rescan (§13.2); letting users edit it would need a new overlay
+   bit and scanner semantics. The mixed-album-artist review item surfaces
+   the cases where that future extension would help.
+3. **Shared apply path:** PATCH /api/tracks/{id} and the bulk endpoints all
+   resolve fields through `app.apply.apply_field_changes` — one
+   implementation, so the editors cannot diverge (the `entities.py`
+   philosophy). Wire semantics per §15.2 (absent = untouched; explicit null
+   clears the number; empty artist/album strings clear the reference; 0 →
+   null; empty title rejected).
+4. **`POST /api/tracks/bulk`:** one transaction, all-or-nothing (a 422
+   among 10k rows writes nothing). Selection is explicit `track_ids` or the
+   GET /api/tracks filter contract minus pagination (`q`, `artist_id`,
+   `album_id`, `review`) minus `except_ids` — a filter-wide apply touches
+   exactly what the grid showed. `favorite` is not a bulk field.
+5. **Review filters** (whitelisted `review=` param, also on GET
+   /api/tracks): `no_album`, `single_track_albums`, `mixed_album_artist`,
+   `missing_track_no` — deterministic SQL only, no fuzzy matching. Mixed
+   state arises when an album overlay pins tracks to one album row while a
+   re-tagged file re-derives album artist on rescan (grouping keys on
+   title + album artist). `suffix_collisions` normalizes titles (strip
+   bracketed variant segments, punctuation, case) and only flags groups
+   where members share an artist — same-titled albums by different artists
+   are legitimate.
+6. **Undo (one generation, server-side):** the last bulk apply stores each
+   touched track's previous values in `settings` (`bulk_undo`, names for
+   artist/album — an emptied entity's row is pruned and find-or-create
+   recreates it on undo). `POST /api/tracks/bulk/undo` re-applies them
+   through the shared path and re-sets the overlay bits (the restored
+   value is one the user chose). Undo consumes the slot; no redo.
+   `undo_available` rides on GET /api/review/summary. ⌘Z in the view and
+   the header's "Undo last apply" both hit it.
+7. **Grid grammar:** no playback here (rows organize; playback lives in
+   Tracks/Albums/Now Playing) — row click toggles selection, cells
+   click-to-edit (§15.1), Enter commits in place (the plan's "moves down"
+   is dropped: the next row may not be mounted in a virtualized window),
+   Tab crosses cells, Esc cancels. Checkbox column: click toggles,
+   Shift-click ranges over the loaded rows, ⌘A selects all matching
+   (server-side via the filter contract), the header checkbox is
+   tri-state. Keyboard cursor: arrows/PageUp/PageDown/Home/End move,
+   Space toggles, Enter edits the title.
+8. **Confirm sheet:** every bulk apply confirms (the app's only
+   mass-mutation moment). The consequence line is exactly honest: album
+   removal is computable (albums prune when their last track moves);
+   artists are claimed only as "left with no tracks" — they can survive
+   via album references (§13.2), and per-track album-artist data isn't in
+   the payload. Filter-wide selections get the generic line.
+9. **Phones (§21/§22):** the grid re-templates to art + title/meta, cells
+   are not editable, selection/bulk are unavailable, and a tap opens Get
+   Info — the designed refusal; mass editing needs a wider screen. The
+   review strip and filter stay usable.
+10. **`sort=curate`:** album blocks contiguous (title, then album artist —
+    two artists may each own "Album 01", §13.2), track order within, loose
+    tracks last. `TRACK_SELECT` gains the album-artist join (`aar`).
+11. **Search nuance (§15.5):** the view's filter field is a table filter
+    (like the Add Tracks picker's), scoped to the grid and carried in the
+    URL — not a second global search.
+12. **Scroller correction (revises §17.2):** since §18, `.shell__canvas`
+    is the app's scroll container; a window virtualizer never sees its
+    scroll. VirtualTrackTable was still window-virtualized against the
+    window and rendered a frozen first window with blank space below it
+    (a live §18 regression, caught while building the Organize grid); it
+    now binds `useVirtualizer` to the canvas — the pattern the queue
+    drawer already used. OrganizeGrid does the same.
+13. **Divergences from the approved plan, recorded:** undo moved
+    client-side → server-side (filter-wide applies touch tracks the
+    client never loaded, so a client diff would lie); cell edits
+    commit-per-cell instead of a draft buffer (Finder semantics; the
+    buffer only paid off for undo, which the server now owns); suffix
+    collisions got their own popover (group → album pills → filter) rather
+    than a bare count.
+

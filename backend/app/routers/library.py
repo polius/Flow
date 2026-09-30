@@ -29,6 +29,10 @@ TRACK_SORTS = {
     "title": "t.title COLLATE NOCASE",
     "artist": "(ar.name IS NULL), ar.name COLLATE NOCASE",
     "album": "(al.title IS NULL), al.title COLLATE NOCASE",
+    # Organize view (§22): album blocks contiguous (same title, artist-ordered),
+    # track order within, loose tracks last — the ordering curation thinks in.
+    "curate": "(al.title IS NULL), al.title COLLATE NOCASE, aar.name COLLATE NOCASE, "
+    "t.disc_no, t.track_no, t.title COLLATE NOCASE",
     "track_no": "t.disc_no, t.track_no",
     "year": "t.year",
     "duration": "t.duration",
@@ -59,7 +63,54 @@ SELECT t.id, t.title, t.track_no, t.disc_no, t.year, t.duration, t.format,
 FROM tracks t
 LEFT JOIN artists ar ON ar.id = t.artist_id
 LEFT JOIN albums al ON al.id = t.album_id
+LEFT JOIN artists aar ON aar.id = al.artist_id
 """
+
+# Curation predicates for the Organize view (§22) — album-level problems
+# expressed over track rows so the grid and the bulk apply select honestly.
+REVIEW_FILTERS = {
+    "no_album": "t.album_id IS NULL",
+    "missing_track_no": "t.track_no IS NULL",
+    "single_track_albums": (
+        "t.album_id IN (SELECT album_id FROM tracks WHERE album_id IS NOT NULL "
+        "GROUP BY album_id HAVING COUNT(*) = 1)"
+    ),
+    "mixed_album_artist": (
+        "t.album_id IN (SELECT album_id FROM tracks WHERE album_id IS NOT NULL "
+        "GROUP BY album_id HAVING COUNT(DISTINCT COALESCE(album_artist_id, -1)) > 1)"
+    ),
+}
+
+
+def track_filter_where(
+    *,
+    q: str | None = None,
+    artist_id: int | None = None,
+    album_id: int | None = None,
+    review: str | None = None,
+) -> tuple[str, list]:
+    """Shared WHERE builder for GET /api/tracks and the bulk apply (§22):
+    a filter-based selection must resolve to exactly what the grid showed.
+    Raises 422 on an unknown review value."""
+    where, params = [], []
+    if q:
+        where.append(
+            "(t.title LIKE ? ESCAPE '\\' OR ar.name LIKE ? ESCAPE '\\' "
+            "OR al.title LIKE ? ESCAPE '\\')"
+        )
+        params += [_like(q), _like(q), _like(q)]
+    if artist_id is not None:
+        where.append("t.artist_id = ?")
+        params.append(artist_id)
+    if album_id is not None:
+        where.append("t.album_id = ?")
+        params.append(album_id)
+    if review is not None:
+        clause = REVIEW_FILTERS.get(review)
+        if clause is None:
+            raise HTTPException(status_code=422, detail="Unknown review filter")
+        where.append(clause)
+    return (f"WHERE {' AND '.join(where)}" if where else ""), params
 
 # Same shape with the playlist position prepended (playlists router).
 PLAYLIST_TRACK_SELECT = TRACK_SELECT.replace(
@@ -91,6 +142,7 @@ def list_tracks(
     q: str | None = None,
     artist_id: int | None = None,
     album_id: int | None = None,
+    review: str | None = None,
     sort: str = "title",
     limit: int = Query(DEFAULT_LIMIT, ge=1),
     offset: int = Query(0, ge=0),
@@ -98,20 +150,9 @@ def list_tracks(
     conn = request.app.state.db.connect()
     limit, offset = _clamp(limit, offset)
 
-    where, params = [], []
-    if q:
-        where.append(
-            "(t.title LIKE ? ESCAPE '\\' OR ar.name LIKE ? ESCAPE '\\' "
-            "OR al.title LIKE ? ESCAPE '\\')"
-        )
-        params += [_like(q), _like(q), _like(q)]
-    if artist_id is not None:
-        where.append("t.artist_id = ?")
-        params.append(artist_id)
-    if album_id is not None:
-        where.append("t.album_id = ?")
-        params.append(album_id)
-    clause = f"WHERE {' AND '.join(where)}" if where else ""
+    clause, params = track_filter_where(
+        q=q, artist_id=artist_id, album_id=album_id, review=review
+    )
 
     order = TRACK_SORTS.get(sort, TRACK_SORTS["title"])
 

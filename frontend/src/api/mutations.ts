@@ -6,7 +6,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 
 import { api } from "./client";
-import type { PlaylistDetail, Track, TrackPatch } from "./types";
+import type { BulkApplyIn, PlaylistDetail, Track, TrackPatch } from "./types";
 import { usePlayerStore } from "../stores/player";
 
 /** Apply `fn` to a track wherever it sits inside the common response shapes. */
@@ -94,9 +94,45 @@ export function usePatchTrack() {
       void queryClient.invalidateQueries({ queryKey: ["playlist"] });
       void queryClient.invalidateQueries({ queryKey: ["playlists"] });
       void queryClient.invalidateQueries({ queryKey: ["search"] });
+      // Regrouping can change every review count (§22).
+      void queryClient.invalidateQueries({ queryKey: ["review"] });
       return true;
     }
     return false;
+  };
+}
+
+/** Organize view (§22): mass apply + one-generation undo. Both invalidate
+    broadly — albums, artists, and every review count can move at once. */
+export function useBulkApply() {
+  const queryClient = useQueryClient();
+  return async (body: BulkApplyIn): Promise<number | null> => {
+    const { data, response } = await api.POST("/api/tracks/bulk", { body });
+    if (!response.ok || !data) return null;
+    void queryClient.invalidateQueries({ queryKey: ["tracks"] });
+    void queryClient.invalidateQueries({ queryKey: ["album"] });
+    void queryClient.invalidateQueries({ queryKey: ["artist"] });
+    void queryClient.invalidateQueries({ queryKey: ["playlist"] });
+    void queryClient.invalidateQueries({ queryKey: ["playlists"] });
+    void queryClient.invalidateQueries({ queryKey: ["search"] });
+    void queryClient.invalidateQueries({ queryKey: ["review"] });
+    return data.applied;
+  };
+}
+
+export function useUndoBulkApply() {
+  const queryClient = useQueryClient();
+  return async (): Promise<number | null> => {
+    const { data, response } = await api.POST("/api/tracks/bulk/undo");
+    if (!response.ok || !data) return null;
+    void queryClient.invalidateQueries({ queryKey: ["tracks"] });
+    void queryClient.invalidateQueries({ queryKey: ["album"] });
+    void queryClient.invalidateQueries({ queryKey: ["artist"] });
+    void queryClient.invalidateQueries({ queryKey: ["playlist"] });
+    void queryClient.invalidateQueries({ queryKey: ["playlists"] });
+    void queryClient.invalidateQueries({ queryKey: ["search"] });
+    void queryClient.invalidateQueries({ queryKey: ["review"] });
+    return data.applied;
   };
 }
 

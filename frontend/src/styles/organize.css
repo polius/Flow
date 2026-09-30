@@ -1,0 +1,661 @@
+/* Organize view (§22): review strip, editing grid, selection bar, confirm
+   sheet. Chrome stays near-monochrome; the accent appears only where the
+   rest of the app allows it (§8.1). Rows reuse the library row's metrics
+   (38px, radius-m, hover fill, playing-pill inversion). */
+
+/* ---- view scaffold --------------------------------------------------------- */
+
+.view--organize {
+  /* Room for the floating selection bar above the player bar. */
+  padding-bottom: calc(var(--player-height) + 108px);
+}
+
+/* ---- filter field ----------------------------------------------------------- */
+
+.orgfilter {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  max-width: 360px;
+  margin-top: 18px;
+  padding: 8px 12px;
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius-m);
+  background: var(--bg-canvas);
+  transition: border-color var(--dur-fast) var(--ease-out);
+}
+
+.orgfilter:focus-within {
+  border-color: color-mix(in srgb, var(--text-primary) 40%, transparent);
+}
+
+.orgfilter__icon {
+  display: flex;
+  color: var(--text-tertiary);
+}
+
+.orgfilter__input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  font-size: var(--text-body);
+  color: var(--text-primary);
+  outline: none;
+}
+
+.orgfilter__input::placeholder {
+  color: var(--text-tertiary);
+}
+
+/* Focus is the wrapper's border, never the global accent ring (§8). */
+.orgfilter__input:focus,
+.orgfilter__input:focus-visible {
+  outline: none;
+}
+
+.orgfilter__clear {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  color: var(--text-tertiary);
+}
+
+.orgfilter__clear:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+
+/* ---- review strip ("Needs attention") --------------------------------------- */
+
+.orgstrip {
+  position: relative;
+  margin-top: 22px;
+}
+
+.orgstrip__label {
+  margin: 0 0 8px;
+  font-size: var(--text-caption);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-tertiary);
+}
+
+/* A healthy library is one calm line — the reward state (§22). */
+.orgstrip--clean {
+  margin-top: 22px;
+  font-size: var(--text-small);
+  color: var(--text-tertiary);
+}
+
+.orgstrip__pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.orgstrip__pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 11px;
+  border-radius: 999px;
+  background: var(--bg-inset);
+  font-size: var(--text-small);
+  font-weight: 500;
+  color: var(--text-secondary);
+  transition: background var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out);
+}
+
+.orgstrip__pill:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+
+/* The active filter wears the established active-nav language (§8.1/§18.1). */
+.orgstrip__pill--on,
+.orgstrip__pill--on:hover {
+  background: var(--bg-active);
+  color: var(--text-primary);
+}
+
+.orgstrip__count {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.orgstrip__pill:not(.orgstrip__pill--on) .orgstrip__count {
+  color: var(--text-primary);
+}
+
+.orgstrip__clear {
+  padding: 4px 8px;
+  font-size: var(--text-small);
+  font-weight: 500;
+  color: var(--text-tertiary);
+}
+
+.orgstrip__clear:hover {
+  color: var(--text-primary);
+}
+
+/* ---- active-filter chips ------------------------------------------------------ */
+
+.orgchips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+/* The filtered-empty action sits with its state, not floating alone. */
+.orgempty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+/* ---- collision popover (surface language of the context menus, §15.6) --------- */
+
+.orgpop {
+  position: fixed;
+  z-index: var(--z-modal);
+  width: min(420px, 92vw);
+  max-height: 320px;
+  overflow-y: auto;
+  padding: 12px 14px;
+  border: 1px solid var(--separator);
+  border-radius: var(--radius-m);
+  background: var(--bg-elevated);
+  box-shadow: 0 10px 34px rgba(0, 0, 0, 0.24);
+  animation: orgpop-in var(--dur-fast) var(--ease-out);
+}
+
+@keyframes orgpop-in {
+  from {
+    opacity: 0;
+    transform: scale(0.98) translateY(2px);
+  }
+}
+
+.orgpop__hint {
+  margin: 0 0 10px;
+  font-size: var(--text-small);
+  color: var(--text-secondary);
+}
+
+.orgpop__group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.orgpop__group + .orgpop__group {
+  margin-top: 8px;
+}
+
+.orgpop__album {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border: 1px solid var(--control-border);
+  border-radius: 999px;
+  font-size: var(--text-small);
+  font-weight: 500;
+  color: var(--text-primary);
+  max-width: 100%;
+}
+
+.orgpop__album:hover {
+  background: var(--bg-hover);
+}
+
+.orgpop__album span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.orgpop__count {
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- the grid ------------------------------------------------------------------ */
+
+.orggrid {
+  margin-top: 16px;
+  outline: none;
+}
+
+/* Sticky column header: pins below the top bar as rows scroll beneath. */
+.orghead,
+.orgrow {
+  display: grid;
+  grid-template-columns: 26px 40px minmax(0, 1.5fr) minmax(0, 1fr) minmax(0, 1.2fr);
+  align-items: center;
+  gap: 12px;
+  padding: 7px 12px;
+}
+
+.orghead {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--bg-canvas);
+  border-bottom: 1px solid var(--separator);
+}
+
+.orghead__label {
+  font-size: var(--text-caption);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-tertiary);
+}
+
+.orghead__no {
+  text-align: right;
+}
+
+.orggrid__body {
+  position: relative;
+}
+
+.orgrow {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  min-height: 38px;
+  border-radius: var(--radius-m);
+  font-size: var(--text-body);
+}
+
+.orgrow:hover {
+  background: var(--bg-hover);
+}
+
+.orgrow--selected,
+.orgrow--selected:hover {
+  background: var(--bg-active);
+}
+
+/* Keyboard cursor: a hairline focus ring that coexists with selection. */
+.orgrow--cursor {
+  outline: 1.5px solid color-mix(in srgb, var(--text-primary) 35%, transparent);
+  outline-offset: -1.5px;
+}
+
+/* The playing pill inverts chrome — same grammar as library rows (§13). */
+.orgrow--playing,
+.orgrow--playing:hover {
+  background: var(--text-primary);
+  color: var(--bg-canvas);
+}
+
+/* Cells */
+
+.orgrow__check {
+  display: flex;
+  justify-content: center;
+}
+
+.orgbox {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border: 1.5px solid var(--control-border);
+  border-radius: 50%;
+  color: var(--bg-elevated);
+  transition: background var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out);
+}
+
+.orgbox:hover {
+  border-color: var(--text-tertiary);
+}
+
+.orgbox--on,
+.orgbox--on:hover {
+  border-color: var(--text-primary);
+  background: var(--text-primary);
+}
+
+.orgrow--playing .orgbox {
+  border-color: color-mix(in srgb, var(--bg-canvas) 45%, transparent);
+}
+
+.orgrow__nocell {
+  min-width: 0;
+  text-align: right;
+}
+
+.orgrow__no {
+  display: inline-block;
+  min-width: 100%;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+  text-align: right;
+}
+
+/* The dash placeholder for a missing number stays quiet. */
+.orgrow__no.inlineedit__placeholder {
+  text-align: right;
+}
+
+.orgrow__titlecell {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.orgrow__titlecell .artwork {
+  flex: none;
+}
+
+.orgrow__titletext {
+  font-weight: 500;
+}
+
+/* Cells reveal their editability on hover — a quiet field, not chrome. */
+.orgrow .inlineedit__text {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  border-radius: 4px;
+  padding: 0 3px;
+  margin: 0 -3px;
+}
+
+.orgrow .inlineedit__text:hover {
+  background: color-mix(in srgb, var(--text-primary) 8%, transparent);
+}
+
+.orgrow__celltext {
+  color: var(--text-secondary);
+}
+
+.orgrow__meta {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--text-small);
+  color: var(--text-secondary);
+}
+
+/* Editing inside the inverted pill: restore theme ink (same trap the
+   library rows solved in editing.css). */
+.orgrow--playing .inlineedit__input,
+.orgrow--playing .inlineedit__placeholder {
+  color: var(--text-primary);
+}
+
+/* ---- floating selection bar / banner ------------------------------------------- */
+
+.orgbar {
+  position: fixed;
+  bottom: calc(var(--player-height) + 16px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: calc(var(--z-drawer) - 1);
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  max-width: calc(100vw - 32px);
+  padding: 6px 10px;
+  border: 1px solid var(--separator);
+  border-radius: 999px;
+  background: var(--bg-elevated);
+  box-shadow: 0 10px 34px rgba(0, 0, 0, 0.24);
+  animation: orgbar-in var(--dur-fast) var(--ease-out);
+}
+
+@keyframes orgbar-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 6px);
+  }
+}
+
+.orgbar__count {
+  padding: 0 10px;
+  font-size: var(--text-body);
+  font-weight: 600;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.orgbar__sep {
+  width: 1px;
+  height: 18px;
+  margin: 0 6px;
+  background: var(--separator);
+}
+
+.orgbar__action {
+  padding: 7px 12px;
+  border-radius: 999px;
+  font-size: var(--text-body);
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+
+.orgbar__action:hover {
+  background: var(--bg-hover);
+}
+
+.orgbar__quiet {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 7px 10px;
+  border-radius: 999px;
+  font-size: var(--text-body);
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.orgbar__quiet:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+
+/* ---- bulk set popover (opens upward from the bar) -------------------------------- */
+
+.orgbar__pop {
+  position: absolute;
+  bottom: calc(100% + 10px);
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(320px, 92vw);
+  padding: 10px;
+  border: 1px solid var(--separator);
+  border-radius: var(--radius-m);
+  background: var(--bg-elevated);
+  box-shadow: 0 10px 34px rgba(0, 0, 0, 0.24);
+  animation: orgpop-in var(--dur-fast) var(--ease-out);
+}
+
+.orgbar__input {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius-s);
+  background: var(--bg-canvas);
+  font-size: var(--text-body);
+  color: var(--text-primary);
+  outline: none;
+}
+
+.orgbar__input:focus,
+.orgbar__input:focus-visible {
+  border-color: color-mix(in srgb, var(--text-primary) 40%, transparent);
+  outline: none;
+}
+
+.orgbar__suggest {
+  margin-top: 8px;
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.orgbar__suggestrow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  padding: 7px 10px;
+  border-radius: var(--radius-s);
+  text-align: left;
+}
+
+.orgbar__suggestrow:hover {
+  background: var(--bg-hover);
+}
+
+.orgbar__suggestname {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--text-body);
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.orgbar__suggestrow--new .orgbar__suggestname {
+  font-weight: 600;
+}
+
+.orgbar__suggestrow--clear .orgbar__suggestname {
+  color: var(--accent);
+}
+
+.orgbar__suggestcount {
+  font-size: var(--text-small);
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+
+.orgbar__empty {
+  padding: 8px 10px;
+  font-size: var(--text-small);
+  color: var(--text-tertiary);
+}
+
+/* ---- confirm sheet ---------------------------------------------------------------- */
+
+.orgsheet__scrim {
+  position: fixed;
+  inset: 0;
+  z-index: calc(var(--z-modal) - 1);
+  background: rgba(0, 0, 0, 0.18);
+}
+
+.orgsheet {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: var(--z-modal);
+  width: min(440px, 92vw);
+  padding: 20px 22px;
+  border: 1px solid var(--separator);
+  border-radius: var(--radius-l);
+  background: var(--bg-elevated);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.32);
+  animation: orgpop-in var(--dur-normal) var(--ease-out);
+}
+
+.orgsheet__title {
+  margin: 0;
+  font-size: var(--text-regular);
+  font-weight: 700;
+  letter-spacing: var(--tracking-tight);
+  overflow-wrap: anywhere;
+}
+
+.orgsheet__body {
+  margin: 8px 0 0;
+  font-size: var(--text-small);
+  color: var(--text-secondary);
+}
+
+.orgsheet__note {
+  margin: 12px 0 0;
+  padding: 10px 12px;
+  border-radius: var(--radius-m);
+  background: var(--bg-inset);
+  font-size: var(--text-small);
+  color: var(--text-secondary);
+}
+
+.orgsheet__note strong {
+  font-weight: 600;
+  color: var(--text-primary);
+  overflow-wrap: anywhere;
+}
+
+.orgsheet__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.orgsheet__cancel {
+  padding: 8px 16px;
+  border-radius: 999px;
+  font-size: var(--text-body);
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.orgsheet__cancel:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+
+/* ---- phones (§22: designed refusal with Get Info fallback) ------------------------ */
+
+@media (max-width: 640px) {
+  .orghead {
+    display: none;
+  }
+
+  .orgrow--compact {
+    grid-template-columns: 40px minmax(0, 1fr);
+    gap: 12px;
+    min-height: 52px;
+  }
+
+  .orgrow__names {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    min-width: 0;
+  }
+
+  .orgrow--compact .orgrow__titletext {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-weight: 500;
+  }
+}

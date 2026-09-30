@@ -11,6 +11,7 @@ import { PlaylistsView } from "./views/PlaylistsView";
 import { SearchView } from "./views/SearchView";
 import { SettingsView } from "./views/SettingsView";
 import { TracksView } from "./views/TracksView";
+import { OrganizeView } from "./views/OrganizeView";
 
 export const router = createBrowserRouter([
   {
@@ -22,6 +23,7 @@ export const router = createBrowserRouter([
       { path: "/artists", element: <ArtistsView /> },
       { path: "/artists/:artistId", element: <ArtistDetailView /> },
       { path: "/tracks", element: <TracksView /> },
+      { path: "/organize", element: <OrganizeView /> },
       { path: "/playlists", element: <PlaylistsView /> },
       { path: "/playlists/:playlistId", element: <PlaylistDetailView /> },
       { path: "/search", element: <SearchView /> },

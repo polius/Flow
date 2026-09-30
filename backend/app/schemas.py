@@ -118,6 +118,61 @@ class TrackPatch(BaseModel):
     favorite: bool | None = None
 
 
+# ---- Organize view: bulk apply + review (§22) --------------------------------
+
+
+class BulkApplyIn(BaseModel):
+    """Mass edit from the Organize view (§22). Selection is either explicit
+    `track_ids` or the same filter contract as GET /api/tracks minus
+    pagination (`q` / `artist_id` / `album_id` / `review`, minus
+    `except_ids`) — so a filter-wide apply touches exactly what the grid
+    showed. Change fields carry the §15.2 semantics via the shared apply
+    path: a field absent from the JSON never touches the column; an
+    explicit null clears the track number; empty artist/album strings clear
+    the reference; 0 normalizes to null. `favorite` is intentionally not a
+    bulk field."""
+    track_ids: list[int] | None = None
+    q: str | None = None
+    artist_id: int | None = None
+    album_id: int | None = None
+    review: str | None = None
+    except_ids: list[int] = []
+    title: str | None = None
+    artist: str | None = None
+    album: str | None = None
+    track_no: int | None = None
+
+
+class BulkApplyOut(BaseModel):
+    applied: int
+
+
+class AlbumRef(BaseModel):
+    id: int
+    title: str
+    track_count: int
+
+
+class CollisionGroup(BaseModel):
+    """Albums whose titles collapse onto one normalized key (§22): the
+    scanner groups on exact strings, so suffix variants become siblings."""
+    key: str
+    albums: list[AlbumRef]
+
+
+class ReviewSummary(BaseModel):
+    """The "Needs attention" strip (§22). Deterministic counts only — no
+    fuzzy matching. `undo_available` rides along: the view needs both on
+    load, and undo state lives server-side (one generation)."""
+    no_album: int
+    single_track_albums: int
+    mixed_album_artist_albums: int
+    missing_track_no: int
+    suffix_collisions: int
+    collision_groups: list[CollisionGroup]
+    undo_available: bool
+
+
 # ---- Playlists (Milestone 4) ---------------------------------------------------
 
 

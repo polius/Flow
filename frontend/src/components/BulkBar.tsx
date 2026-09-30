@@ -1,0 +1,342 @@
+/* The selection bar (§22): the Organize view's one persistent surface.
+   Appears with a selection; offers bulk set (album/artist) with suggestions
+   from the existing entities, a Clear, and — the view's single ceremony —
+   a confirm sheet with honest arithmetic (count + what gets removed).
+   The result banner doubles as the undo affordance for the last apply. */
+
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+
+import { api } from "../api/client";
+import type { Track } from "../api/types";
+import { useUiStore } from "../stores/ui";
+import { IconClose } from "./icons";
+
+export type BulkField = "artist" | "album";
+
+interface BulkBarProps {
+  count: number;
+  filterMode: boolean;
+  applying: boolean;
+  /** The selected tracks themselves — explicit selections only; empty in
+      filter mode (unloaded pages mean consequences stay generic). */
+  selectedTracks: Track[];
+  onClear: () => void;
+  onApply: (changes: { artist?: string; album?: string }) => void;
+}
+
+/** Debounce helper shared by the suggestion inputs. */
+function useDebounced(value: string, ms: number): string {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const t = window.setTimeout(() => setDebounced(value), ms);
+    return () => window.clearTimeout(t);
+  }, [value, ms]);
+  return debounced;
+}
+
+interface ConfirmState {
+  field: BulkField;
+  value: string;
+}
+
+export function BulkBar({ count, filterMode, applying, selectedTracks, onClear, onApply }: BulkBarProps) {
+  const [popover, setPopover] = useState<BulkField | null>(null);
+  const [confirm, setConfirm] = useState<ConfirmState | null>(null);
+  const [input, setInput] = useState("");
+  const q = useDebounced(input, 150);
+  const popRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const setContextMenuOpen = useUiStore((s) => s.setContextMenuOpen);
+
+  useEffect(() => {
+    if (popover == null) return;
+    setContextMenuOpen(true);
+    inputRef.current?.focus();
+    const onPointerDown = (e: PointerEvent) => {
+      if (!popRef.current?.contains(e.target as Node)) setPopover(null);
+    };
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setPopover(null);
+    };
+    window.addEventListener("pointerdown", onPointerDown);
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      setContextMenuOpen(false);
+      window.removeEventListener("pointerdown", onPointerDown);
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [popover, setContextMenuOpen]);
+
+  // Confirm sheet: registered like a menu so Esc unwinds it first (§16.4).
+  useEffect(() => {
+    if (confirm == null) return;
+    setContextMenuOpen(true);
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setConfirm(null);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      setContextMenuOpen(false);
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [confirm, setContextMenuOpen]);
+
+  const suggestions = useQuery({
+    queryKey: ["suggest", popover, q],
+    queryFn: async () => {
+      // Normalized shape: the two endpoints differ, the popover doesn't care.
+      if (popover === "album") {
+        const { data } = await api.GET("/api/albums", {
+          params: { query: { ...(q ? { q } : {}), limit: 8, sort: "title" } },
+        });
+        return (data?.items ?? []).map((a) => ({
+          id: a.id,
+          name: a.title,
+          track_count: a.track_count,
+        }));
+      }
+      const { data } = await api.GET("/api/artists", {
+        params: { query: { ...(q ? { q } : {}), limit: 8 } },
+      });
+      return (data?.items ?? []).map((a) => ({
+        id: a.id,
+        name: a.name,
+        track_count: a.track_count,
+      }));
+    },
+    enabled: popover != null,
+    placeholderData: (prev) => prev,
+  });
+
+  const matches = suggestions.data ?? [];
+  const exactMatch = matches.some((m) => m.name.trim().toLowerCase() === q.trim().toLowerCase());
+
+  const open = (field: BulkField) => {
+    setInput("");
+    setPopover(field);
+  };
+
+  const propose = (value: string) => {
+    if (popover == null) return;
+    setConfirm({ field: popover, value });
+    setPopover(null);
+  };
+
+  const confirmTitle = confirm?.value.trim()
+    ? `Set ${confirm.field === "album" ? "album" : "artist"} to “${confirm.value.trim()}”`
+    : `Clear ${confirm?.field === "album" ? "album" : "artist"}`;
+
+  return (
+    <>
+      <div className="orgbar" role="toolbar" aria-label="Bulk actions">
+        <span className="orgbar__count">
+          {count.toLocaleString()} selected
+          {filterMode ? " of all matching" : ""}
+        </span>
+        <span className="orgbar__sep" aria-hidden="true" />
+        <button type="button" className="orgbar__action" onClick={() => open("album")}>
+          Set Album…
+        </button>
+        <button type="button" className="orgbar__action" onClick={() => open("artist")}>
+          Set Artist…
+        </button>
+        <span className="orgbar__sep" aria-hidden="true" />
+        <button type="button" className="orgbar__quiet" onClick={onClear}>
+          Clear
+        </button>
+
+        {popover != null && (
+          <div ref={popRef} className="orgbar__pop" role="dialog" aria-label={`Set ${popover}`}>
+            <input
+              ref={inputRef}
+              className="orgbar__input"
+              value={input}
+              placeholder={popover === "album" ? "Album name" : "Artist name"}
+              aria-label={popover === "album" ? "Album name" : "Artist name"}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && input.trim()) propose(input.trim());
+              }}
+            />
+            <div className="orgbar__suggest">
+              {matches.map((m) => (
+                <button
+                  key={m.id}
+                  type="button"
+                  className="orgbar__suggestrow"
+                  onClick={() => propose(m.name)}
+                >
+                  <span className="orgbar__suggestname">{m.name}</span>
+                  <span className="orgbar__suggestcount">{m.track_count}</span>
+                </button>
+              ))}
+              {q.trim() && !exactMatch && (
+                <button
+                  type="button"
+                  className="orgbar__suggestrow orgbar__suggestrow--new"
+                  onClick={() => propose(q.trim())}
+                >
+                  <span className="orgbar__suggestname">New “{q.trim()}”</span>
+                </button>
+              )}
+              <button
+                type="button"
+                className="orgbar__suggestrow orgbar__suggestrow--clear"
+                onClick={() => propose("")}
+              >
+                <span className="orgbar__suggestname">
+                  {popover === "album" ? "Clear album" : "No artist"}
+                </span>
+              </button>
+              {matches.length === 0 && !q.trim() && (
+                <div className="orgbar__empty">Type a name, or clear the field.</div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {confirm != null && (
+        <>
+          <div className="orgsheet__scrim" onClick={() => setConfirm(null)} aria-hidden="true" />
+          <div className="orgsheet" role="alertdialog" aria-label={confirmTitle} aria-modal="true">
+            <h2 className="orgsheet__title">{confirmTitle}</h2>
+            <p className="orgsheet__body">
+              Applies to {count.toLocaleString()} {count === 1 ? "track" : "tracks"} in
+              Flow's library. Your audio files are never modified.
+            </p>
+            <ConsequenceLine field={confirm.field} value={confirm.value} filterMode={filterMode} selectedTracks={selectedTracks} />
+            <div className="orgsheet__actions">
+              <button type="button" className="orgsheet__cancel" onClick={() => setConfirm(null)}>
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="btn--primary"
+                disabled={applying}
+                onClick={() => {
+                  const changes = confirm.field === "album" ? { album: confirm.value } : { artist: confirm.value };
+                  onApply(changes);
+                  setConfirm(null);
+                }}
+              >
+                {applying ? "Applying…" : "Apply"}
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+    </>
+  );
+}
+
+function ConsequenceLine({
+  field,
+  value,
+  filterMode,
+  selectedTracks,
+}: {
+  field: BulkField;
+  value: string;
+  filterMode: boolean;
+  selectedTracks: Track[];
+}) {
+  const ids = useMemo(() => {
+    const s = new Set<number>();
+    for (const t of selectedTracks) {
+      const id = field === "album" ? t.album_id : t.artist_id;
+      if (id != null) s.add(id);
+    }
+    return [...s];
+  }, [field, selectedTracks]);
+
+  const details = useQuery({
+    queryKey: ["consequences", field, ids],
+    queryFn: async () => {
+      const out: { id: number; title: string; track_count: number }[] = [];
+      for (const id of ids) {
+        if (field === "album") {
+          const { data } = await api.GET("/api/albums/{album_id}", {
+            params: { path: { album_id: id } },
+          });
+          if (data) out.push({ id, title: data.title, track_count: data.track_count });
+        } else {
+          const { data } = await api.GET("/api/artists/{artist_id}", {
+            params: { path: { artist_id: id } },
+          });
+          if (data) out.push({ id, title: data.name, track_count: data.track_count });
+        }
+      }
+      return out;
+    },
+    enabled: !filterMode && ids.length > 0,
+  });
+
+  const affected = useMemo(() => {
+    if (filterMode || !details.data) return [];
+    const target = value.trim();
+    const counts = new Map<number, number>();
+    for (const t of selectedTracks) {
+      const id = field === "album" ? t.album_id : t.artist_id;
+      if (id != null) counts.set(id, (counts.get(id) ?? 0) + 1);
+    }
+    const names: string[] = [];
+    for (const d of details.data) {
+      if (d.title.trim().toLowerCase() === target.toLowerCase()) continue;
+      // Albums are removed exactly when their last track moves (§13.2 prune).
+      // Artists can survive via album references even with no tracks, so the
+      // claim is the one that is always true: left with no tracks.
+      const fullyMoved = (counts.get(d.id) ?? 0) >= d.track_count;
+      if (fullyMoved) names.push(d.title);
+    }
+    return names;
+  }, [details.data, filterMode, field, value, selectedTracks]);
+
+  const suffix = field === "album" ? "will be removed if left empty" : "will be left with no tracks";
+
+  if (filterMode) {
+    return (
+      <p className="orgsheet__note">
+        Emptied albums and artists are removed automatically. Filter-wide
+        selections can't preview which — check the grid if unsure.
+      </p>
+    );
+  }
+  if (affected.length === 0) return null;
+  const shown = affected.slice(0, 3);
+  const rest = affected.length - shown.length;
+  return (
+    <p className="orgsheet__note">
+      <strong>{shown.map((n) => `“${n}”`).join(", ")}</strong>
+      {rest > 0 ? ` and ${rest} more` : ""} {suffix}.
+    </p>
+  );
+}
+
+export function BulkBanner({
+  applied,
+  onUndo,
+  onDismiss,
+}: {
+  applied: number;
+  onUndo: () => void;
+  onDismiss: () => void;
+}) {
+  useEffect(() => {
+    const t = window.setTimeout(onDismiss, 8000);
+    return () => window.clearTimeout(t);
+  }, [applied, onDismiss]);
+  return (
+    <div className="orgbar orgbar--banner" role="status" aria-live="polite">
+      <span className="orgbar__count">Updated {applied.toLocaleString()} {applied === 1 ? "track" : "tracks"}</span>
+      <span className="orgbar__sep" aria-hidden="true" />
+      <button type="button" className="orgbar__action" onClick={onUndo}>
+        Undo
+      </button>
+      <button type="button" className="orgbar__quiet" aria-label="Dismiss" onClick={onDismiss}>
+        <IconClose size={14} />
+      </button>
+    </div>
+  );
+}

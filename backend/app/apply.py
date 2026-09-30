@@ -1,0 +1,121 @@
+"""Shared track-edit application (DESIGN.md §15.2, §22).
+
+One implementation serves PATCH /api/tracks/{id} and the Organize view's
+bulk apply + undo, so overlay semantics can never diverge between editors.
+
+The contract is a plain `fields` dict: a key's PRESENCE means "apply this
+field", its absence means "leave the column untouched". Callers translate
+their wire semantics into the dict (PATCH: only non-null patch fields; the
+track number additionally honours explicit null via model_fields_set).
+Values follow §15.2: empty artist/album strings clear the reference,
+an explicit-null track_no clears the number, 0 normalizes to null, and a
+title must be non-empty. `favorite` is a plain flag outside the overlay.
+"""
+
+from __future__ import annotations
+
+import json
+
+from app.entities import find_or_create_album, find_or_create_artist
+from app.scanner import Edited
+
+UNDO_KEY = "bulk_undo"
+UNDO_LIMIT = 20_000  # entries; a full-library apply fits with room to spare
+
+# The row an apply needs: the overlay-relevant columns plus the artist/album
+# NAMES (undo entries store names — an emptied entity's row gets pruned and
+# find-or-create recreates it on undo).
+APPLY_SELECT = """
+SELECT t.id, t.title, t.artist_id, t.album_id, t.album_artist_id, t.track_no,
+       t.year, t.artwork_id, t.user_edited,
+       ar.name AS artist, al.title AS album
+FROM tracks t
+LEFT JOIN artists ar ON ar.id = t.artist_id
+LEFT JOIN albums al ON al.id = t.album_id
+"""
+
+
+class FieldError(ValueError):
+    """A field value the API must reject with 422. The bulk apply relies on
+    it being raised BEFORE any commit for all-or-nothing semantics."""
+
+
+def apply_field_changes(conn, track, fields: dict) -> dict:
+    """Resolve `fields` against one track row into UPDATE columns.
+
+    `track` needs title, artist_id, album_id, album_artist_id, track_no,
+    year, artwork_id, user_edited. Returns the column dict — empty when
+    nothing would change. Raises FieldError on invalid values.
+    """
+    edited = Edited(track["user_edited"])
+    columns: dict = {}
+
+    if "title" in fields:
+        title = (fields["title"] or "").strip()
+        if not title:
+            raise FieldError("Title cannot be empty")
+        columns["title"] = title
+        edited |= Edited.TITLE
+
+    if "artist" in fields:
+        columns["artist_id"] = find_or_create_artist(conn, fields["artist"])
+        edited |= Edited.ARTIST
+
+    if "track_no" in fields:
+        track_no = fields["track_no"]
+        if track_no is not None and track_no < 0:
+            raise FieldError("Track number cannot be negative")
+        columns["track_no"] = track_no or None
+        edited |= Edited.TRACK_NO
+
+    if "album" in fields:
+        # §13.2: re-groups this track only. The album keeps the track's
+        # album artist (that follows tags); a fresh album inherits facts.
+        columns["album_id"] = find_or_create_album(
+            conn, fields["album"], track["album_artist_id"], track["year"]
+        )
+        artwork_id = track["artwork_id"]
+        if columns["album_id"] is not None and artwork_id is not None:
+            conn.execute(
+                "UPDATE albums SET artwork_id = ? WHERE id = ? AND artwork_id IS NULL",
+                (artwork_id, columns["album_id"]),
+            )
+        edited |= Edited.ALBUM
+
+    if "favorite" in fields and fields["favorite"] is not None:
+        columns["favorite"] = int(fields["favorite"])
+
+    if columns:
+        columns["user_edited"] = int(edited)
+    return columns
+
+
+# ---- one-generation undo (§22) ----------------------------------------------
+#
+# The last bulk apply stores each touched track's PREVIOUS values, in the
+# same wire vocabulary the apply accepts, so undo is "re-apply the old
+# values" through the exact same code path. artist/album store NAMES (an
+# emptied entity's row is pruned; find-or-create recreates it on undo).
+# Undo re-sets the overlay bits for the restored fields — the result is a
+# value the user chose, which is what the bit means.
+
+
+def store_undo(conn, entries: list[dict]) -> None:
+    conn.execute(
+        "INSERT INTO settings (key, value) VALUES (?, ?) "
+        "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+        (UNDO_KEY, json.dumps({"entries": entries[:UNDO_LIMIT]})),
+    )
+
+
+def pop_undo(conn) -> list[dict]:
+    """Return the stored entries and clear the slot. Empty list = nothing."""
+    row = conn.execute("SELECT value FROM settings WHERE key = ?", (UNDO_KEY,)).fetchone()
+    conn.execute("DELETE FROM settings WHERE key = ?", (UNDO_KEY,))
+    if row is None:
+        return []
+    try:
+        entries = json.loads(row["value"]).get("entries", [])
+    except (ValueError, TypeError):
+        return []
+    return entries if isinstance(entries, list) else []

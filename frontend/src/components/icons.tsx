@@ -62,6 +62,16 @@ export function IconPlaylists(props: IconProps) {
   );
 }
 
+/* Organize (§22): a list with a check — putting the library in order. */
+export function IconOrganize(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M4 6.5h9M4 11.5h9M4 16.5h4" />
+      <path d="m14.6 16.2 2.3 2.3 4.1-4.6" />
+    </Icon>
+  );
+}
+
 export function IconMenu(props: IconProps) {
   return (
     <Icon {...props}>
