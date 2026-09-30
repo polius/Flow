@@ -6,13 +6,11 @@ import { useGlobalShortcuts } from "../lib/shortcuts";
 import { GetInfoPanel } from "./GetInfoPanel";
 import { NowPlaying } from "./NowPlaying";
 import { PlayerBar } from "./PlayerBar";
-import { Sidebar } from "./Sidebar";
 import { TopBar } from "./TopBar";
 import { useUiStore } from "../stores/ui";
 import "../styles/shell.css";
 
 export function AppShell() {
-  const collapsed = useUiStore((s) => s.sidebarCollapsed);
   const focusSearch = useUiStore((s) => s.focusSearch);
   const location = useLocation();
   const canvasRef = useRef<HTMLElement>(null);
@@ -44,8 +42,7 @@ export function AppShell() {
   }, [focusSearch]);
 
   return (
-    <div className={`shell${collapsed ? " shell--collapsed" : ""}`}>
-      <Sidebar />
+    <div className="shell">
       <div className="shell__main">
         <TopBar />
         <main ref={canvasRef} className="shell__canvas">

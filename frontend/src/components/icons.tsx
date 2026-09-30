@@ -24,14 +24,6 @@ function Icon({ size = 20, children, ...rest }: IconProps) {
   );
 }
 
-export function IconHome(props: IconProps) {
-  return (
-    <Icon {...props}>
-      <path d="M4.5 10.5 12 4.5l7.5 6v8.7a1.3 1.3 0 0 1-1.3 1.3h-3.6V15H9.4v5.5H5.8a1.3 1.3 0 0 1-1.3-1.3Z" />
-    </Icon>
-  );
-}
-
 export function IconAlbums(props: IconProps) {
   return (
     <Icon {...props}>
@@ -85,15 +77,6 @@ export function IconSettings(props: IconProps) {
       <path d="M4 8h8.4M17.6 8H20M4 16h4.4M13.6 16H20" />
       <circle cx="15" cy="8" r="2.2" />
       <circle cx="11" cy="16" r="2.2" />
-    </Icon>
-  );
-}
-
-export function IconPanel(props: IconProps) {
-  return (
-    <Icon {...props}>
-      <rect x="3.5" y="5" width="17" height="14" rx="2.4" />
-      <path d="M9.7 5v14" />
     </Icon>
   );
 }

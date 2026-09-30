@@ -1,14 +1,11 @@
-/* App shell: sidebar | canvas, with the player bar overlaying the canvas
+/* App shell: one full-width column — top bar on top, the canvas below it
+   taking the whole window (§18), with the player bar overlaying the canvas
    bottom (translucent, per DESIGN.md §8.5 — content scrolls beneath it). */
 
 .shell {
-  display: grid;
-  grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
+  display: flex;
+  flex-direction: column;
   height: 100dvh;
-}
-
-.shell--collapsed {
-  grid-template-columns: var(--sidebar-width-collapsed) minmax(0, 1fr);
 }
 
 .shell__main {
@@ -16,9 +13,10 @@
   display: flex;
   flex-direction: column;
   min-width: 0;
-  /* Grid item: without this the row grows past 100dvh when a view is taller
-     than the viewport, pushing the sidebar footer and player bar off-screen
-     instead of letting the canvas scroll beneath them. */
+  flex: 1;
+  /* Flex item: without this the row grows past 100dvh when a view is taller
+     than the viewport, pushing the player bar off-screen instead of letting
+     the canvas scroll beneath it. */
   min-height: 0;
 }
 

@@ -1,6 +1,6 @@
-/* UI chrome state (sidebar collapse, Get Info panel, search focus, Now Playing
-   takeover, theme override). Persisted where chrome shouldn't reset; panel
-   state stays session-local. */
+/* UI chrome state (Get Info panel, search focus, Now Playing takeover, theme
+   override). Persisted where chrome shouldn't reset; panel state stays
+   session-local. */
 
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
@@ -9,8 +9,6 @@ import { persist } from "zustand/middleware";
 export type ThemeMode = "system" | "light" | "dark";
 
 interface UiState {
-  sidebarCollapsed: boolean;
-  toggleSidebar: () => void;
   /** Track currently open in the Get Info panel, if any (§9.3). */
   getInfoTrackId: number | null;
   openGetInfo: (trackId: number) => void;
@@ -33,9 +31,6 @@ interface UiState {
 export const useUiStore = create<UiState>()(
   persist(
     (set) => ({
-      sidebarCollapsed: false,
-      toggleSidebar: () =>
-        set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),
       getInfoTrackId: null,
       openGetInfo: (trackId) => set({ getInfoTrackId: trackId }),
       closeGetInfo: () => set({ getInfoTrackId: null }),
@@ -53,7 +48,6 @@ export const useUiStore = create<UiState>()(
     {
       name: "flow.ui",
       partialize: (s) => ({
-        sidebarCollapsed: s.sidebarCollapsed,
         themeMode: s.themeMode,
       }),
     },

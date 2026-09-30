@@ -636,3 +636,33 @@ Design-language additions carried over from the reference images (§2):
    hover-revealed on non-playing rows. The drawer centers on the playing
    row when opened (or when the queue is replaced) and follows it only
    when it scrolls out of view — never yanking the list mid-read.
+
+## 18. Addendum — shell change: sidebar retired (2026-09-30)
+
+Owner decision: with a fixed, small set of sections (Home, Albums, Artists,
+Tracks, Playlists, Settings) a left sidebar spends permanent horizontal space
+on wayfinding that six icons can carry. **Supersedes §9.1's sidebar:**
+
+1. **Top bar** now carries all chrome in one full-width row: brand (left),
+   the global scan-status pill (inheriting the sidebar's §9.6 role, next to
+   the brand), the search field (centered in the free space, still the single
+   search input, §15.5), and the section nav (right) — icon-only NavLinks
+   with `aria-label` + tooltip, a hairline group break before Settings, and
+   the established active-nav language: accent icon on a quiet `--bg-active`
+   pill (§8.1 — the accent's one chrome appearance).
+2. **The collapse state is gone** (`sidebarCollapsed` removed from the ui
+   store; `Sidebar.tsx` / `sidebar.css` / `IconPanel` / `--sidebar-width*` /
+   `--bg-sidebar` all removed).
+3. **The canvas takes the whole window**: the `.view` 1480px max-width cap is
+   removed — grids and tables expand with the window, which was the point of
+   the change. The album-detail ambience anchors to the view's edges (now the
+   canvas edges), so its dissolves remain correct.
+4. Narrow windows shed gracefully: the brand wordmark hides below 760px, the
+   scan pill collapses to its spinner below 640px; the nav is never hidden.
+5. **Follow-up (same day):** Home was removed from the nav — the brand
+   lockup is the home affordance. It was upgraded to carry that role
+   properly: a 32px toolbar target with hover/press fills (the nav items'
+   grammar), a larger 28px mark that inverts with the theme, a "Home"
+   tooltip, and a dedicated `--text-brand` wordmark size (16px, one step
+   above body copy). `IconHome` left the icon set with it.
+

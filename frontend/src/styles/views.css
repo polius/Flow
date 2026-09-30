@@ -13,7 +13,6 @@
 
 .view {
   padding: 34px 40px 48px;
-  max-width: 1480px;
   animation: view-in var(--dur-normal) var(--ease-out);
 }
 

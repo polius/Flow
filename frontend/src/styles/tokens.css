@@ -17,7 +17,6 @@
 
   /* ---- surfaces (light) ---- */
   --bg-canvas: #f5f5f7;
-  --bg-sidebar: #ebebee;
   --bg-elevated: #ffffff;
   --bg-inset: #e7e7ea;
   --bg-hover: rgba(0, 0, 0, 0.05);
@@ -52,6 +51,7 @@
   --text-small: 12px;
   --text-body: 13px;
   --text-regular: 15px;
+  --text-brand: 16px; /* brand wordmark — one deliberate step above body copy */
   --text-title: 22px;
   --text-large-title: 30px;
   --leading-tight: 1.15;
@@ -62,8 +62,6 @@
   --radius-s: 6px;
   --radius-m: 10px;
   --radius-l: 14px;
-  --sidebar-width: 232px;
-  --sidebar-width-collapsed: 64px;
   --player-height: 76px;
 
   /* ---- motion: short, ease-out, communicates only (§8.4) ---- */
@@ -81,7 +79,6 @@
   color-scheme: dark;
 
   --bg-canvas: #161618;
-  --bg-sidebar: #1d1d20;
   --bg-elevated: #26262a;
   --bg-inset: #2c2c30;
   --bg-hover: rgba(255, 255, 255, 0.06);
