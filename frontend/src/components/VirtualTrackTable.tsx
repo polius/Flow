@@ -3,16 +3,18 @@
    from an infinite query — pagination happens honestly behind the window
    (no client-side cap, no cap-less mega-payload).
 
-   The app shell's scroller is the WINDOW: the shell grid row grows with its
-   content (M3–M5 reality — .shell__canvas has no internal scroll), so this
-   uses useWindowVirtualizer with the table's document offset as scrollMargin.
-
    Virtualization choice: @tanstack/react-virtual — named by §9.2, headless
    (no wrapper DOM to fight the token system, §8), ~3kB, and the same
-   TanStack family the project already runs for server state. */
+   TanStack family the project already runs for server state.
+
+   Scroller (§22 revision): since §18 made .shell__canvas the scroll
+   container, the virtualizer binds to that element (the pattern the queue
+   drawer and the Organize grid use) — a window virtualizer never sees the
+   canvas scroll and would render a frozen first window with blank space
+   below it. */
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { useWindowVirtualizer } from "@tanstack/react-virtual";
+import { useVirtualizer } from "@tanstack/react-virtual";
 
 import type { Track } from "../api/types";
 import { usePatchTrack, useToggleFavorite } from "../api/mutations";
@@ -36,7 +38,7 @@ interface VirtualTrackTableProps {
 
 export function VirtualTrackTable({ tracks, onNearEnd }: VirtualTrackTableProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [scrollMargin, setScrollMargin] = useState(0);
+  const [scrollEl, setScrollEl] = useState<HTMLElement | null>(null);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [menu, setMenu] = useState<MenuState | null>(null);
   const current = useCurrentTrack();
@@ -46,25 +48,19 @@ export function VirtualTrackTable({ tracks, onNearEnd }: VirtualTrackTableProps)
   const toggleFavorite = useToggleFavorite();
   const patchTrack = usePatchTrack();
 
-  // Distance from the document top to the table top — the window
-  // virtualizer measures the document; the table starts below the header.
+  // The grid never scrolls itself — the shell canvas does (§18). Binding the
+  // virtualizer to the canvas keeps windowing honest inside the shared
+  // scroll container.
   useLayoutEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-    const measure = () => {
-      setScrollMargin(el.getBoundingClientRect().top + window.scrollY);
-    };
-    measure();
-    const observer = new ResizeObserver(measure);
-    observer.observe(el);
-    return () => observer.disconnect();
+    const el = containerRef.current?.closest<HTMLElement>(".shell__canvas");
+    setScrollEl(el ?? null);
   }, []);
 
-  const virtualizer = useWindowVirtualizer({
+  const virtualizer = useVirtualizer({
     count: tracks.length,
+    getScrollElement: () => scrollEl,
     estimateSize: () => ROW_HEIGHT,
     overscan: OVERSCAN,
-    scrollMargin,
   });
 
   const endIndex = virtualizer.range?.endIndex ?? -1;
@@ -106,7 +102,7 @@ export function VirtualTrackTable({ tracks, onNearEnd }: VirtualTrackTableProps)
               isPlaying={isPlaying}
               selected={selectedId === track.id}
               style={{
-                transform: `translateY(${item.start - virtualizer.options.scrollMargin}px)`,
+                transform: `translateY(${item.start}px)`,
               }}
               onActivate={play}
               onTogglePlay={togglePlay}
