@@ -1959,18 +1959,23 @@ this file is the product's memory, not its cage).
    and title. The card now uses the same one-button anchor; the playlist
    card keeps no "…" menu (editing lives in the Manage dialog, §9.2), so
    the anchor holds only the play circle.
-   *Follow-up (same day):* the anchor was only half the story. The
-   mosaic wrapper carries an inline `180×180` (PlaylistArt sizes itself
-   for its fixed slots), and inline style beats `.album-card__art`'s
-   `width: 100%` — which an `<img>`'s width attribute never could, so
-   album cards never showed it. On the auto-fill grid (168–188px
-   columns) the art froze at 180 while the card moved: wide columns
-   left an 8px sliver at the card's right edge and the corner-anchored
-   button, 10px from the card, ended ~2px from the art — glued right,
-   padded bottom. `.album-card__art.playlistart` now overrides the
-   inline size (scoped `!important`, the one way CSS beats inline
-   style); the cells are 100%/100% and follow. Measured 10/10 on hover
-   at 1280/1440/1516/1720.
+   *Follow-up (same day):* the anchor was only half the story. Two
+   components hard-code an inline `180×180` — PlaylistArt's mosaic
+   wrapper and Artwork's no-artwork placeholder div (the `<img>` path
+   never hits this: an img's width attribute loses to CSS, so album
+   cards *with* art were always fluid). Inline style beats
+   `.album-card__art`'s `width: 100%`, so on the auto-fill grid
+   (168–188px columns) the art froze at 180 while the card moved: wide
+   columns left an 8px sliver at the card's right edge and the
+   corner-anchored play/"…" buttons, 10px from the card, ended ~2px
+   from the art — glued right, padded bottom (reported on Albums and
+   the artist page, whose no-cover album showed it). Both components
+   now release their inline size inside the card slot
+   (`.album-card__art.playlistart`, `.album-card__art.artwork`; scoped
+   `!important`, the one way CSS beats inline style); the mosaic cells
+   are 100%/100% and follow the wrapper. Measured 10/10 on hover at
+   1280/1440/1516/1720, on /albums (with- and without-art cards),
+   /artists/:id, and /playlists.
 
 2. **The filled Play pill is legible in both themes (§30.2).** The
    `--play` modifier lived in library.css while the base `.view__action`
