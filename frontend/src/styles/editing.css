@@ -532,6 +532,24 @@ textarea.inlineedit__input {
   background: var(--bg-hover);
 }
 
+/* The filled Play variant (Favorites, §29's header trio). Lives HERE, after
+   the base rules, not beside `.view__actions` in library.css: both files
+   land in one bundle in module-import order, and there the base rule came
+   LATER — same specificity, so its `color: var(--text-primary)` painted the
+   label the same color as the button's fill (white on white in dark mode,
+   ink on ink in light) and its :hover stole the fill back to a ghost. One
+   file, one order — the modifier always wins. */
+.view__action--play {
+  background: var(--text-primary);
+  color: var(--bg-canvas);
+  border-color: var(--text-primary);
+}
+
+.view__action--play:hover {
+  background: var(--text-primary);
+  opacity: 0.85;
+}
+
 /* The "needs attention" count on the Tracks header's Organize entry (§23). */
 .view__actioncount {
   font-variant-numeric: tabular-nums;

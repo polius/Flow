@@ -539,16 +539,9 @@
   flex: none;
 }
 
-.view__action--play {
-  background: var(--text-primary);
-  color: var(--bg-canvas);
-  border-color: var(--text-primary);
-}
-
-.view__action--play:hover {
-  background: var(--text-primary);
-  opacity: 0.85;
-}
+/* The filled Play pill lives in editing.css, hard after the base
+   .view__action rules — its cascade must never depend on which file the
+   bundler happens to emit first (the white-on-white dark-mode bug). */
 
 /* ---- sticky sortable table head (Tracks / Favorites + detail views) --------
    The base template mirrors `.trackrow--all`; the variant classes mirror the

@@ -177,7 +177,7 @@ export function TopBar() {
     <header className="topbar">
       <NavLink to="/" end className="topbar__brand" title="Home">
         <span className="topbar__brand-mark">
-          <IconMusicNote size={15} />
+          <IconMusicNote size={17} />
         </span>
         <span className="topbar__brand-name">Flow</span>
       </NavLink>

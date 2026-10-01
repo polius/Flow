@@ -27,23 +27,26 @@
 .topbar__brand {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 11px;
   flex: none;
-  height: 32px;
+  height: 36px;
   padding: 0 10px;
   font-size: var(--text-brand);
   font-weight: 700;
   letter-spacing: var(--tracking-tight);
 }
 
+/* §37 (owner): the lockup carries the app's identity alone in this bar, so
+   it steps up — 32px mark, 18px wordmark — without leaving the monochrome
+   grammar. Still dock-icon quiet on hover; just a bigger object to answer. */
 .topbar__brand-mark {
   display: flex;
   align-items: center;
   justify-content: center;
   flex: none;
-  width: 28px;
-  height: 28px;
-  border-radius: 9px;
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
   background: var(--text-primary);
   color: var(--bg-canvas);
   transition: transform var(--dur-normal) var(--ease-spring),

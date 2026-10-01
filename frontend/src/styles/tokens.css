@@ -54,14 +54,14 @@
   /* ---- type ----
      §31 (Part 3.2): body is one step larger — 13px for primary text read
      dense in the airy canvas; secondary metadata (--text-small/-caption)
-     carries the hierarchy. Ladder: 11 / 12 / 14 / 15 / 16 / 22 / 30. */
+     carries the hierarchy. Ladder: 11 / 12 / 14 / 15 / 16 / 18 / 22 / 30. */
   --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI",
     Roboto, "Helvetica Neue", Arial, sans-serif;
   --text-caption: 11px;
   --text-small: 12px;
   --text-body: 14px;
   --text-regular: 15px;
-  --text-brand: 16px; /* brand wordmark — one deliberate step above body copy */
+  --text-brand: 18px; /* brand wordmark — two deliberate steps above body copy */
   --text-title: 22px;
   --text-large-title: 30px;
   --leading-tight: 1.15;

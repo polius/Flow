@@ -132,127 +132,138 @@ export function SettingsView() {
         </div>
       )}
 
-      <div className="settings-group">
-        <h2>Library</h2>
-        <div className="settings-row">
-          <span className="settings-row__label">Music folder</span>
-          <span className="settings-row__value">
-            {settings ? settings.library_path : "…"}
-            {settings && !settings.library_exists ? " (missing)" : ""}
-          </span>
-        </div>
-        <div className="settings-row">
-          <span className="settings-row__label">Contents</span>
-          <span className="settings-row__value">
-            {counts
-              ? `${fmtCount(counts.tracks)} tracks · ${fmtCount(counts.albums)} albums · ${fmtCount(counts.artists)} artists · ${fmtCount(counts.playlists)} playlists`
-              : "…"}
-          </span>
-        </div>
-        <div className="settings-row">
-          <span className="settings-row__label">
-            {scanning ? (
-              <span aria-live="polite">
-                {scan
-                  ? (scanPhaseLabel(scan.phase) ??
-                    scanProgressLabel(scan.current, scan.total))
-                  : "Scanning…"}
+      {/* Two independent columns on wide windows (§37): Library + Playback
+          left, Appearance + Keyboard right — the canvas's right half stops
+          being vacancy without reflowing any row. Below the breakpoint the
+          columns stack and the view reads exactly as before, left-pinned
+          (the owner's 2026-10-02 call, revisiting §3.2's centering). */}
+      <div className="settings-grid">
+        <div className="settings-col">
+          <div className="settings-group">
+            <h2>Library</h2>
+            <div className="settings-row">
+              <span className="settings-row__label">Music folder</span>
+              <span className="settings-row__value">
+                {settings ? settings.library_path : "…"}
+                {settings && !settings.library_exists ? " (missing)" : ""}
               </span>
-            ) : (
-              "Last scan"
-            )}
-          </span>
-          <span className="settings-row__value">
-            {!scanning && (lastScan ?? "never")}
-            <button
-              type="button"
-              className="btn settings-row__action"
-              onClick={rescan}
-              disabled={scanning}
-            >
-              Rescan
-            </button>
-          </span>
-        </div>
-        {!scanning && errorCount > 0 && (
-          <div className="settings-row">
-            <span className="settings-row__label">Skipped</span>
-            <span className="settings-row__value">
-              <ScanErrors errorCount={errorCount} />
-            </span>
-          </div>
-        )}
-      </div>
-
-      <div className="settings-group">
-        <h2>Playback</h2>
-        <div className="settings-row">
-          <span className="settings-row__label">
-            Sound Check
-            <span className="settings-row__hint">
-              Match volume across tracks — loudness is measured during the
-              scan, tracks without a measurement play at their own level.
-            </span>
-          </span>
-          <span className="settings-row__value">
-            <button
-              type="button"
-              role="switch"
-              aria-checked={soundcheck}
-              className={`settingstoggle${soundcheck ? " settingstoggle--on" : ""}`}
-              onClick={() => setSoundcheck(!soundcheck)}
-            >
-              <span className="settingstoggle__knob" aria-hidden="true" />
-              <span className="settingstoggle__label">
-                {soundcheck ? "On" : "Off"}
-              </span>
-            </button>
-          </span>
-        </div>
-      </div>
-
-      <div className="settings-group">
-        <h2>Appearance</h2>
-        <div className="settings-row">
-          <span className="settings-row__label">Theme</span>
-          <span className="settings-row__value">
-            <div className="segmented" role="radiogroup" aria-label="Theme">
-              {THEME_MODES.map(({ mode, label }) => (
-                <button
-                  key={mode}
-                  type="button"
-                  role="radio"
-                  aria-checked={themeMode === mode}
-                  className={`segmented__item${themeMode === mode ? " segmented__item--active" : ""}`}
-                  onClick={() => setThemeMode(mode)}
-                >
-                  {label}
-                </button>
-              ))}
             </div>
-          </span>
-        </div>
-      </div>
+            <div className="settings-row">
+              <span className="settings-row__label">Contents</span>
+              <span className="settings-row__value">
+                {counts
+                  ? `${fmtCount(counts.tracks)} tracks · ${fmtCount(counts.albums)} albums · ${fmtCount(counts.artists)} artists · ${fmtCount(counts.playlists)} playlists`
+                  : "…"}
+              </span>
+            </div>
+            <div className="settings-row">
+              <span className="settings-row__label">
+                {scanning ? (
+                  <span aria-live="polite">
+                    {scan
+                      ? (scanPhaseLabel(scan.phase) ??
+                        scanProgressLabel(scan.current, scan.total))
+                      : "Scanning…"}
+                  </span>
+                ) : (
+                  "Last scan"
+                )}
+              </span>
+              <span className="settings-row__value">
+                {!scanning && (lastScan ?? "never")}
+                <button
+                  type="button"
+                  className="btn settings-row__action"
+                  onClick={rescan}
+                  disabled={scanning}
+                >
+                  Rescan
+                </button>
+              </span>
+            </div>
+            {!scanning && errorCount > 0 && (
+              <div className="settings-row">
+                <span className="settings-row__label">Skipped</span>
+                <span className="settings-row__value">
+                  <ScanErrors errorCount={errorCount} />
+                </span>
+              </div>
+            )}
+          </div>
 
-      <div className="settings-group">
-        <h2>Keyboard</h2>
-        <ShortcutRow action="Play / pause" keys={["Space"]} />
-        <ShortcutRow action="Next / previous track" keys={["⌘→ / ⌘←", "Ctrl → / Ctrl ←"]} />
-        <ShortcutRow action="Mute / unmute" keys={["M"]} />
-        <ShortcutRow action="Seek backward / forward 10s" keys={["←", "→"]} />
-        <ShortcutRow action="Volume down / up" keys={["↓", "↑"]} />
-        <ShortcutRow action="Search" keys={["⌘F", "Ctrl F"]} />
-        <ShortcutRow action="Close menu / panel / Now Playing" keys={["Esc"]} />
-        {/* §2.4: the §31.7 table grammar, documented where the rest of the
-            keyboard lives — the list and the implementation are one grammar;
-            they had drifted apart, which is the §8.0.5 lesson applied to
-            documentation. */}
-        <p className="settings-subhead">In tables</p>
-        <ShortcutRow action="Move the row cursor" keys={["↑", "↓"]} />
-        <ShortcutRow action="Jump to start / end" keys={["Home", "End"]} />
-        <ShortcutRow action="Page up / down" keys={["PageUp", "PageDown"]} />
-        <ShortcutRow action="Play the cursor row" keys={["Enter"]} />
-        <ShortcutRow action="Toggle playback" keys={["Space"]} />
+          <div className="settings-group">
+            <h2>Playback</h2>
+            <div className="settings-row">
+              <span className="settings-row__label">
+                Sound Check
+                <span className="settings-row__hint">
+                  Match volume across tracks — loudness is measured during the
+                  scan, tracks without a measurement play at their own level.
+                </span>
+              </span>
+              <span className="settings-row__value">
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={soundcheck}
+                  className={`settingstoggle${soundcheck ? " settingstoggle--on" : ""}`}
+                  onClick={() => setSoundcheck(!soundcheck)}
+                >
+                  <span className="settingstoggle__knob" aria-hidden="true" />
+                  <span className="settingstoggle__label">
+                    {soundcheck ? "On" : "Off"}
+                  </span>
+                </button>
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div className="settings-col">
+          <div className="settings-group">
+            <h2>Appearance</h2>
+            <div className="settings-row">
+              <span className="settings-row__label">Theme</span>
+              <span className="settings-row__value">
+                <div className="segmented" role="radiogroup" aria-label="Theme">
+                  {THEME_MODES.map(({ mode, label }) => (
+                    <button
+                      key={mode}
+                      type="button"
+                      role="radio"
+                      aria-checked={themeMode === mode}
+                      className={`segmented__item${themeMode === mode ? " segmented__item--active" : ""}`}
+                      onClick={() => setThemeMode(mode)}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </span>
+            </div>
+          </div>
+
+          <div className="settings-group">
+            <h2>Keyboard</h2>
+            <ShortcutRow action="Play / pause" keys={["Space"]} />
+            <ShortcutRow action="Next / previous track" keys={["⌘→ / ⌘←", "Ctrl → / Ctrl ←"]} />
+            <ShortcutRow action="Mute / unmute" keys={["M"]} />
+            <ShortcutRow action="Seek backward / forward 10s" keys={["←", "→"]} />
+            <ShortcutRow action="Volume down / up" keys={["↓", "↑"]} />
+            <ShortcutRow action="Search" keys={["⌘F", "Ctrl F"]} />
+            <ShortcutRow action="Close menu / panel / Now Playing" keys={["Esc"]} />
+            {/* §2.4: the §31.7 table grammar, documented where the rest of the
+                keyboard lives — the list and the implementation are one grammar;
+                they had drifted apart, which is the §8.0.5 lesson applied to
+                documentation. */}
+            <p className="settings-subhead">In tables</p>
+            <ShortcutRow action="Move the row cursor" keys={["↑", "↓"]} />
+            <ShortcutRow action="Jump to start / end" keys={["Home", "End"]} />
+            <ShortcutRow action="Page up / down" keys={["PageUp", "PageDown"]} />
+            <ShortcutRow action="Play the cursor row" keys={["Enter"]} />
+            <ShortcutRow action="Toggle playback" keys={["Space"]} />
+          </div>
+        </div>
       </div>
     </section>
   );

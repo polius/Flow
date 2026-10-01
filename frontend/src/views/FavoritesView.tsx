@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { useSearchParams } from "react-router";
 
@@ -10,7 +10,7 @@ import { TrackTableHead, type TrackSortKey } from "../components/TrackTableHead"
 import { VirtualTrackTable } from "../components/VirtualTrackTable";
 import { EmptyState } from "../components/EmptyState";
 import { LoadingState } from "../components/LoadingState";
-import { IconHeart, IconPlay } from "../components/icons";
+import { IconHeart, IconPlay, IconShuffle } from "../components/icons";
 import { fmtCount } from "../lib/format";
 import { usePlayerStore } from "../stores/player";
 
@@ -120,6 +120,43 @@ export function FavoritesView() {
     [q, sort, dir],
   );
 
+  // Shuffle (§2.5's escape hatch, scoped to the view): the whole filter,
+  // server-resolved and shuffled in one query (§32) — never a truncated
+  // queue. Shuffle flips on before the call so the player bar tells the
+  // truth about the plan (§30.1); the §29 client-side fetch is the
+  // fallback, started at a random track with the store's order shuffled.
+  const [shuffling, setShuffling] = useState(false);
+  const shuffleAll = useCallback(() => {
+    if (shuffling || total === 0) return;
+    setShuffling(true);
+    const start = Math.floor(Math.random() * total);
+    usePlayerStore.getState().setShuffle(true);
+    void playByFilter({
+      q: q || undefined,
+      favorite: true,
+      sort,
+      dir,
+      start,
+      shuffle: true,
+      origin: viewOrigin,
+    })
+      .then((snapshot) => {
+        if (snapshot) {
+          playSnapshot(snapshot);
+          return;
+        }
+        return fetchAllTracks({ q: q || undefined, sort, dir, favorite: true }).then(
+          (full) => {
+            const list = full.length > 0 ? full : tracks;
+            if (list.length === 0) return;
+            playTracks(list, Math.min(start, list.length - 1), viewOrigin);
+          },
+        );
+      })
+      .finally(() => setShuffling(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shuffling, total, q, sort, dir, playSnapshot, playTracks, tracks]);
+
   const handleNearEnd = useCallback(() => {
     if (query.hasNextPage && !query.isFetchingNextPage) void query.fetchNextPage();
   }, [query.hasNextPage, query.isFetchingNextPage, query.fetchNextPage]);
@@ -163,6 +200,19 @@ export function FavoritesView() {
             onChange={(key, nextDir) => onSort(key as TrackSortKey, nextDir)}
             label="Sort favorites"
           />
+          {total > 0 && (
+            <button
+              type="button"
+              className="view__action"
+              onClick={shuffleAll}
+              disabled={shuffling}
+              aria-label="Shuffle favorites"
+              title="Shuffle all favorites"
+            >
+              <IconShuffle size={13} />
+              Shuffle
+            </button>
+          )}
           {tracks.length > 0 && (
             <button
               type="button"

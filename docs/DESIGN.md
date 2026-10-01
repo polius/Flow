@@ -1944,3 +1944,74 @@ browser automation); the owed sweep adds: the selection bar over both
 tables in both themes, Enter-plays-last-selected live, and the offline
 check — stop the server, reload the installed page to the fallback card,
 retry recovers.
+
+## 37. Addendum — Bug-fix pass: playlist cards, Favorites header, Settings layout, brand (2026-10-02)
+
+A five-item owner bug list; two of the items reversed decisions recorded
+earlier in this document, on the owner's authority (the §12 sign-off rule:
+this file is the product's memory, not its cage).
+
+1. **The playlist card's play button sits on the art again (§9.2).**
+   `PlaylistsView` rendered `.album-card__play` bare inside the art wrap,
+   but the corner placement (right 10 / bottom 10) lives on the
+   `.album-card__hoveractions` anchor in AlbumCard — without it the button
+   dropped into the flow and hovered up *below* the artwork, between art
+   and title. The card now uses the same one-button anchor; the playlist
+   card keeps no "…" menu (editing lives in the Manage dialog, §9.2), so
+   the anchor holds only the play circle.
+
+2. **The filled Play pill is legible in both themes (§30.2).** The
+   `--play` modifier lived in library.css while the base `.view__action`
+   lives in editing.css; the bundler emitted the base rule *after* the
+   modifier, and at equal specificity the base's `color:
+   var(--text-primary)` painted the label the same color as the button's
+   own fill — white on white in dark mode, ink on ink in light — while
+   `.view__action:hover` simultaneously stole the fill back to a ghost.
+   The modifier moved into editing.css, hard after the base rules: one
+   file, one order, the cascade can no longer depend on import graph
+   luck. Lesson recorded: **a modifier that must win belongs in the same
+   stylesheet as what it modifies** (§8.0.2's edge-case rule, cascade
+   edition).
+
+3. **Favorites gains Shuffle (§2.5, §32).** A monochrome outline pill
+   beside Play, using the Home shuffle-all grammar scoped to the view:
+   shuffle flips on first (the player bar tells the truth about the
+   plan, §30.1), `POST /api/queue` resolves and shuffles the WHOLE
+   filter server-side (`shuffle: true`, random `start`), and the §29
+   client-side whole-view fetch is the fallback. The origin stays the
+   view's own — shuffling Favorites is still playing from Favorites
+   (§1.1; AlbumCard's shuffle precedent). This surfaced a latent §3.3
+   break: the third header pill exceeded the head's line at 375px and
+   bled off-canvas, because a content-sized flex item's `min-width:
+   auto` let `.view__actions` overflow its container and its own wrap
+   never engaged. The phone rule now bounds the row (`max-width: 100%`)
+   so the designed wrap actually wraps — verified at 375: sort + shuffle
+   on the first line, Play trailing right on the second.
+
+4. **Settings pins left, and goes two-column on wide windows (revising
+   §3.2).** The owner reversed the 2026-10-01 centering: the floating
+   560px column read as drift on a big canvas. The four groups now sit
+   in a `.settings-grid`: below 1100px a single 560px column, flush
+   left, the pre-§3.2 flow exactly; at and above it, two independent
+   columns (Library + Playback left, Appearance + Keyboard right, 560px
+   cap each, top-aligned) — the canvas's right half stops being vacancy
+   without reflowing any row. Group margin-top became grid gap; the
+   mount guard (§2.8) pins left with the first column. Reading order is
+   unchanged in both layouts.
+
+5. **The brand lockup steps up (§28).** The top bar's only identity
+   carry, previously 28px mark + 16px wordmark, read as just another nav
+   item. The mark is 32px (radius 10, note glyph 17), the wordmark takes
+   a new `--text-brand` 18px — two deliberate steps above body copy, the
+   type ladder in tokens.css extended (11 / 12 / 14 / 15 / 16 / 18 /
+   22 / 30) rather than broken. Still monochrome, still the dock-icon
+   hover grammar; nothing else in the bar moved.
+
+Verification: `tsc --noEmit` clean, frontend suite green (30 tests).
+This session the §8.0.6 live click-through WAS run (browser automation,
+dev server over the Docker API): playlist hover placement confirmed on
+the art's corner, the Play pill computed `color` ≠ `background` in both
+ramps, Shuffle started a random favorite with the bar's shuffle flag
+lit, Settings checked at 1440 / 1000 / 375, and the owed §35/§36 at-rest
+sweeps (1440 / 1280 / 375) are now partially discharged by the same
+pass — the offline-shell check remains.

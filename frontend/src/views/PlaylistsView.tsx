@@ -98,16 +98,22 @@ function PlaylistCard({ playlist }: { playlist: PlaylistSummary }) {
             className="album-card__art"
           />
         </Link>
-        <button
-          type="button"
-          className="album-card__play"
-          onClick={play}
-          disabled={playlist.track_count === 0}
-          aria-label={`Play ${playlist.name}`}
-          title="Play playlist"
-        >
-          <IconPlay size={20} />
-        </button>
+        {/* Same anchored hoveractions container as AlbumCard: the button
+            itself is unpositioned — the corner placement lives on this
+            wrapper, so without it the play circle dropped into the flow
+            below the art. */}
+        <div className="album-card__hoveractions">
+          <button
+            type="button"
+            className="album-card__play"
+            onClick={play}
+            disabled={playlist.track_count === 0}
+            aria-label={`Play ${playlist.name}`}
+            title="Play playlist"
+          >
+            <IconPlay size={20} />
+          </button>
+        </div>
       </div>
       <Link to={`/playlists/${playlist.id}`} className="album-card__title">
         {playlist.name}
