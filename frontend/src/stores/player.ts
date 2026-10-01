@@ -2,12 +2,19 @@
    The <audio> element lives outside React's lifecycle so playback continues
    across navigation (DESIGN.md §9.4). Store holds state; the thin engine
    layer below the store binds element events back into it. M5 adds queue
-   removal (§9.4) and Media Session integration (§13.11). */
+   removal (§9.4) and Media Session integration (§13.11).
+
+   §29: the queue is durable session state. Queue + play order + playhead
+   position persist to localStorage and restore silently on load — paused,
+   player bar populated — so a reload (Cmd+R, OS update, sleep) never costs
+   the listening session (§13.9's "Continue listening"). The first press of
+   play resumes the saved track at the saved position; nothing autoplays. */
 
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
 import type { Track } from "../api/types";
+import { useUiStore } from "./ui";
 
 export type RepeatMode = "off" | "all" | "one";
 
@@ -89,6 +96,7 @@ export const usePlayerStore = create<PlayerState>()(
 
       playTracks: (tracks, startIndex) => {
         if (tracks.length === 0) return;
+        errorSkipStreak = 0; // a fresh queue is a fresh chance for the library
         const clamped = Math.min(Math.max(startIndex, 0), tracks.length - 1);
         const { order, pos } = buildOrder(tracks.length, get().shuffle, clamped);
         set({ queue: tracks, order, orderPos: pos });
@@ -178,6 +186,7 @@ export const usePlayerStore = create<PlayerState>()(
       playAt: (orderIndex) => {
         const { order, queue } = get();
         if (orderIndex < 0 || orderIndex >= order.length) return;
+        errorSkipStreak = 0;
         usePlayerStore.setState({ orderPos: orderIndex });
         load(queue[order[orderIndex]], true);
       },
@@ -203,7 +212,17 @@ export const usePlayerStore = create<PlayerState>()(
       },
 
       togglePlay: () => {
-        if (!audio || get().queue.length === 0) return;
+        if (!audio) return;
+        const { queue, order, orderPos, position } = get();
+        if (queue.length === 0) return;
+        const track = queue[order[orderPos]];
+        if (!track) return;
+        // A restored session has never loaded the current track into the
+        // element: the first play resumes at the saved position (§29).
+        if (loadedSrc == null) {
+          load(track, true, position);
+          return;
+        }
         if (audio.paused) {
           void audio.play().catch(() => set({ isPlaying: false }));
         } else {
@@ -211,8 +230,12 @@ export const usePlayerStore = create<PlayerState>()(
         }
       },
 
-      next: () => advance(1, false),
+      next: () => {
+        errorSkipStreak = 0;
+        advance(1, false);
+      },
       prev: () => {
+        errorSkipStreak = 0;
         if (get().position > 3) {
           get().seek(0);
           return;
@@ -247,7 +270,11 @@ export const usePlayerStore = create<PlayerState>()(
     }),
     {
       name: "flow.player",
-      // Durable preferences only; queue/position are session state.
+      // Durable preferences ride the persist middleware. The queue and the
+      // playhead are durable SESSION state (§29) — persisted below by the
+      // hand-rolled writer, not here: the middleware re-serializes on every
+      // store update, and position changes 4×/s while playing, which would
+      // stringify a full-library queue at that cadence.
       partialize: (s) => ({ volume: s.volume, shuffle: s.shuffle, repeat: s.repeat }),
     },
   ),
@@ -258,10 +285,31 @@ export const usePlayerStore = create<PlayerState>()(
 const audio: HTMLAudioElement | null =
   typeof window !== "undefined" ? new Audio() : null;
 
-function load(track: Track, autoplay: boolean): void {
-  if (!audio) return;
-  audio.src = `/api/stream/${track.id}`;
-  usePlayerStore.setState({ position: 0, duration: track.duration || 0, buffered: 0 });
+/** The stream URL the element currently holds — null until the first real
+    load. A restored session plays from a populated store with a virgin
+    element; the first play loads at the saved position (§29). */
+let loadedSrc: string | null = null;
+
+/** Consecutive auto-skips on stream errors without a successful start
+    between them (§29). Bounded so a dead stretch of library can't
+    machine-gun through the whole queue; any manual interaction resets it. */
+let errorSkipStreak = 0;
+const MAX_ERROR_SKIPS = 5;
+
+function load(track: Track, autoplay: boolean, startAt?: number): void {
+  if (!audio || !track) return;
+  const src = `/api/stream/${track.id}`;
+  loadedSrc = src;
+  audio.src = src;
+  // Setting currentTime before metadata arrives sets the default playback
+  // start position — the element seeks there once it can (spec behavior).
+  const at = startAt != null && startAt > 0.25 ? startAt : 0;
+  if (at > 0) audio.currentTime = at;
+  usePlayerStore.setState({
+    position: at,
+    duration: track.duration || 0,
+    buffered: 0,
+  });
   syncMediaSessionMetadata(track);
   if (autoplay) {
     void audio.play().catch(() => usePlayerStore.setState({ isPlaying: false }));
@@ -327,6 +375,7 @@ if (audio) {
 
   audio.addEventListener("play", () => {
     usePlayerStore.setState({ isPlaying: true });
+    errorSkipStreak = 0; // a real start — the library is alive again
     setPlaybackState("playing");
   });
   audio.addEventListener("pause", () => {
@@ -357,7 +406,170 @@ if (audio) {
     advance(1, true);
   });
   audio.addEventListener("error", () => {
-    // Missing file / network hiccup: stop cleanly rather than hang.
-    usePlayerStore.setState({ isPlaying: false });
+    // Missing file / flaky mount / half-written file — routine in a
+    // self-hosted library (§29). Skip to the next track and say so, like
+    // Plex; only a bounded streak later, stop rather than machine-gun.
+    if (loadedSrc == null || !audio) return;
+    const state = usePlayerStore.getState();
+    const track = state.queue[state.order[state.orderPos]];
+    // A stale event for an already-replaced source must not skip twice.
+    // (audio.currentSrc is absolute and unsettled during failed loads —
+    // the engine's own record of the requested URL is the truth.)
+    if (track == null || loadedSrc !== `/api/stream/${track.id}`) return;
+    errorSkipStreak += 1;
+    if (errorSkipStreak > MAX_ERROR_SKIPS) {
+      usePlayerStore.setState({ isPlaying: false });
+      useUiStore.getState().showUndoNotice({
+        message: "Playback stopped — several files were unavailable.",
+      });
+      return;
+    }
+    useUiStore.getState().showUndoNotice({
+      message: `Skipped “${track.title}” — file unavailable.`,
+    });
+    advance(1, true); // rest at the end of the queue, like a natural finish
   });
 }
+
+/* ---- session persistence (§13.9, §29) -----------------------------------
+   The queue survives a reload: two keys, written at different cadences.
+   `flow.player.queue` (queue + order) only changes when the plan changes —
+   small debounced writes. `flow.player.playhead` (orderPos + position +
+   timestamp) moves constantly while playing — throttled to one tiny write
+   every few seconds, plus a flush when the page hides. Everything is best-
+   effort: a quota failure or a corrupt snapshot costs nothing but the
+   convenience the feature exists for. */
+
+const QUEUE_KEY = "flow.player.queue";
+const PLAYHEAD_KEY = "flow.player.playhead";
+const QUEUE_SAVE_DEBOUNCE_MS = 400;
+const PLAYHEAD_SAVE_INTERVAL_MS = 3000;
+
+let queueSaveTimer: number | null = null;
+let playheadSaveTimer: number | null = null;
+let playheadDirty = false;
+
+function writeQueueSnapshot(): void {
+  const { queue, order } = usePlayerStore.getState();
+  try {
+    localStorage.setItem(QUEUE_KEY, JSON.stringify({ queue, order }));
+  } catch {
+    // Over quota (a very large library): this session still plays; the
+    // next one just starts empty. Preferences live in the other key.
+  }
+}
+
+function writePlayhead(): void {
+  const { orderPos, position } = usePlayerStore.getState();
+  try {
+    localStorage.setItem(
+      PLAYHEAD_KEY,
+      JSON.stringify({ orderPos, position, savedAt: Date.now() }),
+    );
+  } catch {
+    // Same best-effort story as the queue snapshot.
+  }
+}
+
+function schedulePlayheadSave(delayMs: number): void {
+  playheadDirty = true;
+  if (playheadSaveTimer != null) return;
+  playheadSaveTimer = window.setTimeout(() => {
+    playheadSaveTimer = null;
+    if (!playheadDirty) return;
+    playheadDirty = false;
+    writePlayhead();
+  }, delayMs);
+}
+
+if (typeof window !== "undefined") {
+  usePlayerStore.subscribe((state, prev) => {
+    if (state.queue !== prev.queue || state.order !== prev.order) {
+      if (queueSaveTimer == null) {
+        queueSaveTimer = window.setTimeout(() => {
+          queueSaveTimer = null;
+          writeQueueSnapshot();
+        }, QUEUE_SAVE_DEBOUNCE_MS);
+      }
+      schedulePlayheadSave(QUEUE_SAVE_DEBOUNCE_MS);
+    } else if (state.orderPos !== prev.orderPos) {
+      schedulePlayheadSave(QUEUE_SAVE_DEBOUNCE_MS);
+    } else if (state.position !== prev.position) {
+      schedulePlayheadSave(PLAYHEAD_SAVE_INTERVAL_MS);
+    }
+  });
+
+  const flushSession = () => {
+    if (queueSaveTimer != null) {
+      window.clearTimeout(queueSaveTimer);
+      queueSaveTimer = null;
+      writeQueueSnapshot();
+    }
+    if (playheadSaveTimer != null) {
+      window.clearTimeout(playheadSaveTimer);
+      playheadSaveTimer = null;
+    }
+    playheadDirty = false;
+    writePlayhead();
+  };
+  // Sleep, tab close, refresh, navigation: the playhead must be current.
+  window.addEventListener("pagehide", flushSession);
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden") flushSession();
+  });
+}
+
+function restoreSession(): void {
+  if (typeof localStorage === "undefined") return;
+  let queue: Track[] = [];
+  let order: number[] = [];
+  try {
+    const raw = localStorage.getItem(QUEUE_KEY);
+    if (!raw) return;
+    const parsed = JSON.parse(raw) as { queue?: unknown; order?: unknown };
+    if (!Array.isArray(parsed.queue) || !Array.isArray(parsed.order)) return;
+    queue = parsed.queue as Track[];
+    order = parsed.order as number[];
+  } catch {
+    return; // corrupt snapshot: start clean
+  }
+  if (
+    queue.length === 0 ||
+    queue.some((t) => t == null || typeof t.id !== "number" || typeof t.title !== "string")
+  )
+    return;
+  if (order.length !== queue.length || order.some((i) => !Number.isInteger(i) || i < 0 || i >= queue.length)) {
+    order = queue.map((_, i) => i);
+  }
+  let orderPos = 0;
+  let position = 0;
+  try {
+    const raw = localStorage.getItem(PLAYHEAD_KEY);
+    if (raw) {
+      const p = JSON.parse(raw) as { orderPos?: unknown; position?: unknown };
+      if (typeof p.orderPos === "number" && Number.isInteger(p.orderPos)) {
+        orderPos = Math.min(Math.max(p.orderPos, 0), order.length - 1);
+      }
+      if (typeof p.position === "number" && Number.isFinite(p.position)) {
+        position = Math.max(0, p.position);
+      }
+    }
+  } catch {
+    // defaults
+  }
+  const track = queue[order[orderPos]];
+  if (!track) return;
+  usePlayerStore.setState({
+    queue,
+    order,
+    orderPos,
+    // Restored sessions are always paused — autoplay policies aside, the
+    // review's bar is that state loss is never TOTAL, never that sound
+    // starts uninvited (§29). The element stays empty until the first play.
+    isPlaying: false,
+    position: Math.min(position, track.duration || position),
+    duration: track.duration || 0,
+  });
+}
+
+restoreSession();

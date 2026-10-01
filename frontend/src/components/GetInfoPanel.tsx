@@ -6,6 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 
 import { api } from "../api/client";
 import { usePatchTrack, useToggleFavorite } from "../api/mutations";
+import { isTextEditingTarget } from "../lib/shortcuts";
 import { Artwork } from "./Artwork";
 import { IconClose, IconHeart, IconHeartFill } from "./icons";
 import { useUiStore } from "../stores/ui";
@@ -42,10 +43,15 @@ export function GetInfoPanel() {
     }
   }, [track]);
 
+  // Esc closes the panel — unless focus sits in one of the fields (Esc
+  // mid-edit means "cancel the edit", and the draft must survive a stray
+  // dismissal, §29).
   useEffect(() => {
     if (trackId == null) return;
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") closeGetInfo();
+      if (e.key !== "Escape") return;
+      if (isTextEditingTarget(document.activeElement)) return;
+      closeGetInfo();
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);

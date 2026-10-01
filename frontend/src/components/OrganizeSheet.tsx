@@ -10,7 +10,7 @@
 
 import { useEffect } from "react";
 
-import { isTypingTarget } from "../lib/shortcuts";
+import { isTextEditingTarget } from "../lib/shortcuts";
 import { useUiStore } from "../stores/ui";
 import { IconChevronDown, IconOrganize } from "./icons";
 import { OrganizeView } from "../views/OrganizeView";
@@ -21,14 +21,24 @@ export function OrganizeSheet() {
   const close = useUiStore((s) => s.closeOrganize);
 
   // Esc closes — but yields to whatever sits above it: the library picker,
-  // open menus, Get Info, and inline edits close first (§15.7).
+  // open menus, Get Info, queue drags, and the Now Playing takeover (the
+  // takeover mounts later in the DOM, so it is the topmost surface, §29).
+  // Focus in text mid-edit defers — the filter field's own Esc clears and
+  // blurs first; the second, now-unfocused Esc closes the sheet.
   useEffect(() => {
     if (!open) return;
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
       const ui = useUiStore.getState();
-      if (ui.pickerOpen || ui.contextMenuOpen || ui.getInfoTrackId != null) return;
-      if (isTypingTarget(document.activeElement)) return;
+      if (
+        ui.pickerOpen ||
+        ui.contextMenuOpen ||
+        ui.getInfoTrackId != null ||
+        ui.queueDragOpen ||
+        ui.nowPlayingOpen
+      )
+        return;
+      if (isTextEditingTarget(document.activeElement)) return;
       e.preventDefault();
       close();
     };

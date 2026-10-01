@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo } from "react";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { useSearchParams } from "react-router";
 
-import { api } from "../api/client";
+import { api, fetchAllTracks } from "../api/client";
 import { SortMenu, type SortOption } from "../components/SortMenu";
 import { TrackTableHead, type TrackSortKey } from "../components/TrackTableHead";
 import { VirtualTrackTable } from "../components/VirtualTrackTable";
@@ -11,6 +11,7 @@ import { LoadingState } from "../components/LoadingState";
 import { useReviewSummary } from "../components/ReviewStrip";
 import { IconOrganize, IconTracks } from "../components/icons";
 import { fmtCount } from "../lib/format";
+import { usePlayerStore } from "../stores/player";
 import { useUiStore } from "../stores/ui";
 
 /* Full-library view, windowed (§9.2, §11.6). Pages of 1000 stream in behind
@@ -86,6 +87,37 @@ export function TracksView() {
   );
   const total = query.data?.pages[0]?.total ?? 0;
 
+  const playTracks = usePlayerStore((s) => s.playTracks);
+
+  // "Play from here" means the whole view (§29): if pages of the filter are
+  // still unloaded, fetch the rest first, then queue the complete list. The
+  // fetch is a few local round trips — the click still feels instant, and
+  // the queue header reads the honest total instead of the scroll depth.
+  const playFromHere = useCallback(
+    (index: number) => {
+      if (tracks.length >= total) {
+        playTracks(tracks, index);
+        return;
+      }
+      const loaded = tracks;
+      void fetchAllTracks({ q: q || undefined, sort, dir })
+        .then((full) =>
+          playTracks(
+            full.length > 0 ? full : loaded,
+            Math.min(index, (full.length > 0 ? full : loaded).length - 1),
+          ),
+        )
+        .catch(() => playTracks(loaded, index));
+    },
+    [playTracks, tracks, total, q, sort, dir],
+  );
+
+  // The row menu's "Play" resolves the same whole view (§29).
+  const contextLoader = useCallback(
+    () => fetchAllTracks({ q: q || undefined, sort, dir }),
+    [q, sort, dir],
+  );
+
   const handleNearEnd = useCallback(() => {
     if (query.hasNextPage && !query.isFetchingNextPage) void query.fetchNextPage();
   }, [query.hasNextPage, query.isFetchingNextPage, query.fetchNextPage]);
@@ -157,7 +189,12 @@ export function TracksView() {
       ) : (
         <>
           <TrackTableHead sort={sort} dir={dir} onSort={onSort} />
-          <VirtualTrackTable tracks={tracks} onNearEnd={handleNearEnd} />
+          <VirtualTrackTable
+            tracks={tracks}
+            onNearEnd={handleNearEnd}
+            onPlay={playFromHere}
+            contextLoader={contextLoader}
+          />
         </>
       )}
     </section>

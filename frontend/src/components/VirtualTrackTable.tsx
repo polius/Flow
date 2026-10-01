@@ -34,14 +34,24 @@ interface VirtualTrackTableProps {
   tracks: Track[];
   /** Called when the window nears the loaded end: fetch the next page. */
   onNearEnd: () => void;
+  /** Row activation: plays `index` within the WHOLE view — paged views
+      resolve the full filter first, so the queue never stops at the loaded
+      pages (§29). */
+  onPlay: (index: number) => void;
+  /** Resolves the whole view for the row menu's Play item (§29). */
+  contextLoader?: () => Promise<Track[]>;
 }
 
-export function VirtualTrackTable({ tracks, onNearEnd }: VirtualTrackTableProps) {
+export function VirtualTrackTable({
+  tracks,
+  onNearEnd,
+  onPlay,
+  contextLoader,
+}: VirtualTrackTableProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [scrollEl, setScrollEl] = useState<HTMLElement | null>(null);
   const current = useCurrentTrack();
   const isPlaying = usePlayerStore((s) => s.isPlaying);
-  const playTracks = usePlayerStore((s) => s.playTracks);
   const togglePlay = usePlayerStore((s) => s.togglePlay);
   const toggleFavorite = useToggleFavorite();
 
@@ -65,17 +75,14 @@ export function VirtualTrackTable({ tracks, onNearEnd }: VirtualTrackTableProps)
     if (endIndex >= 0 && endIndex >= tracks.length - PREFETCH_ROWS) onNearEnd();
   }, [endIndex, tracks.length, onNearEnd]);
 
-  const play = useCallback(
-    (index: number) => playTracks(tracks, index),
-    [playTracks, tracks],
-  );
+  const play = onPlay;
 
   // Row action menu (right-click / long-press) with the full loaded context.
   const openTrackMenu = useUiStore((s) => s.openTrackMenu);
   const trackMenu = useCallback(
     (track: Track, x: number, y: number) =>
-      openTrackMenu({ track, x, y, context: tracks }),
-    [openTrackMenu, tracks],
+      openTrackMenu({ track, x, y, context: tracks, contextLoader }),
+    [openTrackMenu, tracks, contextLoader],
   );
 
   return (

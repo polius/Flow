@@ -13,7 +13,7 @@
 import { useEffect, useState } from "react";
 
 import { useMediaQuery } from "../lib/media";
-import { isTypingTarget } from "../lib/shortcuts";
+import { isTextEditingTarget } from "../lib/shortcuts";
 import { useCurrentTrack, usePlayerStore } from "../stores/player";
 import { useUiStore } from "../stores/ui";
 import { Ambience } from "./Ambience";
@@ -57,10 +57,12 @@ export function NowPlaying() {
   };
 
   // Esc closes the takeover — but yields to whatever sits above it (§15.7):
-  // the library picker, context menus, the Get Info panel, and inline edits
+  // the library picker, context menus, the Get Info panel, and queue drags
   // close first. Capture phase so this decision happens before the other
   // window listeners run. On narrow windows the queue sheet — the takeover's
-  // own second layer — closes before the takeover itself.
+  // own second layer — closes before the takeover itself. Focus in text
+  // mid-edit defers (Esc cancels the edit there); a focused button or link
+  // never blocks the close (§29).
   useEffect(() => {
     if (!open) return;
     const onKeyDown = (e: KeyboardEvent) => {
@@ -68,7 +70,7 @@ export function NowPlaying() {
       const ui = useUiStore.getState();
       if (ui.pickerOpen || ui.contextMenuOpen || ui.getInfoTrackId != null || ui.queueDragOpen)
         return;
-      if (isTypingTarget(document.activeElement)) return;
+      if (isTextEditingTarget(document.activeElement)) return;
       e.preventDefault();
       if (queueOpen) {
         setQueueOpen(false);

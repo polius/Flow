@@ -88,6 +88,61 @@
   margin-top: 36px;
 }
 
+/* Continue listening (§13.9, §29): the restored session as one quiet row —
+   monochrome, inset like the app's other resting surfaces; the artwork is
+   the only color it needs. */
+.continuecard {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  padding: 10px 16px 10px 10px;
+  border-radius: var(--radius-m);
+  background: var(--bg-inset);
+  text-align: left;
+  transition: background var(--dur-fast) var(--ease-out);
+}
+.continuecard:hover,
+.continuecard:focus-visible {
+  background: var(--bg-active);
+}
+.continuecard:active {
+  transform: scale(0.995);
+}
+.continuecard__meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.continuecard__title {
+  font-size: var(--text-body);
+  font-weight: 600;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.continuecard__sub {
+  font-size: var(--text-caption);
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.continuecard__action {
+  flex: none;
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  background: var(--bg-active);
+  color: var(--text-primary);
+}
+
 .libsection > h2 {
   margin: 0 0 14px;
   font-size: var(--text-title);

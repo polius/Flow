@@ -40,16 +40,18 @@ export function UndoToast() {
       onBlur={() => setHeld(false)}
     >
       <span className="undotoast__msg">{notice.message}</span>
-      <button
-        type="button"
-        className="undotoast__undo"
-        onClick={() => {
-          clearUndoNotice();
-          void notice.undo();
-        }}
-      >
-        Undo
-      </button>
+      {notice.undo && (
+        <button
+          type="button"
+          className="undotoast__undo"
+          onClick={() => {
+            clearUndoNotice();
+            void notice.undo?.();
+          }}
+        >
+          Undo
+        </button>
+      )}
     </div>
   );
 }

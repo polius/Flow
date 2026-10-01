@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo } from "react";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { useSearchParams } from "react-router";
 
-import { api } from "../api/client";
+import { api, fetchAllTracks } from "../api/client";
 import { SortMenu, type SortOption } from "../components/SortMenu";
 import { TrackTableHead, type TrackSortKey } from "../components/TrackTableHead";
 import { VirtualTrackTable } from "../components/VirtualTrackTable";
@@ -68,6 +68,33 @@ export function FavoritesView() {
   );
   const total = query.data?.pages[0]?.total ?? 0;
 
+  // "Play from here" means the whole view (§29): pages beyond the loaded
+  // ones are fetched before the queue is built, so a 2,000-favorites queue
+  // is 2,000 tracks — never whatever the window had loaded.
+  const playFromHere = useCallback(
+    (index: number) => {
+      if (tracks.length >= total) {
+        playTracks(tracks, index);
+        return;
+      }
+      const loaded = tracks;
+      void fetchAllTracks({ q: q || undefined, sort, dir, favorite: true })
+        .then((full) =>
+          playTracks(
+            full.length > 0 ? full : loaded,
+            Math.min(index, (full.length > 0 ? full : loaded).length - 1),
+          ),
+        )
+        .catch(() => playTracks(loaded, index));
+    },
+    [playTracks, tracks, total, q, sort, dir],
+  );
+
+  const contextLoader = useCallback(
+    () => fetchAllTracks({ q: q || undefined, sort, dir, favorite: true }),
+    [q, sort, dir],
+  );
+
   const handleNearEnd = useCallback(() => {
     if (query.hasNextPage && !query.isFetchingNextPage) void query.fetchNextPage();
   }, [query.hasNextPage, query.isFetchingNextPage, query.fetchNextPage]);
@@ -109,7 +136,7 @@ export function FavoritesView() {
             <button
               type="button"
               className="view__action view__action--play"
-              onClick={() => playTracks(tracks, 0)}
+              onClick={() => playFromHere(0)}
               aria-label="Play favorites"
               title="Play all favorites"
             >
@@ -134,7 +161,12 @@ export function FavoritesView() {
       ) : (
         <>
           <TrackTableHead sort={sort} dir={dir} onSort={onSort} />
-          <VirtualTrackTable tracks={tracks} onNearEnd={handleNearEnd} />
+          <VirtualTrackTable
+            tracks={tracks}
+            onNearEnd={handleNearEnd}
+            onPlay={playFromHere}
+            contextLoader={contextLoader}
+          />
         </>
       )}
     </section>

@@ -1106,3 +1106,85 @@ touch story under all of them.
 Verified in the running app at 320/375/700/939/940/1280, light + dark: no
 overflow at any width, labels never wrap, the active pill carries icon and
 text together, sheet rows at 44px, search ≥ 240px wherever labels show.
+
+---
+
+## 29. Addendum — Part 1 foundations: playback survives a reload, whole-view queues, Esc, stream errors (2026-10-01)
+
+Implements Part 1 of `docs/UX-REVIEW.md` — the four cracks in the
+foundation. Three of these revise settled decisions; §12 asks for the
+owner's sign-off on deviations, and the review (which the owner handed to
+this session as the work order) is that sign-off: the contract was written
+feature-first, and these surfaces are experience-first.
+
+1. **The queue is durable session state (supersedes the player store's
+   "queue/position are session state" rule; completes §13.9).** Queue +
+   play order restore on load; the playhead (orderPos + position +
+   timestamp) restores with them. Two localStorage keys, written at
+   different cadences: `flow.player.queue` (the big one) only when the
+   queue/order changes — debounced 400 ms — and `flow.player.playhead`
+   (tiny) throttled to one write per 3 s while playing, flushed on
+   `pagehide`/`visibilitychange`. The hand-rolled writer deliberately
+   bypasses the `persist` middleware: it re-serializes on *every* store
+   update, and position updates 4×/s — stringifying a full-library queue
+   at that cadence is not acceptable. Restores are always **paused** with
+   the audio element untouched (no autoplay, no surprise sound, no wasted
+   prefetch); the first press of play loads the restored track at the
+   saved position (`currentTime` set before metadata = the spec's default
+   playback start position). Preferences (volume/shuffle/repeat) keep
+   riding the middleware unchanged. Quota failures and corrupt snapshots
+   degrade to the old behavior (fresh session) — never to a broken one.
+2. **"Continue listening" ships on Home (§13.9, promised and never
+   built).** One quiet row — artwork, title, "Paused at … · N tracks up
+   next" — activating it resumes the restored session. Subscribed from its
+   own component so the 4 Hz playhead doesn't re-render the view.
+3. **"Play from here" means the whole view (fixes the 1,000-row queue).**
+   The paged views (Tracks, Favorites) now resolve the **entire filter**
+   before queueing — the remaining pages are fetched on play (a few local
+   round trips; imperceptible at library scale) — and the row menu's
+   "Play" resolves the same full list via a `contextLoader`, so no entry
+   point can queue a scroll-depth truncation. If the fetch fails, the
+   loaded pages still play. §4.0 (server-truth queue) remains the
+   permanent architecture; this is the client-side honest version of it.
+4. **Esc precedence, corrected (supersedes §16.3/§16.4's guard).** The
+   old "typing target" guard listed buttons and links, so Esc failed
+   app-wide whenever any control held focus — in a pointer UI, almost
+   always. The rule is now two predicates (`lib/shortcuts.ts`):
+   **Space/arrows** yield to any focused interactive control (unchanged
+   §16.3 behavior); **Esc** defers only to text mid-edit (`input` with a
+   text type, `textarea`, `contenteditable` — where Esc means "cancel the
+   edit"; range/checkbox/button-ish inputs don't defer). Esc always closes
+   the topmost surface otherwise. The Organize sheet now also yields to
+   the Now Playing takeover (DOM-later = topmost) and queue drags, and Get
+   Info defers while its draft fields hold focus — one grammar app-wide.
+5. **Stream errors skip, they don't stop (supersedes "stop cleanly rather
+   than hang").** A failed load (missing file, flaky mount, half-written
+   file) auto-advances to the next track with one quiet notice —
+   "Skipped "X" — file unavailable." — reusing the undo-toast pill without
+   an Undo button (`UndoNotice.undo` is now optional). The skip streak is
+   bounded (5 consecutive errors without a successful start → playback
+   stops with a calm "several files were unavailable" notice); any manual
+   interaction or successful start resets it. Stale error events (the
+   element already moved on) are ignored by comparing against the engine's
+   own record of the requested URL — `audio.currentSrc` is absolute and
+   unsettled during failed loads and must not be trusted.
+6. **Frontend tests exist now.** vitest + Testing Library (jsdom), run via
+   `npm test`. First suite pins the Esc grammar: button-focused Esc closes
+   Now Playing and the Organize sheet; text-focused Esc defers (Get Info
+   draft survives). The review's standing verification is honored in the
+   exit checklist below.
+7. **The scan error count in Settings (1.4's second bullet) needed no
+   change:** `scan.errors` has surfaced on the Last-scan row since M2
+   ("· N errors"); verified live with a corrupt file (watcher reconcile →
+   "1 error"). The path+reason disclosure and the mount-guard state remain
+   §2.8 (Part 2/3) work.
+
+Verified in the running app against a generated 2,400-track library (the
+review's scale): fresh load + first-row click → queue header reads
+"N of 2400"; reload mid-queue → player bar populated, paused, full queue
+and shuffled order restored, Continue listening resumes and advances;
+Esc-after-button-click closes both Now Playing and the Organize sheet;
+Space in the search field types instead of toggling; a corrupted next
+track is skipped with the promised notice and playback continues; Settings
+shows the scan's error count. Regression suite green (`npm test`),
+`tsc --noEmit` and `vite build` clean.

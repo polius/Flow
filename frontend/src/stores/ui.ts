@@ -14,21 +14,26 @@ export type ThemeMode = "system" | "light" | "dark";
     coords — the menu positions itself, or falls back to a bottom sheet on
     phones), and the play context it was invoked from. `removeFromPlaylist`
     is set when the row came from a playlist — it adds the menu's danger
-    item (§25); the closure carries the playlist context the menu can't know. */
+    item (§25); the closure carries the playlist context the menu can't know.
+    Paged views also hand over a `contextLoader`: "Play" in the menu must
+    queue the whole view, never just the pages the window loaded (§29). */
 export interface TrackMenuRequest {
   track: Track;
   x: number;
   y: number;
   context?: Track[];
+  contextLoader?: () => Promise<Track[]>;
   removeFromPlaylist?: () => void;
 }
 
-/** A one-generation undo notice (§25): what happened, and the closure that
-    reverses it. The toast host renders it; a new notice replaces the old. */
+/** A one-generation notice (§25): what happened, and the closure that
+    reverses it. The toast host renders it; a new notice replaces the old.
+    `undo` is optional: stream-error skips (§29) borrow the toast's quiet
+    pill to say what happened, but there is nothing to un-do. */
 export interface UndoNotice {
   id: number;
   message: string;
-  undo: () => Promise<void>;
+  undo?: () => Promise<void>;
 }
 
 let undoNonce = 0;
@@ -67,7 +72,9 @@ interface UiState {
   themeMode: ThemeMode;
   setThemeMode: (mode: ThemeMode) => void;
   /** The undo toast (§25): destructive-but-recoverable actions land here —
-      one notice at a time, single-generation like Organize's bulk undo. */
+      one notice at a time, single-generation like Organize's bulk undo.
+      Recoverable notices carry `undo`; stream-error skips (§29) use the
+      same quiet pill without it. */
   undoNotice: UndoNotice | null;
   showUndoNotice: (notice: Omit<UndoNotice, "id">) => void;
   clearUndoNotice: () => void;

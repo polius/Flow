@@ -3,12 +3,64 @@ import { Link } from "react-router";
 
 import { api } from "../api/client";
 import { AlbumCard } from "../components/AlbumCard";
+import { Artwork } from "../components/Artwork";
 import { EmptyState } from "../components/EmptyState";
 import { LoadingState } from "../components/LoadingState";
-import { IconMusicNote } from "../components/icons";
+import { IconMusicNote, IconPause, IconPlay } from "../components/icons";
 import { PlaylistArt } from "../components/PlaylistArt";
-import { fmtCount, scanProgressLabel } from "../lib/format";
+import { fmtCount, fmtDuration, scanProgressLabel } from "../lib/format";
+import { usePlayerStore } from "../stores/player";
 import { useScanStore } from "../stores/scan";
+
+/* Continue listening (§13.9, §29): the session the app restored — current
+   track, where it paused, how much of the queue is still ahead. One quiet
+   row; activating it resumes at the saved position (the first play loads
+   the restored track into the element, paused up to now). Subscribed from
+   its own component so the 4Hz playhead doesn't re-render the whole Home. */
+function ContinueListening() {
+  const current = usePlayerStore((s) => s.queue[s.order[s.orderPos]] ?? null);
+  const upNext = usePlayerStore((s) => s.order.length - s.orderPos - 1);
+  const position = usePlayerStore((s) => s.position);
+  const isPlaying = usePlayerStore((s) => s.isPlaying);
+  const togglePlay = usePlayerStore((s) => s.togglePlay);
+
+  if (!current) return null;
+
+  const meta = [
+    current.artist ?? current.album ?? null,
+    isPlaying ? null : `Paused at ${fmtDuration(position)}`,
+    upNext > 0
+      ? `${fmtCount(upNext)} ${upNext === 1 ? "track" : "tracks"} up next`
+      : null,
+  ].filter(Boolean);
+
+  return (
+    <div className="libsection">
+      <div className="libsection__head">
+        <h2>Continue listening</h2>
+      </div>
+      <button
+        type="button"
+        className="continuecard"
+        onClick={togglePlay}
+        aria-label={`${isPlaying ? "Pause" : "Resume"} ${current.title}${
+          meta.length > 0 ? ` — ${meta.join(" · ")}` : ""
+        }`}
+      >
+        <Artwork artworkId={current.artwork_id} size={56} radius="m" />
+        <span className="continuecard__meta">
+          <span className="continuecard__title">{current.title}</span>
+          {meta.length > 0 && (
+            <span className="continuecard__sub">{meta.join(" · ")}</span>
+          )}
+        </span>
+        <span className="continuecard__action" aria-hidden="true">
+          {isPlaying ? <IconPause size={13} /> : <IconPlay size={13} />}
+        </span>
+      </button>
+    </div>
+  );
+}
 
 export function HomeView() {
   const scan = useScanStore((s) => s.status);
@@ -60,6 +112,8 @@ export function HomeView() {
       ) : hasLibrary ? (
         <p className="view__subtitle">{summary}</p>
       ) : null}
+
+      {hasLibrary && <ContinueListening />}
 
       {hasLibrary && recentAlbums.length > 0 && (
         <div className="libsection">

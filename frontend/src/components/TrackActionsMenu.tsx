@@ -86,11 +86,33 @@ export function TrackActionsMenu() {
   }, [pathname, close]);
 
   if (request == null) return null;
-  const { track, x, y, context, removeFromPlaylist } = request;
+  const { track, x, y, context, contextLoader, removeFromPlaylist } = request;
 
   const act = (fn: () => void) => () => {
     fn();
     close();
+  };
+
+  // "Play" queues the row's whole context. Paged views hand over a loader
+  // instead of their loaded pages: the menu must never play a queue
+  // truncated to the scroll depth (§29). If the loader fails, the loaded
+  // context still plays.
+  const playInContext = () => {
+    const base = context ?? [track];
+    if (!contextLoader) {
+      play(base, Math.max(0, base.findIndex((t) => t.id === track.id)));
+      return;
+    }
+    void contextLoader()
+      .then((full) =>
+        play(
+          full.length > 0 ? full : base,
+          Math.max(0, (full.length > 0 ? full : base).findIndex((t) => t.id === track.id)),
+        ),
+      )
+      .catch(() =>
+        play(base, Math.max(0, base.findIndex((t) => t.id === track.id))),
+      );
   };
 
   const items = (
@@ -98,7 +120,7 @@ export function TrackActionsMenu() {
       <button
         type="button"
         className="trackmenu__item"
-        onClick={act(() => play(context ?? [track], Math.max(0, (context ?? [track]).findIndex((t) => t.id === track.id))))}
+        onClick={act(playInContext)}
       >
         <IconPlay size={15} />
         Play
