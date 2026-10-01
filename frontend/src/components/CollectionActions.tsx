@@ -1,15 +1,27 @@
 /* CollectionActions (§2.1): the Apple header trio — Play · Shuffle · … —
-   for any body of music an album/artist page presents. The "…" menu carries
-   the two curation moves the header owes: Play Next (into the live queue,
-   in order) and Add to Playlist (the destination dialog). One component for
-   both detail views so the grammar can never drift between them. */
+   for any body of music a detail page presents — albums, artists, and, since
+   the review's §2.1, playlists (the trio is a parameter here, never a fork).
+   The "…" menu carries the shared curation verbs (Play Next into the live
+   queue in order, Add to Queue (end), Add to Playlist) plus whatever the
+   calling surface owes it: navigation ("Go to Artist", §2.2) and the
+   editing verbs that used to sit as header furniture on the playlist
+   ("Add Tracks", "Manage" — §2.1). One component for every detail view so
+   the grammar can never drift between them. */
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 
 import type { QueueOrigin, Track } from "../api/types";
 import { usePlayerStore } from "../stores/player";
 import { useUiStore } from "../stores/ui";
 import { IconEllipsis, IconNext, IconPlay, IconPlus, IconQueue, IconShuffle } from "./icons";
+
+/** A menu action beyond the shared curation set — rendered at the menu's
+    end, after a separator. Navigation is just an onSelect that routes. */
+export interface CollectionMenuItem {
+  label: string;
+  icon?: ReactNode;
+  onSelect: () => void;
+}
 
 interface CollectionActionsProps {
   tracks: Track[];
@@ -18,9 +30,12 @@ interface CollectionActionsProps {
   /** What playing this collection means for the queue's origin (§1.1) —
       the caller knows what the view is; the store records it. */
   origin?: QueueOrigin | null;
+  /** The menu items this surface adds (§2.1/§2.2): the playlist's editing
+      verbs, the album's Go to Artist. Order follows the caller. */
+  extraItems?: CollectionMenuItem[];
 }
 
-export function CollectionActions({ tracks, label, origin }: CollectionActionsProps) {
+export function CollectionActions({ tracks, label, origin, extraItems }: CollectionActionsProps) {
   const playTracks = usePlayerStore((s) => s.playTracks);
   const playNextMany = usePlayerStore((s) => s.playNextMany);
   const addToQueue = usePlayerStore((s) => s.addToQueue);
@@ -131,6 +146,26 @@ export function CollectionActions({ tracks, label, origin }: CollectionActionsPr
               <IconPlus size={15} />
               Add to Playlist
             </button>
+            {extraItems && extraItems.length > 0 && (
+              <>
+                <div className="trackmenu__separator" role="separator" />
+                {extraItems.map((item) => (
+                  <button
+                    key={item.label}
+                    type="button"
+                    role="menuitem"
+                    className="trackmenu__item"
+                    onClick={() => {
+                      item.onSelect();
+                      setOpen(false);
+                    }}
+                  >
+                    {item.icon}
+                    {item.label}
+                  </button>
+                ))}
+              </>
+            )}
           </div>
         )}
       </div>

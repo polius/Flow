@@ -237,10 +237,22 @@ export function SettingsView() {
       <div className="settings-group">
         <h2>Keyboard</h2>
         <ShortcutRow action="Play / pause" keys={["Space"]} />
+        <ShortcutRow action="Next / previous track" keys={["⌘→ / ⌘←", "Ctrl → / Ctrl ←"]} />
+        <ShortcutRow action="Mute / unmute" keys={["M"]} />
         <ShortcutRow action="Seek backward / forward 10s" keys={["←", "→"]} />
         <ShortcutRow action="Volume down / up" keys={["↓", "↑"]} />
         <ShortcutRow action="Search" keys={["⌘F", "Ctrl F"]} />
         <ShortcutRow action="Close menu / panel / Now Playing" keys={["Esc"]} />
+        {/* §2.4: the §31.7 table grammar, documented where the rest of the
+            keyboard lives — the list and the implementation are one grammar;
+            they had drifted apart, which is the §8.0.5 lesson applied to
+            documentation. */}
+        <p className="settings-subhead">In tables</p>
+        <ShortcutRow action="Move the row cursor" keys={["↑", "↓"]} />
+        <ShortcutRow action="Jump to start / end" keys={["Home", "End"]} />
+        <ShortcutRow action="Page up / down" keys={["PageUp", "PageDown"]} />
+        <ShortcutRow action="Play the cursor row" keys={["Enter"]} />
+        <ShortcutRow action="Toggle playback" keys={["Space"]} />
       </div>
     </section>
   );

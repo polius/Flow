@@ -15,7 +15,7 @@ import { Link } from "react-router";
 
 import { useMediaQuery } from "../lib/media";
 import { isTextEditingTarget } from "../lib/shortcuts";
-import { useCurrentTrack, usePlayerStore } from "../stores/player";
+import { trackIsUnverified, useCurrentTrack, usePlayerStore } from "../stores/player";
 import { useUiStore } from "../stores/ui";
 import { Ambience } from "./Ambience";
 import { Artwork } from "./Artwork";
@@ -89,6 +89,11 @@ export function NowPlaying() {
 
   if (!open) return null;
 
+  // §2.7: the takeover renders names from restored state alone. Until the
+  // server has vouched for the session, they read as text — a stale
+  // snapshot's ids may name entities that no longer exist.
+  const verified = !trackIsUnverified(track);
+
   const classes = [
     "nowplaying",
     narrow && queueOpen ? "nowplaying--queue" : "",
@@ -142,7 +147,7 @@ export function NowPlaying() {
             <div className="nowplaying__meta">
               <h1 className="nowplaying__title">{track.title}</h1>
               <p className="nowplaying__artist">
-                {track.artist_id != null && track.artist ? (
+                {verified && track.artist_id != null && track.artist ? (
                   // §1.4: every name on a listening surface is a door —
                   // styled as today's text, an underline on hover only.
                   <Link
@@ -158,7 +163,7 @@ export function NowPlaying() {
               </p>
               {track.album != null && (
                 <p className="nowplaying__album">
-                  {track.album_id != null ? (
+                  {verified && track.album_id != null ? (
                     <Link
                       to={`/albums/${track.album_id}`}
                       className="nowplaying__link"
@@ -172,11 +177,13 @@ export function NowPlaying() {
                 </p>
               )}
               {/* §1.1: the origin rides under the album line, small and
-                  secondary (§8.3) — the queue's birth certificate. */}
+                  secondary (§8.3) — the queue's birth certificate. §2.7: a
+                  restored session's origin is linked only once the server
+                  has vouched for the session. */}
               {origin?.label != null && (
                 <p className="nowplaying__origin">
                   Playing from{" "}
-                  {origin.href ? (
+                  {verified && origin.href ? (
                     <Link
                       to={origin.href}
                       className="nowplaying__link"

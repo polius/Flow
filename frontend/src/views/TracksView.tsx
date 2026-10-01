@@ -208,11 +208,16 @@ export function TracksView() {
         <div>
           <h1 className="view__title">Tracks</h1>
           <p className="view__subtitle">
-            {genreName
-              ? `${fmtCount(total)} ${total === 1 ? "track" : "tracks"} in “${genreName}”`
-              : q
-                ? `${fmtCount(total)} ${total === 1 ? "match" : "matches"} for “${q}”`
-                : `${fmtCount(total)} ${total === 1 ? "song" : "songs"}`}
+            {/* §2.6: in flight, an empty fixed-height slot — never a
+                formatted zero. A fresh visit (or a genre/filter switch)
+                must not flash "0 songs" before the count is measured. */}
+            {query.isPending
+              ? "\u00A0"
+              : genreName
+                ? `${fmtCount(total)} ${total === 1 ? "track" : "tracks"} in “${genreName}”`
+                : q
+                  ? `${fmtCount(total)} ${total === 1 ? "match" : "matches"} for “${q}”`
+                  : `${fmtCount(total)} ${total === 1 ? "song" : "songs"}`}
           </p>
         </div>
         <div className="view__actions">

@@ -12,7 +12,7 @@ import { LoadingState } from "../components/LoadingState";
 import { IconMusicNote, IconPause, IconPlay, IconShuffle } from "../components/icons";
 import { PlaylistArt } from "../components/PlaylistArt";
 import { fmtCount, fmtDuration, scanPhaseLabel, scanProgressLabel } from "../lib/format";
-import { usePlayerStore } from "../stores/player";
+import { trackIsUnverified, usePlayerStore } from "../stores/player";
 import { useScanStore } from "../stores/scan";
 
 /* Continue listening (§13.9, §29): the session the app restored — current
@@ -66,7 +66,11 @@ function ContinueListening() {
           <span className="continuecard__title">{current.title}</span>
           {(current.artist != null || stateBit != null || nextBit != null) && (
             <span className="continuecard__sub">
-              {current.artist_id != null && current.artist ? (
+              {!trackIsUnverified(current) && current.artist_id != null && current.artist ? (
+                // §1.4: the artist name inside the card is a link —
+                // composition, not a second target (the card keeps
+                // play/pause). §2.7: text until the server has vouched
+                // for the restored session.
                 <Link
                   to={`/artists/${current.artist_id}`}
                   className="continuecard__artistlink"

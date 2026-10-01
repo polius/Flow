@@ -136,9 +136,9 @@ permanent header furniture. The playlist is the most *listening*-dense surface i
 state can keep "Add your first tracks"; a full playlist's header should speak listening.
 
 **Do:**
-- [ ] Playlist trio: **Play · Shuffle · …**, where "…" carries Add Tracks, Manage, and the
+- [x] Playlist trio: **Play · Shuffle · …**, where "…" carries Add Tracks, Manage, and the
       existing danger items. The empty state keeps its one prominent Add affordance (§8.8).
-- [ ] Shuffle on a playlist = shuffle-on + random start, exactly the album/artist semantics
+- [x] Shuffle on a playlist = shuffle-on + random start, exactly the album/artist semantics
       (`CollectionActions` is shared — this should be a parameter, not a fork).
 
 ### 2.2 The menus can browse nothing
@@ -151,10 +151,10 @@ queue, reaching the album is impossible (1.4). Apple's every menu answers "where
 from here."
 
 **Do:**
-- [ ] Collection "…": add **Go to Artist** (album menu), **Go to Album** (artist card menu
+- [x] Collection "…": add **Go to Artist** (album menu), **Go to Album** (artist card menu
       already navigates by clicking the card — the menu item is for the actions row only;
       add it where the context lacks a click path).
-- [ ] Track row menu: add **Go to Album** / **Go to Artist** (respecting `album_id`/`artist_id`
+- [x] Track row menu: add **Go to Album** / **Go to Artist** (respecting `album_id`/`artist_id`
       null-ability). Two rows, shared with 1.4's link grammar.
 
 ### 2.3 The Favorites empty state describes a menu that no longer exists
@@ -167,7 +167,7 @@ new user reads about the app's flagship personalization feature is wrong. (The l
 context menu does still carry Favorite on touch, so the second half is half-right.)
 
 **Do:**
-- [ ] Rewrite per the actual grammar, one string, platform-neutral:
+- [x] Rewrite per the actual grammar, one string, platform-neutral:
       *"Touch the heart on any row — or press and hold a row (right-click on desktop) for
       more."* Verify in both themes at both widths.
 
@@ -181,12 +181,12 @@ says the keyboard is "a big part of the Apple feel" (§9.5), the chords stopped 
 transport. Apple Music: `⌘→/⌘←` next/prev.
 
 **Do:**
-- [ ] Add `⌘→ / ⌘←` (next / previous; plain arrows stay with seek — note the §16.3 guard
+- [x] Add `⌘→ / ⌘←` (next / previous; plain arrows stay with seek — note the §16.3 guard
       must not swallow the modifier chord; `useGlobalShortcuts` already returns early on
       modifiers, so these need their own listener or an explicit chord branch *before* that
       early return).
-- [ ] Add `M` for mute (`toggleMuted` exists in the store; VolumeControl is its only caller).
-- [ ] Settings' Keyboard group gains the row-cursor section (arrows move · Enter plays ·
+- [x] Add `M` for mute (`toggleMuted` exists in the store; VolumeControl is its only caller).
+- [x] Settings' Keyboard group gains the row-cursor section (arrows move · Enter plays ·
       Space toggles) and the two new chords. The list and the implementation are one grammar;
       they drifted apart in §31 and nobody noticed — that's the §8.0.5 lesson applied to
       documentation.
@@ -199,7 +199,7 @@ not in anything. Apple's results rows lead with the play affordance, not an ordi
 live at `/search?q=rack 15`: a numbered list of matches.)
 
 **Do:**
-- [ ] Suppress the index column in the search variant (reveal the play glyph in its slot,
+- [x] Suppress the index column in the search variant (reveal the play glyph in its slot,
       as the playing row already does). One prop on the table, not a fork.
 
 ### 2.6 The Tracks header flashes "0 songs" on first load
@@ -210,7 +210,7 @@ precisely for this (§16.6: *a loading list must never read as an empty library*
 body uses it, the header count doesn't. Same flash on Favorites and the genre/match variants.
 
 **Do:**
-- [ ] While the query is in flight, render the subtitle slot empty (fixed height — no layout
+- [x] While the query is in flight, render the subtitle slot empty (fixed height — no layout
       shift) instead of formatting a zero. Never show a computed "0" that isn't measured.
 
 ### 2.7 A stale localStorage snapshot can resurrect dead entities
@@ -224,11 +224,11 @@ layer has no equivalent pass, and §32.7 adopts server truth only when the local
 charge.
 
 **Do:**
-- [ ] Validate the local snapshot at adopt time, the same way GET heals: drop queue entries
+- [x] Validate the local snapshot at adopt time, the same way GET heals: drop queue entries
       whose track ids no longer resolve (the restore path can check against a single
       `GET /api/tracks?ids=` — or simply accept the server's empty-session response as
       authoritative for *clearing* rather than degrading to local).
-- [ ] Guard every rendered link built from restored state: if the entity id is absent from
+- [x] Guard every rendered link built from restored state: if the entity id is absent from
       any loaded data, render text, not a link. (The player bar is the one surface that links
       from restored state alone.)
 
@@ -239,7 +239,7 @@ mobile-web-app-capable` (`frontend/index.html`). One line, but it's the app anno
 un-tended code in its own console — §8.0.5 territory.
 
 **Do:**
-- [ ] Add `mobile-web-app-capable` alongside (keep the legacy tag for older iOS).
+- [x] Add `mobile-web-app-capable` alongside (keep the legacy tag for older iOS).
 
 ---
 

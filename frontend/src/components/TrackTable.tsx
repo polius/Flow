@@ -37,6 +37,11 @@ interface TrackTableProps {
   onMove?: (fromIndex: number, toIndex: number) => void;
   /** Playlist variant: removes a track from the playlist (row button). */
   onRemoveTrack?: (track: Track) => void;
+  /** §2.5: suppress the index column — a result set (search) has no
+      meaningful ordinal, so the slot leads with the play affordance
+      instead, the way the playing row already does. One prop, not a
+      fork of the table. */
+  hideIndex?: boolean;
 }
 
 /** Mouse press-move slop before a drag lifts. */
@@ -97,6 +102,7 @@ export function TrackTable({
   origin,
   onMove,
   onRemoveTrack,
+  hideIndex,
 }: TrackTableProps) {
   // Drag state for the playlist variant (mounted → the ghost exists).
   const [drag, setDrag] = useState<DragState | null>(null);
@@ -387,6 +393,7 @@ export function TrackTable({
       track={track}
       index={index}
       variant={variant}
+      hideIndex={hideIndex}
       isCurrent={current?.id === track.id}
       isPlaying={isPlaying}
       extraClassName={

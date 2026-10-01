@@ -154,6 +154,15 @@
   font-size: var(--text-regular);
 }
 
+/* A subheading inside a group — the Keyboard group's table section
+   (§2.4) is one grammar, documented in two halves. */
+.settings-subhead {
+  margin: 14px 2px 8px;
+  font-size: var(--text-small);
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
 .settings-row__value {
   font-size: var(--text-small);
   color: var(--text-secondary);

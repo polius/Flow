@@ -1,6 +1,7 @@
 /* Global keyboard shortcuts (§9.5): Space play/pause, ←/→ seek ±10s,
-   ↑/↓ volume. ⌘/Ctrl+F and Esc already exist and stay where they are
-   (§15.7): ⌘F in AppShell, Esc in the individual surfaces.
+   ↑/↓ volume, ⌘/Ctrl+→/⌘/Ctrl+← next/previous track, M mute (§2.4).
+   ⌘/Ctrl+F and Esc already exist and stay where they are (§15.7): ⌘F in
+   AppShell, Esc in the individual surfaces.
 
    Two guards, two jobs (§29 — the old single "typing target" guard also
    listed buttons and links, which made Esc fail whenever any control held
@@ -11,7 +12,14 @@
      nothing double-fires. That is the "must not fire while typing" rule.
    - Esc defers only while focus sits in TEXT mid-edit (input, textarea,
      contenteditable), where Esc means "cancel the edit". A focused button
-     or link never defers: Esc always closes the topmost surface. */
+     or link never defers: Esc always closes the topmost surface.
+
+   The transport chords (§2.4) live BEFORE the modifier early-return below —
+   that return exists to keep plain Space/arrows from firing under a
+   modifier; the chords are the modifier. They defer where the chord would
+   collide with a native meaning: in text fields ⌘→ is "end of line", and
+   open surfaces (the picker, a context menu) own the keyboard until
+   dismissed, as everywhere else. */
 
 import { useEffect } from "react";
 
@@ -64,7 +72,27 @@ export function isInteractiveControl(el: Element | null): boolean {
 export function useGlobalShortcuts(): void {
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      // Modifier chords belong to browser and app shortcuts (⌘F, ⌘R, …).
+      // §2.4: the transport chords — ⌘/Ctrl+→ next, ⌘/Ctrl+← previous —
+      // tested BEFORE the modifier early-return, which would otherwise
+      // swallow them (it guards plain Space/arrows from firing under a
+      // modifier; the chords ARE the modifier). Deferrals that matter:
+      // text keeps ⌘→ as "end of line"; open surfaces keep the keyboard.
+      if ((e.metaKey || e.ctrlKey) && !e.altKey && !e.shiftKey) {
+        if (isTextEditingTarget(document.activeElement)) return;
+        const ui = useUiStore.getState();
+        if (ui.pickerOpen || ui.contextMenuOpen) return;
+        if (e.key === "ArrowRight") {
+          e.preventDefault(); // the browser owns ⌘←/⌘→ as history navigation
+          usePlayerStore.getState().next();
+          return;
+        }
+        if (e.key === "ArrowLeft") {
+          e.preventDefault();
+          usePlayerStore.getState().prev();
+          return;
+        }
+        return; // other chords (⌘F, ⌘R, …) stay where they are
+      }
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       if (isInteractiveControl(document.activeElement)) return;
       // The library picker is a modal (§23): Space/arrows belong to it.
@@ -103,6 +131,14 @@ export function useGlobalShortcuts(): void {
         case "ArrowDown": {
           e.preventDefault();
           player.setVolume(player.volume - VOLUME_STEP);
+          break;
+        }
+        case "m":
+        case "M": {
+          // §2.4: the mute toggle — the store action behind the volume
+          // icon (§3.4), now on the key every desktop player gives it.
+          e.preventDefault();
+          player.toggleMute();
           break;
         }
       }

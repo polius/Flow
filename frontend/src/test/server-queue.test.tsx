@@ -1,8 +1,12 @@
-/* Server-truth queue restore (§32): the store restores the §29 localStorage
-   snapshot synchronously, then adopts the server's session over it when it
-   arrives while the local one is still untouched. The server is the truth;
-   the local layer is the offline fallback; a session already begun here is
-   never clobbered.
+/* Server-truth queue restore (§32 + §2.7): the store restores the §29
+   localStorage snapshot synchronously, then adopts the server's session
+   over it when it arrives while the local one is still untouched. The
+   server is the truth; the local layer is the offline fallback; a session
+   already begun here is never clobbered. And since §2.7, a REACHABLE
+   server's empty answer is authoritative for CLEARING (a stale snapshot
+   from another library must not resurrect), while an unreachable one
+   degrades to §29 with its rows marked unverified — restored rows render
+   text, not links, until the server vouches for them.
 
    The restore runs at module load, so each case re-imports the player store
    (vi.resetModules + dynamic import) with the queue API mocked — the
@@ -50,6 +54,11 @@ function serverSnapshot(orderPos: number, position = 12) {
   };
 }
 
+const session = (orderPos: number, position?: number) => ({
+  status: "session" as const,
+  snapshot: serverSnapshot(orderPos, position),
+});
+
 beforeEach(() => {
   localStorage.clear();
   queueApi.fetchServerQueue.mockReset();
@@ -73,7 +82,7 @@ async function importPlayerStore() {
 
 describe("server-queue restore (§32)", () => {
   it("adopts the server session when this browser has none", async () => {
-    queueApi.fetchServerQueue.mockResolvedValue(serverSnapshot(1));
+    queueApi.fetchServerQueue.mockResolvedValue(session(1));
     const { usePlayerStore } = await importPlayerStore();
     const s = usePlayerStore.getState();
     expect(s.queue.map((t) => t.title)).toEqual([
@@ -98,7 +107,7 @@ describe("server-queue restore (§32)", () => {
       "flow.player.playhead",
       JSON.stringify({ orderPos: 0, position: 0, savedAt: Date.now() }),
     );
-    queueApi.fetchServerQueue.mockResolvedValue(serverSnapshot(1));
+    queueApi.fetchServerQueue.mockResolvedValue(session(1));
 
     const { usePlayerStore } = await importPlayerStore();
     // An untouched first paint should show the server's truth, not this
@@ -114,7 +123,7 @@ describe("server-queue restore (§32)", () => {
     );
 
     // Defer the server answer until after the user has acted.
-    let release: (value: ReturnType<typeof serverSnapshot>) => void = () => {};
+    let release: (value: ReturnType<typeof session>) => void = () => {};
     queueApi.fetchServerQueue.mockReturnValue(
       new Promise((resolve) => {
         release = resolve;
@@ -128,13 +137,13 @@ describe("server-queue restore (§32)", () => {
     // session owned (an identity change, not a preference) — so the
     // adoption must not clobber it.
     usePlayerStore.setState({ isPlaying: true });
-    release(serverSnapshot(1));
+    release(session(1));
     await new Promise((r) => setTimeout(r, 0));
 
     expect(usePlayerStore.getState().queue[0]?.title).toBe("Local Track");
   });
 
-  it("an empty or unreachable server degrades to the localStorage snapshot", async () => {
+  it("an unreachable server degrades to the localStorage snapshot (§29), rows unverified", async () => {
     const local = [{ ...TRACKS[0], id: 7, title: "Local Track" }];
     localStorage.setItem(
       "flow.player.queue",
@@ -144,17 +153,51 @@ describe("server-queue restore (§32)", () => {
       "flow.player.playhead",
       JSON.stringify({ orderPos: 0, position: 3, savedAt: Date.now() }),
     );
-    queueApi.fetchServerQueue.mockResolvedValue(null);
+    queueApi.fetchServerQueue.mockResolvedValue({ status: "unreachable" });
 
-    const { usePlayerStore } = await importPlayerStore();
+    const { usePlayerStore, trackIsUnverified } = await importPlayerStore();
 
     const s = usePlayerStore.getState();
     expect(s.queue[0]?.title).toBe("Local Track");
     expect(s.position).toBe(3);
+    // §2.7: no answer means nothing is vouched for — surfaces must render
+    // the restored row's names as text, not links.
+    expect(trackIsUnverified(s.queue[0])).toBe(true);
+  });
+
+  it("an empty session from a reachable server CLEARS a stale local snapshot (§2.7)", async () => {
+    // The observed failure: a snapshot from a previous, different library
+    // resurrected rows whose ids no longer exist. The server answered —
+    // its truth is "nothing is playing" — so the stale copy goes, keys
+    // and all (or the next reload restores the same ghosts).
+    const local = [{ ...TRACKS[0], id: 7, title: "Local Track" }];
+    localStorage.setItem(
+      "flow.player.queue",
+      JSON.stringify({ queue: local, order: [0] }),
+    );
+    localStorage.setItem(
+      "flow.player.playhead",
+      JSON.stringify({ orderPos: 0, position: 3, savedAt: Date.now() }),
+    );
+    queueApi.fetchServerQueue.mockResolvedValue({ status: "empty" });
+
+    const { usePlayerStore } = await importPlayerStore();
+
+    const s = usePlayerStore.getState();
+    expect(s.queue).toEqual([]);
+    expect(s.origin).toBeNull();
+    expect(localStorage.getItem("flow.player.queue")).toBeNull();
+    expect(localStorage.getItem("flow.player.playhead")).toBeNull();
+  });
+
+  it("adopting the server's session vouches for its rows (links render)", async () => {
+    queueApi.fetchServerQueue.mockResolvedValue(session(1));
+    const { usePlayerStore, trackIsUnverified } = await importPlayerStore();
+    expect(trackIsUnverified(usePlayerStore.getState().queue[0])).toBe(false);
   });
 
   it("plan changes mirror to the server; playhead stamps ride the start sync", async () => {
-    queueApi.fetchServerQueue.mockResolvedValue(serverSnapshot(0));
+    queueApi.fetchServerQueue.mockResolvedValue(session(0));
     const { usePlayerStore } = await importPlayerStore();
 
     // A plan change (queue identity) schedules the debounced mirror —

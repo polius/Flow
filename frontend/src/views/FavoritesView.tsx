@@ -144,9 +144,15 @@ export function FavoritesView() {
         <div>
           <h1 className="view__title">Favorites</h1>
           <p className="view__subtitle">
-            {q
-              ? `${fmtCount(total)} ${total === 1 ? "match" : "matches"} for “${q}”`
-              : `${fmtCount(total)} ${total === 1 ? "song" : "songs"} you’ve loved`}
+            {/* §2.6: while the query is in flight the slot stays empty (the
+                nbsp holds the line box — no layout shift) rather than
+                formatting a zero. A computed "0" that isn't measured is a
+                lie §16.6 forbids. */}
+            {query.isPending
+              ? "\u00A0"
+              : q
+                ? `${fmtCount(total)} ${total === 1 ? "match" : "matches"} for “${q}”`
+                : `${fmtCount(total)} ${total === 1 ? "song" : "songs"} you’ve loved`}
           </p>
         </div>
         <div className="view__actions">
@@ -180,7 +186,11 @@ export function FavoritesView() {
           hint={
             q
               ? "Try a different word."
-              : "Touch the heart on any track’s menu — press and hold a row (or right-click it) and choose Add to Favorites."
+              : // §2.3: the copy names the actual grammar — the heart is a
+                // hover button on the row (always revealed on touch), and
+                // the long-press menu is the touch path. The old sentence
+                // sent users hunting for a row menu that no longer exists.
+                "Touch the heart on any row — or press and hold a row (right-click on desktop) for more."
           }
         />
       ) : (

@@ -29,6 +29,7 @@ import {
   fetchServerQueue,
   saveServerPlayhead,
   saveServerQueue,
+  type ServerQueueState,
 } from "../api/queue";
 import type { QueueOrigin, Track } from "../api/types";
 import { useUiStore } from "./ui";
@@ -1007,8 +1008,39 @@ if (typeof window !== "undefined") {
    session is adopted over it if it arrives while the local one is still
    untouched. An untouched first paint should show the server's truth (the
    desktop's queue, not this browser's stale copy); a session already begun
-   here is never clobbered. An unreachable or empty server degrades to §29
-   exactly. */
+   here is never clobbered.
+
+   §2.7 — the stale-snapshot hole, closed in two moves. The observed
+   failure: a leftover snapshot from a DIFFERENT library restored a queue
+   whose artist link pointed at an id that doesn't exist; when the server
+   had no session (fresh container), the stale local state stayed in
+   charge and the player bar linked into "Artist not found".
+   1. An EMPTY session from a reachable server is now authoritative for
+      CLEARING, not for degrading to local: the server is the truth (§32),
+      and its truth here is "nothing is playing". A local snapshot that
+      survives such an answer is exactly the unvouchable state the review
+      caught. (The localStorage keys go with it — otherwise the next
+      reload would resurrect the same ghosts.)
+   2. Rows restored from the local snapshot are tagged (a WeakSet, by
+      identity — it never serializes) and surfaces render TEXT, not links,
+      for them until the server replaces them wholesale. Live-fetched rows
+      never enter the set, and an unreachable server leaves the session
+      playing but unvouchable: names read as text until the server is back
+      (adoption retries twice, covering a routine restart) — honest, per
+      the review's "render text, not a link". */
+
+/** Rows the server has not vouched for (§2.7). Tagged at local restore;
+    emptied only by wholesale replacement (server adoption, clearing, or
+    any live fetch the user makes). */
+const unverifiedRows = new WeakSet<Track>();
+
+/** True when a track object came from an unvouchable local restore (§2.7):
+    surfaces render text instead of links for it. Membership is fixed at
+    boot, so a plain read at render time is safe — there is nothing to
+    subscribe to. */
+export function trackIsUnverified(track: Track | null | undefined): boolean {
+  return track != null && unverifiedRows.has(track);
+}
 
 function restoreLocalSession(): void {
   if (typeof localStorage === "undefined") return;
@@ -1056,6 +1088,9 @@ function restoreLocalSession(): void {
   }
   const track = queue[order[orderPos]];
   if (!track) return;
+  // §2.7: none of these rows are vouched for yet — the server hasn't seen
+  // them. Identity tags, cleared only by wholesale replacement below.
+  for (const t of queue) unverifiedRows.add(t);
   setStateRestoring({
     queue,
     order,
@@ -1094,11 +1129,52 @@ function parseOrigin(raw: unknown): QueueOrigin | null {
   };
 }
 
-async function adoptServerSession(): Promise<void> {
-  const snapshot = await fetchServerQueue();
-  if (!snapshot) return; // none stored, or the server is unreachable
+/** A reachable-but-empty answer clears the session (§2.7) — including the
+    local snapshot keys, or the next reload resurrects the same ghosts. */
+function clearLocalSession(): void {
+  try {
+    localStorage.removeItem(QUEUE_KEY);
+    localStorage.removeItem(PLAYHEAD_KEY);
+  } catch {
+    // best-effort, like every write here
+  }
+  setStateRestoring({
+    queue: [],
+    order: [],
+    orderPos: 0,
+    origin: null,
+    isPlaying: false,
+    position: 0,
+    duration: 0,
+  });
+  syncWindowTitle();
+}
+
+async function adoptServerSession(attempt = 0): Promise<void> {
+  const result: ServerQueueState | undefined = await fetchServerQueue();
+  if (result == null) return; // defensive: a broken transport layer
+  if (result.status === "unreachable") {
+    // A restarting server (a routine §32-verified event) gets two quiet
+    // retries — 8 s and 24 s — before the local layer is left in charge
+    // for the outage. Rows stay unvouchable (§2.7: text, not links) until
+    // an answer arrives.
+    if (attempt < 2) {
+      window.setTimeout(
+        () => void adoptServerSession(attempt + 1),
+        attempt === 0 ? 8000 : 24000,
+      );
+    }
+    return;
+  }
   if (sessionTouched) return; // this browser's session already began
-  const { items, order, order_pos, position, origin } = snapshot;
+  if (result.status === "empty") {
+    // §2.7: the server answered and its truth is "nothing is playing" —
+    // authoritative for clearing, never a reason to degrade to a local
+    // snapshot it cannot vouch for.
+    clearLocalSession();
+    return;
+  }
+  const { items, order, order_pos, position, origin } = result.snapshot;
   if (items.length === 0) return;
   let playOrder = order;
   if (

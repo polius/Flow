@@ -437,6 +437,18 @@
   opacity: 0;
 }
 
+/* Search results (§2.5): an ordinal over a match list means nothing — the
+   index slot carries the play affordance instead (the number never
+   renders), the same reveal the playing row uses, but permanent. The
+   playing row keeps its swap grammar (bars at rest, glyph on hover). */
+.trackrow--noindex .trackrow__num {
+  display: none;
+}
+
+.trackrow--noindex:not(.trackrow--playing) .trackrow__play {
+  opacity: 1;
+}
+
 .trackrow__title {
   overflow: hidden;
   text-overflow: ellipsis;

@@ -2,10 +2,11 @@
    The store remains the source of UI truth; these helpers are its mirror
    and its restore path:
 
-   - fetchServerQueue  GET on load — the session, or null when the server
-     has none (first run) or can't be reached. Callers fall back to the
-     §29 localStorage snapshot; the server is the truth, not a single
-     point of failure.
+   - fetchServerQueue  GET on load — the session, a verdict that the server
+     HAS none (§2.7: authoritative for clearing), or a verdict that it
+     can't be reached (the local layer stays in charge). The distinction
+     matters: an empty answer from a reachable server is the truth
+     "nothing is playing"; silence is not.
    - playByFilter      POST — "play this view" resolves the WHOLE filter
      server-side (§1.2 for good: there is no page to truncate to).
    - saveServerQueue   PUT — the plan mirror, debounced by the store at the
@@ -19,15 +20,25 @@ import type { QueueOrigin, QueueSnapshot, Track } from "./types";
 
 export type ServerQueueSnapshot = QueueSnapshot;
 
-/** GET /api/queue — the stored session, healed and canonical; null when
-    empty or unreachable. */
-export async function fetchServerQueue(): Promise<QueueSnapshot | null> {
+/** The three things GET /api/queue can tell the restore path. */
+export type ServerQueueState =
+  | { status: "session"; snapshot: QueueSnapshot }
+  | { status: "empty" } // reachable; no stored session (first run, or reset)
+  | { status: "unreachable" }; // no answer — the server cannot vouch either way
+
+/** GET /api/queue — the stored session, healed and canonical. A 200 with
+    no items is a real answer ("empty"); anything else the server fails to
+    answer with is "unreachable" (§2.7): only a real answer may clear. */
+export async function fetchServerQueue(): Promise<ServerQueueState> {
   try {
     const { data, response } = await api.GET("/api/queue");
-    if (!response.ok || !data || data.items.length === 0) return null;
-    return data;
+    // An erroring server (4xx/5xx) is not a real answer — it cannot vouch
+    // for the library either way, so the local layer stays in charge.
+    if (!response.ok) return { status: "unreachable" };
+    if (!data || data.items.length === 0) return { status: "empty" };
+    return { status: "session", snapshot: data };
   } catch {
-    return null;
+    return { status: "unreachable" };
   }
 }
 

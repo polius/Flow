@@ -7,13 +7,15 @@
    an action-sheet form factor on compact screens. The heart stays as a
    STATE indicator; the ACTION lives here, where it's always reachable.
 
-   Items: Play (in the row's context), Play next, Add to queue, Favorite,
-   Get Info — and, when the row came from a playlist, Remove from Playlist
-   (§25). Surface reuses the shared menu language (elevated panel, hairline
-   border, scale-in). */
+   Items: Play (in the row's context), Play next, Add to queue, Add to
+   Playlist, Go to Album / Go to Artist (§2.2 — the menu navigates, each
+   item only when the track names that entity), Favorite, Get Info — and,
+   when the row came from a playlist, Remove from Playlist (§25). Surface
+   reuses the shared menu language (elevated panel, hairline border,
+   scale-in). */
 
 import { useEffect, useRef } from "react";
-import { useLocation } from "react-router";
+import { useLocation, useNavigate } from "react-router";
 
 import { useToggleFavorite } from "../api/mutations";
 import { useMediaQuery } from "../lib/media";
@@ -21,6 +23,8 @@ import { usePlayerStore } from "../stores/player";
 import { useUiStore } from "../stores/ui";
 import { Artwork } from "./Artwork";
 import {
+  IconAlbums,
+  IconArtists,
   IconHeart,
   IconHeartFill,
   IconInfo,
@@ -47,6 +51,7 @@ export function TrackActionsMenu() {
   const addToQueue = usePlayerStore((s) => s.addToQueue);
   const openGetInfo = useUiStore((s) => s.openGetInfo);
   const openAddToPlaylist = useUiStore((s) => s.openAddToPlaylist);
+  const navigate = useNavigate();
 
   const open = request != null;
 
@@ -153,6 +158,33 @@ export function TrackActionsMenu() {
         <IconPlaylistAdd size={15} />
         Add to Playlist
       </button>
+      {/* §2.2: the menu answers "where can I go from here" — the same two
+          destinations the row's link grammar carries (§1.4), each present
+          only when the track names that entity (null-ability respected).
+          Navigation closes the menu; the pathname effect would anyway. */}
+      {(track.album_id != null || track.artist_id != null) && (
+        <div className="trackmenu__separator" role="separator" />
+      )}
+      {track.album_id != null && (
+        <button
+          type="button"
+          className="trackmenu__item"
+          onClick={act(() => navigate(`/albums/${track.album_id}`))}
+        >
+          <IconAlbums size={15} />
+          Go to Album
+        </button>
+      )}
+      {track.artist_id != null && (
+        <button
+          type="button"
+          className="trackmenu__item"
+          onClick={act(() => navigate(`/artists/${track.artist_id}`))}
+        >
+          <IconArtists size={15} />
+          Go to Artist
+        </button>
+      )}
       <div className="trackmenu__separator" role="separator" />
       <button
         type="button"
@@ -219,7 +251,7 @@ export function TrackActionsMenu() {
 
   // Desktop popover: clamp inside the viewport with the menu's shadow margin.
   const W = 224;
-  const H = 300;
+  const H = 400; // identity + up to nine items and separators (§2.2's two added)
   const left = Math.min(Math.max(8, x), window.innerWidth - W - 12);
   const top = Math.min(Math.max(8, y), window.innerHeight - H - 12);
   return (

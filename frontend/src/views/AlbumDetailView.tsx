@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { Link, useParams } from "react-router";
+import { Link, useNavigate, useParams } from "react-router";
 
 import { api } from "../api/client";
 import { Ambience } from "../components/Ambience";
@@ -7,7 +7,7 @@ import { Artwork } from "../components/Artwork";
 import { CollectionActions } from "../components/CollectionActions";
 import { EmptyState } from "../components/EmptyState";
 import { LoadingState } from "../components/LoadingState";
-import { IconAlbums } from "../components/icons";
+import { IconAlbums, IconArtists } from "../components/icons";
 import { fmtMinutes } from "../lib/format";
 import { TrackTable } from "../components/TrackTable";
 import { TrackTableHead } from "../components/TrackTableHead";
@@ -15,6 +15,7 @@ import "../styles/library.css";
 
 export function AlbumDetailView() {
   const albumId = Number(useParams().albumId);
+  const navigate = useNavigate();
 
   const { data: album } = useQuery({
     queryKey: ["album", albumId],
@@ -82,6 +83,20 @@ export function AlbumDetailView() {
               tracks={album.tracks}
               label={album.title}
               origin={{ kind: "album", label: album.title, href: `/albums/${album.id}` }}
+              extraItems={
+                album.artist_id != null
+                  ? [
+                      // §2.2: the menu answers "where can I go from here" —
+                      // the header's artist link is easy to miss; the menu
+                      // item is where menus carry it.
+                      {
+                        label: "Go to Artist",
+                        icon: <IconArtists size={15} />,
+                        onSelect: () => navigate(`/artists/${album.artist_id}`),
+                      },
+                    ]
+                  : undefined
+              }
             />
           </div>
         </div>

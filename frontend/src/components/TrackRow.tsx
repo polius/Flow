@@ -13,7 +13,6 @@
    touch the row is swipeable — a leftward drag reveals the Remove action
    behind the content (iOS Mail's partial-swipe grammar). The gesture never
    deletes by itself: the drag opens the action, the tap commits it. */
-
 import { useEffect, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import { Link } from "react-router";
@@ -47,6 +46,10 @@ interface TrackRowProps {
   track: Track;
   index: number;
   variant: TrackVariant;
+  /** §2.5: no ordinal — the index slot carries the play affordance
+      permanently (search results, where a number over a match list means
+      nothing). One prop; the CSS does the reveal. */
+  hideIndex?: boolean;
   isCurrent: boolean;
   isPlaying: boolean;
   /** Extra marker classes (drag/drop feedback), computed by the parent. */
@@ -79,6 +82,7 @@ export function TrackRow({
   track,
   index,
   variant,
+  hideIndex,
   isCurrent,
   isPlaying,
   extraClassName,
@@ -225,6 +229,7 @@ export function TrackRow({
   const classes = [
     "trackrow",
     `trackrow--${variant}`,
+    hideIndex ? "trackrow--noindex" : "",
     isCurrent ? "trackrow--playing" : "",
     extraClassName ?? "",
   ]
@@ -276,7 +281,8 @@ export function TrackRow({
       <span className="trackrow__index" aria-hidden="true">
         {/* The playing marker (§17.7 grammar, shared with the queue drawer):
             accent bars replace the number, frozen while paused; hover swaps
-            them for the play/pause glyph below. */}
+            them for the play/pause glyph below. With hideIndex (§2.5) the
+            number never renders — the slot is the play affordance's. */}
         {isCurrent && (
           <span className={`trackrow__eq eq${isPlaying ? "" : " eq--paused"}`}>
             <span />
@@ -284,9 +290,11 @@ export function TrackRow({
             <span />
           </span>
         )}
-        <span className="trackrow__num">
-          {variant === "album" ? track.track_no ?? index + 1 : index + 1}
-        </span>
+        {!hideIndex && (
+          <span className="trackrow__num">
+            {variant === "album" ? track.track_no ?? index + 1 : index + 1}
+          </span>
+        )}
         <button
           type="button"
           className="trackrow__play"

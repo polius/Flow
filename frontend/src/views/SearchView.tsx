@@ -66,6 +66,10 @@ export function SearchView() {
               <TrackTable
                 tracks={results.tracks}
                 variant="all"
+                // §2.5: results rows lead with the play affordance, not an
+                // ordinal — the numbers were the row's position in the match
+                // list, which is nothing.
+                hideIndex
                 origin={{
                   kind: "filter",
                   label: `“${urlQuery}”`,

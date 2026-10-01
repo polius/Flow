@@ -38,7 +38,7 @@ import { Link } from "react-router";
 
 import type { Track } from "../api/types";
 import { fmtDuration } from "../lib/format";
-import { usePlayerStore } from "../stores/player";
+import { trackIsUnverified, usePlayerStore } from "../stores/player";
 import { useUiStore } from "../stores/ui";
 import { AddTracksDialog } from "./AddTracksDialog";
 import { Artwork } from "./Artwork";
@@ -657,11 +657,13 @@ export function QueuePanel({ onCollapse }: QueuePanelProps) {
           </div>
         </header>
         {/* §1.1: the queue's origin, named next to the count. A hand-built
-            queue (label null) says nothing — the pre-origin behavior. */}
+            queue (label null) says nothing — the pre-origin behavior.
+            §2.7: the link renders only once the server has vouched for the
+            session (an unverified restore's href may name a dead entity). */}
         {order.length > 0 && origin?.label != null && (
           <p className="queue__origin">
             Playing from{" "}
-            {origin.href ? (
+            {origin.href && !trackIsUnverified(queue[order[orderPos]] ?? null) ? (
               <Link
                 to={origin.href}
                 className="queue__originlink"
@@ -819,10 +821,12 @@ export function QueuePanel({ onCollapse }: QueuePanelProps) {
                       <div className="queue__meta">
                         <span className="queue__name">{t.title}</span>
                         <span className="queue__sub">
-                          {t.artist_id != null && t.artist ? (
+                          {!trackIsUnverified(t) && t.artist_id != null && t.artist ? (
                             // §1.4: the artist name is a door. The title
                             // keeps click-to-jump; navigation closes the
-                            // takeover — the queue is inside it.
+                            // takeover — the queue is inside it. §2.7: a
+                            // row the server hasn't vouched for reads as
+                            // text, not a link into a dead entity.
                             <Link
                               to={`/artists/${t.artist_id}`}
                               className="queue__artistlink"

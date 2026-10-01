@@ -15,15 +15,15 @@ import {
   useReorderPlaylist,
 } from "../api/mutations";
 import { AddTracksDialog } from "../components/AddTracksDialog";
+import { CollectionActions } from "../components/CollectionActions";
 import { EmptyState } from "../components/EmptyState";
 import { LoadingState } from "../components/LoadingState";
 import { ManagePlaylistDialog } from "../components/ManagePlaylistDialog";
-import { IconPlay, IconPlaylists, IconPlus } from "../components/icons";
+import { IconPlaylists, IconPlus, IconSettings } from "../components/icons";
 import { PlaylistArt } from "../components/PlaylistArt";
 import { TrackTable } from "../components/TrackTable";
 import { TrackTableHead } from "../components/TrackTableHead";
 import { fmtCount, fmtDateTime, fmtMinutes } from "../lib/format";
-import { usePlayerStore } from "../stores/player";
 import { useUiStore } from "../stores/ui";
 import { useQueryClient } from "@tanstack/react-query";
 import "../styles/library.css";
@@ -32,7 +32,6 @@ import "../styles/editing.css";
 export function PlaylistDetailView() {
   const playlistId = Number(useParams().playlistId);
   const navigate = useNavigate();
-  const playTracks = usePlayerStore((s) => s.playTracks);
   const reorderPlaylist = useReorderPlaylist();
   const removeFromPlaylist = useRemoveFromPlaylist();
   const addToPlaylist = useAddToPlaylist();
@@ -158,26 +157,29 @@ export function PlaylistDetailView() {
             ))}
           </p>
           <div className="detailhead__actions">
-            <button
-              type="button"
-              className="btn--primary"
-              onClick={() => playTracks(playlist.tracks, 0, playlistOrigin)}
-              disabled={playlist.tracks.length === 0}
-            >
-              <IconPlay size={15} />
-              Play
-            </button>
-            <button type="button" className="view__action" onClick={() => setAdding(true)}>
-              <IconPlus size={14} />
-              Add Tracks
-            </button>
-            <button
-              type="button"
-              className="view__action"
-              onClick={() => setManaging(true)}
-            >
-              Manage
-            </button>
+            {/* §2.1: the playlist joins the §30.1 header trio — Play ·
+                Shuffle · … — shared with album/artist detail so the grammar
+                cannot fork. The editing verbs (Add Tracks, Manage) live in
+                the "…" menu; the empty state below keeps the one prominent
+                Add affordance (§8.8). Delete stays in the Manage dialog,
+                where its two-step confirm lives. */}
+            <CollectionActions
+              tracks={playlist.tracks}
+              label={playlist.name}
+              origin={playlistOrigin}
+              extraItems={[
+                {
+                  label: "Add Tracks",
+                  icon: <IconPlus size={15} />,
+                  onSelect: () => setAdding(true),
+                },
+                {
+                  label: "Manage",
+                  icon: <IconSettings size={15} />,
+                  onSelect: () => setManaging(true),
+                },
+              ]}
+            />
           </div>
         </div>
       </header>

@@ -6,7 +6,7 @@
 import { Link } from "react-router";
 
 import type { Track } from "../api/types";
-import { useCurrentTrack, usePlayerStore } from "../stores/player";
+import { trackIsUnverified, useCurrentTrack, usePlayerStore } from "../stores/player";
 import { useUiStore } from "../stores/ui";
 import { Artwork } from "./Artwork";
 import {
@@ -20,10 +20,14 @@ import "../styles/player.css";
 
 function TrackLine({ track }: { track: Track | null }) {
   if (!track) return <span className="player__title">Nothing playing</span>;
+  // §2.7: the bar links from restored state alone — a row the server
+  // hasn't vouched for renders its names as text, not links into entities
+  // that may not exist.
+  const verified = !trackIsUnverified(track);
   return (
     <>
       <span className="player__title">
-        {track.album_id != null ? (
+        {verified && track.album_id != null ? (
           // §1.4: the title names the album it lives on when one exists —
           // text at rest, an underline on hover, nothing louder.
           <Link to={`/albums/${track.album_id}`}>{track.title}</Link>
@@ -32,7 +36,7 @@ function TrackLine({ track }: { track: Track | null }) {
         )}
       </span>
       <span className="player__subtitle">
-        {track.artist_id != null ? (
+        {verified && track.artist_id != null ? (
           <Link to={`/artists/${track.artist_id}`}>{track.artist}</Link>
         ) : (
           track.artist ?? " "

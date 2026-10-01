@@ -1700,3 +1700,93 @@ live) and was cut short at the owner's direction — the remaining §8.0.6
 sweep (both themes, 375 px incl. the drawer's origin line, drawer
 groupings) is owed by the next session's verification pass, alongside
 Review 2's standing exit-checklist items.
+
+---
+
+## 34. Addendum — Review 2, Part 2: the product gaps that show (2026-10-01)
+
+Implements Part 2 of `docs/UX-REVIEW-2.md` (§2.1–§2.8). Three settled
+decisions were revised, each with the review as the owner's work order:
+
+- **§30.1's header trio now includes the playlist.** The playlist detail
+  header's standing furniture (Play · Add Tracks · Manage) was the one
+  detail view outside the trio; its editing verbs move into the "…" menu,
+  and the empty state keeps its one prominent Add affordance (§8.8).
+- **§32.7's restore precedence is extended to cover the empty answer.**
+  Previously, an empty session from a reachable server degraded to the
+  local snapshot — the hole the review observed (a stale snapshot from a
+  different library resurrected rows whose ids no longer exist, and the
+  player bar linked into "Artist not found"). A reachable server's empty
+  answer is now authoritative for CLEARING; only an unreachable server
+  degrades to §29, and then §1.4's link grammar renders text, not links,
+  for rows the server has not vouched for.
+- **§9.5's keyboard set gains the chords the transport stopped short of**
+  (§2.4): ⌘/Ctrl+→/← for next/previous — placed BEFORE the §16.3/§29
+  modifier early-return, which exists to guard plain arrows and would
+  otherwise swallow the chord — and M for mute (the §3.4b toggle action).
+  Settings' Keyboard group now also documents §31.7's table cursor
+  grammar, which had shipped undocumented — the list and the
+  implementation are one grammar; they had drifted.
+
+1. **The playlist joins the header trio (§2.1).** Play · Shuffle · … via
+   the SHARED `CollectionActions` — a parameter (`extraItems`), not a
+   fork — so Shuffle on a playlist is exactly the album/artist semantics:
+   shuffle-on + random start. The "…" menu carries the shared curation
+   verbs (Play Next, Add to Queue (end), Add to Playlist) plus, after a
+   separator, "Add Tracks" and "Manage". **Delete stays in the Manage
+   dialog**, where its two-step confirm lives — hoisting a destructive
+   verb one click closer contradicts that grammar, and the review's "the
+   existing danger items" are read as the dialog's (the header carried
+   none).
+2. **Menus navigate (§2.2).** The album "…" menu gains "Go to Artist"
+   (the header link is easy to miss); the track row menu gains "Go to
+   Album" / "Go to Artist", each present only when the track names that
+   entity (null-ability respected), sharing §1.4's destinations. The
+   artist "…" menu gains nothing: its album cards ARE the click path, and
+   a per-collection "Go to Album" has no single target there. The row
+   menu's viewport clamp grew with it (identity + up to nine items).
+3. **Favorites' empty state tells the truth (§2.3).** One platform-
+   neutral string naming the actual grammar: the heart is on the row, the
+   long-press (right-click on desktop) menu is for more. The old sentence
+   described the pre-§23 row menu.
+4. **The keyboard story is whole (§2.4).** Chords as described above; M
+   defers to nothing new (the existing interactive-control guard applies,
+   and text fields keep ⌘→ as "end of line" — the chord branch defers
+   there explicitly). Settings lists all of it, in two halves: transport
+   and chords, then "In tables" (cursor move · Home/End · PageUp/Down ·
+   Enter plays · Space toggles).
+5. **Search results lead with play, not an ordinal (§2.5).** One prop
+   (`hideIndex`) through `TrackTable` → `TrackRow` — the number never
+   renders; the play affordance takes its slot permanently (the playing
+   row keeps its bars-at-rest/hover-glyph swap). No table fork.
+6. **The subtitle never formats an unmeasured zero (§2.6).** Tracks
+   (incl. its genre/query variants) and Favorites render an empty
+   fixed-height slot while the query is in flight — no "0 songs" flash,
+   no layout shift. A computed zero after a real empty result is honest
+   and stays.
+7. **The stale-snapshot hole is closed (§2.7).** As in the decision note
+   above: reachable-empty clears (store AND the two localStorage keys, or
+   the next reload resurrects the same ghosts; still gated on the session
+   being untouched); unreachable degrades to §29 after two quiet retries
+   (8 s, 24 s — a restarting server is a §32-verified event), with rows
+   tagged (a WeakSet by object identity, never serialized) and every
+   surface that links from player-store state — player bar, Now Playing
+   (artist, album, AND the origin link), queue rows, queue head, Home's
+   Continue card — rendering text until vouched. Tagged rows exit only by
+   wholesale replacement: server adoption, the clear, or live rows
+   arriving. No new backend surface: the review's `GET /api/tracks?ids=`
+   alternative was weighed and the clearing option chosen (it needs no
+   schema work, and a fresh container with an intact library keeps its
+   session because the ids all resolve server-side via adoption).
+8. **The iOS meta tag is doubled (§2.8).** `mobile-web-app-capable` added
+   alongside the legacy `apple-` tag, which stays for older iOS; the
+   deprecation log on every load is gone.
+
+Verification: frontend suite green (25 tests — two new pinning §2.7: an
+unreachable server degrades with rows unverified, an empty session from a
+reachable server clears store and localStorage keys, and adoption
+vouches for rows; one §32 case split to the new three-state contract),
+`tsc --noEmit` and `vite build` clean. Backend untouched — no suite run.
+Per the owner's standing instruction the live §8.0.6 click-through was
+deferred; the remaining sweep (both themes, both widths, plus the exit-
+checklist items) is owed by the next verification pass.
