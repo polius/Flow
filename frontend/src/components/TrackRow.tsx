@@ -142,6 +142,16 @@ export function TrackRow({
       {...dragHandlers}
     >
       <span className="trackrow__index" aria-hidden="true">
+        {/* The playing marker (§17.7 grammar, shared with the queue drawer):
+            accent bars replace the number, frozen while paused; hover swaps
+            them for the play/pause glyph below. */}
+        {isCurrent && (
+          <span className={`trackrow__eq eq${isPlaying ? "" : " eq--paused"}`}>
+            <span />
+            <span />
+            <span />
+          </span>
+        )}
         <span className="trackrow__num">
           {variant === "album" ? track.track_no ?? index + 1 : index + 1}
         </span>

@@ -15,6 +15,7 @@ backend/.test-data/
 backend/.test-music/
 music/
 music-demo/
+.playwright-mcp/
 *.db
 *.db-wal
 *.db-shm

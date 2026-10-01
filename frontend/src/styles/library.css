@@ -281,25 +281,25 @@
   color: var(--text-secondary);
 }
 
-/* Current track — monochrome inversion, the "dark pill" (DESIGN.md §13).
-   The :hover restatement matters: .trackrow:hover out-specifies this rule,
-   and without it the pill loses its inverted fill on hover while the text
-   keeps the inverted color — dark-on-dark in dark theme (the queue drawer
-   solves the same trap with .queue__row--current:hover). */
+/* Current track — the queue drawer's quiet grammar (§17.7): a soft
+   --bg-active fill (both themes) plus the accent bars in the index slot,
+   not the old full-inversion "dark pill" (§24): near-black on the light
+   canvas was far too much contrast for an airy UI. The :hover restatement
+   matters: .trackrow:hover out-specifies this rule, and without it the
+   fill would drop back to --bg-hover while hovered. */
 .trackrow--playing,
 .trackrow--playing:hover {
-  background: var(--text-primary);
-  color: var(--bg-canvas);
+  background: var(--bg-active);
 }
 
-.trackrow--playing .trackrow__secondary,
-.trackrow--playing .trackrow__time,
-.trackrow--playing .trackrow__index {
-  color: color-mix(in srgb, var(--bg-canvas) 62%, transparent);
+/* The bars replace the row number; hovering swaps them for the play/pause
+   glyph (same reveal grammar as every row, §8.7). */
+.trackrow--playing .trackrow__num {
+  opacity: 0;
 }
 
-.trackrow--playing .trackrow__play {
-  color: var(--bg-canvas);
+.trackrow:hover .trackrow__eq {
+  opacity: 0;
 }
 
 /* Windowed rows (§9.2, §11.6): the virtual table owns the full scroll height
@@ -469,6 +469,12 @@
   }
 
   .trackrow__num {
+    opacity: 0;
+  }
+
+  /* Touch reveals the play/pause glyph for good (above) — the bars would
+     sit under it. The glyph carries the state; the bars stay hidden. */
+  .trackrow--playing .trackrow__eq {
     opacity: 0;
   }
 

@@ -914,4 +914,25 @@ panel becomes where a queue is built. Supersedes parts of §9.3, §15.1,
    in the ui store, checked by `useGlobalShortcuts` and Now Playing's Esc
    precedence, joining `contextMenuOpen`/`getInfoTrackId`).
 
+## 24. Addendum — playing row: quiet highlight, not the dark pill (2026-10-01)
+
+Owner decision: the full-inversion "dark pill" (§13's keep — near-black on
+the light canvas, near-white in dark) was too much contrast for an airy UI.
+Supersedes §13's "current track as dark pill" keep-note:
+
+1. **The current row in every track list** (Tracks/album/artist/playlist
+   variants, and the Organize grid) now uses the queue drawer's quiet
+   grammar (§17.7): a soft `--bg-active` fill in both themes, text colors
+   unchanged. One token, one look, both themes.
+2. **The playing marker is the accent bars** (§17.7's `.eq`, moved to
+   `controls.css` as shared grammar): they replace the row number in the
+   index slot, frozen while paused; hover swaps them for the play/pause
+   glyph — the same reveal grammar as every row (§8.7). On touch
+   (`hover: none`) the glyph is always revealed, so the bars stay hidden
+   there. Organize has no playback (§22.7): its playing row carries only
+   the fill; selection shares it, the checkbox column disambiguates.
+3. **All inversion-support rules removed**: the pill legibility overrides
+   for heart/remove buttons, inline-edit inputs, the insertion line, and
+   the Organize checkbox/ⓘ recolors — the quiet fill needs none of them.
+
 

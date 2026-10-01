@@ -363,11 +363,12 @@ button.orghead__sort:hover {
   outline-offset: -1.5px;
 }
 
-/* The playing pill inverts chrome — same grammar as library rows (§13). */
+/* The playing row uses the queue drawer's quiet grammar (§17.7, §24): a
+   soft --bg-active fill, no inversion. Selection shares the fill here —
+   fine, the checkbox column carries selection unambiguously. */
 .orgrow--playing,
 .orgrow--playing:hover {
-  background: var(--text-primary);
-  color: var(--bg-canvas);
+  background: var(--bg-active);
 }
 
 /* Cells */
@@ -398,10 +399,6 @@ button.orghead__sort:hover {
 .orgbox--on:hover {
   border-color: var(--text-primary);
   background: var(--text-primary);
-}
-
-.orgrow--playing .orgbox {
-  border-color: color-mix(in srgb, var(--bg-canvas) 45%, transparent);
 }
 
 .orgrow__nocell {
@@ -465,13 +462,6 @@ button.orghead__sort:hover {
   color: var(--text-secondary);
 }
 
-/* Editing inside the inverted pill: restore theme ink (same trap the
-   library rows solved in editing.css). */
-.orgrow--playing .inlineedit__input,
-.orgrow--playing .inlineedit__placeholder {
-  color: var(--text-primary);
-}
-
 /* Get Info (§23): hover-revealed ⓘ, the same reveal grammar as the library
    rows' heart (§8.7). The cell swallows clicks so row selection stays
    unambiguous. */
@@ -504,14 +494,6 @@ button.orghead__sort:hover {
 
 /* Touch has no hover — but phones use the compact template (§22.9), where
    the whole row tap opens Get Info; the button never renders there. */
-
-.orgrow--playing .orgrow__infobtn {
-  color: color-mix(in srgb, var(--bg-canvas) 72%, transparent);
-}
-
-.orgrow--playing .orgrow__infobtn:hover {
-  color: var(--bg-canvas);
-}
 
 /* ---- floating selection bar / banner ------------------------------------------- */
 

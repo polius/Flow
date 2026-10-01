@@ -42,3 +42,53 @@ input[type="range"].range::-moz-range-thumb {
   background: var(--text-primary);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
 }
+
+/* ---- the playing marker (§17.7): three accent bars, shared by the queue
+   drawer rows and the library track rows. Frozen while paused; static under
+   prefers-reduced-motion via the global motion rule. The one recurring
+   accent moment on rows. */
+.eq {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  transition: opacity var(--dur-fast) var(--ease-out);
+}
+
+.eq span {
+  width: 3px;
+  border-radius: 1px;
+  background: var(--accent);
+  animation: eq-pulse 1s ease-in-out infinite;
+}
+
+.eq span:nth-child(1) {
+  height: 8px;
+  animation-delay: -0.53s;
+}
+
+.eq span:nth-child(2) {
+  height: 14px;
+  animation-delay: -0.26s;
+}
+
+.eq span:nth-child(3) {
+  height: 10px;
+  animation-delay: -0.79s;
+}
+
+.eq--paused span {
+  animation-play-state: paused;
+}
+
+@keyframes eq-pulse {
+  0%,
+  100% {
+    transform: scaleY(0.3);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
