@@ -104,6 +104,31 @@ export function useToggleFavorite() {
   };
 }
 
+/** Batch favorite from the listening selection bar (§4.1): one toggle for
+    every selected track. Un-favoriting is a removal (§26) — one undo toast
+    restores the whole batch; favoriting is a gain and stays quiet. Each
+    track rides the same applyFavorite the row heart uses, so the queue and
+    every cache stay in step. §22.4 stands — favorite is not a bulk field;
+    this is N single PATCHes at selection scale, not a new endpoint. */
+export function useSetFavoriteMany() {
+  const queryClient = useQueryClient();
+  const showUndoNotice = useUiStore((s) => s.showUndoNotice);
+  return (tracks: Track[], favorite: boolean) => {
+    if (tracks.length === 0) return;
+    for (const t of tracks) applyFavorite(queryClient, t.id, favorite);
+    if (!favorite) {
+      const label =
+        tracks.length === 1 ? `“${tracks[0].title}”` : `${tracks.length} tracks`;
+      showUndoNotice({
+        message: `Removed ${label} from Favorites`,
+        undo: async () => {
+          for (const t of tracks) applyFavorite(queryClient, t.id, true);
+        },
+      });
+    }
+  };
+}
+
 export function usePatchTrack() {
   const queryClient = useQueryClient();
   return async (trackId: number, patch: TrackPatch): Promise<boolean> => {

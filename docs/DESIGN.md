@@ -1865,3 +1865,82 @@ click-through was deferred; the owed sweep now includes: both themes at
 375/1280/1440 for the wrapped header, Home's bounded cards at 1440/1280,
 Settings' centered column (mount-guard card included), and the ambience
 check against a saturated dark cover and a light cover.
+
+## 36. Addendum — Review 2, Part 4: the strategic decisions (2026-10-01)
+
+Completes Part 4 of `docs/UX-REVIEW-2.md`. §4.0 was recorded with §33
+(the `origin` column and its two surfaces shipped as one unit, box already
+ticked); the live items were §4.1 — decided with the owner — and §4.2.
+§4.3 (M3U export/import) stays a future milestone and its boxes stay
+unticked; §4.4's deferrals stand exactly as written.
+
+One settled decision was revised, with the review itself as the owner's
+work order (the §12 sign-off reading of §29–§33, applied again):
+
+- **§23.1's playback-only rows gain one exception: the modifier click.**
+  The plain click is untouched — it still plays, still idempotent — and it
+  now also clears any live selection (the marquee's dismiss). The review
+  explicitly re-litigated §23 for this gesture ("the one §23 decision
+  worth re-litigating"), and the owner chose option (b) on 2026-10-01.
+
+1. **Marquee multi-select (§4.1, owner decision (b)).** Cmd/Ctrl-click
+   toggles one row; Shift-click selects the contiguous range from the
+   anchor (the last selection click, Finder-style; a lone shift-click
+   selects just that row); a plain click clears and still plays — the
+   swallow guards (long-press menu, swipe tail, revealed row) run first.
+   Selection is identified by TRACK ID, not index: a playlist reorder or
+   removal under a live selection moves with the rows instead of silently
+   re-pointing at different ones (duplicates select together — it reads as
+   "this track", which is what the verbs act on). Touch never sees the
+   gesture (no modifier keys — §22.9's designed refusal, inherited), and
+   no chrome exists until a selection does (§8.0.3). Transient by
+   construction: component state, so navigation, a filter change, or Esc
+   clears it — Esc defers while a surface owns the keyboard (§16.4's
+   precedence, applied locally: context menu, picker, Get Info, either
+   takeover).
+2. **The selection bar (§4.1).** The Organize BulkBar's grammar (§22)
+   repurposed — the same floating pill, same classes, same layer — with
+   three verbs, each riding an existing path rather than inventing one:
+   **Add to Playlist…** opens the §30.2 destination dialog (the selection
+   survives a cancel; the bar honestly shows what is still selected);
+   **Add to Queue** appends through the §1.2/§33 store action, whose
+   arrival toast fires ("Added N track(s) — end of queue", Undo included);
+   **Favorite/Unfavorite** flips by the selection's state (all favorited →
+   Unfavorite). §22.4 stands — favorite is not a bulk field; the batch is
+   N single PATCHes through the same `applyFavorite` the row heart uses,
+   with the §26 undo grammar on a batch un-favorite. Completed queue and
+   favorite actions clear the selection. The one keyboard change the
+   review allows: **Enter on a live selection plays the last-selected
+   row** in the table's whole context (§29's whole-view rule); the §3.4
+   cursor grammar is otherwise unchanged.
+3. **The offline shell (§4.2) — the first new §-surface since the
+   manifest (§30.9).** A hand-written service worker (`public/sw.js`, no
+   build step — the manifest/icons precedent), registered in production
+   only (dev runs under Vite HMR, where a worker would only lie about
+   freshness), after the window's `load` event, quiet on failure. The
+   contract is exactly the review's: hashed assets (`/assets/…`) are
+   cache-first — content-hashed, so a hit is always the bytes that URL
+   names; `/api` is network-only and never cached (data is server truth,
+   §32; the app's own error states are the offline story for calls);
+   navigations are network-first with one cached fallback.
+   `public/offline.html` is that fallback: tokens-matched inline styles —
+   no bundle, no external asset, because it must render when nothing else
+   can — one screen, one Retry button, both ramps via
+   `prefers-color-scheme`. The runtime cache is bounded (128 entries,
+   oldest out; §8.0.2's edge-case rule); bumping the version constant
+   drops every cache on deploy. No data caching, no offline playback —
+   the shell only, as scoped.
+4. **§4.3 and §4.4 are untouched.** M3U export/import remains a future
+   milestone; genres-as-browse and ReplayGain album-mode stay deferred
+   with their recorded reasons.
+
+Verification: `tsc --noEmit` and `vite build` clean (dist carries
+`sw.js` + `offline.html`; `node --check` on the worker), frontend suite
+green (30 tests, 5 new pinning the marquee contract: toggle-consumes-click,
+plain-click-clears-and-falls-through, shift-range from the anchor, Esc's
+§16.4 deferral, and id-keyed selection across a reorder). Per the owner's
+standing instruction the live §8.0.6 click-through was deferred (no
+browser automation); the owed sweep adds: the selection bar over both
+tables in both themes, Enter-plays-last-selected live, and the offline
+check — stop the server, reload the installed page to the fallback card,
+retry recovers.

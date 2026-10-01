@@ -14,15 +14,18 @@
    menu timer, and the design has no Edit-mode grip to disambiguate. */
 
 import { useEffect, useRef, useState } from "react";
-import type { PointerEvent as ReactPointerEvent } from "react";
+import type { KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent } from "react";
 
 import type { QueueOrigin, Track } from "../api/types";
-import { useToggleFavorite } from "../api/mutations";
+import { useSetFavoriteMany, useToggleFavorite } from "../api/mutations";
 import { useRowCursor } from "../lib/rowCursor";
+import { useTrackSelection } from "../lib/selection";
+import { isInteractiveControl } from "../lib/shortcuts";
 import { useCurrentTrack, usePlayerStore } from "../stores/player";
 import { useUiStore } from "../stores/ui";
 import "../styles/library.css";
 import "../styles/editing.css";
+import { SelectionBar } from "./SelectionBar";
 import { TrackRow, type TrackVariant } from "./TrackRow";
 
 interface TrackTableProps {
@@ -146,6 +149,20 @@ export function TrackTable({
     tracks.length,
     activateAt,
   );
+  /* §4.1: while a selection is live, Enter plays the last-selected row (in
+     the table's whole context) — the one keyboard change the review allows.
+     Everything else, cursor included, belongs to the §3.4 grammar. */
+  const onTableKeyDown = (e: ReactKeyboardEvent) => {
+    if (e.key === "Enter" && selection.count > 0 && !isInteractiveControl(e.target as Element | null)) {
+      const idx = selection.lastIndex();
+      if (idx != null) {
+        e.preventDefault();
+        activateAt(idx);
+        return;
+      }
+    }
+    onCursorKeyDown(e);
+  };
   useEffect(() => {
     if (cursor == null) return;
     tableRef.current
@@ -161,6 +178,33 @@ export function TrackTable({
         onRemoveTrack(track);
       }
     : undefined;
+
+  /* Marquee selection (§4.1, Review 2): Cmd/Shift-click selects; the
+     floating quiet bar files the selection. Transient by construction —
+     this component's state — so navigation, a filter change, or a view
+     remount clears it; Esc clears it in place (the hook's listener). */
+  const selection = useTrackSelection(tracks);
+  const openAddToPlaylist = useUiStore((s) => s.openAddToPlaylist);
+  const addToQueue = usePlayerStore((s) => s.addToQueue);
+  const setFavoriteMany = useSetFavoriteMany();
+  const allFavorite = selection.selectedTracks.every((t) => t.favorite);
+  const selectionBar = selection.count > 0 && (
+    <SelectionBar
+      count={selection.count}
+      allFavorite={allFavorite}
+      onAddToPlaylist={() => openAddToPlaylist(selection.selectedTracks)}
+      onAddToQueue={() => {
+        // The store confirms arrival (§1.2's toast); the gesture is done.
+        addToQueue(selection.selectedTracks);
+        selection.clear();
+      }}
+      onToggleFavorite={() => {
+        setFavoriteMany(selection.selectedTracks, !allFavorite);
+        selection.clear();
+      }}
+      onClear={selection.clear}
+    />
+  );
 
   // Row action menu (right-click / long-press): carries the table's context
   // so "Play" from the menu plays in place, and — in a playlist — the remove
@@ -400,6 +444,7 @@ export function TrackTable({
         [
           drag?.from === index ? "trackrow--dragging" : "",
           cursor === index ? "trackrow--cursor" : "",
+          selection.ids.has(track.id) ? "trackrow--selected" : "",
         ]
           .filter(Boolean)
           .join(" ") || undefined
@@ -410,6 +455,7 @@ export function TrackTable({
       onTogglePlay={togglePlay}
       onToggleFavorite={toggleFavorite}
       onTrackMenu={trackMenu}
+      onSelectClick={selection.onRowClick}
       onRemove={variant === "playlist" && removeTrack ? removeTrack : undefined}
       swipeOpen={variant === "playlist" && openSwipeId === track.id}
       onSwipeOpenChange={
@@ -424,23 +470,26 @@ export function TrackTable({
   ));
 
   return (
-    <div
-      ref={tableRef}
-      className={`tracktable tracktable--${variant}${drag ? " tracktable--dragging" : ""}`}
-      role="table"
-      aria-label="Tracks"
-      tabIndex={0}
-      onKeyDown={onCursorKeyDown}
-      onPointerDown={onTablePointerDown}
-      onPointerMove={onTablePointerMove}
-      onPointerUp={onTablePointerUp}
-      onPointerCancel={onTablePointerCancel}
-      onPointerLeave={onTablePointerLeave}
-      // Native image/link drag would hijack the press — the table's only
-      // drag is the reorder gesture.
-      onDragStart={(e) => e.preventDefault()}
-    >
-      {rows}
-    </div>
+    <>
+      <div
+        ref={tableRef}
+        className={`tracktable tracktable--${variant}${drag ? " tracktable--dragging" : ""}`}
+        role="table"
+        aria-label="Tracks"
+        tabIndex={0}
+        onKeyDown={onTableKeyDown}
+        onPointerDown={onTablePointerDown}
+        onPointerMove={onTablePointerMove}
+        onPointerUp={onTablePointerUp}
+        onPointerCancel={onTablePointerCancel}
+        onPointerLeave={onTablePointerLeave}
+        // Native image/link drag would hijack the press — the table's only
+        // drag is the reorder gesture.
+        onDragStart={(e) => e.preventDefault()}
+      >
+        {rows}
+      </div>
+      {selectionBar}
+    </>
   );
 }

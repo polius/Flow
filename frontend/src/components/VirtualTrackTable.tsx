@@ -14,15 +14,19 @@
    below it. */
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import type { KeyboardEvent as ReactKeyboardEvent } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 
 import type { Track } from "../api/types";
-import { useToggleFavorite } from "../api/mutations";
+import { useSetFavoriteMany, useToggleFavorite } from "../api/mutations";
 import { useRowCursor } from "../lib/rowCursor";
+import { useTrackSelection } from "../lib/selection";
+import { isInteractiveControl } from "../lib/shortcuts";
 import { useCurrentTrack, usePlayerStore } from "../stores/player";
 import { useUiStore } from "../stores/ui";
 import "../styles/library.css";
 import "../styles/editing.css";
+import { SelectionBar } from "./SelectionBar";
 import { TrackRow } from "./TrackRow";
 
 /* .trackrow: 7px padding × 2 + one 24px line → fixed-height rows by design. */
@@ -97,6 +101,47 @@ export function VirtualTrackTable({
     virtualizer.scrollToIndex(cursor, { align: "auto" });
   }, [cursor, virtualizer, tracks.length]);
 
+  /* Marquee selection (§4.1, Review 2): Cmd/Shift-click selects over the
+     loaded rows; the floating quiet bar files the selection. The loaded
+     rows are exactly the rows that can be clicked, so every selected id
+     resolves to a real track here. */
+  const selection = useTrackSelection(tracks);
+  const openAddToPlaylist = useUiStore((s) => s.openAddToPlaylist);
+  const addToQueue = usePlayerStore((s) => s.addToQueue);
+  const setFavoriteMany = useSetFavoriteMany();
+  const allFavorite = selection.selectedTracks.every((t) => t.favorite);
+  const selectionBar = selection.count > 0 && (
+    <SelectionBar
+      count={selection.count}
+      allFavorite={allFavorite}
+      onAddToPlaylist={() => openAddToPlaylist(selection.selectedTracks)}
+      onAddToQueue={() => {
+        // The store confirms arrival (§1.2's toast); the gesture is done.
+        addToQueue(selection.selectedTracks);
+        selection.clear();
+      }}
+      onToggleFavorite={() => {
+        setFavoriteMany(selection.selectedTracks, !allFavorite);
+        selection.clear();
+      }}
+      onClear={selection.clear}
+    />
+  );
+  /* §4.1: while a selection is live, Enter plays the last-selected row —
+     the one keyboard change the review allows; everything else stays the
+     §3.4 cursor grammar. */
+  const onTableKeyDown = (e: ReactKeyboardEvent) => {
+    if (e.key === "Enter" && selection.count > 0 && !isInteractiveControl(e.target as Element | null)) {
+      const idx = selection.lastIndex();
+      if (idx != null) {
+        e.preventDefault();
+        activateAt(idx);
+        return;
+      }
+    }
+    onCursorKeyDown(e);
+  };
+
   // Row action menu (right-click / long-press) with the full loaded context.
   const openTrackMenu = useUiStore((s) => s.openTrackMenu);
   const trackMenu = useCallback(
@@ -106,37 +151,48 @@ export function VirtualTrackTable({
   );
 
   return (
-    <div
-      ref={containerRef}
-      className="tracktable tracktable--all tracktable--virtual"
-      role="table"
-      aria-label="Tracks"
-      tabIndex={0}
-      onKeyDown={onCursorKeyDown}
-      style={{ height: virtualizer.getTotalSize() }}
-    >
-      {virtualizer.getVirtualItems().map((item) => {
-        const track = tracks[item.index];
-        if (!track) return null;
-        return (
-          <TrackRow
-            key={track.id}
-            track={track}
-            index={item.index}
-            variant="all"
-            isCurrent={current?.id === track.id}
-            isPlaying={isPlaying}
-            extraClassName={cursor === item.index ? "trackrow--cursor" : undefined}
-            style={{
-              transform: `translateY(${item.start}px)`,
-            }}
-            onActivate={play}
-            onTogglePlay={togglePlay}
-            onToggleFavorite={toggleFavorite}
-            onTrackMenu={trackMenu}
-          />
-        );
-      })}
-    </div>
+    <>
+      <div
+        ref={containerRef}
+        className="tracktable tracktable--all tracktable--virtual"
+        role="table"
+        aria-label="Tracks"
+        tabIndex={0}
+        onKeyDown={onTableKeyDown}
+        style={{ height: virtualizer.getTotalSize() }}
+      >
+        {virtualizer.getVirtualItems().map((item) => {
+          const track = tracks[item.index];
+          if (!track) return null;
+          return (
+            <TrackRow
+              key={track.id}
+              track={track}
+              index={item.index}
+              variant="all"
+              isCurrent={current?.id === track.id}
+              isPlaying={isPlaying}
+              extraClassName={
+                [
+                  cursor === item.index ? "trackrow--cursor" : "",
+                  selection.ids.has(track.id) ? "trackrow--selected" : "",
+                ]
+                  .filter(Boolean)
+                  .join(" ") || undefined
+              }
+              style={{
+                transform: `translateY(${item.start}px)`,
+              }}
+              onActivate={play}
+              onTogglePlay={togglePlay}
+              onToggleFavorite={toggleFavorite}
+              onTrackMenu={trackMenu}
+              onSelectClick={selection.onRowClick}
+            />
+          );
+        })}
+      </div>
+      {selectionBar}
+    </>
   );
 }

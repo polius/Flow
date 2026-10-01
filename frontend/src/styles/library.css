@@ -489,6 +489,16 @@
   background: var(--bg-active);
 }
 
+/* Marquee selection (§4.1): the same quiet fill the playing row wears —
+   §24.2's "selection shares it", inherited from the Organize grid —
+   disambiguated by the index slot: the playing row carries the bars, a
+   selected row keeps its number. The :hover mirror keeps a selected row
+   selected while the pointer is on it (the playing rule's reasoning). */
+.trackrow--selected,
+.trackrow--selected:hover {
+  background: var(--bg-active);
+}
+
 /* The keyboard cursor (§3.4): the Organize grid's exact outline grammar,
    inherited — one visual language for "the row the keyboard is on". */
 .trackrow--cursor {

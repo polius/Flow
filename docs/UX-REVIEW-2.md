@@ -366,14 +366,19 @@ the queue became server-truth at 2,400-track scale. What has *no path* is the mi
 Select-all covers *many*; single-row menus cover *one*; the common *few* is orphaned.
 
 **Do (decision first, then build):**
-- [ ] Decide with the owner: (a) accept the tax (five menus is honest, if tedious), (b)
+- [x] Decide with the owner: (a) accept the tax (five menus is honest, if tedious), (b)
       marquee multi-select — Cmd/Shift-click selects rows, a floating quiet bar offers
       Add to Playlist / Add to Queue / Favorite (Organize's BulkBar grammar, repurposed,
       §22's selection model minus the editing), or (c) drag rows onto playlist targets.
       Recommendation: (b) — it reuses two proven grammars, adds no chrome until selection
       exists, and degrades cleanly (a lone Cmd-click selects one; Esc clears).
-- [ ] If (b): selection is *transient and listening-safe* — Enter on a selection plays the
+      *(Decided with the owner 2026-10-01: **(b)**, as recommended. See §36.)*
+- [x] If (b): selection is *transient and listening-safe* — Enter on a selection plays the
       last-selected row; no other behavior changes.
+      *(Shipped as specified: Cmd/Ctrl-click toggles, Shift-click ranges from the anchor,
+      a plain click clears and still plays; selection is id-keyed so a playlist reorder
+      moves with the rows; Enter plays the last-selected row in the table's whole context;
+      Esc clears. See §36.)*
 
 ### 4.2 An offline shell is the LAN answer to the server being down
 
@@ -384,9 +389,11 @@ installed app and a bookmark with ambitions. No data caching, no offline playbac
 only.
 
 **Do:**
-- [ ] Minimal service worker: cache-first for hashed assets, network-only for `/api`, an
+- [x] Minimal service worker: cache-first for hashed assets, network-only for `/api`, an
       offline fallback page for navigations. One screen, one retry button. Record as a
       §-addendum (it's the first new §-surface since the manifest).
+      *(Shipped as specified — `public/sw.js`, hand-written with no build step, registered
+      in production only; `public/offline.html` is the one page. See §36.)*
 
 ### 4.3 Playlist export/import (M3U) is table stakes for the self-hosted segment
 

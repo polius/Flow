@@ -1,0 +1,103 @@
+<!doctype html>
+<!-- The offline shell's one page (Review 2 §4.2). Standalone by design: it
+     must render when nothing else can be fetched, so it carries no bundle
+     and no external asset — tokens-matched styles inline, theme via
+     prefers-color-scheme. One screen, one retry button. -->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <title>Flow</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        --canvas: #f5f5f7;
+        --elevated: #ffffff;
+        --text: #1d1d1f;
+        --text-2: #6e6e73;
+        --line: rgba(0, 0, 0, 0.12);
+        --ink: #1d1d1f;
+        --ink-text: #f5f5f7;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --canvas: #161618;
+          --elevated: #232326;
+          --text: #f5f5f7;
+          --text-2: #98989d;
+          --line: rgba(255, 255, 255, 0.14);
+          --ink: #f5f5f7;
+          --ink-text: #161618;
+        }
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        height: 100%;
+      }
+      body {
+        margin: 0;
+        display: grid;
+        place-items: center;
+        padding: 24px;
+        background: var(--canvas);
+        color: var(--text);
+        font:
+          14px/1.5 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI",
+          Roboto, sans-serif;
+        -webkit-font-smoothing: antialiased;
+      }
+      .card {
+        max-width: 360px;
+        text-align: center;
+        padding: 40px 32px 32px;
+        background: var(--elevated);
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        box-shadow: 0 10px 34px rgba(0, 0, 0, 0.14);
+      }
+      h1 {
+        margin: 0 0 8px;
+        font-size: 17px;
+        font-weight: 650;
+        letter-spacing: -0.01em;
+      }
+      p {
+        margin: 0 0 24px;
+        font-size: 14px;
+        color: var(--text-2);
+      }
+      button {
+        appearance: none;
+        border: 0;
+        border-radius: 999px;
+        padding: 8px 22px;
+        font: inherit;
+        font-weight: 600;
+        background: var(--ink);
+        color: var(--ink-text);
+        cursor: pointer;
+      }
+      button:hover {
+        opacity: 0.85;
+      }
+      button:focus-visible {
+        outline: 2px solid var(--text);
+        outline-offset: 2px;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="card">
+      <h1>Can&rsquo;t reach your library</h1>
+      <p>
+        Flow can&rsquo;t reach the server right now. It may be restarting
+        &mdash; give it a moment, then retry.
+      </p>
+      <button type="button" onclick="location.reload()">Retry</button>
+    </main>
+  </body>
+</html>

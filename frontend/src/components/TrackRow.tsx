@@ -76,6 +76,16 @@ interface TrackRowProps {
   swipeOpen?: boolean;
   /** Reports open/close so the parent can close the previously open row. */
   onSwipeOpenChange?: (open: boolean) => void;
+  /** Marquee selection (§4.1): modifier-clicks (Cmd/Ctrl toggle, Shift
+      range) are offered to the table's selection hook, which returns true
+      when it consumed the click — the row must not play. Plain clicks fall
+      through untouched: any live selection clears and the row keeps its
+      §23.1 play. */
+  onSelectClick?: (
+    track: Track,
+    index: number,
+    e: { metaKey: boolean; ctrlKey: boolean; shiftKey: boolean },
+  ) => boolean;
 }
 
 export function TrackRow({
@@ -96,6 +106,7 @@ export function TrackRow({
   onRemove,
   swipeOpen = false,
   onSwipeOpenChange,
+  onSelectClick,
 }: TrackRowProps) {
   // Long-press → action menu (the touch path for everything the desktop row
   // reveals on hover). The press that opens the menu must not also play the
@@ -246,7 +257,7 @@ export function TrackRow({
       // view by this index; the playlist wrapper keeps its own data-idx for
       // the pointer gestures.
       data-rowindex={index}
-      onClick={() => {
+      onClick={(e) => {
         // Idempotent play (§23): never toggles — a second click (the tail of
         // a double-click, a restless re-click) must not pause. The click a
         // long-press or swipe leaves behind is swallowed too, and a tap on
@@ -263,6 +274,10 @@ export function TrackRow({
           onSwipeOpenChange?.(false);
           return;
         }
+        // Marquee selection (§4.1): a modifier-click may select instead of
+        // play; a plain click falls through — the selection hook has
+        // already cleared itself, and the row keeps its playback-only click.
+        if (onSelectClick && onSelectClick(track, index, e)) return;
         if (!isCurrent) onActivate(index);
       }}
       onContextMenu={
