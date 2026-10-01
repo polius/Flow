@@ -12,6 +12,7 @@ import { useQuery } from "@tanstack/react-query";
 
 import { api } from "../api/client";
 import { useAddToPlaylist, useCreatePlaylist } from "../api/mutations";
+import { useModalFocus } from "../lib/focus";
 import { useUiStore } from "../stores/ui";
 import { IconMusicNote, IconPlus } from "./icons";
 import { PlaylistArt } from "./PlaylistArt";
@@ -28,6 +29,10 @@ export function AddToPlaylistDialog() {
   const panelRef = useRef<HTMLDivElement>(null);
 
   const open = tracks != null && tracks.length > 0;
+
+  // Modal focus (§3.4): focus in, Tab cycled, focus restored on close. The
+  // panel itself (tabIndex=-1) is the host — its list rows are the controls.
+  useModalFocus(panelRef, open);
 
   // Modal lifecycle (§15.7): Esc closes, the shortcut guard defers, and
   // the dialog owns its one moment of attention.

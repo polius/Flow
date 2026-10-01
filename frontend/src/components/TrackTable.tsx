@@ -18,6 +18,7 @@ import type { PointerEvent as ReactPointerEvent } from "react";
 
 import type { Track } from "../api/types";
 import { useToggleFavorite } from "../api/mutations";
+import { useRowCursor } from "../lib/rowCursor";
 import { useCurrentTrack, usePlayerStore } from "../stores/player";
 import { useUiStore } from "../stores/ui";
 import "../styles/library.css";
@@ -122,6 +123,25 @@ export function TrackTable({
   const toggleFavorite = useToggleFavorite();
 
   const play = (index: number) => playTracks(context ?? tracks, index);
+
+  /* Keyboard cursor (§3.4): the Organize grid's Finder grammar, inherited.
+     Enter plays the cursor row — idempotent like the row click: the
+     current track's row never restarts. Arrows keep the cursor visible. */
+  const activateAt = (index: number) => {
+    const track = tracks[index];
+    if (track != null && track.id === current?.id) return;
+    play(index);
+  };
+  const { cursor, onKeyDown: onCursorKeyDown } = useRowCursor(
+    tracks.length,
+    activateAt,
+  );
+  useEffect(() => {
+    if (cursor == null) return;
+    tableRef.current
+      ?.querySelector<HTMLElement>(`[data-rowindex="${cursor}"]`)
+      ?.scrollIntoView?.({ block: "nearest" });
+  }, [cursor]);
 
   // Removal goes through one path so every entry point — hover minus,
   // swipe action, long-press menu — closes any revealed row first.
@@ -364,7 +384,14 @@ export function TrackTable({
       variant={variant}
       isCurrent={current?.id === track.id}
       isPlaying={isPlaying}
-      extraClassName={drag?.from === index ? "trackrow--dragging" : ""}
+      extraClassName={
+        [
+          drag?.from === index ? "trackrow--dragging" : "",
+          cursor === index ? "trackrow--cursor" : "",
+        ]
+          .filter(Boolean)
+          .join(" ") || undefined
+      }
       wrapStyle={drag ? { transform: `translateY(${shiftFor(index)}px)` } : undefined}
       dataIdx={variant === "playlist" ? index : undefined}
       onActivate={play}
@@ -390,6 +417,8 @@ export function TrackTable({
       className={`tracktable tracktable--${variant}${drag ? " tracktable--dragging" : ""}`}
       role="table"
       aria-label="Tracks"
+      tabIndex={0}
+      onKeyDown={onCursorKeyDown}
       onPointerDown={onTablePointerDown}
       onPointerMove={onTablePointerMove}
       onPointerUp={onTablePointerUp}

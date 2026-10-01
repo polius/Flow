@@ -216,8 +216,9 @@ inversion, fills, and weight carry everything else. Monochrome chrome + colored 
 strongest version of this design language; a permanent red is a watermark on it.
 
 **Do:**
-- [ ] Decide the accent's future explicitly with the owner (drop it / reduce to the playing
-      bars). Record the outcome as a DESIGN.md addendum either way.
+- [x] Decide the accent's future explicitly with the owner (drop it / reduce to the playing
+      bars). Record the outcome as a DESIGN.md addendum either way. *(decided with the owner
+      2026-10-01: reduce to the playing bars — §31.)*
 
 ### 3.2 Typography: the hierarchy is right, the sizes are one notch shy
 
@@ -226,7 +227,8 @@ for density only in tables, not hero moments. Music.app's track titles sit a ste
 12–13px metadata doing the quieting. (Tabular numerals: already correct.)
 
 **Do:**
-- [ ] Raise primary text one step; let secondary metadata carry the hierarchy.
+- [x] Raise primary text one step; let secondary metadata carry the hierarchy. *(--text-body
+      13px → 14px; §31.)*
 
 ### 3.3 Motion and ambience: the strongest visual work — protect it
 
@@ -236,27 +238,37 @@ Nothing to fix; everything to protect from future accretion.
 
 ### 3.4 Details that fell short of the bar
 
-- [ ] **Scrubbing doesn't preview.** `Scrubber` (`frontend/src/components/transport.tsx`) seeks
+- [x] **Scrubbing doesn't preview.** `Scrubber` (`frontend/src/components/transport.tsx`) seeks
       on release only; Music seeks *live* under the thumb. `timeupdate`-driven position (4Hz)
       also steps rather than glides — an rAF position loop is the professional version.
-- [ ] **The volume icon is decoration.** Not a button, no mute. Click-to-mute is expected
-      muscle memory.
-- [ ] **The Add Tracks picker caps at 200** (`RESULT_LIMIT` in
+      *(live rAF-coalesced seek under the thumb + a frame-rate position loop in the engine
+      — §31.)*
+- [x] **The volume icon is decoration.** Not a button, no mute. Click-to-mute is expected
+      muscle memory. *(click-to-mute with a muted glyph; the slider keeps its level; moving
+      the slider unmutes — §31.)*
+- [x] **The Add Tracks picker caps at 200** (`RESULT_LIMIT` in
       `frontend/src/components/AddTracksDialog.tsx`) and "Select all" selects only those 200 —
       silently — while the header advertises "LIBRARY — 2400 TRACKS." Track 201+ is reachable
       only by guessing search terms. Paginate / load-more, or select-all server-side by filter.
-- [ ] **Modals don't manage focus.** Get Info, Now Playing, and Organize declare
+      *(offset pagination with a Load-more row, the list windowed like the queue drawer, and
+      Select all fetches every remaining page before selecting — §31.)*
+- [x] **Modals don't manage focus.** Get Info, Now Playing, and Organize declare
       `aria-modal="true"` but don't move focus in, trap Tab, or restore it on close; only
       `AddTracksDialog` focuses its field. Background content stays live to screen readers and
-      Tab.
-- [ ] **Tables aren't keyboard-navigable as tables.** Track rows are `role="row"` with inner
+      Tab. *(one shared hook — `lib/focus.ts` — applied to every modal surface; §31.)*
+- [x] **Tables aren't keyboard-navigable as tables.** Track rows are `role="row"` with inner
       tabbable buttons only — no arrow-key cursor, no Enter-to-play. The Organize grid *does*
       implement Finder-style cursors; the listening tables should inherit that grammar.
-- [ ] **"Nothing playing" bar is ambiguous in dark mode** — the play button stays fully
-      saturated while disabled and the empty scrubber track nearly disappears. A treatment that
-      actually dims would resolve it.
-- [ ] **Queue drawer's "N of 1000"** currently advertises the truncation (1.2); after the queue
-      fix it becomes an honest, useful signal.
+      *(shared `useRowCursor` hook; one Tab stop on the table, arrows/Home/End/PageUp/Down,
+      Enter plays — §31.)*
+- [x] **"Nothing playing" bar is ambiguous in dark mode** — the play button stays fully
+      saturated while disabled and the empty scrubber track nearly disappears. A treatment
+      that actually dims would resolve it. *(the empty bar dims: the play circle drops to the
+      inset fill and the scrubber's rest track reads at control-border strength via
+      `--scrubber-rest` — §31.)*
+- [x] **Queue drawer's "N of 1000"** currently advertises the truncation (1.2); after the queue
+      fix it becomes an honest, useful signal. *(verified honest at scale: "415 of 4800" with
+      4,800 entries in the drawer.)*
 
 ---
 

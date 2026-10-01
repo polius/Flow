@@ -237,6 +237,10 @@ export function TrackRow({
       className={classes}
       style={style}
       role="row"
+      // Keyboard-cursor anchor (§3.4): the table scrolls the cursor row into
+      // view by this index; the playlist wrapper keeps its own data-idx for
+      // the pointer gestures.
+      data-rowindex={index}
       onClick={() => {
         // Idempotent play (§23): never toggles — a second click (the tail of
         // a double-click, a restless re-click) must not pause. The click a

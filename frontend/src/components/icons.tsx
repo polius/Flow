@@ -306,6 +306,16 @@ export function IconVolume(props: IconProps) {
   );
 }
 
+export function IconVolumeMute(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M11.5 5.5v13L7.6 15H4.5V9h3.1Z" />
+      <path d="m15.4 9.9 4.9 4.9" />
+      <path d="m20.3 9.9-4.9 4.9" />
+    </Icon>
+  );
+}
+
 export function IconEllipsis(props: IconProps) {
   return (
     <Icon {...props}>

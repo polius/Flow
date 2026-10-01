@@ -14,9 +14,8 @@ import {
   IconPrev,
   IconRepeat,
   IconShuffle,
-  IconVolume,
 } from "./icons";
-import { PlayPauseButton, Scrubber, TransportButton } from "./transport";
+import { PlayPauseButton, Scrubber, TransportButton, VolumeControl } from "./transport";
 import "../styles/player.css";
 
 function TrackLine({ track }: { track: Track | null }) {
@@ -38,12 +37,10 @@ function TrackLine({ track }: { track: Track | null }) {
 export function PlayerBar() {
   const track = useCurrentTrack();
   const isPlaying = usePlayerStore((s) => s.isPlaying);
-  const volume = usePlayerStore((s) => s.volume);
   const shuffle = usePlayerStore((s) => s.shuffle);
   const repeat = usePlayerStore((s) => s.repeat);
   const next = usePlayerStore((s) => s.next);
   const prev = usePlayerStore((s) => s.prev);
-  const setVolume = usePlayerStore((s) => s.setVolume);
   const setShuffle = usePlayerStore((s) => s.setShuffle);
   const cycleRepeat = usePlayerStore((s) => s.cycleRepeat);
   const openNowPlaying = useUiStore((s) => s.openNowPlaying);
@@ -51,7 +48,7 @@ export function PlayerBar() {
   const hasQueue = track != null;
 
   return (
-    <footer className="player">
+    <footer className={`player${hasQueue ? "" : " player--empty"}`}>
       <div className="player__meta">
         <button
           type="button"
@@ -100,17 +97,7 @@ export function PlayerBar() {
       </div>
 
       <div className="player__volume">
-        <IconVolume size={16} />
-        <input
-          type="range"
-          className="range"
-          min={0}
-          max={1}
-          step={0.01}
-          value={volume}
-          onChange={(e) => setVolume(Number(e.target.value))}
-          aria-label="Volume"
-        />
+        <VolumeControl size={16} />
       </div>
     </footer>
   );

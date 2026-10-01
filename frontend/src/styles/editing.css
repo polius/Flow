@@ -62,18 +62,18 @@
 }
 
 .trackrow__removebtn:hover {
-  color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  color: var(--text-primary);
+  background: var(--bg-active);
 }
 
 .trackrow__heartbtn--on {
-  color: var(--accent);
+  color: var(--text-primary);
 }
 
-/* The action menu's favorite row shows the filled heart in accent when the
+/* The action menu's favorite row shows the filled heart at full ink when the
    track is already loved — same state language as the row heart. */
 .trackmenu__heart--on {
-  color: var(--accent);
+  color: var(--text-primary);
 }
 
 /* Long-press belongs to the row action menu — the OS text-selection
@@ -145,8 +145,8 @@
   justify-content: center;
   width: 84px;
   height: 100%;
-  background: var(--accent);
-  color: #fff;
+  background: var(--text-primary); /* §31: inversion, not alarm color */
+  color: var(--bg-canvas);
   font-size: var(--text-body);
   font-weight: 600;
 }
@@ -340,7 +340,8 @@ textarea.inlineedit__input {
 }
 
 .trackmenu__item--danger {
-  color: var(--accent);
+  /* §31: the consequence reads through weight, not alarm color. */
+  font-weight: 650;
 }
 
 .trackmenu__item--new {
@@ -930,6 +931,43 @@ textarea.inlineedit__input {
   padding: 0 10px;
 }
 
+/* Windowed rows (§3.4): the virtualizer owns the full height and positions
+   each row — the same element-virtualizer pattern as the queue drawer. */
+.addtracks__window {
+  position: relative;
+}
+
+.addtracks__window .addtracks__row {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+}
+
+/* The honest tail of a long list: one quiet row that appends the next page
+   (§3.4 — the old 200-row cap hid tracks 201+ behind guesswork). */
+.addtracks__more {
+  display: block;
+  width: 100%;
+  padding: 10px;
+  border-radius: var(--radius-m);
+  font-size: var(--text-small);
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-align: center;
+  transition: background var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out);
+}
+
+.addtracks__more:hover:not(:disabled) {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.addtracks__more:disabled {
+  opacity: 0.6;
+}
+
 .addtracks__placeholder {
   display: flex;
   flex-direction: column;
@@ -1374,8 +1412,9 @@ textarea.inlineedit__input {
   background: var(--bg-hover);
 }
 
-/* Destructive action lives in the footer, quiet until armed: ghost red text
-   first, filled red only for the confirm click. The label swap carries the
+/* Destructive action lives in the footer, quiet until armed: full-ink ghost
+   text first, inverted fill only for the confirm click (§31 — weight and
+   inversion carry the danger, no alarm color). The label swap carries the
    second step; the tooltip carries the fine print. */
 .manage__delete {
   display: inline-flex;
@@ -1386,20 +1425,20 @@ textarea.inlineedit__input {
   border-radius: 999px;
   font-size: var(--text-body);
   font-weight: 600;
-  color: var(--accent);
+  color: var(--text-primary);
   white-space: nowrap;
   transition: background var(--dur-fast) var(--ease-out),
     color var(--dur-fast) var(--ease-out);
 }
 
 .manage__delete:hover {
-  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  background: var(--bg-hover);
 }
 
 .manage__delete--confirm,
 .manage__delete--confirm:hover {
-  background: var(--accent);
-  color: #fff;
+  background: var(--text-primary);
+  color: var(--bg-canvas);
 }
 
 /* Narrow dialogs: the hero stacks so the fields keep a usable width.
@@ -1458,12 +1497,12 @@ textarea.inlineedit__input {
   border-radius: 999px;
   font-size: var(--text-body);
   font-weight: 600;
-  color: var(--accent);
+  color: var(--text-primary);
   transition: background var(--dur-fast) var(--ease-out);
 }
 
 .undotoast__undo:hover {
-  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  background: var(--bg-hover);
 }
 
 /* ---- Add to Playlist destination picker (§2.1) ----------------------------

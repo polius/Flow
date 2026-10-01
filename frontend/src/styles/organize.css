@@ -638,7 +638,8 @@ button.orghead__sort:hover {
 }
 
 .orgbar__suggestrow--clear .orgbar__suggestname {
-  color: var(--accent);
+  color: var(--text-primary); /* §31: full ink, not alarm color */
+}
 }
 
 .orgbar__suggestcount {

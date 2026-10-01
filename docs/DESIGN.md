@@ -1330,3 +1330,141 @@ in "1 file skipped — View" with path + reason; renaming the music folder
 away trips the calm mount-guard card and a scan after restoring it clears
 the flag with all 2,400 tracks intact. Backend suite green (101 tests,
 20 new), `tsc --noEmit`, `vite build`, and `npm test` clean.
+
+## 31. Addendum — Part 3, the design system: the accent reserved, the details at the bar (2026-10-01)
+
+Implements Part 3 of `docs/UX-REVIEW.md` (§3.1–§3.4; §3.3 is a protection
+note, nothing to build). One decision was taken explicitly with the owner
+and revises a settled decision; the rest are the review's named details.
+All changes are frontend-only — no API deltas.
+
+1. **The accent is reserved for the playing bars (§3.1 — decided with the
+   owner 2026-10-01).** The review's "reduce to the playing bars" branch is
+   adopted: monochrome chrome + colored art is the design language, and a
+   permanent red was a watermark on it. The `--accent` token survives
+   (light `#d64541`, dark `#e5544e`) but is consumed by exactly one rule —
+   `.eq span` (controls.css), the playing-row equalizer bars: the review's
+   "one moment of true state." Every former consumer is monochrome now,
+   carried by inversion, fills, and weight:
+   - active nav pill (top bar + phone sheet icon): full ink + 600 weight
+     on the existing quiet pill;
+   - `:focus-visible` ring: `--text-primary`; `::selection`: an 18% ink
+     tint;
+   - transport mode-active (shuffle/repeat): full ink;
+   - playlist swipe-reveal field: ink-tinted wash with the remove glyph at
+     full ink; the swipe Delete action itself: inverted fill (`--text-primary`
+     ground, `--bg-canvas` label);
+   - destructive affordances (menu danger item, Manage Playlist two-step
+     delete, the "clear" suggestion row): full ink, weight 600/650 — the
+     consequence reads through weight and, where armed, inversion;
+   - hearts (row + menu), remove/× hovers, undo pill: full ink or quiet
+     greys.
+   §8.1's rule — the album art is the only source of color — now holds in
+   practice, not just intent.
+
+2. **Body text one step larger (§3.2).** `--text-body` 13px → 14px; the
+   ladder reads 11 / 12 / 14 / 15 / 16 / 22 / 30. Secondary metadata
+   (`--text-small`, `--text-caption`) is unchanged and carries the
+   hierarchy, as the review prescribed. Geometry is untouched: rows are
+   governed by their 38px min-height (and the virtualizer's fixed
+   ROW_HEIGHT constants), so nothing shifts or clips.
+
+3. **The scrubber seeks live and glides (§3.4a).** Two engine changes in
+   `player.ts` / `transport.tsx`:
+   - A **rAF position loop** publishes `currentTime` every frame while
+     playing — started on the element's `play` event, stopped on `pause`
+     (so it never runs while paused or resting at the queue's end). The
+     4Hz `timeupdate` path stays as the fallback and keeps `prepareStandby`
+     fed; rAF suspends itself when the tab hides. The §29 persistence
+     layer already coalesces position writes, so the 60×/s store updates
+     cost the same one throttled localStorage write per 3s.
+   - **Live seek under the thumb:** the Scrubber's `onInput` coalesces
+     through one rAF — at most one seek per frame while dragging (a
+     pointer burst or keyboard repeat can't stack seeks the element must
+     cancel). The time label and fill follow the thumb live; release and
+     blur commit exactly as before.
+
+4. **Click-to-mute (§3.4b).** The volume icon is a control. A shared
+   `VolumeControl` (transport.tsx) renders the mute button + slider in
+   both bars so the grammar can't drift. `muted` lives in the player
+   store as transient state — deliberately not persisted; a fresh session
+   is unmuted, like every platform player. The slider keeps its level
+   under mute; raising the slider unmutes; `effectiveVolume()` is the one
+   writer of element volume (initial state, `setVolume`, and the standby
+   pre-roll all read it), so gapless swaps stay mute-consistent. New
+   `IconVolumeMute`; the muted state reads at `--text-tertiary`.
+
+5. **The Add Tracks picker is honest at library scale (§3.4c — extends
+   §23).** The silent 200-row cap (`RESULT_LIMIT`) is gone:
+   - The picker reads offset pages of 200; a quiet **"Load more — showing
+     N of M"** tail appends the next page, and the header meta reads
+     honestly in both states ("Library — N of M", "Showing N of M
+     matches").
+   - The list is **element-virtualized** (the queue drawer's pattern, rows
+     fixed at 48px) — a fully loaded library stays at ~30 live DOM rows,
+     so loading everything is smooth, not a thousands-of-buttons cliff.
+   - **Select all means all matches:** if pages remain unloaded, the
+     button ("Selecting…" while busy) fetches every remaining page first,
+     then selects — the accumulation reads off each `fetchNextPage`
+     result, never stale state. "Select all (of the loaded 200)" was the
+     defect; the fix makes the label true.
+
+6. **Modals manage focus (§3.4d — a new standing rule under §15.7).** One
+   hook, `useModalFocus` (lib/focus.ts), applied to every declared
+   `aria-modal` surface: Now Playing, the Organize sheet, Get Info, Add
+   Tracks, Add to Playlist, Manage Playlist. On open, focus moves to the
+   surface's first control (the picker nominates its search field, keeping
+   its precedent; the container itself — `tabindex={-1}` — is the fallback
+   host). Never a text field: the Esc-defers-in-text grammar (§29) must
+   not be defeated by an auto-focused input. Tab and Shift+Tab cycle
+   within the surface (the focusable set is recomputed per press, so
+   virtualized lists and conditional buttons stay honest); on close, focus
+   returns to the element that held it before — skipped if the user
+   already moved focus elsewhere. Anchored popovers and context menus keep
+   their own grammar.
+
+7. **Listening tables inherit the Organize cursor (§3.4e).** A shared
+   `useRowCursor` (lib/rowCursor.ts), used by the plain TrackTable and the
+   windowed VirtualTrackTable: the table container is **one Tab stop**;
+   arrows move the cursor, Home/End jump, PageUp/PageDown page (20, as the
+   Organize grid), **Enter plays** — idempotent, matching the row click:
+   the current track's row never restarts. Keys defer to inner controls
+   (buttons, links, sliders) exactly like the Organize grid's §16.3 guard,
+   and Space stays with the global transport shortcut. The virtual table
+   follows the cursor with `scrollToIndex`; the plain table scrolls the
+   `[data-rowindex]` row into view; `.trackrow--cursor` mirrors the
+   Organize outline so "the row the keyboard is on" looks the same
+   everywhere.
+
+8. **The empty bar actually dims (§3.4f).** `.player--empty` (PlayerBar
+   sets it when nothing plays): the play circle drops to the `--bg-inset`
+   fill with a tertiary glyph — no full-ink button pretending to be
+   enabled — and the scrubber's empty rest track reads at
+   `--control-border` strength via a `--scrubber-rest` variable the
+   Scrubber's gradient consumes (default remains `--bg-active` for playing
+   states). Resolves the dark-mode ambiguity; verified in both ramps.
+
+9. **The queue count is honest (§3.4g).** No code — §29's whole-view
+   queues already made "N of M" true. Verified at scale: 4,800 entries in
+   the drawer reading "415 of 4800" with 35 live rows.
+
+**Verified in the running app** against the generated 2,400-track /
+120-album library (fresh scan: 2,400 indexed, 2,123 analyzed, 0 errors;
+1-second fixtures keep the ended→swap path hot): computed-style checks
+show `--accent` on exactly one selector — the `.eq` bars
+(rgb(214, 69, 65)) — with the active nav pill at full ink and 14px row
+titles in both ramps; the empty dark bar renders the play circle at the
+inset fill with the scrubber track plainly visible; the playing scrubber's
+fill advances per frame (~1.7%/frame — glide, no 4Hz plateaus) and a
+trusted-input seek drives the full input → seek → position → fill chain;
+click-to-mute flips the glyph and `aria-pressed` with the slider level
+kept and restored; the picker opens reading "Library — 200 of 2400" with
+Load more appending and Select all fetching all twelve pages ("2400
+tracks · 40 min") into a windowed list (~21 live rows); the committed
+queue reads "415 of 4800"; Now Playing takes focus at its close button,
+Tab cycles inside (24 presses, never escapes), and Esc restores focus to
+the element that opened it. Console clean. New regression tests pin the
+class defects: modal focus (focus-in, Tab wrap, restore-on-close), row
+cursor (arrows, Home/End/PageUp/Down, Enter, inner-control guard), and
+mute (toggle keeps level, volume-rise unmutes) — `tsc --noEmit`,
+`vite build`, and `npm test` clean (12 tests, 8 new).

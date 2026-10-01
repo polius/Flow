@@ -18,6 +18,7 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 
 import type { Track } from "../api/types";
 import { useToggleFavorite } from "../api/mutations";
+import { useRowCursor } from "../lib/rowCursor";
 import { useCurrentTrack, usePlayerStore } from "../stores/player";
 import { useUiStore } from "../stores/ui";
 import "../styles/library.css";
@@ -77,6 +78,25 @@ export function VirtualTrackTable({
 
   const play = onPlay;
 
+  // Keyboard cursor (§3.4): the Organize grid's Finder grammar, inherited —
+  // arrows move, Enter plays, the window follows the cursor. Idempotent like
+  // the row click: the current track's row never restarts. `onPlay` plays
+  // the WHOLE view (§29), so the cursor can jump into unloaded pages and
+  // still queue correctly.
+  const activateAt = (index: number) => {
+    const track = tracks[index];
+    if (track != null && track.id === current?.id) return;
+    play(index);
+  };
+  const { cursor, onKeyDown: onCursorKeyDown } = useRowCursor(
+    tracks.length,
+    activateAt,
+  );
+  useEffect(() => {
+    if (cursor == null || cursor < 0 || cursor >= tracks.length) return;
+    virtualizer.scrollToIndex(cursor, { align: "auto" });
+  }, [cursor, virtualizer, tracks.length]);
+
   // Row action menu (right-click / long-press) with the full loaded context.
   const openTrackMenu = useUiStore((s) => s.openTrackMenu);
   const trackMenu = useCallback(
@@ -91,6 +111,8 @@ export function VirtualTrackTable({
       className="tracktable tracktable--all tracktable--virtual"
       role="table"
       aria-label="Tracks"
+      tabIndex={0}
+      onKeyDown={onCursorKeyDown}
       style={{ height: virtualizer.getTotalSize() }}
     >
       {virtualizer.getVirtualItems().map((item) => {
@@ -104,6 +126,7 @@ export function VirtualTrackTable({
             variant="all"
             isCurrent={current?.id === track.id}
             isPlaying={isPlaying}
+            extraClassName={cursor === item.index ? "trackrow--cursor" : undefined}
             style={{
               transform: `translateY(${item.start}px)`,
             }}

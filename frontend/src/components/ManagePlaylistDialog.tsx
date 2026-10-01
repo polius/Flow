@@ -12,6 +12,7 @@ import {
   useUpdatePlaylist,
   useUploadPlaylistCover,
 } from "../api/mutations";
+import { useModalFocus } from "../lib/focus";
 import { IconClose, IconPlus, IconTrash } from "./icons";
 import { PlaylistArt } from "./PlaylistArt";
 import "../styles/editing.css";
@@ -33,6 +34,10 @@ export function ManagePlaylistDialog({
   const updatePlaylist = useUpdatePlaylist();
   const uploadCover = useUploadPlaylistCover();
   const deletePlaylist = useDeletePlaylist();
+  const surfaceRef = useRef<HTMLDivElement>(null);
+
+  // Modal focus (§3.4): focus in, Tab cycled, focus restored on close.
+  useModalFocus(surfaceRef, true);
 
   // Form drafts, seeded when the dialog opens.
   const [name, setName] = useState(playlist.name);
@@ -95,7 +100,13 @@ export function ManagePlaylistDialog({
   return (
     <>
       <div className="manage__scrim" onClick={onClose} aria-hidden="true" />
-      <div className="manage" role="dialog" aria-label="Manage playlist" aria-modal="true">
+      <div
+        ref={surfaceRef}
+        className="manage"
+        role="dialog"
+        aria-label="Manage playlist"
+        aria-modal="true"
+      >
         <header className="manage__head">
           <h2 className="manage__title">Manage Playlist</h2>
           <button type="button" className="manage__close" onClick={onClose} aria-label="Close">

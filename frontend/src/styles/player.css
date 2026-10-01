@@ -108,11 +108,11 @@
 }
 
 .player__btn--active {
-  color: var(--accent);
+  color: var(--text-primary);
 }
 
 .player__btn--active:hover:not(:disabled) {
-  color: var(--accent);
+  color: var(--text-primary);
 }
 
 .player__badge {
@@ -174,6 +174,22 @@
 
 .player__volume .range {
   max-width: 110px;
+}
+
+/* ---- nothing playing (§3.4) ----
+   The empty bar used to be ambiguous in dark mode: the play circle kept its
+   full-ink fill while disabled, and the empty scrubber track sat on
+   --bg-active, one shade above the canvas — nearly invisible. The empty bar
+   now actually dims: the play circle drops to the inset fill, and the
+   scrubber's rest track (via --scrubber-rest, consumed by the Scrubber's
+   gradient) reads at control-border strength in both themes. */
+.player--empty .player__btn--play {
+  background: var(--bg-inset);
+  color: var(--text-tertiary);
+}
+
+.player--empty {
+  --scrubber-rest: var(--control-border);
 }
 
 /* ---- phone mini bar (§20) ----

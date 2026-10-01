@@ -1,12 +1,13 @@
 /* Get Info — right-side editing panel (§9.3, §13.2). Edits land as SQLite
    overlays via PATCH /api/tracks/{id}; files are never touched. */
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 
 import { api } from "../api/client";
 import { usePatchTrack, useToggleFavorite } from "../api/mutations";
 import { isTextEditingTarget } from "../lib/shortcuts";
+import { useModalFocus } from "../lib/focus";
 import { Artwork } from "./Artwork";
 import { IconClose, IconHeart, IconHeartFill } from "./icons";
 import { useUiStore } from "../stores/ui";
@@ -17,6 +18,12 @@ export function GetInfoPanel() {
   const closeGetInfo = useUiStore((s) => s.closeGetInfo);
   const patchTrack = usePatchTrack();
   const toggleFavorite = useToggleFavorite();
+  const surfaceRef = useRef<HTMLElement>(null);
+
+  // Modal focus (§3.4). The panel itself takes focus — not a field: Esc
+  // defers inside text (the "cancel the edit" grammar), and an auto-focused
+  // field would swallow the first Esc.
+  useModalFocus(surfaceRef, trackId != null);
 
   const { data: track } = useQuery({
     queryKey: ["tracks", "one", trackId],
@@ -113,7 +120,13 @@ export function GetInfoPanel() {
   return (
     <>
       <div className="getinfo__scrim" onClick={closeGetInfo} aria-hidden="true" />
-      <aside className="getinfo" role="dialog" aria-label="Get Info" aria-modal="true">
+      <aside
+        ref={surfaceRef}
+        className="getinfo"
+        role="dialog"
+        aria-label="Get Info"
+        aria-modal="true"
+      >
         <header className="getinfo__head">
           <h2 className="getinfo__title">Get Info</h2>
           <button

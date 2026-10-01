@@ -43,10 +43,29 @@ input[type="range"].range::-moz-range-thumb {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
 }
 
+/* Click-to-mute (§3.4): the volume icon is a control, not decoration.
+   Shared by the player bar and Now Playing — same grammar, same target. */
+.volumebtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  color: var(--text-secondary);
+  transition: color var(--dur-fast) var(--ease-out);
+}
+
+.volumebtn:hover {
+  color: var(--text-primary);
+}
+
+.volumebtn[aria-pressed="true"] {
+  color: var(--text-tertiary);
+}
+
 /* ---- the playing marker (§17.7): three accent bars, shared by the queue
    drawer rows and the library track rows. Frozen while paused; static under
-   prefers-reduced-motion via the global motion rule. The one recurring
-   accent moment on rows. */
+   prefers-reduced-motion via the global motion rule. THE one recurring
+   accent moment (§31 — the accent is reserved for the bars alone). */
 .eq {
   position: absolute;
   inset: 0;

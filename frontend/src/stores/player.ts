@@ -32,6 +32,9 @@ interface PlayerState {
   duration: number; // seconds (from the audio element once known)
   buffered: number; // seconds buffered ahead
   volume: number; // 0..1
+  /** Click-to-mute (§3.4): transient, not persisted — a fresh session is
+      unmuted, like every platform player. The slider keeps its level. */
+  muted: boolean;
   shuffle: boolean;
   repeat: RepeatMode;
   /** Sound Check (§2.3): apply the scan's loudness analysis so albums
@@ -64,6 +67,7 @@ interface PlayerState {
   prev: () => void;
   seek: (seconds: number) => void;
   setVolume: (v: number) => void;
+  toggleMute: () => void;
   setShuffle: (on: boolean) => void;
   cycleRepeat: () => void;
   setSoundcheck: (on: boolean) => void;
@@ -103,6 +107,7 @@ export const usePlayerStore = create<PlayerState>()(
       duration: 0,
       buffered: 0,
       volume: 0.8,
+      muted: false,
       shuffle: false,
       repeat: "off",
       soundcheck: false,
@@ -293,8 +298,14 @@ export const usePlayerStore = create<PlayerState>()(
 
       setVolume: (v) => {
         const volume = Math.min(1, Math.max(0, v));
-        for (const el of elements()) el.volume = volume;
-        set({ volume });
+        // Raising the slider is an unmute in every platform player.
+        set({ volume, muted: volume > 0 ? false : get().muted });
+        applyVolume();
+      },
+
+      toggleMute: () => {
+        set({ muted: !get().muted });
+        applyVolume();
       },
 
       setSoundcheck: (on) => {
@@ -370,6 +381,18 @@ const MAX_ERROR_SKIPS = 5;
 const PRELOAD_AHEAD_SECONDS = 10;
 
 const trackSrc = (track: Track): string => `/api/stream/${track.id}`;
+
+/** The volume the elements should actually carry — mute wins over the
+    slider level, which keeps its value underneath (§3.4 click-to-mute). */
+function effectiveVolume(): number {
+  const { volume, muted } = usePlayerStore.getState();
+  return muted ? 0 : volume;
+}
+
+function applyVolume(): void {
+  const v = effectiveVolume();
+  for (const el of elements()) el.volume = v;
+}
 
 function currentTrack(): Track | null {
   const { queue, order, orderPos } = usePlayerStore.getState();
@@ -499,7 +522,7 @@ function prepareStandby(): void {
   if (standbyTrack != null && standbyTrack.id === next.track.id) return;
   standbyTrack = next.track;
   standby.src = trackSrc(next.track);
-  standby.volume = usePlayerStore.getState().volume;
+  standby.volume = effectiveVolume();
   applyGain(standby, next.track);
   standby.load();
 }
@@ -584,8 +607,37 @@ function advance(step: number, auto: boolean): void {
   load(track, true);
 }
 
+/* -- position glide (§3.4) -------------------------------------------------
+   `timeupdate` fires ~4Hz: the scrubber and time label stepped rather than
+   glided. While playing, a rAF loop publishes `currentTime` every frame —
+   the professional version. The persistence layer already coalesces
+   position writes (§29), so the 60×/s store updates cost one throttled
+   localStorage write per 3s, and rAF suspends itself when the tab hides
+   (timeupdate keeps the state honest at 4Hz in the background). */
+
+let positionRaf: number | null = null;
+
+function stopPositionLoop(): void {
+  if (positionRaf != null) {
+    cancelAnimationFrame(positionRaf);
+    positionRaf = null;
+  }
+}
+
+function startPositionLoop(): void {
+  if (positionRaf != null || typeof window === "undefined") return;
+  const frame = () => {
+    positionRaf = null;
+    const el = audio;
+    if (!el || el.paused) return; // pause/ended stop the loop via their events
+    usePlayerStore.setState({ position: el.currentTime });
+    positionRaf = window.requestAnimationFrame(frame);
+  };
+  positionRaf = window.requestAnimationFrame(frame);
+}
+
 for (const el of elements()) {
-  el.volume = usePlayerStore.getState().volume;
+  el.volume = effectiveVolume();
 
   // Every handler guards on `el !== audio`: the standby element's events
   // are machinery, never state. The one exception is its load error —
@@ -596,9 +648,11 @@ for (const el of elements()) {
     usePlayerStore.setState({ isPlaying: true });
     errorSkipStreak = 0; // a real start — the library is alive again
     setPlaybackState("playing");
+    startPositionLoop();
   });
   el.addEventListener("pause", () => {
     if (el !== audio) return;
+    stopPositionLoop();
     usePlayerStore.setState({ isPlaying: false });
     setPlaybackState("paused");
   });

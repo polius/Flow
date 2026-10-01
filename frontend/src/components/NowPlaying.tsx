@@ -10,7 +10,7 @@
    940px, where the side-by-side drawer can't fit, the queue slides up over
    the stage as a sheet behind the header's queue button. */
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { useMediaQuery } from "../lib/media";
 import { isTextEditingTarget } from "../lib/shortcuts";
@@ -26,10 +26,10 @@ import {
   IconQueue,
   IconRepeat,
   IconShuffle,
-  IconVolume,
 } from "./icons";
 import { QueuePanel } from "./QueuePanel";
-import { PlayPauseButton, Scrubber, TransportButton } from "./transport";
+import { PlayPauseButton, Scrubber, TransportButton, VolumeControl } from "./transport";
+import { useModalFocus } from "../lib/focus";
 import "../styles/nowplaying.css";
 
 const NARROW_BP = "(max-width: 940px)";
@@ -39,17 +39,20 @@ export function NowPlaying() {
   const close = useUiStore((s) => s.closeNowPlaying);
   const track = useCurrentTrack();
   const isPlaying = usePlayerStore((s) => s.isPlaying);
-  const volume = usePlayerStore((s) => s.volume);
   const shuffle = usePlayerStore((s) => s.shuffle);
   const repeat = usePlayerStore((s) => s.repeat);
   const next = usePlayerStore((s) => s.next);
   const prev = usePlayerStore((s) => s.prev);
-  const setVolume = usePlayerStore((s) => s.setVolume);
   const setShuffle = usePlayerStore((s) => s.setShuffle);
   const cycleRepeat = usePlayerStore((s) => s.cycleRepeat);
 
   const narrow = useMediaQuery(NARROW_BP);
   const [queueOpen, setQueueOpen] = useState(false);
+  const surfaceRef = useRef<HTMLDivElement>(null);
+
+  // Modal focus (§3.4): focus moves into the takeover on open, Tab cycles
+  // inside it, and closing restores focus to whatever opened it.
+  useModalFocus(surfaceRef, open);
 
   const handleClose = () => {
     setQueueOpen(false);
@@ -92,7 +95,13 @@ export function NowPlaying() {
     .join(" ");
 
   return (
-    <div className={classes} role="dialog" aria-modal="true" aria-label="Now Playing">
+    <div
+      ref={surfaceRef}
+      className={classes}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Now Playing"
+    >
       <Ambience artworkId={track?.artwork_id ?? null} />
 
       <button
@@ -164,17 +173,7 @@ export function NowPlaying() {
                 <Scrubber />
               </div>
               <div className="nowplaying__volume">
-                <IconVolume size={15} />
-                <input
-                  type="range"
-                  className="range"
-                  min={0}
-                  max={1}
-                  step={0.01}
-                  value={volume}
-                  onChange={(e) => setVolume(Number(e.target.value))}
-                  aria-label="Volume"
-                />
+                <VolumeControl size={15} />
               </div>
             </div>
           </div>

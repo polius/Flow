@@ -8,9 +8,10 @@
    virtualizer binds to it via the same closest() lookup the main canvas
    uses — one pattern, two surfaces). */
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 
 import { isTextEditingTarget } from "../lib/shortcuts";
+import { useModalFocus } from "../lib/focus";
 import { useUiStore } from "../stores/ui";
 import { IconChevronDown, IconOrganize } from "./icons";
 import { OrganizeView } from "../views/OrganizeView";
@@ -19,6 +20,11 @@ import "../styles/organize.css";
 export function OrganizeSheet() {
   const open = useUiStore((s) => s.organizeOpen);
   const close = useUiStore((s) => s.closeOrganize);
+  const surfaceRef = useRef<HTMLDivElement>(null);
+
+  // Modal focus (§3.4): focus enters the sheet on open, Tab cycles inside,
+  // Done returns focus to the control that opened Organize.
+  useModalFocus(surfaceRef, open);
 
   // Esc closes — but yields to whatever sits above it: the library picker,
   // open menus, Get Info, queue drags, and the Now Playing takeover (the
@@ -49,7 +55,13 @@ export function OrganizeSheet() {
   if (!open) return null;
 
   return (
-    <div className="orgsheetwrap" role="dialog" aria-modal="true" aria-label="Organize">
+    <div
+      ref={surfaceRef}
+      className="orgsheetwrap"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Organize"
+    >
       <header className="orgsheetwrap__bar">
         <div className="orgsheetwrap__id">
           <span className="orgsheetwrap__mark" aria-hidden="true">

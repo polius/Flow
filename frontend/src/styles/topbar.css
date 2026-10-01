@@ -352,7 +352,8 @@
 
 .topbar__nav-item--active,
 .topbar__nav-item--active:hover {
-  color: var(--accent);
+  color: var(--text-primary); /* §31: active state carried by ink weight */
+  font-weight: 600;
   background: var(--bg-active);
 }
 
@@ -467,15 +468,15 @@
   background: var(--bg-active);
 }
 
-/* The established active-nav language (§8.1, §18.1): the accent's one
-   chrome appearance — the active section's icon on a quiet pill. */
+/* The established active-nav language (§8.1, §18.1): the active section's
+   icon at full ink on a quiet pill (§31 — the accent left the chrome). */
 .topbar__sheet-item--active,
 .topbar__sheet-item--active:hover {
   background: var(--bg-active);
 }
 
 .topbar__sheet-item--active svg {
-  color: var(--accent);
+  color: var(--text-primary);
 }
 
 /* Hairline group break, mirroring the desktop nav's separator. */

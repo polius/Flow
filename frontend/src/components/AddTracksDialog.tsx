@@ -6,11 +6,13 @@
    toggles the highlighted row, Esc closes. */
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery } from "@tanstack/react-query";
+import { useVirtualizer } from "@tanstack/react-virtual";
 
 import { api } from "../api/client";
 import type { PlaylistDetail, Track } from "../api/types";
 import { useAddToPlaylist } from "../api/mutations";
+import { useModalFocus } from "../lib/focus";
 import { usePlayerStore } from "../stores/player";
 import { useUiStore } from "../stores/ui";
 import { Artwork } from "./Artwork";
@@ -23,8 +25,12 @@ type AddTracksDialogProps =
   | { kind: "playlist"; playlist: PlaylistDetail; onClose: () => void }
   | { kind: "queue"; onClose: () => void };
 
-/** The picker reads one page of results; the search field narrows the rest. */
-const RESULT_LIMIT = 200;
+/** One page of results; "Load more" (§3.4) appends the next page, and
+    Select all fetches every remaining page before selecting — the 200-row
+    silent cap is gone. */
+const PAGE_SIZE = 200;
+/** Row height of .addtracks__row: 7px padding × 2 + 34px artwork. */
+const ROW_HEIGHT = 48;
 const SEARCH_DEBOUNCE_MS = 150;
 
 export function AddTracksDialog(props: AddTracksDialogProps) {
@@ -37,7 +43,10 @@ export function AddTracksDialog(props: AddTracksDialogProps) {
   const [cursor, setCursor] = useState(0);
   const [selected, setSelected] = useState<Map<number, Track>>(new Map());
   const [adding, setAdding] = useState(false);
+  const [selectingAll, setSelectingAll] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
+  const surfaceRef = useRef<HTMLDivElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
 
   // Registered like any modal (§15.7): Now Playing's Esc and the global
   // shortcut guard defer while the picker is up.
@@ -65,19 +74,48 @@ export function AddTracksDialog(props: AddTracksDialogProps) {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [onClose]);
 
-  const { data, isPending } = useQuery({
-    queryKey: ["tracks", "picker", q],
-    queryFn: async () => {
-      const { data } = await api.GET("/api/tracks", {
-        params: { query: { limit: RESULT_LIMIT, ...(q ? { q } : {}) } },
-      });
-      return data;
-    },
-    placeholderData: (prev) => prev,
-  });
+  // Modal focus (§3.4): the search field stays the first target (its own
+  // autofocus runs first), Tab cycles inside the dialog, closing restores.
+  useModalFocus(surfaceRef, true, { initial: () => searchRef.current });
 
-  const results = data?.items ?? [];
-  const total = data?.total ?? 0;
+  const { data, isPending, fetchNextPage, hasNextPage, isFetchingNextPage } =
+    useInfiniteQuery({
+      queryKey: ["tracks", "picker", q],
+      queryFn: async ({ pageParam }) => {
+        const { data } = await api.GET("/api/tracks", {
+          params: {
+            query: { limit: PAGE_SIZE, offset: pageParam, ...(q ? { q } : {}) },
+          },
+        });
+        return data;
+      },
+      initialPageParam: 0,
+      getNextPageParam: (lastPage, allPages) => {
+        const loaded = allPages.reduce((n, p) => n + (p?.items.length ?? 0), 0);
+        return loaded < (lastPage?.total ?? 0) ? loaded : undefined;
+      },
+      placeholderData: (prev) => prev,
+    });
+
+  const results = useMemo(
+    () => (data?.pages ?? []).flatMap((p) => p?.items ?? []),
+    [data],
+  );
+  const total = data?.pages[0]?.total ?? 0;
+
+  // Keep the keyboard cursor visible as the window scrolls (the picker list
+  // is windowed now — select-all can load thousands of rows, §3.4).
+  const virtualizer = useVirtualizer({
+    count: results.length,
+    getScrollElement: () => listRef.current,
+    estimateSize: () => ROW_HEIGHT,
+    overscan: 12,
+  });
+  useEffect(() => {
+    if (cursor >= 0 && cursor < results.length) {
+      virtualizer.scrollToIndex(cursor, { align: "auto" });
+    }
+  }, [cursor, virtualizer, results.length]);
 
   const existingIds = useMemo(
     () =>
@@ -101,12 +139,36 @@ export function AddTracksDialog(props: AddTracksDialogProps) {
     });
   };
 
-  const selectAll = () => {
-    setSelected((prev) => {
-      const next = new Map(prev);
-      for (const t of selectable) next.set(t.id, t);
-      return next;
-    });
+  // "Select all" means ALL matches, not the loaded page (§3.4 — the old
+  // picker silently capped at 200 while the header advertised the library).
+  // Any unloaded pages are fetched first, then everything selects. The
+  // loop reads the accumulated pages off each fetchNextPage result, so it
+  // can't act on stale state.
+  const selectAll = async () => {
+    if (selectingAll) return;
+    setSelectingAll(true);
+    try {
+      let pages = data?.pages ?? [];
+      let more = hasNextPage;
+      while (more) {
+        const res = await fetchNextPage({ cancelRefetch: false });
+        const fetched = res.data?.pages;
+        if (fetched == null || fetched.length === pages.length) break;
+        pages = fetched;
+        const loaded = pages.reduce((n, p) => n + (p?.items.length ?? 0), 0);
+        more = loaded < (pages[0]?.total ?? 0);
+      }
+      const all = pages.flatMap((p) => p?.items ?? []);
+      setSelected((prev) => {
+        const next = new Map(prev);
+        for (const t of all) {
+          if (!existingIds.has(t.id)) next.set(t.id, t);
+        }
+        return next;
+      });
+    } finally {
+      setSelectingAll(false);
+    }
   };
 
   const clear = () => setSelected(new Map());
@@ -196,6 +258,7 @@ export function AddTracksDialog(props: AddTracksDialogProps) {
     <>
       <div className="addtracks__scrim" onClick={onClose} aria-hidden="true" />
       <div
+        ref={surfaceRef}
         className="addtracks"
         role="dialog"
         aria-modal="true"
@@ -235,11 +298,11 @@ export function AddTracksDialog(props: AddTracksDialogProps) {
         <div className="addtracks__listhead">
           <span className="addtracks__listmeta">
             {q
-              ? total > RESULT_LIMIT
+              ? total > results.length
                 ? `Showing ${results.length} of ${total} matches`
                 : `${results.length} ${results.length === 1 ? "match" : "matches"}`
               : total > 0
-                ? `Library${total > RESULT_LIMIT ? ` — ${total} tracks` : ""}`
+                ? `Library${total > results.length ? ` — ${results.length} of ${total}` : ""}`
                 : "Library"}
           </span>
           {selectable.length > 1 && (
@@ -250,15 +313,26 @@ export function AddTracksDialog(props: AddTracksDialogProps) {
                 </button>
               )}
               {!allSelected && (
-                <button type="button" className="addtracks__bulkbtn" onClick={selectAll}>
-                  Select all
+                <button
+                  type="button"
+                  className="addtracks__bulkbtn"
+                  onClick={() => void selectAll()}
+                  disabled={selectingAll}
+                >
+                  {selectingAll ? "Selecting…" : "Select all"}
                 </button>
               )}
             </div>
           )}
         </div>
 
-        <div className="addtracks__list" role="listbox" aria-multiselectable="true" aria-label="Library tracks">
+        <div
+          ref={listRef}
+          className="addtracks__list"
+          role="listbox"
+          aria-multiselectable="true"
+          aria-label="Library tracks"
+        >
           {isPending && results.length === 0 ? (
             <div className="addtracks__placeholder">Loading your library…</div>
           ) : results.length === 0 ? (
@@ -280,51 +354,76 @@ export function AddTracksDialog(props: AddTracksDialogProps) {
               )}
             </div>
           ) : (
-            results.map((track, index) => {
-              const inPlaylist = existingIds.has(track.id);
-              const isSelected = selected.has(track.id);
-              const classes = [
-                "addtracks__row",
-                isSelected ? "addtracks__row--selected" : "",
-                index === cursor ? "addtracks__row--cursor" : "",
-                inPlaylist ? "addtracks__row--in" : "",
-              ]
-                .filter(Boolean)
-                .join(" ");
-              return (
+            <>
+              {/* Windowed (§3.4): select-all can load the whole library, and
+                  thousands of live rows would starve the dialog. Same element
+                  virtualizer the queue drawer uses. */}
+              <div
+                className="addtracks__window"
+                style={{ height: virtualizer.getTotalSize() }}
+              >
+                {virtualizer.getVirtualItems().map((item) => {
+                  const track = results[item.index];
+                  if (!track) return null;
+                  const inPlaylist = existingIds.has(track.id);
+                  const isSelected = selected.has(track.id);
+                  const classes = [
+                    "addtracks__row",
+                    isSelected ? "addtracks__row--selected" : "",
+                    item.index === cursor ? "addtracks__row--cursor" : "",
+                    inPlaylist ? "addtracks__row--in" : "",
+                  ]
+                    .filter(Boolean)
+                    .join(" ");
+                  return (
+                    <button
+                      key={track.id}
+                      type="button"
+                      role="option"
+                      aria-selected={isSelected}
+                      disabled={inPlaylist}
+                      className={classes}
+                      style={{ transform: `translateY(${item.start}px)` }}
+                      onClick={() => toggle(track)}
+                      onMouseEnter={() => setCursor(item.index)}
+                    >
+                      <span className="addtracks__box" aria-hidden="true">
+                        {(isSelected || inPlaylist) && <IconCheck size={12} />}
+                      </span>
+                      <Artwork artworkId={track.artwork_id} size={34} radius="s" />
+                      <span className="addtracks__names">
+                        <span className="addtracks__name">{track.title}</span>
+                        <span className="addtracks__artist">
+                          {[track.artist, track.album].filter(Boolean).join(" — ")}
+                        </span>
+                      </span>
+                      {inPlaylist ? (
+                        <span className="addtracks__inplaylist">
+                          <IconCheck size={13} />
+                          In playlist
+                        </span>
+                      ) : (
+                        <span className="addtracks__duration">
+                          {fmtDuration(track.duration)}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+              {total > results.length && (
                 <button
-                  key={track.id}
                   type="button"
-                  role="option"
-                  aria-selected={isSelected}
-                  disabled={inPlaylist}
-                  className={classes}
-                  onClick={() => toggle(track)}
-                  onMouseEnter={() => setCursor(index)}
+                  className="addtracks__more"
+                  onClick={() => void fetchNextPage()}
+                  disabled={isFetchingNextPage}
                 >
-                  <span className="addtracks__box" aria-hidden="true">
-                    {(isSelected || inPlaylist) && <IconCheck size={12} />}
-                  </span>
-                  <Artwork artworkId={track.artwork_id} size={34} radius="s" />
-                  <span className="addtracks__names">
-                    <span className="addtracks__name">{track.title}</span>
-                    <span className="addtracks__artist">
-                      {[track.artist, track.album].filter(Boolean).join(" — ")}
-                    </span>
-                  </span>
-                  {inPlaylist ? (
-                    <span className="addtracks__inplaylist">
-                      <IconCheck size={13} />
-                      In playlist
-                    </span>
-                  ) : (
-                    <span className="addtracks__duration">
-                      {fmtDuration(track.duration)}
-                    </span>
-                  )}
+                  {isFetchingNextPage
+                    ? "Loading…"
+                    : `Load more — showing ${results.length} of ${total}`}
                 </button>
-              );
-            })
+              )}
+            </>
           )}
         </div>
 

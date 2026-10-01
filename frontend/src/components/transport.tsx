@@ -2,11 +2,11 @@
    Moved out of PlayerBar in M5 so the full-screen view drives the same
    engine with the same scrub behavior. */
 
-import { useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 
 import { fmtDuration } from "../lib/format";
 import { usePlayerStore } from "../stores/player";
-import { IconPause, IconPlay } from "./icons";
+import { IconPause, IconPlay, IconVolume, IconVolumeMute } from "./icons";
 
 export function Scrubber() {
   const position = usePlayerStore((s) => s.position);
@@ -15,6 +15,30 @@ export function Scrubber() {
   const seek = usePlayerStore((s) => s.seek);
   const [scrub, setScrub] = useState<number | null>(null);
   const [dragging, setDragging] = useState(false);
+  // Live seek (§3.4): Music seeks under the thumb, not on release. Input
+  // events coalesce through one rAF so a drag issues at most one seek per
+  // frame — with Range streaming that is cheap; uncoalesced keyboard repeat
+  // or a burst of pointer events would stack seeks the element must cancel.
+  const pendingSeek = useRef<number | null>(null);
+  const seekRaf = useRef<number | null>(null);
+
+  const flushSeek = () => {
+    seekRaf.current = null;
+    if (pendingSeek.current != null) {
+      seek(pendingSeek.current);
+      pendingSeek.current = null;
+    }
+  };
+
+  const cancelPendingSeek = () => {
+    if (seekRaf.current != null) {
+      cancelAnimationFrame(seekRaf.current);
+      seekRaf.current = null;
+    }
+    pendingSeek.current = null;
+  };
+
+  useEffect(() => cancelPendingSeek, []);
 
   const value = scrub ?? position;
   const max = duration || 0;
@@ -24,14 +48,17 @@ export function Scrubber() {
     // Longhand on purpose: the element's background *image* is the progress
     // fill; CSS is free to size that layer (the phone bar paints it as a
     // 3px hairline inside a taller touch target — §20) without the shorthand
-    // resetting background-size.
+    // resetting background-size. The empty rest track reads in both themes
+    // via --scrubber-rest (§3.4: the nothing-playing bar was invisible in
+    // dark mode).
     backgroundImage: `linear-gradient(to right,
       var(--text-tertiary) 0% ${pct(value)}%,
       var(--control-border) ${pct(value)}% ${pct(buffered)}%,
-      var(--bg-active) ${pct(buffered)}% 100%)`,
+      var(--scrubber-rest, var(--bg-active)) ${pct(buffered)}% 100%)`,
   };
 
   const commit = () => {
+    cancelPendingSeek();
     if (scrub != null) {
       seek(scrub);
       setScrub(null);
@@ -54,16 +81,59 @@ export function Scrubber() {
         aria-label="Seek"
         onInput={(e) => {
           setDragging(true);
-          setScrub(Number((e.target as HTMLInputElement).value));
+          const v = Number((e.target as HTMLInputElement).value);
+          setScrub(v);
+          pendingSeek.current = v;
+          if (seekRaf.current == null) {
+            seekRaf.current = requestAnimationFrame(flushSeek);
+          }
         }}
         onPointerUp={commit}
         onKeyUp={commit}
         onBlur={() => {
+          cancelPendingSeek();
           setScrub(null);
           setDragging(false);
         }}
       />
       <span className="player__time">{fmtDuration(duration)}</span>
+    </>
+  );
+}
+
+/* Volume with click-to-mute (§3.4): the icon was decoration; now it is the
+   expected muscle memory. Muted (or at zero) shows the muted glyph; moving
+   the slider unmutes. Shared by the player bar and Now Playing so the
+   grammar can't drift. */
+export function VolumeControl({ size = 16 }: { size?: number }) {
+  const volume = usePlayerStore((s) => s.volume);
+  const muted = usePlayerStore((s) => s.muted);
+  const setVolume = usePlayerStore((s) => s.setVolume);
+  const toggleMute = usePlayerStore((s) => s.toggleMute);
+
+  const silent = muted || volume === 0;
+  return (
+    <>
+      <button
+        type="button"
+        className="volumebtn"
+        aria-label={silent ? "Unmute" : "Mute"}
+        aria-pressed={silent}
+        title={silent ? "Unmute" : "Mute"}
+        onClick={toggleMute}
+      >
+        {silent ? <IconVolumeMute size={size} /> : <IconVolume size={size} />}
+      </button>
+      <input
+        type="range"
+        className="range"
+        min={0}
+        max={1}
+        step={0.01}
+        value={volume}
+        onChange={(e) => setVolume(Number(e.target.value))}
+        aria-label="Volume"
+      />
     </>
   );
 }

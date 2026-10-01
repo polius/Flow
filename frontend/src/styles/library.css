@@ -466,6 +466,13 @@
   background: var(--bg-active);
 }
 
+/* The keyboard cursor (§3.4): the Organize grid's exact outline grammar,
+   inherited — one visual language for "the row the keyboard is on". */
+.trackrow--cursor {
+  outline: 1.5px solid color-mix(in srgb, var(--text-primary) 35%, transparent);
+  outline-offset: -1.5px;
+}
+
 /* The bars replace the row number; hovering swaps them for the play/pause
    glyph (same reveal grammar as every row, §8.7). */
 .trackrow--playing .trackrow__num {

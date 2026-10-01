@@ -317,7 +317,7 @@
 }
 
 .queue__main:focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--text-primary);
   outline-offset: -2px;
 }
 
@@ -496,11 +496,12 @@
   transition: none;
 }
 
-/* The field the swipe reveals: an accent-red wash with the remove glyph,
+/* The field the swipe reveals: an ink-tinted wash with the remove glyph,
    so the gesture's consequence is legible before it commits. (:has covers
    the mid-gesture state — the backdrop sits before the row content.)
    Decoration only — it must never be a hit target, or it eats the row's
-   clicks (it paints above the static row content). */
+   clicks (it paints above the static row content). Monochrome per §31:
+   the consequence reads through contrast, not alarm color. */
 .queue__swipebg {
   position: absolute;
   inset: 0;
@@ -510,8 +511,8 @@
   justify-content: flex-end;
   padding-right: 18px;
   border-radius: var(--radius-m);
-  background: color-mix(in srgb, var(--accent) 18%, var(--bg-elevated));
-  color: var(--accent);
+  background: color-mix(in srgb, var(--text-primary) 14%, var(--bg-elevated));
+  color: var(--text-primary);
   opacity: 0;
   transition: opacity var(--dur-fast) var(--ease-out);
 }
@@ -545,7 +546,7 @@
 }
 
 .queue__remove:hover {
-  color: var(--accent);
+  color: var(--text-primary);
 }
 
 /* Time yields to the remove button on hover. */
