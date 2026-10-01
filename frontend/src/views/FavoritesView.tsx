@@ -3,6 +3,7 @@ import { useInfiniteQuery } from "@tanstack/react-query";
 import { useSearchParams } from "react-router";
 
 import { api, fetchAllTracks } from "../api/client";
+import { playByFilter } from "../api/queue";
 import { SortMenu, type SortOption } from "../components/SortMenu";
 import { TrackTableHead, type TrackSortKey } from "../components/TrackTableHead";
 import { VirtualTrackTable } from "../components/VirtualTrackTable";
@@ -36,7 +37,6 @@ export function FavoritesView() {
   const sort = (SORT_KEYS.has(urlSort) ? urlSort : "added_at") as TrackSortKey;
   const dir = searchParams.get("dir") === "asc" ? "asc" : "desc";
 
-  const playTracks = usePlayerStore((s) => s.playTracks);
 
   const query = useInfiniteQuery({
     queryKey: ["tracks", "favorites", q, sort, dir],
@@ -68,26 +68,41 @@ export function FavoritesView() {
   );
   const total = query.data?.pages[0]?.total ?? 0;
 
-  // "Play from here" means the whole view (§29): pages beyond the loaded
-  // ones are fetched before the queue is built, so a 2,000-favorites queue
-  // is 2,000 tracks — never whatever the window had loaded.
+  const playTracks = usePlayerStore((s) => s.playTracks);
+  const playSnapshot = usePlayerStore((s) => s.playSnapshot);
+
+  // "Play from here" means the whole view (§29), server-resolved when pages
+  // of the filter are still unloaded (§32): POST /api/queue resolves the
+  // WHOLE filter in one query — a 2,000-favorites queue is 2,000 tracks by
+  // construction, not by fetching. A failed POST falls back to §29's
+  // client-side whole-view fetch; a fully loaded view plays instantly and
+  // the §32 mirror keeps the server honest.
   const playFromHere = useCallback(
     (index: number) => {
       if (tracks.length >= total) {
         playTracks(tracks, index);
         return;
       }
-      const loaded = tracks;
-      void fetchAllTracks({ q: q || undefined, sort, dir, favorite: true })
-        .then((full) =>
-          playTracks(
-            full.length > 0 ? full : loaded,
-            Math.min(index, (full.length > 0 ? full : loaded).length - 1),
-          ),
-        )
-        .catch(() => playTracks(loaded, index));
+      void playByFilter({
+        q: q || undefined,
+        favorite: true,
+        sort,
+        dir,
+        start: index,
+      }).then((snapshot) => {
+        if (snapshot) {
+          playSnapshot(snapshot);
+          return;
+        }
+        return fetchAllTracks({ q: q || undefined, sort, dir, favorite: true }).then(
+          (full) => {
+            const list = full.length > 0 ? full : tracks;
+            playTracks(list, Math.min(index, list.length - 1));
+          },
+        );
+      });
     },
-    [playTracks, tracks, total, q, sort, dir],
+    [playTracks, playSnapshot, tracks, total, q, sort, dir],
   );
 
   const contextLoader = useCallback(

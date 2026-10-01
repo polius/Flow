@@ -22,3 +22,5 @@ export type BulkApplyOut = components["schemas"]["BulkApplyOut"];
 export type ReviewSummary = components["schemas"]["ReviewSummary"];
 export type CollisionGroup = components["schemas"]["CollisionGroup"];
 export type AlbumRef = components["schemas"]["AlbumRef"];
+export type QueueSnapshot = components["schemas"]["QueueSnapshot"];
+export type QueuePlayhead = components["schemas"]["QueuePlayheadOut"];

@@ -39,6 +39,8 @@ TRACK_SORTS = {
     "year": "t.year",
     "duration": "t.duration",
     "added_at": "t.added_at",
+    # Recently played (§4.1) — read path for the recency record; no counts.
+    "played": "t.played_at",
     # Organize view (§22): the file column sorts by its library-relative path.
     "path": "t.path COLLATE NOCASE",
 }
@@ -64,6 +66,10 @@ ALBUM_SORTS = {
     "artist": "(ar.name IS NULL), ar.name COLLATE NOCASE",
     "year": "al.year",
     "recent": "MAX(t.added_at)",
+    # Recently played (§4.1): the album's most recent real playback start.
+    # NULLs sort first ascending / last descending, so never-played albums
+    # sit at the honest end of either direction.
+    "played": "MAX(t.played_at)",
 }
 
 # Every genre that still has at least one track — an emptied genre is
@@ -96,6 +102,7 @@ def _clamp(limit: int, offset: int) -> tuple[int, int]:
 TRACK_SELECT = """
 SELECT t.id, t.title, t.track_no, t.disc_no, t.year, t.duration, t.format,
        t.favorite, t.album_id, t.artist_id, t.artwork_id, t.path, t.gain_db,
+       t.played_at,
        ar.name AS artist, al.title AS album,
        t.album_artist_id, aar2.name AS album_artist
 FROM tracks t
@@ -191,6 +198,7 @@ def track_out(row) -> TrackOut:
         artwork_id=row["artwork_id"],
         path=row["path"],
         gain_db=row["gain_db"],
+        played_at=row["played_at"],
     )
 
 
@@ -280,7 +288,7 @@ def list_albums(
     ).fetchone()["c"]
     rows = conn.execute(
         f"SELECT al.id, al.title, al.year, al.artwork_id, ar.name AS artist, "
-        f"al.artist_id, COUNT(t.id) AS track_count "
+        f"al.artist_id, COUNT(t.id) AS track_count, MAX(t.played_at) AS played_at "
         f"{base} {clause} GROUP BY al.id ORDER BY {directed}, al.title COLLATE NOCASE "
         f"LIMIT ? OFFSET ?",
         [*params, limit, offset],
@@ -295,6 +303,7 @@ def list_albums(
                 year=r["year"],
                 artwork_id=r["artwork_id"],
                 track_count=r["track_count"],
+                played_at=r["played_at"],
             )
             for r in rows
         ],
@@ -331,6 +340,7 @@ def get_album(request: Request, album_id: int) -> AlbumDetail:
         artwork_id=album["artwork_id"],
         track_count=len(tracks),
         duration_total=sum(t.duration for t in tracks),
+        played_at=max((t.played_at for t in tracks if t.played_at), default=None),
         tracks=tracks,
     )
 

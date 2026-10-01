@@ -1468,3 +1468,136 @@ class defects: modal focus (focus-in, Tab wrap, restore-on-close), row
 cursor (arrows, Home/End/PageUp/Down, Enter, inner-control guard), and
 mute (toggle keeps level, volume-rise unmutes) — `tsc --noEmit`,
 `vite build`, and `npm test` clean (12 tests, 8 new).
+
+## 32. Addendum — Part 4, the queue becomes server truth (2026-10-01)
+
+Implements Part 4 of `docs/UX-REVIEW.md`: §4.0 (the server-truth queue)
+and §4.1's two strategic notes. Three settled decisions were revised, all
+with the review itself as the owner's work order — the same §12 sign-off
+reading §29 and §30 recorded:
+
+- **§13.9's "no server-side play statistics" is revised narrowly.** The
+  non-goal that stands: no counts, no charts, no ratings (§1, §2). What
+  ships: one private timestamp per track (`played_at`), recorded when the
+  track actually plays — the honest server-side completion of the
+  "recently played / continue listening" concession §13.9 made via
+  localStorage, so the record no longer dies with the browser that played.
+- **§29's persistence destination is revised.** The queue remains durable
+  session state with the exact §29 cadences and restore grammar — but the
+  server is now the *truth truth* and localStorage the offline fallback
+  (§4.0: "the client store remains the source of *UI* truth").
+- **§13.5's no-auth trade-off gains a README guardrail** (the review's
+  "responsible amount of friction"): the warning, not a token.
+
+### The queue API (migration 006; §6 deltas listed at the end)
+
+1. **`POST /api/queue {track_ids | filter, start, shuffle}`** — "play this
+   view" (§4.0): exactly one of an explicit id list or the GET /api/tracks
+   filter contract minus pagination. The server resolves the WHOLE filter
+   in one query — there is no page left to truncate to (§1.2 is fixed
+   structurally, not by fetching). It builds the play order (identity
+   honoring `start`, or a shuffle anchored there — the client's §29
+   buildOrder, server-side), replaces the stored session, and returns the
+   canonical snapshot, which the store adopts wholesale (`playSnapshot`).
+2. **`GET /api/queue`** — the restore. Self-heals: queue entries cascade
+   away when a track leaves the library (like playlist entries), stale
+   play-order entries are dropped, the playhead re-points at the same track
+   (or clamps like §29's restore when the playhead's own entry died), and
+   the healed form is rewritten canonically in the same read.
+3. **`PUT /api/queue`** — the plan mirror. The store's subscription (§29's
+   400 ms debounce on queue/order changes) PUTs the whole plan — ids,
+   play order, orderPos, position. The server validates honestly: `order`
+   must be a permutation of 0..n-1 (a 422, answered client-side by falling
+   back to localStorage-only persistence, never by corrupting the stored
+   session).
+4. **`PATCH /api/queue`** — the playhead (§29's 3 s cadence + pagehide
+   flush, the flush via `keepalive`). An out-of-range `order_pos` is
+   *ignored*, not clamped: it means the writer's plan isn't mirrored yet,
+   and clamping would invent a pointer into an order the writer never
+   meant — the in-flight PUT brings plan and playhead together.
+5. **Storage** is two tiny tables: `queue_items` (dense positions,
+   whole-snapshot replace — the queue is state, not a log) and the
+   `queue_state` singleton (play order as JSON + orderPos + position +
+   updated_at). Replaces are one transaction.
+6. **Writes retry while busy.** The scanner's reconcile/analyze
+   transactions hold the WAL write lock for seconds at a time; a mirror
+   that 500s through every scan would be noise, not resilience. Queue
+   writes run under a bounded busy-retry (4 attempts, ~0.3–1.2 s spacing
+   beyond SQLite's 5 s busy timeout) — they land as soon as the scanner's
+   commit gap appears, and exhaustion keeps the honest error. The client
+   adds one quiet retry for the played_at stamp, whose follow-up ticks
+   never carry an id (recency-only re-stamping is idempotent).
+7. **Client restore precedence (§29 preserved, extended):** the
+   localStorage snapshot applies synchronously — instant UI, click-safe —
+   then the server's session is adopted over it *if it arrives while the
+   local one is untouched*. An untouched first paint shows the server's
+   truth (the desktop's queue, not this browser's stale copy); a session
+   already begun here is never clobbered. Adoption is queued behind the
+   persist middleware's own rehydration, and "touched" means session
+   identity (plan, playhead, playing state) — preference writes (volume)
+   don't count. Server empty or unreachable → exactly the §29 behavior.
+   The client falls back mid-session too: every mirror write is
+   fire-and-forget; the localStorage layer always has the session.
+8. **Restore adoption is always paused** (§29's rule, unchanged): the bar
+   is that state loss is never total, never that sound starts uninvited.
+
+### played_at (migration 007) and its one surface
+
+9. **`tracks.played_at`** — set when a track actually starts playing. The
+   playhead sync that follows the engine's `play` event carries
+   `played_track_id` explicitly (never derived from stored state, so a
+   mirror PUT still in flight cannot mis-stamp). Rescans never touch it —
+   the scanner's upsert takes a fixed column list, the same rule that
+   protects `favorite` (§15.2's principle, one more column). No counts,
+   no charts, no UI anywhere else — §1's exclusion stands.
+10. **Its surface is the review's own framing** — "an app that knows you":
+    a **Recently played** module on Home (albums ordered by their most
+    recent play, the established card grammar), between Continue listening
+    and Shuffle all, plus `sort=played` read paths on tracks and albums
+    (Albums' SortMenu gains "Recently played"). Absent until something has
+    actually played — no empty state, no noise.
+11. **README exposure guardrail (§4.1, second note).** Quick start now
+    says, in plain text: do not port-forward Flow — no auth means anyone
+    who can reach the port can browse, stream, and rewrite the library's
+    metadata; tunnel in with a VPN instead. The warning is the chosen
+    friction; no auth scaffolding was added (§12).
+
+### What this buys, verified
+
+- **Reloads** restore from server truth even with localStorage wiped —
+  player bar populated, paused, full 2,400-entry queue and playhead
+  intact (the §29 bar held with its new foundation).
+- **A second browser** on the LAN opens mid-session and continues the
+  same queue (the review's "multi-screen household") — and played
+  through ~2,000 tracks for the better part of an hour with every
+  playhead sync at 200 OK.
+- **Queue edits survive reloads**: a drawer removal mirrored server-side
+  in ~400 ms, and the reload saw the edited queue, playing row intact.
+- **Container restarts** resume: the queue and playhead live in SQLite,
+  so killing and restarting uvicorn mid-session lost nothing — the
+  §4.0 "eventually" is now "already".
+- **played_at** accrued 274 timestamps across the verification sessions,
+  exactly the tracks that actually played; Home's Recently played read
+  them back in true listening order, both themes.
+- **The scan collision is real and handled**: replaying the mirror under
+  a running reconcile produced zero console errors where the naive
+  version 500'd on every 3 s tick.
+
+### API deltas (OpenAPI → TS client regenerated)
+
+`POST/GET/PUT/PATCH /api/queue` (QueueSnapshot / QueuePlayIn /
+QueuePutIn / QueuePatchIn / QueuePlayheadOut), `played_at` on TrackOut
+and AlbumSummary, `?sort=played` on tracks and albums. Frontend: new
+`api/queue.ts` (mirror + restore), `playSnapshot` in the player store,
+the paged views' play-from-here and Shuffle all resolve through the
+server POST (§29's client-side whole-view fetch remains the fallback),
+Home gains the Recently played module, Albums gains the sort option.
+
+New regression tests pin the contract: backend `test_queue_api.py` (the
+whole-filter resolution, mirror validation, playhead clamping→ignore
+semantics, played_at stamping + rescan survival, cascade healing) and
+frontend `server-queue.test.tsx` (adoption over stale local state,
+never-clobber once owned, empty-server degradation, plan mirroring) —
+backend 112 tests, frontend 17, all green; `tsc --noEmit`, `vite build`,
+`npm test` clean. Verified in the running app as recorded above, on
+localhost and from a second independent browser, in both themes.

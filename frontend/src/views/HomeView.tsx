@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router";
 
 import { api, fetchAllTracks } from "../api/client";
+import { playByFilter } from "../api/queue";
 import { AlbumCard } from "../components/AlbumCard";
 import { Artwork } from "../components/Artwork";
 import { EmptyState } from "../components/EmptyState";
@@ -63,23 +64,62 @@ function ContinueListening() {
   );
 }
 
+/* Recently played (§4.1, §32): the server's played_at record — private,
+   count-free recency ("albums you had on"). The durable, cross-browser
+   completion of the concept §13.9 conceded to localStorage. Absent until
+   something has actually played: no empty state, no noise. */
+function RecentlyPlayed() {
+  const { data } = useQuery({
+    queryKey: ["albums", "recently-played"],
+    queryFn: async () => {
+      const { data } = await api.GET("/api/albums", {
+        params: { query: { sort: "played", dir: "desc", limit: 12 } },
+      });
+      return data;
+    },
+  });
+  const albums = (data?.items ?? []).filter((a) => a.played_at != null);
+  if (albums.length === 0) return null;
+  return (
+    <div className="libsection">
+      <div className="libsection__head">
+        <h2>Recently played</h2>
+      </div>
+      <div className="covergrid covergrid--home">
+        {albums.map((album) => (
+          <AlbumCard key={album.id} album={album} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 /* Shuffle all (§2.5): the escape hatch. One card, whole library, shuffled —
-   "play something" answered without deciding anything. Fetches the full
-   library before queuing (§29: never a truncated queue), then flips shuffle
-   on so the plan is honest in the player bar. */
+   "play something" answered without deciding anything. §32: the server
+   resolves and shuffles the WHOLE library in one query (never a truncated
+   queue, and the session is server-truth from birth); the §29 client-side
+   fetch remains the fallback. Shuffle flips on before the call so the
+   player bar tells the truth about the plan either way (§30.1). */
 function ShuffleAll({ count }: { count: number }) {
   const playTracks = usePlayerStore((s) => s.playTracks);
+  const playSnapshot = usePlayerStore((s) => s.playSnapshot);
   const [busy, setBusy] = useState(false);
 
   const shuffleEverything = () => {
     if (busy || count === 0) return;
     setBusy(true);
-    void fetchAllTracks({ sort: "title", dir: "asc" })
-      .then((all) => {
-        if (all.length === 0) return;
-        const start = Math.floor(Math.random() * all.length);
-        usePlayerStore.getState().setShuffle(true);
-        playTracks(all, start);
+    const start = Math.floor(Math.random() * count);
+    usePlayerStore.getState().setShuffle(true);
+    void playByFilter({ sort: "title", dir: "asc", shuffle: true, start })
+      .then((snapshot) => {
+        if (snapshot) {
+          playSnapshot(snapshot);
+          return;
+        }
+        return fetchAllTracks({ sort: "title", dir: "asc" }).then((all) => {
+          if (all.length === 0) return;
+          playTracks(all, Math.min(start, all.length - 1));
+        });
       })
       .finally(() => setBusy(false));
   };
@@ -163,6 +203,8 @@ export function HomeView() {
       ) : null}
 
       {hasLibrary && <ContinueListening />}
+
+      {hasLibrary && <RecentlyPlayed />}
 
       {hasLibrary && counts && counts.tracks > 0 && (
         <ShuffleAll count={counts.tracks} />

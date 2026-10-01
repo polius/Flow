@@ -22,6 +22,7 @@ from app.routers import editing as editing_router
 from app.routers import library as library_router
 from app.routers import media as media_router
 from app.routers import playlists as playlists_router
+from app.routers import queue as queue_router
 from app.routers import scan as scan_router
 from app.routers import search as search_router
 from app.routers import settings as settings_router
@@ -96,6 +97,7 @@ def create_app() -> FastAPI:
     app.include_router(playlists_router.router)
     app.include_router(search_router.router)
     app.include_router(media_router.router)
+    app.include_router(queue_router.router)
 
     if config.DIST_DIR is not None and config.DIST_DIR.is_dir():
         _mount_spa(app, config.DIST_DIR)

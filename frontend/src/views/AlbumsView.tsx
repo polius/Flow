@@ -19,6 +19,9 @@ const SORT_OPTIONS: SortOption[] = [
   { key: "artist", label: "Artist" },
   { key: "year", label: "Year" },
   { key: "recent", label: "Recently added", defaultDir: "desc" },
+  // §4.1: the played_at record gets a real read path — recency of actual
+  // listening, private and count-free, straight from the server record.
+  { key: "played", label: "Recently played", defaultDir: "desc" },
 ];
 
 const SORT_KEYS = new Set(SORT_OPTIONS.map((o) => o.key));

@@ -77,6 +77,9 @@ class TrackOut(BaseModel):
     path: str
     # Sound Check loudness offset in dB (§2.3) — NULL until measured.
     gain_db: float | None = None
+    # Last real playback start (§4.1): private, count-free recency. NULL
+    # until the track has been played on this server; rescans never touch it.
+    played_at: str | None = None
 
 
 class TrackListOut(BaseModel):
@@ -94,6 +97,9 @@ class AlbumSummary(BaseModel):
     year: int | None
     artwork_id: int | None
     track_count: int
+    # The album's most recent play (§4.1) — recency sorts and the Home
+    # "Recently played" module. NULL = never played on this server.
+    played_at: str | None = None
 
 
 class AlbumListOut(BaseModel):
@@ -285,3 +291,74 @@ class SearchOut(BaseModel):
     albums: list[AlbumSummary]
     artists: list[ArtistSummary]
     playlists: list[PlaylistSummary]
+
+
+# ---- The server-truth play queue (UX review Part 4.0) --------------------------
+
+
+class QueueSnapshot(BaseModel):
+    """The whole stored session — what GET /api/queue restores and what the
+    play/replace endpoints echo back. `items` are the queue in insertion
+    order; `order` is the play order as indexes into `items` (identity, or
+    the shuffle plan); `order_pos` indexes `order` (-1 = built, nothing
+    loaded); `position` is seconds into the current track. The client store
+    adopts this shape verbatim."""
+
+    items: list[TrackOut]
+    order: list[int]
+    order_pos: int
+    position: float
+    updated_at: str | None = None
+
+
+class QueuePlayIn(BaseModel):
+    """POST /api/queue — "play this view" (§4.0). Exactly one of `track_ids`
+    or the GET /api/tracks filter contract (minus pagination). The server
+    resolves the WHOLE filter in one query — there is no page for the queue
+    to be silently truncated to (§1.2, for good). `start` is the index into
+    the resolved list that begins playback; `shuffle` builds the play order
+    starting there instead."""
+
+    track_ids: list[int] | None = None
+    q: str | None = None
+    artist_id: int | None = None
+    album_id: int | None = None
+    review: str | None = None
+    favorite: bool | None = None
+    genre_id: int | None = None
+    sort: str = "title"
+    dir: str = "asc"
+    start: int = 0
+    shuffle: bool = False
+
+
+class QueuePutIn(BaseModel):
+    """PUT /api/queue — the client's plan mirror (§32). The store remains the
+    source of UI truth and PUTs its whole queue when the plan changes (the
+    §29 cadence, server-destination instead of localStorage-only). `order`
+    must be a permutation of 0..n-1 into `track_ids`."""
+
+    track_ids: list[int]
+    order: list[int]
+    order_pos: int
+    position: float = 0
+
+
+class QueuePatchIn(BaseModel):
+    """PATCH /api/queue — the playhead, at the §29 cadence (3 s throttle plus
+    a pagehide flush). `played_track_id` rides the immediate start-of-play
+    sync: when present, the server stamps tracks.played_at (§4.1) on THAT id
+    — carried explicitly, never derived from the stored plan, so a mirror
+    PUT still in flight cannot mis-stamp."""
+
+    order_pos: int | None = None
+    position: float | None = None
+    played_track_id: int | None = None
+
+
+class QueuePlayheadOut(BaseModel):
+    """PATCH's answer — tiny, because it rides the 3 s cadence."""
+
+    order_pos: int
+    position: float
+    updated_at: str | None = None

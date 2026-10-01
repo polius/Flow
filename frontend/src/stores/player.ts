@@ -5,10 +5,17 @@
    removal (§9.4) and Media Session integration (§13.11).
 
    §29: the queue is durable session state. Queue + play order + playhead
-   position persist to localStorage and restore silently on load — paused,
-   player bar populated — so a reload (Cmd+R, OS update, sleep) never costs
-   the listening session (§13.9's "Continue listening"). The first press of
-   play resumes the saved track at the saved position; nothing autoplays.
+   position restore silently on load — paused, player bar populated — so a
+   reload (Cmd+R, OS update, sleep) never costs the listening session
+   (§13.9's "Continue listening"). The first press of play resumes the saved
+   track at the saved position; nothing autoplays.
+
+   §32 (UX review Part 4): the queue becomes a server-truth object. The
+   store stays the source of UI truth; the same two writes that keep
+   localStorage warm now mirror to PUT/PATCH /api/queue, restore prefers the
+   server when this session is untouched, and "play this view" can resolve
+   the whole filter server-side (POST). localStorage remains the offline
+   fallback, exactly the §29 behavior when the server can't answer.
 
    UX review Part 2 (§30 addenda): dual-element pre-roll closes most of the
    track-change gap (§2.6); an optional Sound Check gain node matches
@@ -18,6 +25,11 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
+import {
+  fetchServerQueue,
+  saveServerPlayhead,
+  saveServerQueue,
+} from "../api/queue";
 import type { Track } from "../api/types";
 import { useUiStore } from "./ui";
 
@@ -42,6 +54,15 @@ interface PlayerState {
   soundcheck: boolean;
 
   playTracks: (tracks: Track[], startIndex: number) => void;
+  /** Adopts a server-built queue (§32): the POST /api/queue snapshot, with
+      the play order and playhead already resolved whole-filter server-side.
+      The store takes it wholesale and plays it — the mirror PUT that the
+      persistence layer schedules afterwards is a formality. */
+  playSnapshot: (snapshot: {
+    items: Track[];
+    order: number[];
+    order_pos: number;
+  }) => void;
   playNext: (track: Track) => void;
   /** Play Next for a whole collection (§2.1 header menus): the tracks
       insert, in order, directly after the playing one. */
@@ -121,6 +142,16 @@ export const usePlayerStore = create<PlayerState>()(
         const { order, pos } = buildOrder(tracks.length, get().shuffle, clamped);
         set({ queue: tracks, order, orderPos: pos });
         load(tracks[order[pos]], true);
+      },
+
+      playSnapshot: ({ items, order, order_pos }) => {
+        if (items.length === 0) return;
+        errorSkipStreak = 0;
+        ensureGraph();
+        resumeGraph();
+        const pos = Math.min(Math.max(order_pos, 0), items.length - 1);
+        set({ queue: items, order, orderPos: pos });
+        load(items[order[pos]], true);
       },
 
       playNext: (track) => {
@@ -649,6 +680,10 @@ for (const el of elements()) {
     errorSkipStreak = 0; // a real start — the library is alive again
     setPlaybackState("playing");
     startPositionLoop();
+    // A real start is what played_at means (§4.1): sync the playhead now,
+    // not on the 3 s cadence, carrying the track id so the server stamps
+    // the right row even while the plan mirror is still in flight.
+    writePlayhead(true);
   });
   el.addEventListener("pause", () => {
     if (el !== audio) return;
@@ -729,36 +764,62 @@ for (const el of elements()) {
 setupMediaSession();
 syncWindowTitle();
 
-/* ---- session persistence (§13.9, §29) -----------------------------------
-   The queue survives a reload: two keys, written at different cadences.
-   `flow.player.queue` (queue + order) only changes when the plan changes —
-   small debounced writes. `flow.player.playhead` (orderPos + position +
-   timestamp) moves constantly while playing — throttled to one tiny write
-   every few seconds, plus a flush when the page hides. Everything is best-
-   effort: a quota failure or a corrupt snapshot costs nothing but the
-   convenience the feature exists for. */
+/* ---- session persistence (§13.9, §29, §32) -------------------------------
+   The queue survives a reload — and now it survives the browser, too. Two
+   layers, written at the same cadences:
+
+   - localStorage (§29): the offline fallback. Two keys — `flow.player.queue`
+     (queue + order, debounced 400 ms) and `flow.player.playhead` (orderPos +
+     position + timestamp, throttled to one write per 3 s while playing).
+   - the server (§32): the truth truth. The same two writes mirrored to
+     PUT /api/queue (the plan) and PATCH /api/queue (the playhead), so a
+     reload on another browser on the LAN continues the same session and a
+     container restart loses nothing. Fire-and-forget: a LAN blip costs the
+     mirror nothing, and the local layer above still holds the session.
+
+   Everything is best-effort by contract: a failed write — quota or network
+   — costs nothing but the convenience the layer exists for. */
 
 const QUEUE_KEY = "flow.player.queue";
 const PLAYHEAD_KEY = "flow.player.playhead";
 const QUEUE_SAVE_DEBOUNCE_MS = 400;
 const PLAYHEAD_SAVE_INTERVAL_MS = 3000;
 
+/** Set while a restore adoption writes state: the persistence layer must
+    not echo a restore back to its own writers (that would PUT on every boot
+    and mark the session touched before the user has done anything). */
+let restoring = false;
+/** Any state change after boot is user activity — it means the local
+    session has an owner and the server adoption must not clobber it. */
+let sessionTouched = false;
+
+function setStateRestoring(partial: Partial<PlayerState>): void {
+  restoring = true;
+  try {
+    usePlayerStore.setState(partial);
+  } finally {
+    restoring = false;
+  }
+}
+
 let queueSaveTimer: number | null = null;
 let playheadSaveTimer: number | null = null;
 let playheadDirty = false;
 
-function writeQueueSnapshot(): void {
-  const { queue, order } = usePlayerStore.getState();
+function writeQueueSnapshot(keepalive = false): void {
+  const { queue, order, orderPos, position } = usePlayerStore.getState();
   try {
     localStorage.setItem(QUEUE_KEY, JSON.stringify({ queue, order }));
   } catch {
     // Over quota (a very large library): this session still plays; the
-    // next one just starts empty. Preferences live in the other key.
+    // next one starts from the server copy. Preferences live in the other
+    // key either way.
   }
+  saveServerQueue({ tracks: queue, order, orderPos, position }, keepalive);
 }
 
-function writePlayhead(): void {
-  const { orderPos, position } = usePlayerStore.getState();
+function writePlayhead(started = false, keepalive = false): void {
+  const { queue, order, orderPos, position } = usePlayerStore.getState();
   try {
     localStorage.setItem(
       PLAYHEAD_KEY,
@@ -767,6 +828,18 @@ function writePlayhead(): void {
   } catch {
     // Same best-effort story as the queue snapshot.
   }
+  const current = queue[order[orderPos]] ?? null;
+  saveServerPlayhead(
+    {
+      orderPos,
+      position,
+      // §4.1: the stamp rides the start-of-play sync, carrying the id —
+      // never derived from the server's stored plan (a mirror PUT may
+      // still be in flight there).
+      ...(started && current ? { playedTrackId: current.id } : {}),
+    },
+    keepalive,
+  );
 }
 
 function schedulePlayheadSave(delayMs: number): void {
@@ -782,6 +855,19 @@ function schedulePlayheadSave(delayMs: number): void {
 
 if (typeof window !== "undefined") {
   usePlayerStore.subscribe((state, prev) => {
+    if (restoring) return; // adoption is not user activity — don't echo it
+    // Session identity is the plan and the playhead. Preference writes
+    // (the persist middleware's rehydration, a volume nudge) don't make
+    // the session owned — they must not block the server adoption.
+    if (
+      state.queue !== prev.queue ||
+      state.order !== prev.order ||
+      state.orderPos !== prev.orderPos ||
+      (state.isPlaying && !prev.isPlaying) ||
+      (state.position !== prev.position && state.position > 0)
+    ) {
+      sessionTouched = true; // the session has an owner now
+    }
     if (state.queue !== prev.queue || state.order !== prev.order) {
       if (queueSaveTimer == null) {
         queueSaveTimer = window.setTimeout(() => {
@@ -798,26 +884,35 @@ if (typeof window !== "undefined") {
   });
 
   const flushSession = () => {
+    // Sleep, tab close, refresh: the playhead must be current, and the
+    // server writes must survive the tab — keepalive carries them out.
     if (queueSaveTimer != null) {
       window.clearTimeout(queueSaveTimer);
       queueSaveTimer = null;
-      writeQueueSnapshot();
+      writeQueueSnapshot(true);
     }
     if (playheadSaveTimer != null) {
       window.clearTimeout(playheadSaveTimer);
       playheadSaveTimer = null;
     }
     playheadDirty = false;
-    writePlayhead();
+    writePlayhead(false, true);
   };
-  // Sleep, tab close, refresh, navigation: the playhead must be current.
   window.addEventListener("pagehide", flushSession);
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "hidden") flushSession();
   });
 }
 
-function restoreSession(): void {
+/* Restore precedence (§32): the localStorage snapshot applies synchronously
+   — instant UI, click-safe, exactly the §29 behavior — then the server's
+   session is adopted over it if it arrives while the local one is still
+   untouched. An untouched first paint should show the server's truth (the
+   desktop's queue, not this browser's stale copy); a session already begun
+   here is never clobbered. An unreachable or empty server degrades to §29
+   exactly. */
+
+function restoreLocalSession(): void {
   if (typeof localStorage === "undefined") return;
   let queue: Track[] = [];
   let order: number[] = [];
@@ -857,7 +952,7 @@ function restoreSession(): void {
   }
   const track = queue[order[orderPos]];
   if (!track) return;
-  usePlayerStore.setState({
+  setStateRestoring({
     queue,
     order,
     orderPos,
@@ -871,4 +966,44 @@ function restoreSession(): void {
   syncWindowTitle();
 }
 
-restoreSession();
+async function adoptServerSession(): Promise<void> {
+  const snapshot = await fetchServerQueue();
+  if (!snapshot) return; // none stored, or the server is unreachable
+  if (sessionTouched) return; // this browser's session already began
+  const { items, order, order_pos, position } = snapshot;
+  if (items.length === 0) return;
+  let playOrder = order;
+  if (
+    !Array.isArray(playOrder) ||
+    playOrder.length !== items.length ||
+    playOrder.some((i) => !Number.isInteger(i) || i < 0 || i >= items.length)
+  ) {
+    playOrder = items.map((_, i) => i); // the §29 defensive shape
+  }
+  const pos = Math.min(Math.max(order_pos, 0), items.length - 1);
+  const track = items[playOrder[pos]];
+  if (!track) return;
+  setStateRestoring({
+    queue: items,
+    order: playOrder,
+    orderPos: pos,
+    // Always paused, like every restore (§29): the bar is that state loss
+    // is never total, never that sound starts uninvited.
+    isPlaying: false,
+    position: Math.max(0, Math.min(position, track.duration || position)),
+    duration: track.duration || 0,
+  });
+  syncWindowTitle();
+}
+
+restoreLocalSession();
+if (typeof window !== "undefined") {
+  // The adoption must not race the persist middleware's own rehydration
+  // write (volume/shuffle/repeat land in a microtask after store creation):
+  // queue behind it when it hasn't finished yet.
+  if (usePlayerStore.persist.hasHydrated()) {
+    void adoptServerSession();
+  } else {
+    usePlayerStore.persist.onFinishHydration(() => void adoptServerSession());
+  }
+}

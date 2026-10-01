@@ -34,6 +34,11 @@ watcher picks up changes and the Rescan button in Settings forces a pass.
 The port is published on all interfaces (LAN access intended; there is no
 auth by design).
 
+> **Keep it on the LAN.** Do not port-forward Flow or expose it to the
+> public internet — there is no authentication, so anyone who can reach the
+> port can browse, stream, and rewrite your library's metadata. To listen
+> from outside your network, tunnel in with a VPN (WireGuard, Tailscale).
+
 ## Quick start (dev)
 
 Backend:

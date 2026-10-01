@@ -284,6 +284,21 @@ Session, and eventually resume after container restarts. The client store remain
 *UI* truth; the server becomes the source of *truth* truth. A weekend of backend for a
 permanent upgrade to the app's spine.
 
+**Do:**
+- [x] `POST /api/queue` resolves the whole filter (or an explicit id list) server-side and
+      replaces the stored session; `GET` restores it; `PUT` mirrors the client's plan edits at
+      the §29 cadence; `PATCH` carries the playhead. Storage is two tiny tables (migration
+      006) — the queue is whole-snapshot state, not a log, and GET self-heals when the library
+      deletes a queued track out from under it (cascade, like playlists).
+      *(shipped as the §32 addendum.)*
+- [x] Restore precedence: localStorage applies synchronously (click-safe, §29 unchanged);
+      the server's session is adopted over it when it arrives while the local one is still
+      untouched — an untouched first paint shows the server's truth (the desktop's queue, not
+      this browser's stale copy), and a session already begun here is never clobbered.
+- [x] "Play from here" in the paged views (Tracks, Favorites) and Shuffle all resolve through
+      the server POST when pages are unloaded — there is no page left to truncate to; the
+      §29 client-side whole-view fetch remains the fallback when the server can't answer.
+
 ### 4.1 Two strategic notes on settled decisions
 
 - **Revisit the "no play counts" non-goal narrowly.** The exclusion of charts/ratings is
@@ -293,6 +308,18 @@ permanent upgrade to the app's spine.
 - **The no-auth stance is fine on the LAN it was designed for.** If the README is ever read by
   someone port-forwarding, a one-line warning (or opt-in bearer token) is the responsible
   amount of friction. Not a product change; a guardrail on the contract.
+
+**Do:**
+- [x] `tracks.played_at` (migration 007): one timestamp per track, stamped on real playback
+      starts via the playhead sync (the track id is carried explicitly, never derived from
+      stored state, so a mirror PUT in flight can't mis-stamp). No counts, no charts — §1's
+      non-goal stands untouched. Rescans never touch it, exactly like `favorite`.
+      *(shipped; §32.)*
+- [x] The timestamp gets its one honest surface: a **Recently played** module on Home (albums
+      you had on, in recency order) and a `sort=played` read path on tracks and albums. Absent
+      until something has actually played — no empty-state noise. *(shipped; §32.)*
+- [x] README exposure guardrail: name port-forwarding explicitly and say what it costs.
+      *(shipped; §32 — the warning is the chosen friction, not a token.)*
 
 ### 4.2 Future candidates (not commitments)
 

@@ -413,6 +413,48 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/queue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Queue
+         * @description The stored session, or an empty one when none exists (first run).
+         *     The client falls back to its localStorage snapshot when this is empty
+         *     or unreachable — the server is the truth, not a single point of failure.
+         */
+        get: operations["get_queue_api_queue_get"];
+        /**
+         * Put Queue
+         * @description The plan mirror (§32). Whole-snapshot replace, same as POST but with a
+         *     client-built play order. Validation is honest, not defensive theater: a
+         *     malformed order is a 422 the client answers by falling back to its
+         *     localStorage-only persistence, never by corrupting the server's copy.
+         */
+        put: operations["put_queue_api_queue_put"];
+        /**
+         * Play Queue
+         * @description "Play this view" (§4.0): replace the queue with the WHOLE filter —
+         *     resolved and ordered server-side — and start at `start`. The response is
+         *     the canonical snapshot; the client adopts it wholesale.
+         */
+        post: operations["play_queue_api_queue_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Patch Queue
+         * @description The playhead (§29 cadence), plus §4.1's played_at stamp: a real
+         *     playback start reports its track id and the server records it — carried
+         *     explicitly, never derived from stored state, so a mirror PUT still in
+         *     flight cannot mis-stamp.
+         */
+        patch: operations["patch_queue_api_queue_patch"];
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -433,6 +475,8 @@ export interface components {
             artwork_id: number | null;
             /** Track Count */
             track_count: number;
+            /** Played At */
+            played_at?: string | null;
             /** Duration Total */
             duration_total: number;
             /** Tracks */
@@ -474,6 +518,8 @@ export interface components {
             artwork_id: number | null;
             /** Track Count */
             track_count: number;
+            /** Played At */
+            played_at?: string | null;
         };
         /** ArtistDetail */
         ArtistDetail: {
@@ -716,6 +762,8 @@ export interface components {
             path: string;
             /** Gain Db */
             gain_db?: number | null;
+            /** Played At */
+            played_at?: string | null;
             /** Position */
             position: number;
         };
@@ -732,6 +780,120 @@ export interface components {
             description?: string | null;
             /** Cover Artwork Id */
             cover_artwork_id?: number | null;
+        };
+        /**
+         * QueuePatchIn
+         * @description PATCH /api/queue — the playhead, at the §29 cadence (3 s throttle plus
+         *     a pagehide flush). `played_track_id` rides the immediate start-of-play
+         *     sync: when present, the server stamps tracks.played_at (§4.1) on THAT id
+         *     — carried explicitly, never derived from the stored plan, so a mirror
+         *     PUT still in flight cannot mis-stamp.
+         */
+        QueuePatchIn: {
+            /** Order Pos */
+            order_pos?: number | null;
+            /** Position */
+            position?: number | null;
+            /** Played Track Id */
+            played_track_id?: number | null;
+        };
+        /**
+         * QueuePlayIn
+         * @description POST /api/queue — "play this view" (§4.0). Exactly one of `track_ids`
+         *     or the GET /api/tracks filter contract (minus pagination). The server
+         *     resolves the WHOLE filter in one query — there is no page for the queue
+         *     to be silently truncated to (§1.2, for good). `start` is the index into
+         *     the resolved list that begins playback; `shuffle` builds the play order
+         *     starting there instead.
+         */
+        QueuePlayIn: {
+            /** Track Ids */
+            track_ids?: number[] | null;
+            /** Q */
+            q?: string | null;
+            /** Artist Id */
+            artist_id?: number | null;
+            /** Album Id */
+            album_id?: number | null;
+            /** Review */
+            review?: string | null;
+            /** Favorite */
+            favorite?: boolean | null;
+            /** Genre Id */
+            genre_id?: number | null;
+            /**
+             * Sort
+             * @default title
+             */
+            sort: string;
+            /**
+             * Dir
+             * @default asc
+             */
+            dir: string;
+            /**
+             * Start
+             * @default 0
+             */
+            start: number;
+            /**
+             * Shuffle
+             * @default false
+             */
+            shuffle: boolean;
+        };
+        /**
+         * QueuePlayheadOut
+         * @description PATCH's answer — tiny, because it rides the 3 s cadence.
+         */
+        QueuePlayheadOut: {
+            /** Order Pos */
+            order_pos: number;
+            /** Position */
+            position: number;
+            /** Updated At */
+            updated_at?: string | null;
+        };
+        /**
+         * QueuePutIn
+         * @description PUT /api/queue — the client's plan mirror (§32). The store remains the
+         *     source of UI truth and PUTs its whole queue when the plan changes (the
+         *     §29 cadence, server-destination instead of localStorage-only). `order`
+         *     must be a permutation of 0..n-1 into `track_ids`.
+         */
+        QueuePutIn: {
+            /** Track Ids */
+            track_ids: number[];
+            /** Order */
+            order: number[];
+            /** Order Pos */
+            order_pos: number;
+            /**
+             * Position
+             * @default 0
+             */
+            position: number;
+        };
+        /**
+         * QueueSnapshot
+         * @description The whole stored session — what GET /api/queue restores and what the
+         *     play/replace endpoints echo back. `items` are the queue in insertion
+         *     order; `order` is the play order as indexes into `items` (identity, or
+         *     the shuffle plan); `order_pos` indexes `order` (-1 = built, nothing
+         *     loaded); `position` is seconds into the current track. The client store
+         *     adopts this shape verbatim.
+         */
+        QueueSnapshot: {
+            /** Items */
+            items: components["schemas"]["TrackOut"][];
+            /** Order */
+            order: number[];
+            /** Order Pos */
+            order_pos: number;
+            /** Position */
+            position: number;
+            /** Updated At */
+            updated_at?: string | null;
         };
         /**
          * ReviewSummary
@@ -864,6 +1026,8 @@ export interface components {
             path: string;
             /** Gain Db */
             gain_db?: number | null;
+            /** Played At */
+            played_at?: string | null;
         };
         /**
          * TrackPatch
@@ -1733,6 +1897,125 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_queue_api_queue_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QueueSnapshot"];
+                };
+            };
+        };
+    };
+    put_queue_api_queue_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["QueuePutIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QueueSnapshot"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    play_queue_api_queue_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["QueuePlayIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QueueSnapshot"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    patch_queue_api_queue_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["QueuePatchIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QueuePlayheadOut"];
                 };
             };
             /** @description Validation Error */

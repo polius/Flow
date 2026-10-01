@@ -3,6 +3,7 @@ import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { useSearchParams } from "react-router";
 
 import { api, fetchAllTracks } from "../api/client";
+import { playByFilter } from "../api/queue";
 import { GenreMenu } from "../components/GenreMenu";
 import { SortMenu, type SortOption } from "../components/SortMenu";
 import { TrackTableHead, type TrackSortKey } from "../components/TrackTableHead";
@@ -107,28 +108,43 @@ export function TracksView() {
   const total = query.data?.pages[0]?.total ?? 0;
 
   const playTracks = usePlayerStore((s) => s.playTracks);
+  const playSnapshot = usePlayerStore((s) => s.playSnapshot);
 
-  // "Play from here" means the whole view (§29): if pages of the filter are
-  // still unloaded, fetch the rest first, then queue the complete list. The
-  // fetch is a few local round trips — the click still feels instant, and
-  // the queue header reads the honest total instead of the scroll depth.
+  // "Play from here" means the whole view (§29), now server-resolved (§32):
+  // when pages of this filter are still unloaded, POST /api/queue resolves
+  // the WHOLE filter in one query — there is no page for the queue to be
+  // truncated to, and the session exists on the server from birth. When
+  // everything is already local, play instantly; the §32 mirror keeps the
+  // server honest. A failed POST falls back to §29's client-side fetch.
   const playFromHere = useCallback(
     (index: number) => {
       if (tracks.length >= total) {
         playTracks(tracks, index);
         return;
       }
-      const loaded = tracks;
-      void fetchAllTracks({ q: q || undefined, genreId: genreId ?? undefined, sort, dir })
-        .then((full) =>
-          playTracks(
-            full.length > 0 ? full : loaded,
-            Math.min(index, (full.length > 0 ? full : loaded).length - 1),
-          ),
-        )
-        .catch(() => playTracks(loaded, index));
+      void playByFilter({
+        q: q || undefined,
+        genreId: genreId ?? undefined,
+        sort,
+        dir,
+        start: index,
+      }).then((snapshot) => {
+        if (snapshot) {
+          playSnapshot(snapshot);
+          return;
+        }
+        return fetchAllTracks({
+          q: q || undefined,
+          genreId: genreId ?? undefined,
+          sort,
+          dir,
+        }).then((full) => {
+          const list = full.length > 0 ? full : tracks;
+          playTracks(list, Math.min(index, list.length - 1));
+        });
+      });
     },
-    [playTracks, tracks, total, q, genreId, sort, dir],
+    [playTracks, playSnapshot, tracks, total, q, genreId, sort, dir],
   );
 
   // The row menu's "Play" resolves the same whole view (§29).
