@@ -1012,3 +1012,43 @@ removals, and playlist drag-to-reorder sheds its browser-default look.
    fill bleeding through), content dimmed to 0.4 — and hover fills on the
    rows beneath the pointer are suppressed (`tracktable--dragging`). The
    insertion line stays the single placement cue.
+7. **Toast layer fix (§26):** the §25 toast sat with the player's layer —
+   below drawers and modals — but the queue lives inside the Now Playing
+   takeover (a fullscreen modal), so a queue removal fired a toast no one
+   could see. The pill now floats at `modal + 5`: above the takeover,
+   below only the drag ghost (`modal + 10`).
+
+## 27. Addendum — playlist reorder adopts the queue's drag grammar (2026-10-01)
+
+Owner report: dragging a track up or down in a playlist highlighted only a
+2px border — "not professional at all." Correct verdict, and the fix isn't
+polish on that grammar, it's replacement: the playlist now uses the §9.4
+rev 2 press-and-drag grammar the queue already ships, per Apple HIG — a
+dragged item lifts and the list parts to make room; a line is a diagram of
+a placement, a gap IS the placement.
+
+1. **Lift (mouse):** press-and-move past 5px lifts the row into a floating
+   ghost — the row itself, cloned at lift, elevated (double soft shadow,
+   hairline edge, 1.02 scale), locked to the list's left edge and clamped
+   to the table's extent. The old static drag chip (§26.5) and its
+   `setDragImage` plumbing are deleted: a floating row follows the pointer
+   at 60fps; a photographed bitmap can't.
+2. **The gap is the cue:** the grabbed row's origin reads as empty
+   (`opacity: 0`) and its slot travels to the tentative position — rows
+   between part by one row height (`translateY` on the wrapper, 150ms
+   ease-out). The `dropbefore/dropafter` inset lines are gone. Hover fills
+   and hit-testing are suppressed table-wide while a drag is live
+   (`tracktable--dragging`), so nothing flickers under the ghost.
+3. **Settle:** release flies the ghost the last few pixels onto the slot
+   (200ms, shadow shrinking) while the optimistic reorder commits; Escape
+   springs it home and commits nothing. Pointer capture on the table
+   retargets the release, so a committed drag can't leave a click that
+   plays the row.
+4. **Auto-scroll:** dragging into a 56px band at the shell canvas's rim
+   scrolls the view at a ramped speed — a 500-track playlist is reorderable
+   end to end without leaving the list.
+5. **Touch unchanged, deliberately:** rows keep §25's swipe-to-remove and
+   long-press menu. A touch-lift timer would starve the menu (350ms lift
+   vs 480ms menu), and Apple answers this exact conflict with Edit-mode
+   grips the design doesn't have. If touch reorder arrives, it needs that
+   grip — not a timer race.

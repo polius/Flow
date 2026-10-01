@@ -15,7 +15,7 @@
    deletes by itself: the drag opens the action, the tap commits it. */
 
 import { useEffect, useRef, useState } from "react";
-import type { CSSProperties, HTMLAttributes } from "react";
+import type { CSSProperties } from "react";
 import { Link } from "react-router";
 
 import type { Track } from "../api/types";
@@ -59,8 +59,12 @@ interface TrackRowProps {
   onToggleFavorite: (track: Track) => void;
   /** Opens the row action menu (right-click / long-press, see TrackActionsMenu). */
   onTrackMenu?: (track: Track, x: number, y: number) => void;
-  /** Playlist variant: drag-to-reorder handlers (§9.3). */
-  dragHandlers?: HTMLAttributes<HTMLDivElement>;
+  /** Playlist variant: displacement while a drag is live — the parting-rows
+      grammar (§27) transforms the wrapper, never the row itself. */
+  wrapStyle?: CSSProperties;
+  /** Playlist variant: the row's order index, exposed as data-idx so the
+      table's pointer gesture can find the pressed row. */
+  dataIdx?: number;
   /** Playlist variant: one-click removal (hover-revealed on desktop,
       swipe-revealed on touch — §25). */
   onRemove?: (track: Track) => void;
@@ -83,7 +87,8 @@ export function TrackRow({
   onTogglePlay,
   onToggleFavorite,
   onTrackMenu,
-  dragHandlers,
+  wrapStyle,
+  dataIdx,
   onRemove,
   swipeOpen = false,
   onSwipeOpenChange,
@@ -263,7 +268,6 @@ export function TrackRow({
       onTouchMove={onTouchMove}
       onTouchEnd={onTouchEnd}
       onTouchCancel={onTouchEnd}
-      {...dragHandlers}
     >
       <span className="trackrow__index" aria-hidden="true">
         {/* The playing marker (§17.7 grammar, shared with the queue drawer):
@@ -361,6 +365,8 @@ export function TrackRow({
       ]
         .filter(Boolean)
         .join(" ")}
+      style={wrapStyle}
+      data-idx={dataIdx}
       role="presentation"
     >
       {/* The action lives behind the content; the row slides left over it. */}

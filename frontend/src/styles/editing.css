@@ -151,62 +151,59 @@
   font-weight: 600;
 }
 
-/* Drag-reorder feedback (§26): the dragged row reads as an empty slot —
-   transparent background (no hover fill, no playing fill bleeding through),
-   dimmed content — while the insertion line shows where it will land.
-   Hover fill on OTHER rows is suppressed while a drag is live: a table of
-   flashing hover highlights behind the pointer is noise, not feedback. */
-.trackrow--dragging,
-.trackrow--dragging:hover,
-.trackrow--playing.trackrow--dragging,
-.trackrow--playing.trackrow--dragging:hover {
-  background: transparent;
-  opacity: 0.4;
+/* Playlist drag-reorder (§27): the queue's press-and-drag grammar. The
+   grabbed row is IN the ghost — its origin slot reads as empty (opacity 0)
+   while the wrapper's transform slides it to the tentative slot, so the gap
+   travels with the pointer and the neighbors part around it. The gap is the
+   only placement cue; the 2px insertion line is gone. While a drag is live
+   rows stop being hit targets: no hover fills, no stray clicks under the
+   ghost, no text selection. */
+.trackrow--dragging {
+  opacity: 0;
 }
 
-.tracktable--dragging .trackrow:not(.trackrow--playing):hover {
-  background: transparent;
+.tracktable--dragging {
+  cursor: grabbing;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
-/* The drag image: a quiet pill of the app's own chrome — grip glyph +
-   title — replacing the browser's raw row snapshot. Offscreen: it exists
-   only to be photographed at dragstart. */
-.dragchip {
-  position: fixed;
-  top: -200px;
-  left: 0;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  max-width: 320px;
-  padding: 8px 14px 8px 11px;
-  border: 1px solid var(--separator);
-  border-radius: 999px;
-  background: var(--bg-elevated);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.22);
-  color: var(--text-primary);
-  font-size: var(--text-body);
-  font-weight: 500;
-  white-space: nowrap;
+.tracktable--dragging .trackrow {
   pointer-events: none;
 }
 
-.dragchip span {
-  overflow: hidden;
-  text-overflow: ellipsis;
+/* The parting motion: the wrapper slides one row height with the same fast
+   ease the queue rows use — the list reads as yielding to the hand, not
+   rows teleporting. Unconditional (like .queue__row) so the release/cancel
+   spring animates too: the --dragging class is already gone by then. */
+.trackrowwrap {
+  transition: transform var(--dur-fast) var(--ease-out);
 }
 
-.dragchip svg {
-  flex: none;
-  color: var(--text-tertiary);
+/* The lifted row in the hand: the row itself, elevated — soft double
+   shadow, hairline edge, 1.02 scale (the scale rides the transform the
+   gesture writes each frame). Settling shrinks the shadow and glides the
+   last few pixels onto the slot. Lives on <body>: fixed positioning means
+   the viewport, and no .tracktable ancestor can clip or stack below it. */
+.trackrowghost {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: calc(var(--z-modal) + 10);
+  border: 1px solid var(--separator);
+  background: var(--bg-elevated);
+  box-shadow:
+    0 12px 30px rgba(0, 0, 0, 0.3),
+    0 3px 8px rgba(0, 0, 0, 0.16);
+  pointer-events: none;
+  will-change: transform;
 }
 
-.trackrow--dropbefore {
-  box-shadow: inset 0 2px 0 var(--text-primary);
-}
-
-.trackrow--dropafter {
-  box-shadow: inset 0 -2px 0 var(--text-primary);
+.trackrowghost--settle {
+  transition: transform 200ms var(--ease-out);
+  box-shadow:
+    0 4px 12px rgba(0, 0, 0, 0.2),
+    0 1px 3px rgba(0, 0, 0, 0.12);
 }
 
 /* ---- inline edit (double-click rename, §9.3) ------------------------------ */
@@ -1417,15 +1414,17 @@ textarea.inlineedit__input {
 /* ---- undo toast (§25) -------------------------------------------------------
    The recovery affordance for destructive-but-recoverable actions: a quiet
    pill above the player bar — message + Undo, five seconds, held on hover
-   or focus. Sits with the player's layer: above the canvas, below drawers
-   and modals, which own the whole screen when open. */
+   or focus. It must float above the Now Playing takeover too: the queue
+   lives inside that fullscreen overlay, and queue removal is exactly the
+   case the toast exists for (§26) — a toast buried under the takeover is
+   no toast at all. Only the drag ghost (modal + 10) rides higher. */
 
 .undotoast {
   position: fixed;
   left: 50%;
   bottom: calc(var(--player-height) + 14px);
   transform: translateX(-50%);
-  z-index: calc(var(--z-player) + 5);
+  z-index: calc(var(--z-modal) + 5);
   display: flex;
   align-items: center;
   gap: 14px;
