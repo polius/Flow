@@ -438,15 +438,13 @@
   border-radius: 50%;
   background: var(--bg-elevated);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
-  transition: transform var(--dur-fast) var(--ease-out);
 }
 
 .settingstoggle--on {
+  /* iOS-switch geometry: knob on the right, "On" reading on the left
+     against the filled track. */
+  flex-direction: row-reverse;
   background: var(--text-primary);
-}
-
-.settingstoggle--on .settingstoggle__knob {
-  transform: translateX(18px);
 }
 
 .settingstoggle__label {
@@ -457,5 +455,7 @@
 }
 
 .settingstoggle--on .settingstoggle__label {
+  padding-right: 0;
+  padding-left: 8px;
   color: var(--bg-canvas);
 }
