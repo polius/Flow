@@ -827,7 +827,6 @@ button.orghead__sort:hover {
 .orgsheetwrap__done {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
   flex: none;
   padding: 7px 16px;
   border-radius: 999px;

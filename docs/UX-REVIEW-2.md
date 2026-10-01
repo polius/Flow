@@ -263,10 +263,14 @@ is the one place the app's discipline slips: §8.3's "generous whitespace in her
 meant for breathing room, not vacancy.
 
 **Do:**
-- [ ] Constrain Home (and only Home) to a content column — ~980 px max, left-anchored like
+- [x] Constrain Home (and only Home) to a content column — ~980 px max, left-anchored like
       Settings, so the cover grids stay generous — or re-template the two cards as compact
       rows (art + text + action, ~560 px). Measure both; ship the calmer one. The phone
       layout (§21) already reads correctly and must not change.
+      *(Shipped the second option: both cards are content-bounded at `max-width: 560px` —
+      the Settings group's width, so row-shaped content has one width app-wide while the
+      cover grids stay full-bleed. The vacancy is removed at the source rather than
+      redistributed; the phone layout is untouched. See §35.)*
 
 ### 3.2 Settings hugs the left edge of a wide canvas
 
@@ -276,8 +280,31 @@ Music's settings (limited as they are) center too. The left-pinning reads as an 
 a choice.
 
 **Do:**
-- [ ] Center the settings column (`margin-inline: auto` on the group container, same max
+- [x] Center the settings column (`margin-inline: auto` on the group container, same max
       width). Two lines of CSS; verify the mount-guard card centers with it.
+      *(Shipped as written; the mount guard joins the column — same width, same
+      centering — since it is a Settings child and was the one full-bleed card left.)*
+
+### 3.3 The Tracks header overflows on phones (the P0 regression)
+
+> **Reconstruction note:** this section was missing from the committed document —
+> the body numbered 3.2 then 3.4, while the priority order below named 3.3 as the
+> P0. Restored here from that priority-order entry so the fix has a box to tick;
+> the finding text is the review's own.
+
+The Organize pill is clipped and unreachable at 375 px — the header's action
+pills cannot shrink (`flex: none`) and carry live labels, so the row overflows
+the canvas. §21's verified no-overflow claim no longer holds: the sweep
+predated the Organize pill (§23.4), and a feature added to a verified surface
+did not inherit its verification. It contradicts the app's own phone contract.
+
+**Do:**
+- [x] Fix before anything else. The view header wraps at the phone breakpoint:
+      the actions row drops under the title, trailing right, and the pills wrap
+      within the row when labels are wide. Wrap is inert wherever the row
+      already fits, so wide windows are unchanged — and every header control is
+      visible and reachable at 375 px, restoring the exit checklist's first
+      standing item. *(See §35.)*
 
 ### 3.4 The phone Now Playing ambience washes out
 
@@ -287,9 +314,14 @@ barely survives — a red album rendered on a pastel pink field. The desktop was
 tuned on desktop and the smaller art-to-canvas ratio (§16.1) dilutes the source.
 
 **Do:**
-- [ ] Deepen the ambience scrim / raise the wash opacity below the 640 px breakpoint until
+- [x] Deepen the ambience scrim / raise the wash opacity below the 640 px breakpoint until
       the artwork's hue reads at a glance. Verify against a dark cover *and* a light cover
       (the failure mode is only visible on saturated art).
+      *(Scoped to the Now Playing takeover: below 640 px the artwork layer strengthens
+      (`--ambience-opacity` 0.5 → 0.72) and the canvas veil lightens (`--ambience-wash`
+      0.62 → 0.4) — effective art presence roughly doubles. Album detail's banner is a
+      different surface with its own legibility contract and is untouched. The dark/light
+      cover eyeball-check is owed to the next §8.0.6 sweep. See §35.)*
 
 ### 3.5 The Organize "Done ⌄" chevron promises a menu that doesn't exist
 
@@ -298,7 +330,7 @@ sheet — the chevron is decoration. A chevron is an affordance with exactly one
 (*something opens here*). §8.0.3: every element earns its place.
 
 **Do:**
-- [ ] Remove the chevron. (If a future Done-menu is plausible, add the chevron when the menu
+- [x] Remove the chevron. (If a future Done-menu is plausible, add the chevron when the menu
       exists — affordances follow function, never the reverse.)
 
 ### 3.6 One table-density nit, for the record

@@ -13,7 +13,7 @@ import { useEffect, useRef } from "react";
 import { isTextEditingTarget } from "../lib/shortcuts";
 import { useModalFocus } from "../lib/focus";
 import { useUiStore } from "../stores/ui";
-import { IconChevronDown, IconOrganize } from "./icons";
+import { IconOrganize } from "./icons";
 import { OrganizeView } from "../views/OrganizeView";
 import "../styles/organize.css";
 
@@ -82,7 +82,6 @@ export function OrganizeSheet() {
           title="Done (Esc)"
         >
           Done
-          <IconChevronDown size={13} />
         </button>
       </header>
       <div className="shell__canvas orgsheetwrap__canvas">

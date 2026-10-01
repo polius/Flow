@@ -1790,3 +1790,78 @@ vouches for rows; one §32 case split to the new three-state contract),
 Per the owner's standing instruction the live §8.0.6 click-through was
 deferred; the remaining sweep (both themes, both widths, plus the exit-
 checklist items) is owed by the next verification pass.
+
+## 35. Addendum — Review 2, Part 3: the design system's second pass (2026-10-01)
+
+Implements Part 3 of `docs/UX-REVIEW-2.md` (§3.1–§3.5; §3.6 is a record-only
+nit, see item 6). One section of the review was committed incomplete: the
+body numbered 3.2 then 3.4, while the priority order named §3.3 as the P0
+regression — the section was reconstructed there from the priority-order
+entry (marked as such) so the fix has a box to tick. Two settled decisions
+were revised:
+
+- **§8.3's "generous whitespace in hero moments" is scoped.** Whitespace is
+  breathing room inside a content width, not vacancy across the canvas.
+  Home's row-shaped cards are content-bounded at 560px — the Settings
+  group's width — while plane-shaped content (the cover grids) stays
+  full-bleed. The working rule: *rows are 560, planes are full.*
+- **§21's phone-sweep claim (no overflow at any width) is restored by
+  construction.** The view header now wraps below 640px instead of
+  assuming the title and the action pills fit on one line. The root cause
+  is the closing note's lesson made concrete: the Organize pill (§23.4)
+  postdated the verified phone sweep and did not inherit its verification.
+
+1. **Home's full-width cards are content-bounded (§3.1).** Of the review's
+   two options, the compact rows shipped (`max-width: 560px` on the
+   Continue-listening card and the Shuffle-all card): the vacancy is
+   removed at the source rather than redistributed onto a narrower page,
+   the cover grids — the verified, praised part of Home — are untouched,
+   and the phone layout is unaffected (a max-width binds nothing at 375px).
+   The review's "measure both, ship the calmer one" was resolved by
+   construction rather than live measurement (no browser automation this
+   session, per the owner's standing instruction): a content-bounded row
+   cannot be emptier than an unbounded one at any width. The at-rest
+   visual check at 1440/1280/375 is owed to the next sweep, alongside the
+   still-open §33/§34 items.
+2. **Settings centers (§3.2).** `margin-inline: auto` on the group
+   container, same 560px width — placed like macOS System Settings instead
+   of pinned left. The mount guard joins the column (same width, same
+   centering): it is a Settings child and was the one full-bleed card
+   left on the canvas. The title and subtitle stay left-aligned; the
+   review asked for the column only.
+3. **The phone header wraps (§3.3, the P0).** Below 640px the view head
+   wraps: the actions row drops under the title, trailing right, and the
+   pills wrap within the row when the live labels (an active genre name,
+   "Recently added") are wide. Wrap is inert wherever the row already
+   fits, so wide windows and the 480–640 band are unchanged. Every header
+   control is visible and reachable at 375px — the exit checklist's first
+   standing item holds again. Applied on the shared `.view__head` grammar,
+   so Tracks, Favorites, Albums, Artists, Playlists, and Search all
+   inherit it.
+4. **The phone ambience deepens (§3.4).** Below 640px, scoped to the Now
+   Playing takeover only: `--ambience-opacity` 0.5 → 0.72 and
+   `--ambience-wash` 0.62 → 0.4 — the artwork's effective presence roughly
+   doubles (0.5 × 0.38 ≈ 0.19 before; 0.72 × 0.6 ≈ 0.43 after) while the
+   90px blur keeps text legible. One token system still — a breakpoint
+   override, not new tokens. Album detail's banner dissolve is untouched:
+   it has its own legibility contract with the track table and was not
+   the reviewed failure. The dark-cover/light-cover eyeball check is owed
+   to the next sweep (the failure mode shows only on saturated art).
+5. **The Done chevron is gone (§3.5).** A pure removal: the chevron
+   promised a menu that does not exist, and affordances follow function
+   (§8.0.3). If a Done-menu ever ships, the chevron returns with it. The
+   now-dead `gap` on the button went with it.
+6. **The table-density nit stays a record (§3.6).** Its own condition —
+   include only if a session is already in `tracktable` CSS — was not
+   met: the §3.3 fix lives in the header grammar (views.css), not the
+   table grid. The proportional distribution (title ~40 / artist ~25 /
+   album ~25 / time right) remains a good idea for the next time
+   `tracktable` CSS is open.
+
+Verification: `tsc --noEmit`, `vite build`, and the frontend suite (25
+tests) green; CSS- and one-component-only changes — no behavior under
+test affected. Per the owner's standing instruction the live §8.0.6
+click-through was deferred; the owed sweep now includes: both themes at
+375/1280/1440 for the wrapped header, Home's bounded cards at 1440/1280,
+Settings' centered column (mount-guard card included), and the ambience
+check against a saturated dark cover and a light cover.

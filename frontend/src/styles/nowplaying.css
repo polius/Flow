@@ -20,6 +20,21 @@
   }
 }
 
+/* §3.4: on phones the ambience read as bleached — the fixed token values
+   were tuned on desktop, and the smaller art-to-canvas ratio dilutes the
+   source. Below the phone breakpoint the artwork layer strengthens and
+   the canvas veil lightens until the cover's hue reads at a glance
+   (effective art presence roughly doubles); the 90px blur keeps every
+   surface's text legible, and desktop values are untouched. Scoped to
+   the takeover — album detail's banner dissolve is a different surface
+   with its own legibility contract. */
+@media (max-width: 640px) {
+  .nowplaying {
+    --ambience-opacity: 0.72;
+    --ambience-wash: 0.4;
+  }
+}
+
 .nowplaying__close,
 .nowplaying__queuebtn {
   position: absolute;

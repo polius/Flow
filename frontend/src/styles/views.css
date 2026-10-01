@@ -27,6 +27,23 @@
   .view--ambient .ambience--banner {
     inset: -24px -16px auto -16px;
   }
+
+  /* The P0 regression (§3.3): the header's action pills cannot shrink
+     (flex: none) and carry live labels, so at 375px the Organize pill
+     slid off-canvas. The head wraps: the actions drop under the title,
+     trailing right, and the pills wrap within the row when the labels
+     are wide. Wrap is inert wherever the row already fits, so wide
+     windows are unchanged; every control stays visible and reachable —
+     the exit checklist's first standing item holds again. */
+  .view__head {
+    flex-wrap: wrap;
+  }
+
+  .view__actions {
+    margin-left: auto;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
 }
 
 /* Album detail ambience (§8.5, §13): the blurred cover sits behind the
@@ -120,10 +137,14 @@
   text-decoration-thickness: 2px;
 }
 
-/* Settings rows (grows in Milestone 2 with the live scan API). */
+/* Settings rows (grows in Milestone 2 with the live scan API).
+   §3.2: the column centers on wide canvases — the left-pinning read as an
+   omission, not a choice; same width, now placed like macOS System
+   Settings. */
 .settings-group {
   margin-top: 28px;
   max-width: 560px;
+  margin-inline: auto;
 }
 
 .settings-group h2 {
@@ -305,9 +326,12 @@
 
 /* ---- Settings: mount guard (§2.8) -----------------------------------------
    The broken-mount trip is its own calm state — what happened, what was
-   protected, what to do. Not an error banner; a status card. */
+   protected, what to do. Not an error banner; a status card. §3.2: it
+   centers with the settings column (same width, same placement). */
 .settings-guard {
   margin-top: 20px;
+  max-width: 560px;
+  margin-inline: auto;
   padding: 18px;
   background: var(--bg-elevated);
   border: 1px solid var(--separator);

@@ -132,12 +132,15 @@
 
 /* Continue listening (§13.9, §29): the restored session as one quiet row —
    monochrome, inset like the app's other resting surfaces; the artwork is
-   the only color it needs. */
+   the only color it needs. §3.1: the row is content-bounded at the app's
+   560px content width (the Settings group's) — stretching 56px of content
+   across a 1,300px canvas read as vacancy, not generosity. */
 .continuecard {
   display: flex;
   align-items: center;
   gap: 14px;
   width: 100%;
+  max-width: 560px;
   padding: 10px 16px 10px 10px;
   border-radius: var(--radius-m);
   background: var(--bg-inset);
@@ -307,8 +310,10 @@
 
 /* ---- Home: shuffle-all card (§2.5) --------------------------------------- */
 
+/* §3.1: content-bounded like the Continue card — same 560px row grammar. */
 .shufflecard {
   width: 100%;
+  max-width: 560px;
   display: flex;
   align-items: center;
   gap: 14px;
