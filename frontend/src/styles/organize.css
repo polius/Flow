@@ -442,12 +442,7 @@ button.orghead__sort:hover {
 .orgrow__titlecell {
   display: flex;
   align-items: center;
-  gap: 10px;
   min-width: 0;
-}
-
-.orgrow__titlecell .artwork {
-  flex: none;
 }
 
 .orgrow__titletext {

@@ -95,7 +95,9 @@
    SHEET_BP in TrackActionsMenu). §28 records the rationales.
      640  phone — overflow nav sheet, mini player, compact insets
      760  the brand wordmark hides
-     940  top-bar nav gains text labels; Now Playing queue → sheet
+     940  Now Playing queue → sheet
+    1020  top-bar nav gains text labels (six labeled items, Settings
+          included; measured for the search field's 240px basis)
    Independent of width, touch capability ((hover: none) +
    (pointer: coarse)) sizes the top bar's targets to the 44pt HIG floor
    with invisible slop (§28). */

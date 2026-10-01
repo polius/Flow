@@ -69,11 +69,12 @@ const NAV: NavEntry[] = [
 
 /* Below the phone breakpoint the icon row collapses into an overflow
    button + pull-down sheet (§19); at and above the labeled breakpoint the
-   row shows text beside each icon (§28). The numbers mirror topbar.css —
-   CSS media queries cannot read JS constants, so the two must be kept
-   in step (tokens.css documents the canonical set). */
+   row shows text beside each icon — Settings included (§28, 2026-10-02).
+   The numbers mirror topbar.css — CSS media queries cannot read JS
+   constants, so the two must be kept in step (tokens.css documents the
+   canonical set). */
 const PHONE_BP = "(min-width: 641px)";
-const LABELED_BP = "(min-width: 940px)";
+const LABELED_BP = "(min-width: 1020px)";
 
 export function TopBar() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -204,9 +205,8 @@ export function TopBar() {
 
       {/* Section nav in three forms (§28): labeled on wide windows, the
           icon-only row below that (§18), and the overflow sheet on phones
-          (§19) — the CSS swaps the forms at the breakpoints. Settings stays
-          icon-only after the hairline: a utility, not a section, mirroring
-          a macOS toolbar's item groups. */}
+          (§19) — the CSS swaps the forms at the breakpoints. Settings keeps
+          the same icon + label grammar as the sections, after the hairline. */}
       <nav className="topbar__nav" aria-label="Library">
         {NAV.map(({ to, label, Icon }) => (
           <NavLink
@@ -228,12 +228,15 @@ export function TopBar() {
         <NavLink
           to="/settings"
           className={({ isActive }) =>
-            `topbar__nav-item${isActive ? " topbar__nav-item--active" : ""}`
+            `topbar__nav-item topbar__nav-item--labeled${
+              isActive ? " topbar__nav-item--active" : ""
+            }`
           }
           aria-label="Settings"
-          title="Settings"
+          title={labeledNav ? undefined : "Settings"}
         >
           <IconSettings size={18} />
+          <span className="topbar__nav-label">Settings</span>
         </NavLink>
       </nav>
 

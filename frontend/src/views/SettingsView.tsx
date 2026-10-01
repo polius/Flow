@@ -13,21 +13,6 @@ const THEME_MODES: { mode: ThemeMode; label: string }[] = [
   { mode: "dark", label: "Dark" },
 ];
 
-function ShortcutRow({ action, keys }: { action: string; keys: string[] }) {
-  return (
-    <div className="settings-row">
-      <span className="settings-row__label">{action}</span>
-      <span className="settings-row__value">
-        {keys.map((k) => (
-          <kbd key={k} className="settings-kbd">
-            {k}
-          </kbd>
-        ))}
-      </span>
-    </div>
-  );
-}
-
 /* The scan-error disclosure (§2.8): the scan's failure modes — files that
    couldn't be read, mounts that went away — were collected but never shown.
    Calm by design: a count, then path + reason on demand. */
@@ -111,7 +96,7 @@ export function SettingsView() {
   return (
     <section className="view">
       <h1 className="view__title">Settings</h1>
-      <p className="view__subtitle">Library status, appearance, and keyboard shortcuts.</p>
+      <p className="view__subtitle">Appearance, library status, and playback.</p>
 
       {/* The mount guard (§2.8) gets its own calm state, not a bare count:
           what happened, what was (and wasn't) touched, what to do. */}
@@ -132,22 +117,37 @@ export function SettingsView() {
         </div>
       )}
 
-      {/* Two independent columns on wide windows (§37): Library + Playback
-          left, Appearance + Keyboard right — the canvas's right half stops
-          being vacancy without reflowing any row. Below the breakpoint the
-          columns stack and the view reads exactly as before, left-pinned
-          (the owner's 2026-10-02 call, revisiting §3.2's centering). */}
+      {/* One left-pinned column (owner, 2026-10-02): the Keyboard section's
+          removal left nothing for the second column (§37's two-column grid),
+          so every group lives in the first — Appearance leading, then
+          Library and Playback in the old reading order. */}
       <div className="settings-grid">
         <div className="settings-col">
           <div className="settings-group">
-            <h2>Library</h2>
+            <h2>Appearance</h2>
             <div className="settings-row">
-              <span className="settings-row__label">Music folder</span>
+              <span className="settings-row__label">Theme</span>
               <span className="settings-row__value">
-                {settings ? settings.library_path : "…"}
-                {settings && !settings.library_exists ? " (missing)" : ""}
+                <div className="segmented" role="radiogroup" aria-label="Theme">
+                  {THEME_MODES.map(({ mode, label }) => (
+                    <button
+                      key={mode}
+                      type="button"
+                      role="radio"
+                      aria-checked={themeMode === mode}
+                      className={`segmented__item${themeMode === mode ? " segmented__item--active" : ""}`}
+                      onClick={() => setThemeMode(mode)}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
               </span>
             </div>
+          </div>
+
+          <div className="settings-group">
+            <h2>Library</h2>
             <div className="settings-row">
               <span className="settings-row__label">Contents</span>
               <span className="settings-row__value">
@@ -216,52 +216,6 @@ export function SettingsView() {
                 </button>
               </span>
             </div>
-          </div>
-        </div>
-
-        <div className="settings-col">
-          <div className="settings-group">
-            <h2>Appearance</h2>
-            <div className="settings-row">
-              <span className="settings-row__label">Theme</span>
-              <span className="settings-row__value">
-                <div className="segmented" role="radiogroup" aria-label="Theme">
-                  {THEME_MODES.map(({ mode, label }) => (
-                    <button
-                      key={mode}
-                      type="button"
-                      role="radio"
-                      aria-checked={themeMode === mode}
-                      className={`segmented__item${themeMode === mode ? " segmented__item--active" : ""}`}
-                      onClick={() => setThemeMode(mode)}
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </div>
-              </span>
-            </div>
-          </div>
-
-          <div className="settings-group">
-            <h2>Keyboard</h2>
-            <ShortcutRow action="Play / pause" keys={["Space"]} />
-            <ShortcutRow action="Next / previous track" keys={["⌘→ / ⌘←", "Ctrl → / Ctrl ←"]} />
-            <ShortcutRow action="Mute / unmute" keys={["M"]} />
-            <ShortcutRow action="Seek backward / forward 10s" keys={["←", "→"]} />
-            <ShortcutRow action="Volume down / up" keys={["↓", "↑"]} />
-            <ShortcutRow action="Search" keys={["⌘F", "Ctrl F"]} />
-            <ShortcutRow action="Close menu / panel / Now Playing" keys={["Esc"]} />
-            {/* §2.4: the §31.7 table grammar, documented where the rest of the
-                keyboard lives — the list and the implementation are one grammar;
-                they had drifted apart, which is the §8.0.5 lesson applied to
-                documentation. */}
-            <p className="settings-subhead">In tables</p>
-            <ShortcutRow action="Move the row cursor" keys={["↑", "↓"]} />
-            <ShortcutRow action="Jump to start / end" keys={["Home", "End"]} />
-            <ShortcutRow action="Page up / down" keys={["PageUp", "PageDown"]} />
-            <ShortcutRow action="Play the cursor row" keys={["Enter"]} />
-            <ShortcutRow action="Toggle playback" keys={["Space"]} />
           </div>
         </div>
       </div>

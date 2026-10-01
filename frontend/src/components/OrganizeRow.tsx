@@ -165,7 +165,8 @@ export function OrganizeRow({
         />
       </span>
       <span className="orgrow__titlecell" onClick={(e) => e.stopPropagation()}>
-        <Artwork artworkId={track.artwork_id} size={24} radius="s" />
+        {/* Text only (owner, 2026-10-02): the 24px artwork left the title
+            cell — one icon per row read as noise in a mass-editing grid. */}
         <InlineEdit
           value={track.title}
           ariaLabel={`Rename ${track.title}`}

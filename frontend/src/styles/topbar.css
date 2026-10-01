@@ -372,13 +372,14 @@
 
 /* ---- labeled nav (wide windows, §28) ----
    HIG: show a label whenever space allows — icons earn text before the
-   layout starts spending it. From the labeled breakpoint up each section
-   wears its text beside the icon; Settings stays icon-only after the group
-   break, a utility rather than a section. The breakpoint is measured, not
-   chosen: the narrowest window where the labeled row fits whole with the
-   search field at its natural 240px flex basis — below it the search would
-   be the first thing squeezed, and it never is. */
-@media (min-width: 940px) {
+   layout starts spending it. From the labeled breakpoint up every item,
+   Settings included, wears its text beside the icon. The breakpoint is
+   measured, not chosen (owner moved Settings into the labeled set,
+   2026-10-02): the narrowest window where the labeled row — six items —
+   fits whole with the search field at its natural 240px flex basis
+   (1015.5px measured; 1020 chosen). Below it the search would be the first
+   thing squeezed, and it never is. */
+@media (min-width: 1020px) {
   .topbar__nav-item--labeled {
     width: auto;
     gap: 7px;

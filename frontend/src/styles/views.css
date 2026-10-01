@@ -142,21 +142,13 @@
 }
 
 /* Settings rows (grows in Milestone 2 with the live scan API).
-   §37 (owner, 2026-10-02): left-pinned, and two independent columns on wide
-   windows — §3.2's centering read as drift on big canvases, and a single
-   560px column left them owning a third of the row. The grid stacks below
-   1100px: one 560px column, flush left, exactly the old flow. */
+   One left-pinned column (owner, 2026-10-02): removing the Keyboard section
+   left §37's second column empty, so the wide-window two-column grid went
+   with it — everything shares the first column, flush left, max 560px. */
 .settings-grid {
   margin-top: 28px;
   display: grid;
   gap: 16px 32px;
-}
-
-@media (min-width: 1100px) {
-  .settings-grid {
-    grid-template-columns: repeat(2, minmax(0, 560px));
-    align-items: start;
-  }
 }
 
 .settings-col {
@@ -198,15 +190,6 @@
 
 .settings-row__label {
   font-size: var(--text-regular);
-}
-
-/* A subheading inside a group — the Keyboard group's table section
-   (§2.4) is one grammar, documented in two halves. */
-.settings-subhead {
-  margin: 14px 2px 8px;
-  font-size: var(--text-small);
-  font-weight: 600;
-  color: var(--text-secondary);
 }
 
 .settings-row__value {
@@ -274,23 +257,6 @@
   background: var(--bg-elevated);
   color: var(--text-primary);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
-}
-
-/* Keyboard chips in the shortcuts list. */
-.settings-kbd {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 22px;
-  padding: 2px 7px;
-  border: 1px solid var(--control-border);
-  border-bottom-width: 2px;
-  border-radius: 5px;
-  background: var(--bg-elevated);
-  font-family: var(--font-sans);
-  font-size: var(--text-caption);
-  font-weight: 500;
-  color: var(--text-secondary);
 }
 
 /* Loading placeholders (§8.8) — quiet inset blocks, slow pulse (§8.4). */
