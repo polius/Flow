@@ -46,6 +46,10 @@ interface UiState {
       Esc precedence and the global shortcut guard defer to it (§23). */
   pickerOpen: boolean;
   setPickerOpen: (open: boolean) => void;
+  /** True while a queue row is lifted mid-drag — the drag is a layer above
+      the Now Playing takeover, so Esc cancels the drag first (§9.4 rev 2). */
+  queueDragOpen: boolean;
+  setQueueDragOpen: (open: boolean) => void;
   /** Theme override; default follows the OS (§8.6). */
   themeMode: ThemeMode;
   setThemeMode: (mode: ThemeMode) => void;
@@ -73,6 +77,8 @@ export const useUiStore = create<UiState>()(
       setContextMenuOpen: (contextMenuOpen) => set({ contextMenuOpen }),
       pickerOpen: false,
       setPickerOpen: (pickerOpen) => set({ pickerOpen }),
+      queueDragOpen: false,
+      setQueueDragOpen: (queueDragOpen) => set({ queueDragOpen }),
       themeMode: "system",
       setThemeMode: (themeMode) => set({ themeMode }),
       searchFocusSignal: 0,

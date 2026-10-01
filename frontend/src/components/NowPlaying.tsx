@@ -66,7 +66,8 @@ export function NowPlaying() {
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
       const ui = useUiStore.getState();
-      if (ui.pickerOpen || ui.contextMenuOpen || ui.getInfoTrackId != null) return;
+      if (ui.pickerOpen || ui.contextMenuOpen || ui.getInfoTrackId != null || ui.queueDragOpen)
+        return;
       if (isTypingTarget(document.activeElement)) return;
       e.preventDefault();
       if (queueOpen) {

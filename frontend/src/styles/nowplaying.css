@@ -278,12 +278,20 @@
   top: 0;
   left: 0;
   right: 0;
+  /* Neighbor rows slide out of a dragged row's way; mounts and commits
+     land directly on their spot, so this only ever animates a drag. */
+  transition: transform var(--dur-fast) var(--ease-out);
 }
 
+/* A row is also a 350ms press target (hold-to-lift) — the OS text-selection
+   callout must not compete with the drag on iOS/Android. */
 .queue__row {
   position: relative;
   border-radius: var(--radius-m);
   transition: background-color var(--dur-fast) var(--ease-out);
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 .queue__row:hover {
@@ -465,18 +473,61 @@
   opacity: 1;
 }
 
-/* Drag-reorder feedback: lifted row + insertion line (same grammar as the
-   playlist table). */
+/* Press-and-drag reorder (§9.4 revision 2): a long-press (touch/pen) or
+   press-move (mouse) lifts the row into a floating ghost. The grabbed row
+   leaves a GAP that travels with the finger — the space itself is the
+   insertion indicator; neighbors slide via the transform transition above.
+   While a drag is live rows stop being hit targets: no hover, no stray
+   clicks, no ✕ firing under the ghost. */
 .queue__row--dragging {
-  opacity: 0.35;
+  opacity: 0;
 }
 
-.queue__row--dropbefore {
-  box-shadow: inset 0 2px 0 var(--text-primary);
+.queue__list--dragging {
+  cursor: grabbing;
 }
 
-.queue__row--dropafter {
-  box-shadow: inset 0 -2px 0 var(--text-primary);
+.queue__list--dragging .queue__row {
+  pointer-events: none;
+}
+
+/* The lifted row in the hand: elevated, slightly scaled, never a hit
+   target. It shares the row's grid; settling flies it the last few pixels
+   onto its final slot. Lives on <body> (portaled) so fixed coordinates are
+   the viewport's. */
+.queue__ghost {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: calc(var(--z-modal) + 10);
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 11px;
+  padding: 7px 10px;
+  border-radius: var(--radius-m);
+  background: var(--bg-elevated);
+  box-shadow:
+    0 10px 28px rgba(0, 0, 0, 0.32),
+    0 2px 6px rgba(0, 0, 0, 0.18);
+  pointer-events: none;
+  will-change: transform;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.queue__ghost--settle {
+  transition: transform 200ms var(--ease-out);
+  box-shadow:
+    0 4px 12px rgba(0, 0, 0, 0.2),
+    0 1px 3px rgba(0, 0, 0, 0.12);
+}
+
+/* Artwork must not start a native image drag mid-press — the queue's only
+   drag is the reorder gesture. */
+.queue__main img,
+.queue__ghost img {
+  -webkit-user-drag: none;
 }
 
 /* The row's content may slide left for swipe-to-remove: transitions when
@@ -493,10 +544,13 @@
 
 /* The field the swipe reveals: an accent-red wash with the remove glyph,
    so the gesture's consequence is legible before it commits. (:has covers
-   the mid-gesture state — the backdrop sits before the row content.) */
+   the mid-gesture state — the backdrop sits before the row content.)
+   Decoration only — it must never be a hit target, or it eats the row's
+   clicks (it paints above the static row content). */
 .queue__swipebg {
   position: absolute;
   inset: 0;
+  pointer-events: none;
   display: flex;
   align-items: center;
   justify-content: flex-end;
