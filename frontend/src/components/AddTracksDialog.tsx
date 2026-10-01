@@ -16,7 +16,7 @@ import { useModalFocus } from "../lib/focus";
 import { usePlayerStore } from "../stores/player";
 import { useUiStore } from "../stores/ui";
 import { Artwork } from "./Artwork";
-import { IconCheck, IconClose, IconPlus, IconQueue, IconSearch } from "./icons";
+import { IconCheck, IconClose, IconNext, IconPlus, IconQueue, IconSearch } from "./icons";
 import { PlaylistArt } from "./PlaylistArt";
 import { fmtDuration, fmtMinutes } from "../lib/format";
 import "../styles/editing.css";
@@ -37,6 +37,7 @@ export function AddTracksDialog(props: AddTracksDialogProps) {
   const { onClose } = props;
   const addToPlaylist = useAddToPlaylist();
   const addToQueue = usePlayerStore((s) => s.addToQueue);
+  const playNextMany = usePlayerStore((s) => s.playNextMany);
 
   const [input, setInput] = useState("");
   const [q, setQ] = useState("");
@@ -173,7 +174,7 @@ export function AddTracksDialog(props: AddTracksDialogProps) {
 
   const clear = () => setSelected(new Map());
 
-  const commit = async () => {
+  const commit = async (destination: "end" | "next" = "end") => {
     if (selected.size === 0 || adding) return;
     const tracks = [...selected.values()];
     if (props.kind === "playlist") {
@@ -185,9 +186,12 @@ export function AddTracksDialog(props: AddTracksDialogProps) {
       setAdding(false);
       if (ok) onClose();
     } else {
-      // Append to the end of the play order — the queue panel is where a
-      // queue gets built (§23); click-to-jump starts any of them.
-      addToQueue(tracks);
+      // §1.2: both destinations, append still the picker's default —
+      // "Play Next" inserts after the playing row (playNextMany), "Add to
+      // Queue" lands at the end. The store's arrival toast confirms either
+      // way, with Undo.
+      if (destination === "next") playNextMany(tracks);
+      else addToQueue(tracks);
       onClose();
     }
   };
@@ -248,7 +252,8 @@ export function AddTracksDialog(props: AddTracksDialogProps) {
         <div className="addtracks__identity">
           <h2 className="addtracks__title">Add to Queue</h2>
           <p className="addtracks__sub">
-            Search your library — tracks are added to the end of the queue.
+            Search your library — add them to play next, or the end of the
+            queue.
           </p>
         </div>
       </>
@@ -442,10 +447,24 @@ export function AddTracksDialog(props: AddTracksDialogProps) {
             <button type="button" className="addtracks__cancel" onClick={onClose}>
               Cancel
             </button>
+            {/* §1.2: the picker keeps append as its default verb, but
+                "Play Next" sits beside it — the same two destinations the
+                menus offer, one quiet secondary. */}
+            {props.kind === "queue" && (
+              <button
+                type="button"
+                className="view__action"
+                onClick={() => void commit("next")}
+                disabled={selectedCount === 0 || adding}
+              >
+                <IconNext size={14} />
+                Play Next
+              </button>
+            )}
             <button
               type="button"
               className="btn--primary"
-              onClick={() => void commit()}
+              onClick={() => void commit("end")}
               disabled={selectedCount === 0 || adding}
             >
               {adding ? (
@@ -453,7 +472,8 @@ export function AddTracksDialog(props: AddTracksDialogProps) {
               ) : (
                 <>
                   <IconPlus size={14} />
-                  Add {selectedCount > 0 ? selectedCount : ""}{" "}
+                  {props.kind === "queue" ? "Add to Queue" : "Add"}{" "}
+                  {selectedCount > 0 ? selectedCount : ""}{" "}
                   {selectedCount === 1 ? "Track" : "Tracks"}
                 </>
               )}

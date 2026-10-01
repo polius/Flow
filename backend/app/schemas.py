@@ -295,19 +295,32 @@ class SearchOut(BaseModel):
 
 # ---- The server-truth play queue (UX review Part 4.0) --------------------------
 
+class QueueOrigin(BaseModel):
+    """Where the queue came from (UX review 2, Part 1.1): the "Playing from"
+    sentence. `label` is the human name ("Album 03", "Everything, shuffled");
+    `href` is the route that makes the label a link. `manual` (a hand-built
+    queue) carries no label — nothing renders, exactly as before this
+    column existed."""
+
+    kind: Literal["album", "artist", "playlist", "filter", "shuffle-all", "manual"]
+    label: str | None = None
+    href: str | None = None
+
 
 class QueueSnapshot(BaseModel):
     """The whole stored session — what GET /api/queue restores and what the
     play/replace endpoints echo back. `items` are the queue in insertion
     order; `order` is the play order as indexes into `items` (identity, or
     the shuffle plan); `order_pos` indexes `order` (-1 = built, nothing
-    loaded); `position` is seconds into the current track. The client store
-    adopts this shape verbatim."""
+    loaded); `position` is seconds into the current track. `origin` names
+    what produced the queue (§1.1) — null for sessions that predate it. The
+    client store adopts this shape verbatim."""
 
     items: list[TrackOut]
     order: list[int]
     order_pos: int
     position: float
+    origin: QueueOrigin | None = None
     updated_at: str | None = None
 
 
@@ -317,7 +330,8 @@ class QueuePlayIn(BaseModel):
     resolves the WHOLE filter in one query — there is no page for the queue
     to be silently truncated to (§1.2, for good). `start` is the index into
     the resolved list that begins playback; `shuffle` builds the play order
-    starting there instead."""
+    starting there instead. `origin` is the caller's declaration of what
+    this view IS (the client knows; the server records, §1.1)."""
 
     track_ids: list[int] | None = None
     q: str | None = None
@@ -330,18 +344,21 @@ class QueuePlayIn(BaseModel):
     dir: str = "asc"
     start: int = 0
     shuffle: bool = False
+    origin: QueueOrigin | None = None
 
 
 class QueuePutIn(BaseModel):
     """PUT /api/queue — the client's plan mirror (§32). The store remains the
     source of UI truth and PUTs its whole queue when the plan changes (the
     §29 cadence, server-destination instead of localStorage-only). `order`
-    must be a permutation of 0..n-1 into `track_ids`."""
+    must be a permutation of 0..n-1 into `track_ids`. `origin` rides along
+    unchanged — queue edits never rewrite where the queue came from."""
 
     track_ids: list[int]
     order: list[int]
     order_pos: int
     position: float = 0
+    origin: QueueOrigin | None = None
 
 
 class QueuePatchIn(BaseModel):

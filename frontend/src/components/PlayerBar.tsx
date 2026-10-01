@@ -22,7 +22,15 @@ function TrackLine({ track }: { track: Track | null }) {
   if (!track) return <span className="player__title">Nothing playing</span>;
   return (
     <>
-      <span className="player__title">{track.title}</span>
+      <span className="player__title">
+        {track.album_id != null ? (
+          // §1.4: the title names the album it lives on when one exists —
+          // text at rest, an underline on hover, nothing louder.
+          <Link to={`/albums/${track.album_id}`}>{track.title}</Link>
+        ) : (
+          track.title
+        )}
+      </span>
       <span className="player__subtitle">
         {track.artist_id != null ? (
           <Link to={`/artists/${track.artist_id}`}>{track.artist}</Link>

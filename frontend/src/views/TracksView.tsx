@@ -4,6 +4,7 @@ import { useSearchParams } from "react-router";
 
 import { api, fetchAllTracks } from "../api/client";
 import { playByFilter } from "../api/queue";
+import type { QueueOrigin } from "../api/types";
 import { GenreMenu } from "../components/GenreMenu";
 import { SortMenu, type SortOption } from "../components/SortMenu";
 import { TrackTableHead, type TrackSortKey } from "../components/TrackTableHead";
@@ -110,6 +111,22 @@ export function TracksView() {
   const playTracks = usePlayerStore((s) => s.playTracks);
   const playSnapshot = usePlayerStore((s) => s.playSnapshot);
 
+  // The view's origin (§1.1): the genre, the query, or the plain library —
+  // the caller knows what it is, and the queue keeps knowing it.
+  const viewOrigin: QueueOrigin = {
+    kind: "filter",
+    label: genreName
+      ? genreName
+      : q
+        ? `“${q}”`
+        : "Your Library",
+    href: genreName && genreId != null
+      ? `/tracks?genre=${genreId}`
+      : q
+        ? `/tracks?q=${encodeURIComponent(q)}`
+        : "/tracks",
+  };
+
   // "Play from here" means the whole view (§29), now server-resolved (§32):
   // when pages of this filter are still unloaded, POST /api/queue resolves
   // the WHOLE filter in one query — there is no page for the queue to be
@@ -119,7 +136,7 @@ export function TracksView() {
   const playFromHere = useCallback(
     (index: number) => {
       if (tracks.length >= total) {
-        playTracks(tracks, index);
+        playTracks(tracks, index, viewOrigin);
         return;
       }
       void playByFilter({
@@ -128,6 +145,7 @@ export function TracksView() {
         sort,
         dir,
         start: index,
+        origin: viewOrigin,
       }).then((snapshot) => {
         if (snapshot) {
           playSnapshot(snapshot);
@@ -140,11 +158,12 @@ export function TracksView() {
           dir,
         }).then((full) => {
           const list = full.length > 0 ? full : tracks;
-          playTracks(list, Math.min(index, list.length - 1));
+          playTracks(list, Math.min(index, list.length - 1), viewOrigin);
         });
       });
     },
-    [playTracks, playSnapshot, tracks, total, q, genreId, sort, dir],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [playTracks, playSnapshot, tracks, total, q, genreName, genreId, sort, dir],
   );
 
   // The row menu's "Play" resolves the same whole view (§29).

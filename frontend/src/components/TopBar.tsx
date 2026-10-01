@@ -362,7 +362,12 @@ function SearchZone({
         activate: () => {
           setOpen(false);
           inputRef.current?.blur();
-          playTracks(results.tracks, i);
+          // §1.1: playing from the search suggestions names the query.
+          playTracks(results.tracks, i, {
+            kind: "filter",
+            label: `“${q}”`,
+            href: `/search?q=${encodeURIComponent(q)}`,
+          });
         },
       });
     });

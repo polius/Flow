@@ -30,10 +30,42 @@ import {
   saveServerPlayhead,
   saveServerQueue,
 } from "../api/queue";
-import type { Track } from "../api/types";
+import type { QueueOrigin, Track } from "../api/types";
 import { useUiStore } from "./ui";
 
 export type RepeatMode = "off" | "all" | "one";
+
+/** A hand-built queue has no origin to name (§1.1): nothing renders in the
+    "Playing from" surfaces — honest, exactly the pre-origin behavior. */
+const MANUAL_ORIGIN: QueueOrigin = { kind: "manual", label: null, href: null };
+
+/** The §26 undo-toast grammar, applied to queue additions (§1.2): quiet,
+    one line, honest about where the tracks landed — and undoable, since
+    the exact instances inserted are the exact instances removed. The one
+    exception is "now": tracks that STARTED playing can't be un-added
+    without stopping the music — a gain stays quiet (§26.3's rule). */
+function confirmArrival(
+  n: number,
+  destination: "next" | "end" | "now",
+  tracks: Track[],
+): void {
+  const noun = n === 1 ? "track" : "tracks";
+  const where =
+    destination === "next"
+      ? "play next"
+      : destination === "now"
+        ? "now playing"
+        : "end of queue";
+  const message = `Added ${n} ${noun} — ${where}`;
+  if (destination === "now") {
+    useUiStore.getState().showUndoNotice({ message });
+    return;
+  }
+  useUiStore.getState().showUndoNotice({
+    message,
+    undo: async () => usePlayerStore.getState().removeQueued(tracks),
+  });
+}
 
 interface PlayerState {
   queue: Track[];
@@ -52,25 +84,39 @@ interface PlayerState {
   /** Sound Check (§2.3): apply the scan's loudness analysis so albums
       play at a matched level. Off → unity gain, exactly as before. */
   soundcheck: boolean;
+  /** Where the queue came from (§1.1): the "Playing from" sentence on the
+      queue drawer and Now Playing. Set only by queue REPLACEMENT (play
+      tracks / adopt a snapshot) and read-only for every queue edit —
+      appending to an album queue doesn't rewrite where it came from. */
+  origin: QueueOrigin | null;
 
-  playTracks: (tracks: Track[], startIndex: number) => void;
+  playTracks: (tracks: Track[], startIndex: number, origin?: QueueOrigin | null) => void;
   /** Adopts a server-built queue (§32): the POST /api/queue snapshot, with
       the play order and playhead already resolved whole-filter server-side.
       The store takes it wholesale and plays it — the mirror PUT that the
-      persistence layer schedules afterwards is a formality. */
+      persistence layer schedules afterwards is a formality. `origin` rides
+      the snapshot (§1.1). */
   playSnapshot: (snapshot: {
     items: Track[];
     order: number[];
     order_pos: number;
+    origin?: QueueOrigin | null;
   }) => void;
   playNext: (track: Track) => void;
   /** Play Next for a whole collection (§2.1 header menus): the tracks
       insert, in order, directly after the playing one. */
   playNextMany: (tracks: Track[]) => void;
   /** Appends tracks to the END of the play order (§23 — the queue's Add
-      button). Plays nothing: the queue can be built before playback starts,
-      in which case `orderPos` sits at -1 until a row is clicked. */
+      button, and "Add to Queue (end)" §1.2). Plays nothing: the queue can
+      be built before playback starts, in which case `orderPos` sits at -1
+      until a row is clicked. On an empty queue the session's origin
+      becomes `manual` (§1.1) — a hand-built queue came from nowhere else. */
   addToQueue: (tracks: Track[]) => void;
+  /** Removes exactly the given track instances from the queue — the undo
+      for "Play Next" / "Add to Queue" (§1.2). Matches by REFERENCE, so a
+      duplicated id elsewhere in the queue keeps its place; the playing
+      row's pointer follows the recompact like every other mutation. */
+  removeQueued: (tracks: Track[]) => void;
   /** Removes an upcoming track from the queue (§9.4). No-op for the current one. */
   removeFromQueue: (queueIndex: number) => void;
   /** Undoes a queue removal (§26): re-inserts the track at its former
@@ -132,25 +178,34 @@ export const usePlayerStore = create<PlayerState>()(
       shuffle: false,
       repeat: "off",
       soundcheck: false,
+      origin: null,
 
-      playTracks: (tracks, startIndex) => {
+      playTracks: (tracks, startIndex, origin) => {
         if (tracks.length === 0) return;
         errorSkipStreak = 0; // a fresh queue is a fresh chance for the library
         ensureGraph(); // first user gesture: the only legal moment to start audio
         resumeGraph();
         const clamped = Math.min(Math.max(startIndex, 0), tracks.length - 1);
         const { order, pos } = buildOrder(tracks.length, get().shuffle, clamped);
-        set({ queue: tracks, order, orderPos: pos });
+        // A queue replacement is a new context: the origin is REPLACED with
+        // whatever the caller declared — or `manual` when it didn't say
+        // (a single-track play has no better name, and names nothing, §1.1).
+        set({
+          queue: tracks,
+          order,
+          orderPos: pos,
+          origin: origin ?? MANUAL_ORIGIN,
+        });
         load(tracks[order[pos]], true);
       },
 
-      playSnapshot: ({ items, order, order_pos }) => {
+      playSnapshot: ({ items, order, order_pos, origin }) => {
         if (items.length === 0) return;
         errorSkipStreak = 0;
         ensureGraph();
         resumeGraph();
         const pos = Math.min(Math.max(order_pos, 0), items.length - 1);
-        set({ queue: items, order, orderPos: pos });
+        set({ queue: items, order, orderPos: pos, origin: origin ?? null });
         load(items[order[pos]], true);
       },
 
@@ -158,6 +213,7 @@ export const usePlayerStore = create<PlayerState>()(
         const { queue, order, orderPos } = get();
         if (queue.length === 0) {
           get().playTracks([track], 0);
+          confirmArrival(1, "now", [track]); // it didn't land next — it started
           return;
         }
         const currentQueueIndex = order[orderPos];
@@ -170,6 +226,8 @@ export const usePlayerStore = create<PlayerState>()(
         remapped.splice(orderPos + 1, 0, currentQueueIndex + 1);
         // Seamless: the audio element keeps playing; only the plan changes.
         set({ queue: newQueue, order: remapped, orderPos });
+        // §1.2: an addition confirms its arrival — one quiet line, undoable.
+        confirmArrival(1, "next", [track]);
       },
 
       playNextMany: (tracks) => {
@@ -177,6 +235,7 @@ export const usePlayerStore = create<PlayerState>()(
         const { queue, order, orderPos } = get();
         if (queue.length === 0) {
           get().playTracks(tracks, 0);
+          confirmArrival(tracks.length, "now", tracks);
           return;
         }
         const n = tracks.length;
@@ -191,6 +250,7 @@ export const usePlayerStore = create<PlayerState>()(
         const slots = tracks.map((_, k) => currentQueueIndex + 1 + k);
         remapped.splice(orderPos + 1, 0, ...slots);
         set({ queue: newQueue, order: remapped, orderPos });
+        confirmArrival(n, "next", tracks);
       },
 
       addToQueue: (tracks) => {
@@ -203,6 +263,39 @@ export const usePlayerStore = create<PlayerState>()(
           // An idle-built queue plays nothing yet: orderPos -1 means "no
           // current track" (useCurrentTrack reads order[-1] → undefined).
           orderPos: queue.length === 0 ? -1 : orderPos,
+          // Building a queue by hand on an empty session is the one queue
+          // EDIT that names an origin: manual (§1.1).
+          ...(queue.length === 0 ? { origin: MANUAL_ORIGIN } : {}),
+        });
+        confirmArrival(tracks.length, "end", tracks);
+      },
+
+      removeQueued: (tracks) => {
+        if (tracks.length === 0) return;
+        const { queue, order, orderPos } = get();
+        const dropped = new Set(tracks); // reference identity: duplicates by id elsewhere stay
+        const currentQueueIndex = order[orderPos];
+        // The playing row's own slot is never dropped — even when the same
+        // object was ALSO just inserted (Play Next on the playing track),
+        // the plan must keep pointing at what the element is playing.
+        const kept = queue.filter(
+          (t, i) => i === currentQueueIndex || !dropped.has(t),
+        );
+        if (kept.length === queue.length) return; // nothing matched — nothing to undo
+        const remap = new Map<number, number>();
+        queue.forEach((t, i) => {
+          if (i === currentQueueIndex || !dropped.has(t)) remap.set(i, remap.size);
+        });
+        const newOrder = order
+          .filter((i) => i === currentQueueIndex || !dropped.has(queue[i]))
+          .map((i) => remap.get(i)!);
+        const newCurrent = remap.get(currentQueueIndex);
+        set({
+          queue: kept,
+          order: newOrder,
+          // The playing row's pointer follows the recompact (§26's rule) —
+          // or the queue is idle again.
+          orderPos: newCurrent != null ? newOrder.indexOf(newCurrent) : -1,
         });
       },
 
@@ -807,15 +900,20 @@ let playheadSaveTimer: number | null = null;
 let playheadDirty = false;
 
 function writeQueueSnapshot(keepalive = false): void {
-  const { queue, order, orderPos, position } = usePlayerStore.getState();
+  const { queue, order, orderPos, position, origin } = usePlayerStore.getState();
   try {
-    localStorage.setItem(QUEUE_KEY, JSON.stringify({ queue, order }));
+    // The origin rides the snapshot (§1.1): the offline fallback layer
+    // restores the same "Playing from" sentence the server's copy has.
+    localStorage.setItem(
+      QUEUE_KEY,
+      JSON.stringify({ queue, order, origin }),
+    );
   } catch {
     // Over quota (a very large library): this session still plays; the
     // next one starts from the server copy. Preferences live in the other
     // key either way.
   }
-  saveServerQueue({ tracks: queue, order, orderPos, position }, keepalive);
+  saveServerQueue({ tracks: queue, order, orderPos, position, origin }, keepalive);
 }
 
 function writePlayhead(started = false, keepalive = false): void {
@@ -916,13 +1014,19 @@ function restoreLocalSession(): void {
   if (typeof localStorage === "undefined") return;
   let queue: Track[] = [];
   let order: number[] = [];
+  let origin: QueueOrigin | null = null;
   try {
     const raw = localStorage.getItem(QUEUE_KEY);
     if (!raw) return;
-    const parsed = JSON.parse(raw) as { queue?: unknown; order?: unknown };
+    const parsed = JSON.parse(raw) as {
+      queue?: unknown;
+      order?: unknown;
+      origin?: unknown;
+    };
     if (!Array.isArray(parsed.queue) || !Array.isArray(parsed.order)) return;
     queue = parsed.queue as Track[];
     order = parsed.order as number[];
+    origin = parseOrigin(parsed.origin);
   } catch {
     return; // corrupt snapshot: start clean
   }
@@ -956,6 +1060,7 @@ function restoreLocalSession(): void {
     queue,
     order,
     orderPos,
+    origin,
     // Restored sessions are always paused — autoplay policies aside, the
     // review's bar is that state loss is never TOTAL, never that sound
     // starts uninvited (§29). The element stays empty until the first play.
@@ -966,11 +1071,34 @@ function restoreLocalSession(): void {
   syncWindowTitle();
 }
 
+/** Defensive origin parse (§1.1): a snapshot from before this field
+    existed, or a hand-edited one, degrades to no origin — the queue
+    itself is still good. */
+const ORIGIN_KINDS = new Set([
+  "album",
+  "artist",
+  "playlist",
+  "filter",
+  "shuffle-all",
+  "manual",
+]);
+
+function parseOrigin(raw: unknown): QueueOrigin | null {
+  if (raw == null || typeof raw !== "object") return null;
+  const o = raw as { kind?: unknown; label?: unknown; href?: unknown };
+  if (typeof o.kind !== "string" || !ORIGIN_KINDS.has(o.kind)) return null;
+  return {
+    kind: o.kind as QueueOrigin["kind"],
+    label: typeof o.label === "string" ? o.label : null,
+    href: typeof o.href === "string" ? o.href : null,
+  };
+}
+
 async function adoptServerSession(): Promise<void> {
   const snapshot = await fetchServerQueue();
   if (!snapshot) return; // none stored, or the server is unreachable
   if (sessionTouched) return; // this browser's session already began
-  const { items, order, order_pos, position } = snapshot;
+  const { items, order, order_pos, position, origin } = snapshot;
   if (items.length === 0) return;
   let playOrder = order;
   if (
@@ -987,6 +1115,7 @@ async function adoptServerSession(): Promise<void> {
     queue: items,
     order: playOrder,
     orderPos: pos,
+    origin: parseOrigin(origin),
     // Always paused, like every restore (§29): the bar is that state loss
     // is never total, never that sound starts uninvited.
     isPlaying: false,

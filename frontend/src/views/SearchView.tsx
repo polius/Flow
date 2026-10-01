@@ -63,7 +63,15 @@ export function SearchView() {
                 title="Tracks"
                 more={{ to: `/tracks?q=${encodeURIComponent(urlQuery)}`, label: "Show all in Tracks" }}
               />
-              <TrackTable tracks={results.tracks} variant="all" />
+              <TrackTable
+                tracks={results.tracks}
+                variant="all"
+                origin={{
+                  kind: "filter",
+                  label: `“${urlQuery}”`,
+                  href: `/search?q=${encodeURIComponent(urlQuery)}`,
+                }}
+              />
             </section>
           )}
 

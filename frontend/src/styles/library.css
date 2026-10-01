@@ -172,6 +172,12 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* §1.4: the artist name inside the card is a link (the card keeps
+   play/pause) — the link's activation stops before it reaches the row. */
+.continuecard__sub a:hover {
+  text-decoration: underline;
+}
 .continuecard__action {
   flex: none;
   margin-left: auto;
@@ -883,4 +889,27 @@ button.trackhead__sort:hover {
   .artistcard__monogram {
     font-size: 26px;
   }
+}
+
+/* §1.3: the artist Songs table's "Show all" — quiet, full-width, under the
+   collapsed table; the fold above it belongs to the covers. */
+.artist__showall {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  padding: 10px 12px;
+  margin-top: 6px;
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius-m);
+  font-size: var(--text-small);
+  font-weight: 600;
+  color: var(--text-secondary);
+  transition: background var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out);
+}
+
+.artist__showall:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
 }

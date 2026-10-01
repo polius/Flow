@@ -116,7 +116,11 @@ describe("Esc guard predicates (§29)", () => {
 describe("Esc closes the frontmost surface while a button has focus", () => {
   it("closes the Now Playing takeover", () => {
     useUiStore.setState({ nowPlayingOpen: true });
-    render(<NowPlaying />);
+    render(
+      <MemoryRouter>
+        <NowPlaying />
+      </MemoryRouter>,
+    );
 
     // Click a control — the last-clicked button keeps focus in real use.
     const shuffle = screen.getByRole("button", { name: "Shuffle" });

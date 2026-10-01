@@ -107,6 +107,19 @@
   color: var(--text-tertiary);
 }
 
+/* §1.4: the artist and album names are doors, styled as today's text —
+   hover reveals the underline, nothing louder. */
+.nowplaying__link:hover {
+  text-decoration: underline;
+}
+
+/* §1.1: the origin under the album line, small and secondary (§8.3). */
+.nowplaying__origin {
+  margin: 10px 0 0;
+  font-size: var(--text-caption);
+  color: var(--text-tertiary);
+}
+
 .nowplaying__controls {
   display: flex;
   flex-direction: column;
@@ -259,6 +272,58 @@
   color: var(--text-tertiary);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
+}
+
+/* §1.1: "Playing from …" — the queue's origin, in the head next to the
+   count. Quiet caption; the label is a link when the origin has a route. */
+.queue__origin {
+  margin: -4px 20px 8px;
+  font-size: var(--text-caption);
+  color: var(--text-tertiary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.queue__originlink:hover {
+  text-decoration: underline;
+}
+
+/* §1.1: the album-group divider — a caption naming (album · artist) with a
+   hairline running out to the right edge. Appears only between runs of
+   two or more of the same album; fades while a drag is live so the
+   traveling rows never read against a stale group. */
+.queue__divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 33px;
+  padding: 0 10px;
+  font-size: var(--text-caption);
+  color: var(--text-tertiary);
+  user-select: none;
+}
+
+.queue__dividername {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.queue__divider::after {
+  content: "";
+  flex: 1;
+  border-top: 1px solid var(--control-border);
+}
+
+.queue__list--dragging .queue__divider {
+  opacity: 0;
+}
+
+/* §1.4: the artist name in a queue row is a link — the title stays the
+   click-to-jump target. Same text, underline on hover. */
+.queue__sub .queue__artistlink:hover {
+  text-decoration: underline;
 }
 
 .queue__list {

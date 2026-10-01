@@ -16,7 +16,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
 
-import type { Track } from "../api/types";
+import type { QueueOrigin, Track } from "../api/types";
 import { useToggleFavorite } from "../api/mutations";
 import { useRowCursor } from "../lib/rowCursor";
 import { useCurrentTrack, usePlayerStore } from "../stores/player";
@@ -30,6 +30,9 @@ interface TrackTableProps {
   variant?: TrackVariant;
   /** Context played when a row is activated — defaults to `tracks`. */
   context?: Track[];
+  /** What the queue's origin becomes when a row here starts playback
+      (§1.1): the view declares it once, every row inherits it. */
+  origin?: QueueOrigin | null;
   /** Playlist variant: drop handler for drag-to-reorder. */
   onMove?: (fromIndex: number, toIndex: number) => void;
   /** Playlist variant: removes a track from the playlist (row button). */
@@ -91,6 +94,7 @@ export function TrackTable({
   tracks,
   variant = "all",
   context,
+  origin,
   onMove,
   onRemoveTrack,
 }: TrackTableProps) {
@@ -122,7 +126,7 @@ export function TrackTable({
   const togglePlay = usePlayerStore((s) => s.togglePlay);
   const toggleFavorite = useToggleFavorite();
 
-  const play = (index: number) => playTracks(context ?? tracks, index);
+  const play = (index: number) => playTracks(context ?? tracks, index, origin);
 
   /* Keyboard cursor (§3.4): the Organize grid's Finder grammar, inherited.
      Enter plays the cursor row — idempotent like the row click: the
@@ -162,6 +166,7 @@ export function TrackTable({
       x,
       y,
       context: context ?? tracks,
+      origin,
       removeFromPlaylist:
         variant === "playlist" && removeTrack ? () => removeTrack(track) : undefined,
     });

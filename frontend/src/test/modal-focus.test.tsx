@@ -5,6 +5,7 @@
    focus to whatever opened it. */
 
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { MemoryRouter } from "react-router";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import type { Track } from "../api/types";
@@ -90,14 +91,22 @@ afterEach(cleanup);
 describe("Now Playing modal focus (§3.4)", () => {
   it("moves focus into the takeover on open", () => {
     useUiStore.setState({ nowPlayingOpen: true });
-    const { container } = render(<NowPlaying />);
+    const { container } = render(
+      <MemoryRouter>
+        <NowPlaying />
+      </MemoryRouter>,
+    );
     const surface = container.querySelector(".nowplaying") as HTMLElement;
     expect(surface.contains(document.activeElement)).toBe(true);
   });
 
   it("keeps Tab cycling inside the takeover", () => {
     useUiStore.setState({ nowPlayingOpen: true });
-    render(<NowPlaying />);
+    render(
+      <MemoryRouter>
+        <NowPlaying />
+      </MemoryRouter>,
+    );
     const surface = document.querySelector(".nowplaying") as HTMLElement;
     const inside = () =>
       surface.contains(document.activeElement as HTMLElement | null);
@@ -121,10 +130,10 @@ describe("Now Playing modal focus (§3.4)", () => {
   it("restores focus to the opener on close", () => {
     useUiStore.setState({ nowPlayingOpen: true });
     render(
-      <>
+      <MemoryRouter>
         <button type="button">Opener</button>
         <NowPlaying />
-      </>,
+      </MemoryRouter>,
     );
     const opener = screen.getByRole("button", { name: "Opener" });
     opener.focus();

@@ -11,6 +11,7 @@
    the stage as a sheet behind the header's queue button. */
 
 import { useEffect, useRef, useState } from "react";
+import { Link } from "react-router";
 
 import { useMediaQuery } from "../lib/media";
 import { isTextEditingTarget } from "../lib/shortcuts";
@@ -41,6 +42,7 @@ export function NowPlaying() {
   const isPlaying = usePlayerStore((s) => s.isPlaying);
   const shuffle = usePlayerStore((s) => s.shuffle);
   const repeat = usePlayerStore((s) => s.repeat);
+  const origin = usePlayerStore((s) => s.origin);
   const next = usePlayerStore((s) => s.next);
   const prev = usePlayerStore((s) => s.prev);
   const setShuffle = usePlayerStore((s) => s.setShuffle);
@@ -139,9 +141,53 @@ export function NowPlaying() {
             />
             <div className="nowplaying__meta">
               <h1 className="nowplaying__title">{track.title}</h1>
-              <p className="nowplaying__artist">{track.artist ?? " "}</p>
+              <p className="nowplaying__artist">
+                {track.artist_id != null && track.artist ? (
+                  // §1.4: every name on a listening surface is a door —
+                  // styled as today's text, an underline on hover only.
+                  <Link
+                    to={`/artists/${track.artist_id}`}
+                    className="nowplaying__link"
+                    onClick={close}
+                  >
+                    {track.artist}
+                  </Link>
+                ) : (
+                  (track.artist ?? " ")
+                )}
+              </p>
               {track.album != null && (
-                <p className="nowplaying__album">{track.album}</p>
+                <p className="nowplaying__album">
+                  {track.album_id != null ? (
+                    <Link
+                      to={`/albums/${track.album_id}`}
+                      className="nowplaying__link"
+                      onClick={close}
+                    >
+                      {track.album}
+                    </Link>
+                  ) : (
+                    track.album
+                  )}
+                </p>
+              )}
+              {/* §1.1: the origin rides under the album line, small and
+                  secondary (§8.3) — the queue's birth certificate. */}
+              {origin?.label != null && (
+                <p className="nowplaying__origin">
+                  Playing from{" "}
+                  {origin.href ? (
+                    <Link
+                      to={origin.href}
+                      className="nowplaying__link"
+                      onClick={close}
+                    >
+                      {origin.label}
+                    </Link>
+                  ) : (
+                    <span className="nowplaying__originname">{origin.label}</span>
+                  )}
+                </p>
               )}
             </div>
             <div className="nowplaying__controls">

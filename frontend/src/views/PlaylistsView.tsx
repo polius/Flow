@@ -78,7 +78,12 @@ function PlaylistCard({ playlist }: { playlist: PlaylistSummary }) {
     const { data } = await api.GET("/api/playlists/{playlist_id}", {
       params: { path: { playlist_id: playlist.id } },
     });
-    if (data && data.tracks.length > 0) playTracks(data.tracks, 0);
+    if (data && data.tracks.length > 0)
+      playTracks(data.tracks, 0, {
+        kind: "playlist",
+        label: playlist.name,
+        href: `/playlists/${playlist.id}`,
+      });
   };
 
   return (

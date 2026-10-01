@@ -5,24 +5,27 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
-import type { Track } from "../api/types";
+import type { QueueOrigin, Track } from "../api/types";
 
 /** "system" follows prefers-color-scheme; light/dark are manual overrides (§8.6). */
 export type ThemeMode = "system" | "light" | "dark";
 
 /** A track action menu request: the row's track, its open point (viewport
     coords — the menu positions itself, or falls back to a bottom sheet on
-    phones), and the play context it was invoked from. `removeFromPlaylist`
-    is set when the row came from a playlist — it adds the menu's danger
-    item (§25); the closure carries the playlist context the menu can't know.
-    Paged views also hand over a `contextLoader`: "Play" in the menu must
-    queue the whole view, never just the pages the window loaded (§29). */
+    phones), and the play context it was invoked from. `origin` is what the
+    queue's "Playing from" becomes if the menu's Play starts playback from
+    here (§1.1). `removeFromPlaylist` is set when the row came from a
+    playlist — it adds the menu's danger item (§25); the closure carries
+    the playlist context the menu can't know. Paged views also hand over a
+    `contextLoader`: "Play" in the menu must queue the whole view, never
+    just the pages the window loaded (§29). */
 export interface TrackMenuRequest {
   track: Track;
   x: number;
   y: number;
   context?: Track[];
   contextLoader?: () => Promise<Track[]>;
+  origin?: QueueOrigin | null;
   removeFromPlaylist?: () => void;
 }
 

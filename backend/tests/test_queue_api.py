@@ -213,3 +213,89 @@ def test_get_heals_after_library_removal(client, library):
     # And the healed form is what's stored now (the read rewrote it).
     again = client.get("/api/queue").json()
     assert again["order"] == got["order"]
+
+
+# ---- Origin (UX review 2, Part 1.1 / DESIGN.md §33) -------------------------
+
+
+def test_post_records_origin_and_get_returns_it(client, library):
+    ids = _ids(client)
+    r = client.post(
+        "/api/queue",
+        json={
+            "track_ids": ids,
+            "start": 0,
+            "origin": {"kind": "album", "label": "Album A", "href": "/albums/1"},
+        },
+    )
+    assert r.status_code == 200
+    assert r.json()["origin"] == {
+        "kind": "album",
+        "label": "Album A",
+        "href": "/albums/1",
+    }
+    assert client.get("/api/queue").json()["origin"]["label"] == "Album A"
+
+
+def test_post_without_origin_stores_none(client, library):
+    r = client.post("/api/queue", json={"track_ids": _ids(client), "start": 0})
+    assert r.status_code == 200
+    assert r.json()["origin"] is None
+
+
+def test_post_rejects_unknown_origin_kind(client, library):
+    r = client.post(
+        "/api/queue",
+        json={
+            "track_ids": _ids(client),
+            "origin": {"kind": "playlist?", "label": "x"},
+        },
+    )
+    assert r.status_code == 422
+
+
+def test_put_mirrors_origin_and_heal_preserves_it(client, library):
+    ids = _ids(client)
+    client.post(
+        "/api/queue",
+        json={
+            "track_ids": ids,
+            "origin": {"kind": "filter", "label": "Your Library", "href": "/tracks"},
+        },
+    )
+
+    # The plan mirror carries the origin unchanged — queue edits never
+    # rewrite where the queue came from.
+    client.put(
+        "/api/queue",
+        json={
+            "track_ids": ids,
+            "order": list(range(len(ids))),
+            "order_pos": 0,
+            "position": 0,
+            "origin": {"kind": "filter", "label": "Your Library", "href": "/tracks"},
+        },
+    )
+
+    # A healing read (a track removed underneath the queue) rewrites the
+    # stored session — the origin must survive the rewrite.
+    conn = client.app.state.db.connect()
+    conn.execute("DELETE FROM tracks WHERE id = ?", (ids[0],))
+    conn.commit()
+    got = client.get("/api/queue").json()
+    assert got["origin"] == {
+        "kind": "filter",
+        "label": "Your Library",
+        "href": "/tracks",
+    }
+    assert len(got["items"]) == len(ids) - 1
+
+
+def test_get_degrades_corrupt_origin_to_none(client, library):
+    client.post("/api/queue", json={"track_ids": _ids(client), "start": 0})
+    conn = client.app.state.db.connect()
+    conn.execute("UPDATE queue_state SET origin = '{not json' WHERE id = 0")
+    conn.commit()
+    got = client.get("/api/queue").json()
+    assert got["origin"] is None
+    assert len(got["items"]) > 0  # the session itself is untouched

@@ -37,6 +37,7 @@ from app.routers.library import (
     track_out,
 )
 from app.schemas import (
+    QueueOrigin,
     QueuePatchIn,
     QueuePlayheadOut,
     QueuePlayIn,
@@ -98,6 +99,27 @@ def _load_state(conn: sqlite3.Connection) -> sqlite3.Row:
     return state
 
 
+def _read_origin(state: sqlite3.Row) -> QueueOrigin | None:
+    """The stored origin, defensively parsed (§1.1). A corrupt or
+    unparseable value costs the label, never the session — it degrades to
+    the pre-origin rendering (no "Playing from" line)."""
+    raw = state["origin"] if "origin" in state.keys() else None
+    if not raw:
+        return None
+    try:
+        parsed = json.loads(raw)
+        kind = parsed.get("kind")
+        if kind not in ("album", "artist", "playlist", "filter", "shuffle-all", "manual"):
+            return None
+        return QueueOrigin(
+            kind=kind,
+            label=parsed.get("label"),
+            href=parsed.get("href"),
+        )
+    except (ValueError, AttributeError):
+        return None
+
+
 def _read_snapshot(conn: sqlite3.Connection) -> QueueSnapshot:
     """Read the stored session, healing it if the library moved underneath
     (removed tracks cascade out of queue_items; play_order entries and the
@@ -137,6 +159,7 @@ def _read_snapshot(conn: sqlite3.Connection) -> QueueSnapshot:
     if items and 0 <= healed_pos < len(healed_order):
         position = max(0.0, min(position, items[healed_order[healed_pos]].duration))
 
+    origin = _read_origin(state)
     updated_at = state["updated_at"]
     if (
         len(healed_order) != len(order)
@@ -151,6 +174,7 @@ def _read_snapshot(conn: sqlite3.Connection) -> QueueSnapshot:
                 order=healed_order,
                 order_pos=healed_pos,
                 position=position,
+                origin=origin,
             ),
         )
 
@@ -159,6 +183,7 @@ def _read_snapshot(conn: sqlite3.Connection) -> QueueSnapshot:
         order=healed_order,
         order_pos=healed_pos,
         position=position,
+        origin=origin,
         updated_at=updated_at,
     )
 
@@ -170,6 +195,7 @@ def _write_snapshot(
     order: list[int],
     order_pos: int,
     position: float,
+    origin: QueueOrigin | None = None,
 ) -> str:
     """Replace the whole stored session in one transaction. Returns the
     timestamp it wrote."""
@@ -181,8 +207,14 @@ def _write_snapshot(
     )
     conn.execute(
         "UPDATE queue_state SET play_order = ?, order_pos = ?, position = ?, "
-        "updated_at = ? WHERE id = 0",
-        (json.dumps(order), order_pos, float(position), updated_at),
+        "origin = ?, updated_at = ? WHERE id = 0",
+        (
+            json.dumps(order),
+            order_pos,
+            float(position),
+            origin.model_dump_json() if origin is not None else None,
+            updated_at,
+        ),
     )
     conn.commit()
     return updated_at
@@ -272,7 +304,14 @@ def play_queue(request: Request, body: QueuePlayIn) -> QueueSnapshot:
     _write_transaction(
         conn,
         lambda: _write_snapshot(
-            conn, track_ids=ids, order=play_order, order_pos=order_pos, position=0.0
+            conn,
+            track_ids=ids,
+            order=play_order,
+            order_pos=order_pos,
+            position=0.0,
+            # §1.1: the caller declares what this queue IS; the server
+            # records it so every surface can say "Playing from …".
+            origin=body.origin,
         ),
     )
     return _read_snapshot(conn)
@@ -301,6 +340,9 @@ def put_queue(request: Request, body: QueuePutIn) -> QueueSnapshot:
             order=body.order,
             order_pos=order_pos,
             position=max(0.0, body.position),
+            # The origin rides the mirror unchanged: queue edits never
+            # rewrite where the queue came from (§1.1).
+            origin=body.origin,
         ),
     )
     return _read_snapshot(conn)

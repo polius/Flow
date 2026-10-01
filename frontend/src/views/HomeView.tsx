@@ -4,6 +4,7 @@ import { Link } from "react-router";
 
 import { api, fetchAllTracks } from "../api/client";
 import { playByFilter } from "../api/queue";
+import type { QueueOrigin } from "../api/types";
 import { AlbumCard } from "../components/AlbumCard";
 import { Artwork } from "../components/Artwork";
 import { EmptyState } from "../components/EmptyState";
@@ -18,7 +19,9 @@ import { useScanStore } from "../stores/scan";
    track, where it paused, how much of the queue is still ahead. One quiet
    row; activating it resumes at the saved position (the first play loads
    the restored track into the element, paused up to now). Subscribed from
-   its own component so the 4Hz playhead doesn't re-render the whole Home. */
+   its own component so the 4Hz playhead doesn't re-render the whole Home.
+   §1.4: the artist name inside it is a link — composition, not a second
+   target on the same surface: the card keeps play/pause. */
 function ContinueListening() {
   const current = usePlayerStore((s) => s.queue[s.order[s.orderPos]] ?? null);
   const upNext = usePlayerStore((s) => s.order.length - s.orderPos - 1);
@@ -28,38 +31,61 @@ function ContinueListening() {
 
   if (!current) return null;
 
-  const meta = [
-    current.artist ?? current.album ?? null,
-    isPlaying ? null : `Paused at ${fmtDuration(position)}`,
+  const stateBit = isPlaying ? null : `Paused at ${fmtDuration(position)}`;
+  const nextBit =
     upNext > 0
       ? `${fmtCount(upNext)} ${upNext === 1 ? "track" : "tracks"} up next`
-      : null,
-  ].filter(Boolean);
+      : null;
 
   return (
     <div className="libsection">
       <div className="libsection__head">
         <h2>Continue listening</h2>
       </div>
-      <button
-        type="button"
+      <div
         className="continuecard"
+        role="button"
+        tabIndex={0}
         onClick={togglePlay}
-        aria-label={`${isPlaying ? "Pause" : "Resume"} ${current.title}${
-          meta.length > 0 ? ` — ${meta.join(" · ")}` : ""
+        onKeyDown={(e) => {
+          // The artist link owns the keyboard when focused (§1.4).
+          if (e.target instanceof Element && e.target.closest("a")) return;
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            togglePlay();
+          }
+        }}
+        aria-label={`${isPlaying ? "Pause" : "Resume"} ${current.title} — ${
+          [current.artist ?? current.album, stateBit, nextBit]
+            .filter(Boolean)
+            .join(" · ")
         }`}
       >
         <Artwork artworkId={current.artwork_id} size={56} radius="m" />
         <span className="continuecard__meta">
           <span className="continuecard__title">{current.title}</span>
-          {meta.length > 0 && (
-            <span className="continuecard__sub">{meta.join(" · ")}</span>
+          {(current.artist != null || stateBit != null || nextBit != null) && (
+            <span className="continuecard__sub">
+              {current.artist_id != null && current.artist ? (
+                <Link
+                  to={`/artists/${current.artist_id}`}
+                  className="continuecard__artistlink"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {current.artist}
+                </Link>
+              ) : (
+                (current.artist ?? current.album)
+              )}
+              {[stateBit, nextBit].filter(Boolean).length > 0 &&
+                " · " + [stateBit, nextBit].filter(Boolean).join(" · ")}
+            </span>
           )}
         </span>
         <span className="continuecard__action" aria-hidden="true">
           {isPlaying ? <IconPause size={13} /> : <IconPlay size={13} />}
         </span>
-      </button>
+      </div>
     </div>
   );
 }
@@ -109,8 +135,10 @@ function ShuffleAll({ count }: { count: number }) {
     if (busy || count === 0) return;
     setBusy(true);
     const start = Math.floor(Math.random() * count);
+    // §1.1: the queue's origin is born here — "Everything, shuffled".
+    const origin: QueueOrigin = { kind: "shuffle-all", label: "Everything, shuffled" };
     usePlayerStore.getState().setShuffle(true);
-    void playByFilter({ sort: "title", dir: "asc", shuffle: true, start })
+    void playByFilter({ sort: "title", dir: "asc", shuffle: true, start, origin })
       .then((snapshot) => {
         if (snapshot) {
           playSnapshot(snapshot);
@@ -118,7 +146,7 @@ function ShuffleAll({ count }: { count: number }) {
         }
         return fetchAllTracks({ sort: "title", dir: "asc" }).then((all) => {
           if (all.length === 0) return;
-          playTracks(all, Math.min(start, all.length - 1));
+          playTracks(all, Math.min(start, all.length - 1), origin);
         });
       })
       .finally(() => setBusy(false));

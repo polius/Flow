@@ -4,6 +4,7 @@ import { useSearchParams } from "react-router";
 
 import { api, fetchAllTracks } from "../api/client";
 import { playByFilter } from "../api/queue";
+import type { QueueOrigin } from "../api/types";
 import { SortMenu, type SortOption } from "../components/SortMenu";
 import { TrackTableHead, type TrackSortKey } from "../components/TrackTableHead";
 import { VirtualTrackTable } from "../components/VirtualTrackTable";
@@ -71,6 +72,13 @@ export function FavoritesView() {
   const playTracks = usePlayerStore((s) => s.playTracks);
   const playSnapshot = usePlayerStore((s) => s.playSnapshot);
 
+  // §1.1: the queue's origin — this view, named.
+  const viewOrigin: QueueOrigin = {
+    kind: "filter",
+    label: "Favorites",
+    href: "/favorites",
+  };
+
   // "Play from here" means the whole view (§29), server-resolved when pages
   // of the filter are still unloaded (§32): POST /api/queue resolves the
   // WHOLE filter in one query — a 2,000-favorites queue is 2,000 tracks by
@@ -80,7 +88,7 @@ export function FavoritesView() {
   const playFromHere = useCallback(
     (index: number) => {
       if (tracks.length >= total) {
-        playTracks(tracks, index);
+        playTracks(tracks, index, viewOrigin);
         return;
       }
       void playByFilter({
@@ -89,6 +97,7 @@ export function FavoritesView() {
         sort,
         dir,
         start: index,
+        origin: viewOrigin,
       }).then((snapshot) => {
         if (snapshot) {
           playSnapshot(snapshot);
@@ -97,11 +106,12 @@ export function FavoritesView() {
         return fetchAllTracks({ q: q || undefined, sort, dir, favorite: true }).then(
           (full) => {
             const list = full.length > 0 ? full : tracks;
-            playTracks(list, Math.min(index, list.length - 1));
+            playTracks(list, Math.min(index, list.length - 1), viewOrigin);
           },
         );
       });
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [playTracks, playSnapshot, tracks, total, q, sort, dir],
   );
 

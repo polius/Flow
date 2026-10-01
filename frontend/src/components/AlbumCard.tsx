@@ -8,19 +8,28 @@ import { Link } from "react-router";
 import { useQuery } from "@tanstack/react-query";
 
 import { api } from "../api/client";
-import type { AlbumSummary } from "../api/types";
+import type { AlbumSummary, QueueOrigin } from "../api/types";
 import { usePlayerStore } from "../stores/player";
 import { useUiStore } from "../stores/ui";
 import { Artwork } from "./Artwork";
-import { IconEllipsis, IconNext, IconPlay, IconPlus, IconShuffle } from "./icons";
+import { IconEllipsis, IconNext, IconPlay, IconPlus, IconQueue, IconShuffle } from "./icons";
 import "../styles/library.css";
 
 export function AlbumCard({ album }: { album: AlbumSummary }) {
   const playTracks = usePlayerStore((s) => s.playTracks);
   const playNextMany = usePlayerStore((s) => s.playNextMany);
+  const addToQueue = usePlayerStore((s) => s.addToQueue);
   const openAddToPlaylist = useUiStore((s) => s.openAddToPlaylist);
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+
+  // The album IS the origin (§1.1): playing or shuffling the card names
+  // it, so the queue's "Playing from" sentence is born telling the truth.
+  const origin: QueueOrigin = {
+    kind: "album",
+    label: album.title,
+    href: `/albums/${album.id}`,
+  };
 
   // Tracks resolve when the menu asks for them — never on grid render.
   const { data: detail } = useQuery({
@@ -59,13 +68,13 @@ export function AlbumCard({ album }: { album: AlbumSummary }) {
   };
 
   const play = () => {
-    if (tracks.length > 0) playTracks(tracks, 0);
+    if (tracks.length > 0) playTracks(tracks, 0, origin);
   };
   const shuffle = () => {
     if (tracks.length === 0) return;
     const start = Math.floor(Math.random() * tracks.length);
     usePlayerStore.getState().setShuffle(true);
-    playTracks(tracks, start);
+    playTracks(tracks, start, origin);
   };
   const loading = menuOpen && detail === undefined;
 
@@ -116,6 +125,16 @@ export function AlbumCard({ album }: { album: AlbumSummary }) {
               >
                 <IconNext size={15} />
                 Play Next
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                className="trackmenu__item"
+                onClick={act(() => addToQueue(tracks))}
+                disabled={loading || tracks.length === 0}
+              >
+                <IconQueue size={15} />
+                Add to Queue (end)
               </button>
               <button
                 type="button"

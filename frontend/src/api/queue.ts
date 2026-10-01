@@ -15,7 +15,7 @@
      the pagehide flush survive tab close. */
 
 import { api } from "./client";
-import type { QueueSnapshot, Track } from "./types";
+import type { QueueOrigin, QueueSnapshot, Track } from "./types";
 
 export type ServerQueueSnapshot = QueueSnapshot;
 
@@ -31,11 +31,13 @@ export async function fetchServerQueue(): Promise<QueueSnapshot | null> {
   }
 }
 
-/** POST /api/queue — "play this view" (§4.0): the server resolves the whole
+/** POST /api/queue — "play this view" (§32): the server resolves the whole
     filter (or track list), builds the play order — shuffled when asked —
-    and starts at `start`. Returns the snapshot to adopt, or null when the
-    server couldn't serve it (the caller falls back to §29's client-side
-    whole-view fetch). */
+    and starts at `start`. `origin` is the caller's declaration of what the
+    view is (§1.1: the client knows; the server records, and every surface
+    gets to say "Playing from …"). Returns the snapshot to adopt, or null
+    when the server couldn't serve it (the caller falls back to §29's
+    client-side whole-view fetch). */
 export async function playByFilter(params: {
   q?: string;
   favorite?: boolean;
@@ -45,6 +47,7 @@ export async function playByFilter(params: {
   dir: string;
   start: number;
   shuffle?: boolean;
+  origin?: QueueOrigin | null;
 }): Promise<QueueSnapshot | null> {
   try {
     const { data, response } = await api.POST("/api/queue", {
@@ -57,6 +60,7 @@ export async function playByFilter(params: {
         ...(params.q ? { q: params.q } : {}),
         ...(params.favorite ? { favorite: true } : {}),
         ...(params.genreId != null ? { genre_id: params.genreId } : {}),
+        ...(params.origin ? { origin: params.origin } : {}),
       },
     });
     if (!response.ok || !data || data.items.length === 0) return null;
@@ -68,13 +72,16 @@ export async function playByFilter(params: {
 
 /** PUT /api/queue — mirror the client's plan. Never throws: persistence is
     best-effort by contract (§29's quota story, one layer further out).
-    `keepalive` lets the pagehide flush survive tab close. */
+    The origin rides along (§1.1): the server's canonical copy keeps saying
+    "Playing from …" after every plan change. `keepalive` lets the pagehide
+    flush survive tab close. */
 export function saveServerQueue(
   snapshot: {
     tracks: Track[];
     order: number[];
     orderPos: number;
     position: number;
+    origin?: QueueOrigin | null;
   },
   keepalive = false,
 ): void {
@@ -85,6 +92,7 @@ export function saveServerQueue(
         order: snapshot.order,
         order_pos: snapshot.orderPos,
         position: snapshot.position,
+        ...(snapshot.origin ? { origin: snapshot.origin } : {}),
       },
       ...(keepalive ? { keepalive: true } : {}),
     })

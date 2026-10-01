@@ -78,13 +78,21 @@ export function AlbumDetailView() {
             ))}
           </p>
           <div className="detailhead__actions">
-            <CollectionActions tracks={album.tracks} label={album.title} />
+            <CollectionActions
+              tracks={album.tracks}
+              label={album.title}
+              origin={{ kind: "album", label: album.title, href: `/albums/${album.id}` }}
+            />
           </div>
         </div>
       </header>
 
       <TrackTableHead variant="album" />
-      <TrackTable tracks={album.tracks} variant="album" />
+      <TrackTable
+        tracks={album.tracks}
+        variant="album"
+        origin={{ kind: "album", label: album.title, href: `/albums/${album.id}` }}
+      />
     </section>
   );
 }

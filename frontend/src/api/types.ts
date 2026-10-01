@@ -23,4 +23,5 @@ export type ReviewSummary = components["schemas"]["ReviewSummary"];
 export type CollisionGroup = components["schemas"]["CollisionGroup"];
 export type AlbumRef = components["schemas"]["AlbumRef"];
 export type QueueSnapshot = components["schemas"]["QueueSnapshot"];
+export type QueueOrigin = components["schemas"]["QueueOrigin"];
 export type QueuePlayhead = components["schemas"]["QueuePlayheadOut"];

@@ -450,7 +450,7 @@ export interface paths {
          * @description The playhead (§29 cadence), plus §4.1's played_at stamp: a real
          *     playback start reports its track id and the server records it — carried
          *     explicitly, never derived from stored state, so a mirror PUT still in
-         *     flight cannot mis-stamp.
+         *     flight cannot mis-stamp. One transaction under the busy-retry.
          */
         patch: operations["patch_queue_api_queue_patch"];
         trace?: never;
@@ -782,6 +782,25 @@ export interface components {
             cover_artwork_id?: number | null;
         };
         /**
+         * QueueOrigin
+         * @description Where the queue came from (UX review 2, Part 1.1): the "Playing from"
+         *     sentence. `label` is the human name ("Album 03", "Everything, shuffled");
+         *     `href` is the route that makes the label a link. `manual` (a hand-built
+         *     queue) carries no label — nothing renders, exactly as before this
+         *     column existed.
+         */
+        QueueOrigin: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "album" | "artist" | "playlist" | "filter" | "shuffle-all" | "manual";
+            /** Label */
+            label?: string | null;
+            /** Href */
+            href?: string | null;
+        };
+        /**
          * QueuePatchIn
          * @description PATCH /api/queue — the playhead, at the §29 cadence (3 s throttle plus
          *     a pagehide flush). `played_track_id` rides the immediate start-of-play
@@ -804,7 +823,8 @@ export interface components {
          *     resolves the WHOLE filter in one query — there is no page for the queue
          *     to be silently truncated to (§1.2, for good). `start` is the index into
          *     the resolved list that begins playback; `shuffle` builds the play order
-         *     starting there instead.
+         *     starting there instead. `origin` is the caller's declaration of what
+         *     this view IS (the client knows; the server records, §1.1).
          */
         QueuePlayIn: {
             /** Track Ids */
@@ -841,6 +861,7 @@ export interface components {
              * @default false
              */
             shuffle: boolean;
+            origin?: components["schemas"]["QueueOrigin"] | null;
         };
         /**
          * QueuePlayheadOut
@@ -859,7 +880,8 @@ export interface components {
          * @description PUT /api/queue — the client's plan mirror (§32). The store remains the
          *     source of UI truth and PUTs its whole queue when the plan changes (the
          *     §29 cadence, server-destination instead of localStorage-only). `order`
-         *     must be a permutation of 0..n-1 into `track_ids`.
+         *     must be a permutation of 0..n-1 into `track_ids`. `origin` rides along
+         *     unchanged — queue edits never rewrite where the queue came from.
          */
         QueuePutIn: {
             /** Track Ids */
@@ -873,6 +895,7 @@ export interface components {
              * @default 0
              */
             position: number;
+            origin?: components["schemas"]["QueueOrigin"] | null;
         };
         /**
          * QueueSnapshot
@@ -880,8 +903,9 @@ export interface components {
          *     play/replace endpoints echo back. `items` are the queue in insertion
          *     order; `order` is the play order as indexes into `items` (identity, or
          *     the shuffle plan); `order_pos` indexes `order` (-1 = built, nothing
-         *     loaded); `position` is seconds into the current track. The client store
-         *     adopts this shape verbatim.
+         *     loaded); `position` is seconds into the current track. `origin` names
+         *     what produced the queue (§1.1) — null for sessions that predate it. The
+         *     client store adopts this shape verbatim.
          */
         QueueSnapshot: {
             /** Items */
@@ -892,6 +916,7 @@ export interface components {
             order_pos: number;
             /** Position */
             position: number;
+            origin?: components["schemas"]["QueueOrigin"] | null;
             /** Updated At */
             updated_at?: string | null;
         };

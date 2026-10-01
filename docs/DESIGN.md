@@ -1601,3 +1601,102 @@ never-clobber once owned, empty-server degradation, plan mirroring) —
 backend 112 tests, frontend 17, all green; `tsc --noEmit`, `vite build`,
 `npm test` clean. Verified in the running app as recorded above, on
 localhost and from a second independent browser, in both themes.
+
+## 33. Addendum — Review 2, Part 1: the listening surfaces know where they are (2026-10-01)
+
+Implements Part 1 of `docs/UX-REVIEW-2.md` (§1.1–§1.4) plus its keystone
+§4.0 — one schema decision and its surfaces, shipped as one unit. Two
+settled decisions were revised, both with the review itself as the owner's
+work order (the §12 sign-off reading of §29–§32, applied again):
+
+- **§23.5's append-only Add-to-Queue is revised to the two-verb grammar.**
+  The review's own reasoning: the append-only stance was argued when
+  queues were dozens of tracks; at server-truth scale (§32) appending into
+  a whole-library queue is indistinguishable from doing nothing. The
+  review explicitly re-litigates it, so §23.5's "chosen over insert-after-
+  current" now reads "chosen as ONE of two destinations."
+- **§32's QueueSnapshot/QueuePutIn grow the `origin` field** (one more
+  column in the same contract; extends §5/§32, migration 008).
+
+1. **Queue origin (§1.1 + §4.0).** `queue_state` gains a nullable `origin`
+   JSON column — `{kind: album | artist | playlist | filter | shuffle-all
+   | manual, label, href}`. POST /api/queue records what the caller
+   declares (the caller knows what the view is); PUT mirrors it unchanged
+   (queue edits never rewrite where the queue came from); GET returns it
+   and healing rewrites preserve it; a corrupt value degrades to null
+   (the label is lost, never the session). Surfaces: the drawer head shows
+   "Playing from …" (linked when `href` exists — activating the link
+   navigates AND closes the takeover, since the drawer lives inside it),
+   and Now Playing shows the same sentence under the album line, small and
+   secondary. **A `manual` origin renders nothing** — a hand-built queue
+   came from nowhere else, and silence is the pre-origin behavior (§23's
+   idle queue is unchanged).
+2. **Origin is declared by every queue-creation site.** `playTracks` takes
+   an optional origin and otherwise records `manual`; `playSnapshot` takes
+   it from the adopted server snapshot. Album/artist/playlist/search/
+   favorites/tracks views, the album cards, the header trio, the Home
+   Shuffle-all card ("Everything, shuffled"), and the top-bar suggestions
+   each declare theirs. Queue EDITS (`playNext*`, `addToQueue` on a
+   non-empty queue) never touch it — an album queue that grew stays "from
+   the album."
+3. **The queue body groups by album (drawer only, §1.1).** One derived
+   pass over the play order (no new components): a quiet divider row —
+   "(album · artist)" + hairline — above each run of the same album.
+   The review's literal condition ("only when the queue is longer than
+   one album") is refined with one rule the literal reading misses: **a
+   divider only sits above runs of two or more tracks.** A one-album
+   queue already is its own context (the origin line says so), and a
+   shuffled 2,400-track library would otherwise sprout a header above
+   nearly every row — a run of one is not a group worth naming. Dividers
+   fade while a drag is live, so the traveling rows never read against a
+   stale group. Implementation: the virtualizer now measures a layout of
+   row + divider entries (static heights, prefix-summed starts; the drag
+   slot search bisects row bottoms instead of dividing by the row
+   height). The rest of the drawer's math is unchanged.
+4. **Play Next vs Add to Queue (end) (§1.2, revising §23.5).** The picker
+   keeps append as its default verb ("Add to Queue") with "Play Next"
+   beside it; the collection menus (header trio, album cards) carry both
+   under their own names — insert-after-current remains the menus' first
+   verb. Every addition confirms arrival through the §26 toast grammar:
+   `Added N track(s) — play next / end of queue`, with Undo. The one
+   non-undoable case is honest: an addition that STARTED playback (Play
+   Next on an idle session) says "now playing" and carries no Undo —
+   un-adding it would mean stopping the music (a gain stays quiet,
+   §26.3's rule). Undo removes exactly the instances that were added,
+   by REFERENCE identity (a different object with the same id elsewhere
+   keeps its place), and never drops the playing row's own slot (Play
+   Next on the playing track must not un-queue what the element holds —
+   `removeQueued` in the player store).
+5. **Artist Songs fold (§1.3).** The review's Songs-table item was found
+   already shipped — `ArtistDetailView` has carried the full credited
+   table (shared TrackRow grammar, per-surface count) since §30.3's
+   credited-artist API; verified rather than rebuilt. What was missing is
+   the fold: the table starts collapsed to 20 rows with a quiet
+   "Show all N songs" when the count exceeds 30, so the fold still
+   belongs to the covers. `context` stays the WHOLE list while collapsed,
+   so every visible row plays in the artist's full context; the header
+   trio is untouched (§30.1).
+6. **The listening surfaces are doors (§1.4).** Now Playing's artist and
+   album lines are links; queue rows' artist names are links (the title
+   keeps click-to-jump — no nesting, and a link inside a row owns its
+   keyboard: Enter activates the link, never the row); the player bar's
+   title links to the album when one is known (joining its artist link);
+   Continue listening's artist name is a link inside the card (the card
+   keeps play/pause — composition, not a second target). All styled as
+   the text they replaced: underline on hover, nothing louder. Linking
+   from a surface that overlays the app (Now Playing, its queue drawer)
+   closes that surface on activation — a link must land somewhere the
+   user can see.
+
+Verification: backend suite green (117 tests, 5 new pinning origin
+record/mirror/heal-preservation/degrade), frontend suite green (23 tests,
+6 new pinning origin replacement vs. edit-stability, manual on empty,
+arrival copy, and reference-identity undo incl. the playing-row
+protection), `tsc --noEmit` and `vite build` clean. The API TS client
+regenerated from the updated OpenAPI schema (`npm run gen:api`). A live
+click-through was started (generated 600-track/30-album library; app
+boots with a clean console and the player-bar title→album link observed
+live) and was cut short at the owner's direction — the remaining §8.0.6
+sweep (both themes, 375 px incl. the drawer's origin line, drawer
+groupings) is owed by the next session's verification pass, alongside
+Review 2's standing exit-checklist items.

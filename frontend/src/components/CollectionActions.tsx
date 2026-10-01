@@ -6,20 +6,24 @@
 
 import { useEffect, useRef, useState } from "react";
 
-import type { Track } from "../api/types";
+import type { QueueOrigin, Track } from "../api/types";
 import { usePlayerStore } from "../stores/player";
 import { useUiStore } from "../stores/ui";
-import { IconEllipsis, IconNext, IconPlay, IconPlus, IconShuffle } from "./icons";
+import { IconEllipsis, IconNext, IconPlay, IconPlus, IconQueue, IconShuffle } from "./icons";
 
 interface CollectionActionsProps {
   tracks: Track[];
   /** Screen-reader label context: "album Dark Side" / "artist's songs". */
   label: string;
+  /** What playing this collection means for the queue's origin (§1.1) —
+      the caller knows what the view is; the store records it. */
+  origin?: QueueOrigin | null;
 }
 
-export function CollectionActions({ tracks, label }: CollectionActionsProps) {
+export function CollectionActions({ tracks, label, origin }: CollectionActionsProps) {
   const playTracks = usePlayerStore((s) => s.playTracks);
   const playNextMany = usePlayerStore((s) => s.playNextMany);
+  const addToQueue = usePlayerStore((s) => s.addToQueue);
   const openAddToPlaylist = useUiStore((s) => s.openAddToPlaylist);
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -48,7 +52,7 @@ export function CollectionActions({ tracks, label }: CollectionActionsProps) {
     if (empty) return;
     const start = Math.floor(Math.random() * tracks.length);
     usePlayerStore.getState().setShuffle(true);
-    playTracks(tracks, start);
+    playTracks(tracks, start, origin);
   };
 
   return (
@@ -56,7 +60,7 @@ export function CollectionActions({ tracks, label }: CollectionActionsProps) {
       <button
         type="button"
         className="btn--primary"
-        onClick={() => playTracks(tracks, 0)}
+        onClick={() => playTracks(tracks, 0, origin)}
         disabled={empty}
       >
         <IconPlay size={15} />
@@ -98,6 +102,22 @@ export function CollectionActions({ tracks, label }: CollectionActionsProps) {
             >
               <IconNext size={15} />
               Play Next
+            </button>
+            {/* §1.2: the menus carry both destinations — insert-after-
+                current is the menus' default (the verb above), append is
+                here under its own name. Arrival confirms via the §26
+                toast, from the store action either way. */}
+            <button
+              type="button"
+              role="menuitem"
+              className="trackmenu__item"
+              onClick={() => {
+                addToQueue(tracks);
+                setOpen(false);
+              }}
+            >
+              <IconQueue size={15} />
+              Add to Queue (end)
             </button>
             <button
               type="button"

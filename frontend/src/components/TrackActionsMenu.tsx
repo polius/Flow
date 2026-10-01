@@ -88,7 +88,7 @@ export function TrackActionsMenu() {
   }, [pathname, close]);
 
   if (request == null) return null;
-  const { track, x, y, context, contextLoader, removeFromPlaylist } = request;
+  const { track, x, y, context, contextLoader, origin, removeFromPlaylist } = request;
 
   const act = (fn: () => void) => () => {
     fn();
@@ -98,11 +98,12 @@ export function TrackActionsMenu() {
   // "Play" queues the row's whole context. Paged views hand over a loader
   // instead of their loaded pages: the menu must never play a queue
   // truncated to the scroll depth (§29). If the loader fails, the loaded
-  // context still plays.
+  // context still plays. The origin (§1.1) rides along when the invoking
+  // surface knows what it is — a hand-built context just stays manual.
   const playInContext = () => {
     const base = context ?? [track];
     if (!contextLoader) {
-      play(base, Math.max(0, base.findIndex((t) => t.id === track.id)));
+      play(base, Math.max(0, base.findIndex((t) => t.id === track.id)), origin);
       return;
     }
     void contextLoader()
@@ -110,10 +111,11 @@ export function TrackActionsMenu() {
         play(
           full.length > 0 ? full : base,
           Math.max(0, (full.length > 0 ? full : base).findIndex((t) => t.id === track.id)),
+          origin,
         ),
       )
       .catch(() =>
-        play(base, Math.max(0, base.findIndex((t) => t.id === track.id))),
+        play(base, Math.max(0, base.findIndex((t) => t.id === track.id)), origin),
       );
   };
 

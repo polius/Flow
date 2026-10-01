@@ -8,7 +8,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useNavigate, useParams } from "react-router";
 
 import { api } from "../api/client";
-import type { PlaylistDetail as PlaylistDetailT, Track } from "../api/types";
+import type { PlaylistDetail as PlaylistDetailT, QueueOrigin, Track } from "../api/types";
 import {
   useAddToPlaylist,
   useRemoveFromPlaylist,
@@ -72,6 +72,14 @@ export function PlaylistDetailView() {
       </section>
     );
   }
+
+  // §1.1: the playlist is the queue's origin — playing it says so, and
+  // every row click here inherits the same sentence.
+  const playlistOrigin: QueueOrigin = {
+    kind: "playlist",
+    label: playlist.name,
+    href: `/playlists/${playlist.id}`,
+  };
 
   const move = (fromIndex: number, toIndex: number) => {
     const ids = playlist.tracks.map((t) => t.id);
@@ -153,7 +161,7 @@ export function PlaylistDetailView() {
             <button
               type="button"
               className="btn--primary"
-              onClick={() => playTracks(playlist.tracks, 0)}
+              onClick={() => playTracks(playlist.tracks, 0, playlistOrigin)}
               disabled={playlist.tracks.length === 0}
             >
               <IconPlay size={15} />
@@ -193,6 +201,7 @@ export function PlaylistDetailView() {
           <TrackTable
             tracks={playlist.tracks}
             variant="playlist"
+            origin={playlistOrigin}
             onMove={move}
             onRemoveTrack={(track) => void removeTrack(track)}
           />

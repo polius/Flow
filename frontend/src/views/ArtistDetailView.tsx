@@ -1,7 +1,9 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useParams } from "react-router";
 
 import { api } from "../api/client";
+import type { QueueOrigin } from "../api/types";
 import { AlbumCard } from "../components/AlbumCard";
 import { CollectionActions } from "../components/CollectionActions";
 import { EmptyState } from "../components/EmptyState";
@@ -12,8 +14,14 @@ import { TrackTable } from "../components/TrackTable";
 import { TrackTableHead } from "../components/TrackTableHead";
 import "../styles/library.css";
 
+/* §1.3's fold: a prolific artist's page keeps its covers in charge — the
+   song list starts at COLLAPSED_ROWS rows and only grows on request. */
+const COLLAPSED_ROWS = 20;
+const COLLAPSE_ABOVE = 30;
+
 export function ArtistDetailView() {
   const artistId = Number(useParams().artistId);
+  const [showAll, setShowAll] = useState(false);
 
   const { data: artist } = useQuery({
     queryKey: ["artist", artistId],
@@ -47,6 +55,17 @@ export function ArtistDetailView() {
     );
   }
 
+  // §1.1: the artist page is the queue's origin here.
+  const origin: QueueOrigin = {
+    kind: "artist",
+    label: artist.name,
+    href: `/artists/${artist.id}`,
+  };
+  const collapsed = !showAll && artist.tracks.length > COLLAPSE_ABOVE;
+  const visibleSongs = collapsed
+    ? artist.tracks.slice(0, COLLAPSED_ROWS)
+    : artist.tracks;
+
   return (
     <section className="view">
       <header className="detailhead">
@@ -62,6 +81,7 @@ export function ArtistDetailView() {
             <CollectionActions
               tracks={artist.tracks}
               label={`${artist.name}'s songs`}
+              origin={origin}
             />
           </div>
         </div>
@@ -81,8 +101,25 @@ export function ArtistDetailView() {
       {artist.tracks.length > 0 && (
         <div className="libsection">
           <h2>Songs</h2>
+          {/* The full credited catalog (§30.3) in the shared TrackRow
+              grammar — `context` stays the WHOLE list, so every visible row
+              plays in the artist's full context even while collapsed. */}
           <TrackTableHead variant="artist" />
-          <TrackTable tracks={artist.tracks} variant="artist" />
+          <TrackTable
+            tracks={visibleSongs}
+            variant="artist"
+            context={artist.tracks}
+            origin={origin}
+          />
+          {collapsed && (
+            <button
+              type="button"
+              className="artist__showall"
+              onClick={() => setShowAll(true)}
+            >
+              Show all {fmtCount(artist.tracks.length)} songs
+            </button>
+          )}
         </div>
       )}
     </section>

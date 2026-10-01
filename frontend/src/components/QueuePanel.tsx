@@ -22,11 +22,19 @@
 
    The queue is also where one is BUILT (§23): the header's Add button opens
    the shared library picker and appends to the end of the play order.
-   The list is windowed — playing a full library queues 10k rows. */
+   The list is windowed — playing a full library queues 10k rows.
 
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+   §1.1 (UX review 2): the queue knows where it came from. The head shows
+   "Playing from …" (the session's origin, linked), and the body groups
+   itself by album — a quiet divider above each run of the same album, in
+   play order, only when the queue actually spans more than one album and
+   the run is worth naming. Rows carry artist links: the title stays the
+   click-to-jump target; the artist name is a door (§1.4). */
+
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useVirtualizer } from "@tanstack/react-virtual";
+import { Link } from "react-router";
 
 import type { Track } from "../api/types";
 import { fmtDuration } from "../lib/format";
@@ -46,6 +54,8 @@ import "../styles/nowplaying.css";
 
 /* .queue__row: 38px artwork + 7px padding × 2 — fixed-height rows. */
 const ROW_HEIGHT = 52;
+/* .queue__divider: the album-group caption row. */
+const DIVIDER_HEIGHT = 33;
 /** A swipe past this many pixels commits the removal. */
 const SWIPE_COMMIT_PX = 96;
 /** Movement below this is a tap, not a swipe. */
@@ -117,6 +127,105 @@ const freshGesture = (): Gesture => ({
   rect: null,
 });
 
+/* ---- the §1.1 album-grouping layout -------------------------------------- */
+
+type QueueEntry =
+  | { kind: "row"; order: number; height: number }
+  | { kind: "divider"; album: string; artist: string | null; height: number };
+
+interface QueueLayout {
+  entries: QueueEntry[];
+  /** Play-order index → entry index (rows are 1:1 with `order`). */
+  rowEntry: number[];
+  /** Entry start offsets — the virtualizer's item.start, precomputed for
+      the drag math (which needs a row's position without a re-render). */
+  starts: number[];
+  /** Bottom edge of each row, in play order — the monotonic list the
+      drag's tentative-slot search bisects. */
+  rowBottoms: number[];
+}
+
+/** One derived pass over the play order (§1.1: "no new components"): rows
+    in play order, with a quiet divider above each run of the same album.
+    Dividers appear only when the queue actually spans more than one album,
+    and only above runs of two or more — a one-album queue is its own
+    context (the "Playing from" line already says so), and a shuffled
+    library would otherwise sprout a header above every track. A run of
+    one is not a group worth naming; silence is the quiet choice. */
+export function buildQueueLayout(order: number[], queue: Track[]): QueueLayout {
+  const entries: QueueEntry[] = [];
+  const rowEntry: number[] = [];
+
+  const albums = new Set<number | null>();
+  for (const idx of order) albums.add(queue[idx]?.album_id ?? null);
+  const grouped = albums.size > 1;
+
+  if (grouped && order.length > 0) {
+    // Runs of consecutive same-album tracks in PLAY order (a null album
+    // never merges — loose tracks have nothing to group under).
+    const runAlbum: (number | null)[] = [];
+    const runLen: number[] = [];
+    for (const idx of order) {
+      const a = queue[idx]?.album_id ?? null;
+      const last = runAlbum.length - 1;
+      if (a != null && last >= 0 && runAlbum[last] === a) runLen[last] += 1;
+      else {
+        runAlbum.push(a);
+        runLen.push(1);
+      }
+    }
+    let run = 0;
+    let inRun = 0;
+    for (let i = 0; i < order.length; i++) {
+      if (inRun === 0 && i > 0 && runAlbum[run] != null && runLen[run] >= 2) {
+        const t = queue[order[i]];
+        entries.push({
+          kind: "divider",
+          album: t.album ?? "",
+          artist: t.artist ?? null,
+          height: DIVIDER_HEIGHT,
+        });
+      }
+      rowEntry[i] = entries.length;
+      entries.push({ kind: "row", order: i, height: ROW_HEIGHT });
+      inRun += 1;
+      if (inRun >= runLen[run]) {
+        run += 1;
+        inRun = 0;
+      }
+    }
+  } else {
+    for (let i = 0; i < order.length; i++) {
+      rowEntry[i] = entries.length;
+      entries.push({ kind: "row", order: i, height: ROW_HEIGHT });
+    }
+  }
+
+  const starts: number[] = [];
+  const rowBottoms: number[] = [];
+  let at = 0;
+  for (const e of entries) {
+    starts.push(at);
+    if (e.kind === "row") rowBottoms.push(at + ROW_HEIGHT);
+    at += e.height;
+  }
+  return { entries, rowEntry, starts, rowBottoms };
+}
+
+/** The insertion slot nearest `y` (content coordinates): how many row
+    boundaries sit above it. The uniform-height `round(y / ROW_HEIGHT)`
+    this replaces can't see the dividers. */
+function slotAt(rowBottoms: number[], y: number): number {
+  let lo = 0;
+  let hi = rowBottoms.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (rowBottoms[mid] <= y) lo = mid + 1;
+    else hi = mid;
+  }
+  return lo;
+}
+
 interface QueuePanelProps {
   /** Narrow-window sheet mode (§23): a chevron returns to the stage. */
   onCollapse?: () => void;
@@ -152,12 +261,28 @@ export function QueuePanel({ onCollapse }: QueuePanelProps) {
   const mountedRef = useRef(false);
   const lastQueueRef = useRef(queue);
 
+  const origin = usePlayerStore((s) => s.origin);
+  const closeNowPlaying = useUiStore((s) => s.closeNowPlaying);
+
+  // The §1.1 layout: rows in play order plus album dividers, with the
+  // offset arithmetic (centering, drag slots, settle flight) precomputed.
+  const layout = useMemo(() => buildQueueLayout(order, queue), [order, queue]);
+  const layoutRef = useRef(layout);
+  layoutRef.current = layout;
+
   const virtualizer = useVirtualizer({
-    count: order.length,
+    count: layout.entries.length,
     getScrollElement: () => listRef.current,
-    estimateSize: () => ROW_HEIGHT,
+    estimateSize: (i) => layout.entries[i]?.height ?? ROW_HEIGHT,
     overscan: 10,
   });
+
+  // Entry sizes are static per layout, but the virtualizer caches them per
+  // index — after a commit moves the dividers, clear the cache so the new
+  // heights (and the rows around them) measure from the new layout.
+  useLayoutEffect(() => {
+    virtualizer.measure();
+  }, [virtualizer, layout]);
 
   // Keep the playing row findable in the full list: center it once when the
   // drawer opens or the QUEUE is replaced, then follow it only when it
@@ -170,7 +295,8 @@ export function QueuePanel({ onCollapse }: QueuePanelProps) {
     if (gestureRef.current.lifted) return;
     const isNewQueue = lastQueueRef.current !== queue;
     lastQueueRef.current = queue;
-    const top = Math.max(0, orderPos) * ROW_HEIGHT;
+    const entry = layoutRef.current.rowEntry[Math.max(0, orderPos)];
+    const top = entry != null ? layoutRef.current.starts[entry] : 0;
     const inView =
       top >= list.scrollTop &&
       top + ROW_HEIGHT <= list.scrollTop + list.clientHeight;
@@ -258,10 +384,15 @@ export function QueuePanel({ onCollapse }: QueuePanelProps) {
         );
         ghost.style.transform = `translate(${x}px, ${g.clientY - g.grabDy}px) scale(1.03)`;
       }
-      // The tentative slot: the row boundary nearest the pointer.
+      // The tentative slot: the row boundary nearest the pointer — bisected
+      // against the row bottoms, since the §1.1 dividers make row positions
+      // non-uniform.
       const len = usePlayerStore.getState().order.length;
       const contentY = g.clientY - g.rect.top + list.scrollTop;
-      const slot = Math.max(0, Math.min(len, Math.round(contentY / ROW_HEIGHT)));
+      const slot = Math.max(
+        0,
+        Math.min(len, slotAt(layoutRef.current.rowBottoms, contentY)),
+      );
       const d = dragRef.current;
       if (d && d.slot !== slot) applyDrag({ ...d, slot });
       g.raf = requestAnimationFrame(frame);
@@ -316,14 +447,20 @@ export function QueuePanel({ onCollapse }: QueuePanelProps) {
         buzz(8);
       }
       // Fly the ghost the last few pixels onto the row's final slot (back
-      // home on a cancel) — the real row is already underneath it.
+      // home on a cancel) — the real row is already underneath it. The
+      // target's position comes from the POST-commit layout (a commit may
+      // have moved dividers), rebuilt from the store's fresh state.
       const moved = commit ? eff !== d.from : d.slot !== d.from;
       if (moved && track && listRef.current) {
+        const st = usePlayerStore.getState();
+        const fresh = buildQueueLayout(st.order, st.queue);
+        const entry = fresh.rowEntry[target] ?? -1;
+        const top = entry >= 0 ? fresh.starts[entry] : target * ROW_HEIGHT;
         const r = listRef.current.getBoundingClientRect();
         setSettle({
           track,
           x: (g.rect?.left ?? r.left) + 10,
-          y: r.top - listRef.current.scrollTop + target * ROW_HEIGHT,
+          y: r.top - listRef.current.scrollTop + top,
           width: d.width,
         });
         if (settleTimerRef.current) window.clearTimeout(settleTimerRef.current);
@@ -519,6 +656,24 @@ export function QueuePanel({ onCollapse }: QueuePanelProps) {
             )}
           </div>
         </header>
+        {/* §1.1: the queue's origin, named next to the count. A hand-built
+            queue (label null) says nothing — the pre-origin behavior. */}
+        {order.length > 0 && origin?.label != null && (
+          <p className="queue__origin">
+            Playing from{" "}
+            {origin.href ? (
+              <Link
+                to={origin.href}
+                className="queue__originlink"
+                onClick={closeNowPlaying}
+              >
+                {origin.label}
+              </Link>
+            ) : (
+              <span className="queue__originname">{origin.label}</span>
+            )}
+          </p>
+        )}
 
         <div
           className={`queue__list${drag ? " queue__list--dragging" : ""}`}
@@ -550,31 +705,50 @@ export function QueuePanel({ onCollapse }: QueuePanelProps) {
               style={{ height: virtualizer.getTotalSize() }}
             >
               {virtualizer.getVirtualItems().map((item) => {
-                const t = queue[order[item.index]];
+                const entry = layout.entries[item.index];
+                if (!entry) return null;
+                // §1.1: the quiet album divider between runs — a plain
+                // caption row, skipped by every gesture (only rows carry
+                // data-idx, so it can't be dragged, swiped, or played).
+                if (entry.kind === "divider") {
+                  return (
+                    <div
+                      key={`d-${item.index}`}
+                      className="queue__divider"
+                      style={{ transform: `translateY(${item.start}px)` }}
+                    >
+                      <span className="queue__dividername">
+                        {[entry.album, entry.artist].filter(Boolean).join(" · ")}
+                      </span>
+                    </div>
+                  );
+                }
+                const idx = entry.order;
+                const t = queue[order[idx]];
                 if (!t) return null;
-                const isCurrent = item.index === orderPos;
-                const played = orderPos >= 0 && item.index < orderPos;
+                const isCurrent = idx === orderPos;
+                const played = orderPos >= 0 && idx < orderPos;
                 const rowClass = [
                   "queue__row",
                   isCurrent && "queue__row--current",
                   played && "queue__row--played",
-                  drag?.from === item.index && "queue__row--dragging",
+                  drag?.from === idx && "queue__row--dragging",
                 ]
                   .filter(Boolean)
                   .join(" ");
                 const activate = () =>
-                  isCurrent ? togglePlay() : playAt(item.index);
-                const swiping = swipe?.index === item.index && swipe.dx < 0;
+                  isCurrent ? togglePlay() : playAt(idx);
+                const swiping = swipe?.index === idx && swipe.dx < 0;
                 return (
                   <div
-                    key={`${order[item.index]}-${t.id}-${item.index}`}
-                    data-idx={item.index}
+                    key={`${order[idx]}-${t.id}-${idx}`}
+                    data-idx={idx}
                     className={rowClass}
                     style={{
-                      transform: `translateY(${item.start + shiftFor(item.index)}px)`,
+                      transform: `translateY(${item.start + shiftFor(idx)}px)`,
                     }}
                   >
-                    {/* Swipe backdrop (touch): a red field with the remove
+                    {/* Swipe backdrop (touch): a quiet field with the remove
                         glyph, revealed as the row slides left. */}
                     <span className="queue__swipebg" aria-hidden="true">
                       <IconTrash size={15} />
@@ -586,6 +760,10 @@ export function QueuePanel({ onCollapse }: QueuePanelProps) {
                       aria-current={isCurrent ? "true" : undefined}
                       onClick={activate}
                       onKeyDown={(e) => {
+                        // A link inside the row (the artist, §1.4) owns the
+                        // keyboard: Enter activates the link, never the row.
+                        if (e.target instanceof Element && e.target.closest("a"))
+                          return;
                         if (e.key === "Enter" || e.key === " ") {
                           e.preventDefault();
                           activate();
@@ -596,9 +774,9 @@ export function QueuePanel({ onCollapse }: QueuePanelProps) {
                         if (e.altKey && (e.key === "ArrowUp" || e.key === "ArrowDown")) {
                           e.preventDefault();
                           const to =
-                            e.key === "ArrowUp" ? item.index - 1 : item.index + 1;
+                            e.key === "ArrowUp" ? idx - 1 : idx + 1;
                           if (to < 0 || to >= order.length) return;
-                          moveInQueue(item.index, to < item.index ? to : to + 2);
+                          moveInQueue(idx, to < idx ? to : to + 2);
                           requestAnimationFrame(() => {
                             listRef.current
                               ?.querySelector<HTMLElement>(
@@ -640,7 +818,25 @@ export function QueuePanel({ onCollapse }: QueuePanelProps) {
                       </div>
                       <div className="queue__meta">
                         <span className="queue__name">{t.title}</span>
-                        <span className="queue__sub">{t.artist ?? " "}</span>
+                        <span className="queue__sub">
+                          {t.artist_id != null && t.artist ? (
+                            // §1.4: the artist name is a door. The title
+                            // keeps click-to-jump; navigation closes the
+                            // takeover — the queue is inside it.
+                            <Link
+                              to={`/artists/${t.artist_id}`}
+                              className="queue__artistlink"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                closeNowPlaying();
+                              }}
+                            >
+                              {t.artist}
+                            </Link>
+                          ) : (
+                            (t.artist ?? " ")
+                          )}
+                        </span>
                       </div>
                       <span className="queue__time">
                         {fmtDuration(t.duration)}
@@ -652,7 +848,7 @@ export function QueuePanel({ onCollapse }: QueuePanelProps) {
                         className="queue__remove"
                         aria-label={`Remove ${t.title} from queue`}
                         title="Remove from queue"
-                        onClick={() => removeWithUndo(item.index)}
+                        onClick={() => removeWithUndo(idx)}
                       >
                         <IconClose size={13} />
                       </button>
