@@ -1959,6 +1959,18 @@ this file is the product's memory, not its cage).
    and title. The card now uses the same one-button anchor; the playlist
    card keeps no "…" menu (editing lives in the Manage dialog, §9.2), so
    the anchor holds only the play circle.
+   *Follow-up (same day):* the anchor was only half the story. The
+   mosaic wrapper carries an inline `180×180` (PlaylistArt sizes itself
+   for its fixed slots), and inline style beats `.album-card__art`'s
+   `width: 100%` — which an `<img>`'s width attribute never could, so
+   album cards never showed it. On the auto-fill grid (168–188px
+   columns) the art froze at 180 while the card moved: wide columns
+   left an 8px sliver at the card's right edge and the corner-anchored
+   button, 10px from the card, ended ~2px from the art — glued right,
+   padded bottom. `.album-card__art.playlistart` now overrides the
+   inline size (scoped `!important`, the one way CSS beats inline
+   style); the cells are 100%/100% and follow. Measured 10/10 on hover
+   at 1280/1440/1516/1720.
 
 2. **The filled Play pill is legible in both themes (§30.2).** The
    `--play` modifier lived in library.css while the base `.view__action`
