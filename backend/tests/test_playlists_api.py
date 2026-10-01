@@ -1,4 +1,4 @@
-"""Playlist CRUD, membership, ordering, tags, and covers — DESIGN.md §6, §11.4."""
+"""Playlist CRUD, membership, ordering, and covers — DESIGN.md §6, §11.4."""
 
 from __future__ import annotations
 
@@ -159,26 +159,6 @@ def test_track_deletion_cascades_out_of_playlists(client, library):
     # client's full-reorder PUT (multiset of ids) is unaffected.
     positions = [t["position"] for t in detail["tracks"]]
     assert positions == sorted(positions)
-
-
-def test_playlist_tags_roundtrip_and_normalization(client, library):
-    pid = client.post("/api/playlists", json={"name": "Tagged"}).json()["id"]
-    assert client.get(f"/api/playlists/{pid}").json()["tags"] == []
-
-    patched = client.patch(
-        f"/api/playlists/{pid}",
-        json={"tags": ["  Road Trip ", "road trip", "", "Night", "  "]},
-    )
-    assert patched.status_code == 200
-    # Trimmed, empties dropped, case-insensitive dedupe keeps the first.
-    assert patched.json()["tags"] == ["Road Trip", "Night"]
-
-    assert client.patch(f"/api/playlists/{pid}", json={"tags": []}).json()["tags"] == []
-
-    # Search matches playlists by tag as well as by name.
-    client.patch(f"/api/playlists/{pid}", json={"tags": ["workout"]})
-    hits = client.get("/api/search", params={"q": "work"}).json()["playlists"]
-    assert [p["id"] for p in hits] == [pid]
 
 
 def test_playlist_cover_upload_reset_and_validation(client, library):

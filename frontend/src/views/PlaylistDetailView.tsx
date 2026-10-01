@@ -17,6 +17,7 @@ import { ManagePlaylistDialog } from "../components/ManagePlaylistDialog";
 import { IconPlay, IconPlaylists, IconPlus } from "../components/icons";
 import { PlaylistArt } from "../components/PlaylistArt";
 import { TrackTable } from "../components/TrackTable";
+import { TrackTableHead } from "../components/TrackTableHead";
 import { fmtCount, fmtDateTime, fmtMinutes } from "../lib/format";
 import { usePlayerStore } from "../stores/player";
 import { useQueryClient } from "@tanstack/react-query";
@@ -105,15 +106,6 @@ export function PlaylistDetailView() {
               {playlist.description}
             </p>
           )}
-          {playlist.tags.length > 0 && (
-            <div className="detailhead__tags">
-              {playlist.tags.map((tag) => (
-                <span key={tag} className="chip">
-                  {tag}
-                </span>
-              ))}
-            </div>
-          )}
           <p className="detailhead__meta">
             {metaBits.map((bit, i) => (
               <span key={i}>
@@ -161,12 +153,15 @@ export function PlaylistDetailView() {
           }
         />
       ) : (
-        <TrackTable
-          tracks={playlist.tracks}
-          variant="playlist"
-          onMove={move}
-          onRemoveTrack={(track) => void removeFromPlaylist(playlistId, track.id)}
-        />
+        <>
+          <TrackTableHead variant="playlist" />
+          <TrackTable
+            tracks={playlist.tracks}
+            variant="playlist"
+            onMove={move}
+            onRemoveTrack={(track) => void removeFromPlaylist(playlistId, track.id)}
+          />
+        </>
       )}
 
       {adding && (

@@ -124,6 +124,14 @@ a {
   transform: scale(1.4);
 }
 
+/* Banner variant: the cover-biased radial shape lives here on the artwork
+   layer, while the container (views.css) owns the vertical dissolve — the
+   two masks compose so the wash fades out before the track table. */
+.ambience--banner .ambience__img {
+  -webkit-mask-image: radial-gradient(120% 100% at 30% 0%, black 52%, transparent 98%);
+  mask-image: radial-gradient(120% 100% at 30% 0%, black 52%, transparent 98%);
+}
+
 .ambience::after {
   content: "";
   position: absolute;

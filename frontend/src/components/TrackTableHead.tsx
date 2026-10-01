@@ -1,12 +1,17 @@
-/* Sticky sortable column header for the full-library track tables (Tracks,
-   Favorites). It mirrors the `.trackrow--all` grid exactly — same template,
-   same gap, same breakpoints — so columns line up with the virtual rows
-   beneath it. Click a column to sort; click it again to flip (Finder).
-   Sort state lives in the owning view's URL params. */
+/* Sticky column header for the track tables (§9.2). It mirrors the grid of
+   the rows beneath it — same template, same gap, same breakpoints — so the
+   columns line up exactly. Click a column to sort; click it again to flip
+   (Finder) — that grammar is the Tracks/Favorites form, where sort state
+   lives in the owning view's URL params.
+
+   Detail views (Album / Artist / Playlist) render the same head statically:
+   their order is curated (track number, playlist position), so the header
+   aligns the columns into a table without promising a sort it can't do. */
 
 import type { CSSProperties } from "react";
 
 import { IconChevronDown } from "./icons";
+import type { TrackVariant } from "./TrackRow";
 
 export type TrackSortKey = "title" | "artist" | "album" | "duration";
 
@@ -16,15 +21,37 @@ const COLUMNS: { key: TrackSortKey; label: string; className: string }[] = [
   { key: "album", label: "Album", className: "trackhead__secondary" },
 ];
 
+const byKey = Object.fromEntries(COLUMNS.map((c) => [c.key, c])) as Record<
+  TrackSortKey,
+  (typeof COLUMNS)[number]
+>;
+
+/** Which labeled columns each row variant carries (mirrors TrackRow). */
+const VARIANT_COLUMNS: Record<TrackVariant, TrackSortKey[]> = {
+  album: ["title"],
+  artist: ["title", "artist"],
+  all: ["title", "artist", "album"],
+  playlist: ["title", "artist", "album"],
+};
+
 interface TrackTableHeadProps {
-  sort: string;
-  dir: "asc" | "desc";
+  /** Column set + trailing slots, mirroring the TrackRow variant below. */
+  variant?: TrackVariant;
+  sort?: string;
+  dir?: "asc" | "desc";
   /** Header of a sheet scrolls its own canvas — sticky offset stays 0. */
   style?: CSSProperties;
-  onSort: (key: TrackSortKey, dir: "asc" | "desc") => void;
+  /** Absent → a static head (detail views); present → sortable buttons. */
+  onSort?: (key: TrackSortKey, dir: "asc" | "desc") => void;
 }
 
-export function TrackTableHead({ sort, dir, style, onSort }: TrackTableHeadProps) {
+export function TrackTableHead({
+  variant = "all",
+  sort,
+  dir,
+  style,
+  onSort,
+}: TrackTableHeadProps) {
   const arrow = (key: string) =>
     sort === key ? (
       <IconChevronDown
@@ -34,32 +61,43 @@ export function TrackTableHead({ sort, dir, style, onSort }: TrackTableHeadProps
     ) : null;
 
   const click = (key: TrackSortKey) => {
+    if (!onSort) return;
     if (key === sort) onSort(key, dir === "asc" ? "desc" : "asc");
     else onSort(key, "asc");
   };
 
   return (
-    <div className="trackhead" role="row" style={style}>
+    <div className={`trackhead trackhead--${variant}`} role="row" style={style}>
       <span className="trackhead__index" aria-hidden="true">
         #
       </span>
-      {COLUMNS.map(({ key, label, className }) => (
-        <button
-          key={key}
-          type="button"
-          role="columnheader"
-          aria-sort={sort === key ? (dir === "asc" ? "ascending" : "descending") : "none"}
-          className={`trackhead__sort ${className}`}
-          onClick={() => click(key)}
-        >
-          {label}
-          {arrow(key)}
-        </button>
-      ))}
+      {VARIANT_COLUMNS[variant].map((key) => {
+        const { label, className } = byKey[key];
+        return onSort ? (
+          <button
+            key={key}
+            type="button"
+            role="columnheader"
+            aria-sort={sort === key ? (dir === "asc" ? "ascending" : "descending") : "none"}
+            className={`trackhead__sort ${className}`}
+            onClick={() => click(key)}
+          >
+            {label}
+            {arrow(key)}
+          </button>
+        ) : (
+          <span key={key} role="columnheader" className={`trackhead__sort ${className}`}>
+            {label}
+          </span>
+        );
+      })}
       <span className="trackhead__time" aria-hidden="true">
         Time
       </span>
       <span className="trackhead__heart" aria-hidden="true" />
+      {/* Playlist rows carry a second hover slot (remove); the head keeps
+          the column honest with an empty span of its own. */}
+      {variant === "playlist" && <span className="trackhead__heart" aria-hidden="true" />}
     </div>
   );
 }

@@ -11,7 +11,6 @@ Positions may carry gaps after a track's row is deleted from the library
 from __future__ import annotations
 
 import hashlib
-import json
 from collections import Counter
 from datetime import datetime, timezone
 
@@ -38,10 +37,6 @@ MAX_LIMIT = 1000
 # Cover uploads: raw bytes stored as-is (sha1 dedup), same rules as scan art.
 MAX_COVER_BYTES = 10 * 1024 * 1024
 
-# Tags: light editorial metadata, not a taxonomy — keep them small.
-MAX_TAGS = 30
-MAX_TAG_LEN = 40
-
 
 def _utcnow() -> str:
     return datetime.now(timezone.utc).isoformat()
@@ -49,31 +44,6 @@ def _utcnow() -> str:
 
 def _clamp(limit: int, offset: int) -> tuple[int, int]:
     return min(max(limit, 1), MAX_LIMIT), max(offset, 0)
-
-
-def _normalize_tags(tags: list[str]) -> list[str]:
-    """Trim, drop empties, dedupe case-insensitively (first wins), cap."""
-    out: list[str] = []
-    seen: set[str] = set()
-    for tag in tags[: MAX_TAGS * 2]:
-        trimmed = tag.strip()[:MAX_TAG_LEN]
-        key = trimmed.casefold()
-        if not trimmed or key in seen:
-            continue
-        seen.add(key)
-        out.append(trimmed)
-        if len(out) >= MAX_TAGS:
-            break
-    return out
-
-
-def tags_of(row) -> list[str]:
-    """Parse the stored JSON tag array; tolerate anything unexpected."""
-    try:
-        parsed = json.loads(row["tags"]) if row["tags"] else []
-    except ValueError:
-        parsed = []
-    return [str(tag) for tag in parsed if isinstance(tag, str)]
 
 
 def _summary(conn, row) -> PlaylistSummary:
@@ -91,7 +61,6 @@ def _summary(conn, row) -> PlaylistSummary:
         id=row["id"],
         name=row["name"],
         description=row["description"],
-        tags=tags_of(row),
         created_at=row["created_at"],
         track_count=row["track_count"],
         duration_total=row["duration_total"],
@@ -102,7 +71,7 @@ def _summary(conn, row) -> PlaylistSummary:
 
 def _detail(conn, playlist_id: int) -> PlaylistDetail:
     row = conn.execute(
-        "SELECT p.id, p.name, p.description, p.created_at, p.tags, p.cover_artwork_id, "
+        "SELECT p.id, p.name, p.description, p.created_at, p.cover_artwork_id, "
         "COUNT(pt.track_id) AS track_count, "
         "COALESCE(SUM(t.duration), 0) AS duration_total "
         "FROM playlists p "
@@ -148,7 +117,7 @@ def list_playlists(
     )
     total = conn.execute("SELECT COUNT(*) AS c FROM playlists").fetchone()["c"]
     rows = conn.execute(
-        f"SELECT p.id, p.name, p.description, p.created_at, p.tags, p.cover_artwork_id, "
+        f"SELECT p.id, p.name, p.description, p.created_at, p.cover_artwork_id, "
         f"COUNT(pt.track_id) AS track_count, "
         f"COALESCE(SUM(t.duration), 0) AS duration_total "
         f"{base} GROUP BY p.id "
@@ -201,9 +170,6 @@ def update_playlist(
     if "description" in body.model_fields_set:
         sets.append("description = ?")
         params.append((body.description or "").strip() or None)
-    if "tags" in body.model_fields_set:
-        sets.append("tags = ?")
-        params.append(json.dumps(_normalize_tags(body.tags or []), ensure_ascii=False))
     if "cover_artwork_id" in body.model_fields_set:
         if body.cover_artwork_id is not None and conn.execute(
             "SELECT 1 FROM artwork WHERE id = ?", (body.cover_artwork_id,)

@@ -52,6 +52,8 @@ class TrackOut(BaseModel):
     format: str
     favorite: bool
     artwork_id: int | None
+    # File path relative to the library root (Organize view, §22).
+    path: str
 
 
 class TrackListOut(BaseModel):
@@ -184,8 +186,6 @@ class PlaylistSummary(BaseModel):
     id: int
     name: str
     description: str | None
-    # Canonical (trimmed, case-insensitively deduped) — edited in Manage.
-    tags: list[str]
     created_at: str
     track_count: int
     duration_total: float
@@ -218,7 +218,6 @@ class PlaylistCreate(BaseModel):
 class PlaylistUpdate(BaseModel):
     name: str | None = None
     description: str | None = None
-    tags: list[str] | None = None
     # Null resets the custom cover back to the track mosaic.
     cover_artwork_id: int | None = None
 

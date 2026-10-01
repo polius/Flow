@@ -31,7 +31,12 @@
 
 /* Album detail ambience (§8.5, §13): the blurred cover sits behind the
    header and dissolves before the track table. isolation keeps the negative
-   z-index local; the mask lives on the artwork layer, not painted chrome. */
+   z-index local; the mask lives on the artwork layer, not painted chrome.
+   Two masks split the work: the container's linear gradient owns the vertical
+   dissolve and must reach zero before the sticky table head (an opaque
+   canvas band — the wash crossing it read as a glitch); the cover-biased
+   radial shape stays on the artwork layer (base.css) so the wash keeps its
+   diagonal weight while dissolving. */
 .view--ambient {
   position: relative;
   isolation: isolate;
@@ -41,8 +46,8 @@
   inset: -34px -40px auto -40px;
   height: 480px;
   z-index: -1;
-  -webkit-mask-image: radial-gradient(120% 100% at 30% 0%, black 52%, transparent 98%);
-  mask-image: radial-gradient(120% 100% at 30% 0%, black 52%, transparent 98%);
+  -webkit-mask-image: linear-gradient(to bottom, black 46%, transparent 66%);
+  mask-image: linear-gradient(to bottom, black 46%, transparent 66%);
 }
 
 .view__title {

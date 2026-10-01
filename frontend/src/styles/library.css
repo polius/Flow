@@ -106,7 +106,9 @@
 
 .detailhead__art {
   flex: none;
-  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.28);
+  /* Tight and low: the table head sits ~18px below the art, and a wide
+     shadow gets sliced flat by its opaque band — reads as a glitch. */
+  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.18);
 }
 
 .detailhead__info {
@@ -336,10 +338,10 @@
   opacity: 0.85;
 }
 
-/* ---- sticky sortable table head (Tracks / Favorites) -----------------------
-   Same grid, gap, and padding as `.trackrow--all` so header columns sit
-   exactly over the virtual rows below. Click a column to sort; click again
-   to flip (Finder). */
+/* ---- sticky sortable table head (Tracks / Favorites + detail views) --------
+   The base template mirrors `.trackrow--all`; the variant classes mirror the
+   album/artist/playlist row grids exactly so columns sit over their rows.
+   Click a column to sort; click again to flip (Finder). */
 
 .trackhead {
   position: sticky;
@@ -353,6 +355,18 @@
   padding: 7px 12px;
   background: var(--bg-canvas);
   border-bottom: 1px solid var(--separator);
+}
+
+.trackhead--album {
+  grid-template-columns: 32px minmax(0, 2.2fr) minmax(0, 60px) 30px;
+}
+
+.trackhead--artist {
+  grid-template-columns: 32px minmax(0, 2fr) minmax(0, 1.4fr) minmax(0, 60px) 30px;
+}
+
+.trackhead--playlist {
+  grid-template-columns: 32px minmax(0, 2fr) minmax(0, 1.3fr) minmax(0, 1.3fr) minmax(0, 60px) 30px 30px;
 }
 
 .trackhead__index,
@@ -382,7 +396,9 @@
   transition: color var(--dur-fast) var(--ease-out);
 }
 
-.trackhead__sort:hover {
+/* Only the sortable head (Tracks/Favorites) answers hover; the static head
+   of the detail views reads as a label, not a control. */
+button.trackhead__sort:hover {
   color: var(--text-primary);
 }
 
@@ -453,6 +469,15 @@
   .trackhead {
     gap: 10px;
     grid-template-columns: 32px minmax(0, 1fr) minmax(0, 60px) 30px;
+  }
+
+  .trackhead--album,
+  .trackhead--artist {
+    grid-template-columns: 32px minmax(0, 1fr) minmax(0, 60px) 30px;
+  }
+
+  .trackhead--playlist {
+    grid-template-columns: 32px minmax(0, 1fr) minmax(0, 60px) 30px 30px;
   }
 
   .trackhead__secondary {

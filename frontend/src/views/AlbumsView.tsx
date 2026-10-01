@@ -6,6 +6,7 @@ import { AlbumCard } from "../components/AlbumCard";
 import { EmptyState } from "../components/EmptyState";
 import { LoadingState } from "../components/LoadingState";
 import { IconAlbums } from "../components/icons";
+import { fmtCount } from "../lib/format";
 
 export function AlbumsView() {
   const [searchParams] = useSearchParams();
@@ -25,7 +26,16 @@ export function AlbumsView() {
 
   return (
     <section className="view">
-      <h1 className="view__title">Albums</h1>
+      <div className="view__head">
+        <div>
+          <h1 className="view__title">Albums</h1>
+          <p className="view__subtitle">
+            {q
+              ? `${fmtCount(albums.length)} ${albums.length === 1 ? "match" : "matches"} for "${q}"`
+              : `${fmtCount(albums.length)} ${albums.length === 1 ? "album" : "albums"}`}
+          </p>
+        </div>
+      </div>
       {data === undefined ? (
         <LoadingState variant="grid" />
       ) : albums.length === 0 ? (

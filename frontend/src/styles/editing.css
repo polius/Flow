@@ -168,9 +168,12 @@ textarea.inlineedit__input {
 
 /* ---- context menu (row ··· and playlist cards) ---------------------------- */
 
+/* Above every surface, the Organize sheet included (§22): the menu is opened
+   FROM those surfaces — right-click an Organize row — so it can't share the
+   sheet's layer, where DOM order would bury it underneath. */
 .trackmenu {
   position: fixed;
-  z-index: var(--z-modal);
+  z-index: calc(var(--z-modal) + 10);
   min-width: 200px;
   max-width: 240px;
   max-height: 60vh;
@@ -283,7 +286,9 @@ textarea.inlineedit__input {
 .tracksheet__scrim {
   position: fixed;
   inset: 0;
-  z-index: var(--z-modal);
+  /* Same layer rule as .trackmenu: the sheet opens FROM surfaces that are
+     themselves modal (the Organize sheet) and must paint above them. */
+  z-index: calc(var(--z-modal) + 10);
   background: rgba(0, 0, 0, 0.28);
   animation: tracksheet-fade var(--dur-fast) var(--ease-out);
 }
@@ -485,10 +490,14 @@ textarea.inlineedit__input {
 
 /* ---- Get Info panel (§9.3) -------------------------------------------------- */
 
+/* One layer above the Organize sheet (§22): Get Info opens FROM it — the
+   ⓘ replacement's right-click menu, phone rows — and both surfaces sit at
+   --z-modal, where DOM order would bury the panel (it mounts earlier in
+   AppShell). The scrim covers the sheet; the panel slides over it. */
 .getinfo__scrim {
   position: fixed;
   inset: 0;
-  z-index: calc(var(--z-modal) - 1);
+  z-index: calc(var(--z-modal) + 5);
   background: rgba(0, 0, 0, 0.18);
 }
 
@@ -497,7 +506,7 @@ textarea.inlineedit__input {
   top: 0;
   right: 0;
   bottom: 0;
-  z-index: var(--z-modal);
+  z-index: calc(var(--z-modal) + 5);
   display: flex;
   flex-direction: column;
   width: min(380px, 92vw);
@@ -579,6 +588,17 @@ textarea.inlineedit__input {
   color: var(--text-tertiary);
   text-transform: uppercase;
   letter-spacing: 0.05em;
+}
+
+/* The file's library-relative path — read-only reference, one click
+   selects it all (user-select) so it can be copied. Wraps, never truncates:
+   a path you can't read end-to-end is not reference data. */
+.getinfo__path {
+  margin-top: 4px;
+  font-size: var(--text-caption);
+  color: var(--text-tertiary);
+  overflow-wrap: anywhere;
+  user-select: all;
 }
 
 .getinfo__favorite {
@@ -1038,15 +1058,10 @@ textarea.inlineedit__input {
   background: var(--bg-hover);
 }
 
-.detailhead__tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 10px;
-  max-width: 560px;
-}
-
 /* ---- Manage Playlist dialog -------------------------------------------------- */
+/* Shell matches the dialog family (Add Tracks / Get Info): fixed center card,
+   radius-l, hairline border, one big shadow. The body mirrors the detail page
+   it edits — art left, name right — instead of a form-in-a-box. */
 
 .manage__scrim {
   position: fixed;
@@ -1063,7 +1078,7 @@ textarea.inlineedit__input {
   z-index: var(--z-modal);
   display: flex;
   flex-direction: column;
-  width: min(440px, 92vw);
+  width: min(520px, 92vw);
   max-height: min(680px, 92vh);
   background: var(--bg-elevated);
   border: 1px solid var(--separator);
@@ -1083,7 +1098,7 @@ textarea.inlineedit__input {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 18px 22px 12px;
+  padding: 20px 24px 12px;
 }
 
 .manage__title {
@@ -1111,31 +1126,92 @@ textarea.inlineedit__input {
 .manage__body {
   flex: 1;
   overflow-y: auto;
-  padding: 4px 22px 18px;
+  padding: 6px 24px 20px;
   display: flex;
   flex-direction: column;
   gap: 14px;
 }
 
-.manage__cover {
+/* Hero: cover column + name column, echoing the detail header. The lone
+   name field centers vertically against the cover so the row stays balanced. */
+.manage__hero {
   display: flex;
-  gap: 14px;
-  align-items: flex-start;
-  padding: 14px;
-  border-radius: var(--radius-m);
-  background: var(--bg-inset);
+  align-items: center;
+  gap: 20px;
 }
 
-.manage__coveractions {
-  min-width: 0;
+.manage__covercol {
+  flex: none;
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
+  align-items: center;
   gap: 8px;
 }
 
+/* The cover is its own affordance — no separate "Upload" button. */
+.manage__cover {
+  position: relative;
+  padding: 0;
+  border: none;
+  background: none;
+  border-radius: var(--radius-m);
+  cursor: pointer;
+}
+
+.manage__cover .playlistart {
+  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.18);
+}
+
+.manage__coverscrim {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  border-radius: var(--radius-m);
+  background: rgba(0, 0, 0, 0);
+  color: #fff;
+  font-size: var(--text-small);
+  font-weight: 600;
+  opacity: 0;
+  transition: opacity var(--dur-fast) var(--ease-out),
+    background var(--dur-fast) var(--ease-out);
+}
+
+.manage__cover:hover .manage__coverscrim,
+.manage__cover:focus-visible .manage__coverscrim,
+.manage__cover--busy .manage__coverscrim {
+  opacity: 1;
+  background: rgba(0, 0, 0, 0.45);
+}
+
+.manage__reset {
+  padding: 2px 6px;
+  border: none;
+  background: none;
+  font-size: var(--text-caption);
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.manage__reset:hover {
+  color: var(--text-primary);
+}
+
+.manage__herofields {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
 .manage__hint {
-  margin: 0;
+  margin: -4px 0 0;
   font-size: var(--text-caption);
   color: var(--text-tertiary);
 }
@@ -1154,21 +1230,20 @@ textarea.inlineedit__input {
   color: var(--text-tertiary);
 }
 
+/* Filled fields — quiet at rest (no border), focus is the border appearing.
+   The 1px transparent border prevents any layout shift on focus. */
 .manage__input {
-  padding: 8px 10px;
-  border: 1px solid var(--control-border);
-  border-radius: var(--radius-s);
+  padding: 8px 12px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-m);
   background: var(--bg-canvas);
   font-size: var(--text-regular);
   color: var(--text-primary);
   outline: none;
 }
 
-.manage__input--area {
-  resize: vertical;
-  min-height: 3.2em;
-  font: inherit;
-  line-height: var(--leading-normal, 1.45);
+.manage__input--name {
+  font-weight: 600;
 }
 
 /* Text fields always match :focus-visible, so the global accent ring
@@ -1180,50 +1255,19 @@ textarea.inlineedit__input {
   outline: none;
 }
 
-.manage__tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  padding: 6px 10px;
-  border: 1px solid var(--control-border);
-  border-radius: var(--radius-s);
-  background: var(--bg-canvas);
-}
-
-.manage__tags:focus-within {
-  border-color: color-mix(in srgb, var(--text-primary) 40%, transparent);
-}
-
-.manage__tagsinput {
-  flex: 1;
-  min-width: 90px;
-  padding: 2px 0;
-  border: none;
-  background: transparent;
-  font-size: var(--text-regular);
-  color: var(--text-primary);
-  outline: none;
-}
-
-.manage__tagsinput::placeholder {
-  color: var(--text-tertiary);
-}
-
-/* Same as the fields above: the tag input always matches :focus-visible, so
-   the global accent ring would read as an error border; the wrapper's
-   focus-within border carries focus instead. */
-.manage__tagsinput:focus,
-.manage__tagsinput:focus-visible {
-  outline: none;
-}
-
 .manage__actions {
   display: flex;
-  justify-content: flex-end;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 14px 24px;
+  border-top: 1px solid var(--separator);
+}
+
+.manage__actiongroup {
+  display: flex;
   align-items: center;
   gap: 10px;
-  padding: 14px 22px;
-  border-top: 1px solid var(--separator);
 }
 
 .manage__cancel {
@@ -1239,26 +1283,16 @@ textarea.inlineedit__input {
   background: var(--bg-hover);
 }
 
-.manage__danger {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 14px;
-  padding: 14px 22px 18px;
-  border-top: 1px solid var(--separator);
-}
-
-.manage__dangerhint {
-  margin: 0;
-  font-size: var(--text-caption);
-  color: var(--text-tertiary);
-}
-
+/* Destructive action lives in the footer, quiet until armed: ghost red text
+   first, filled red only for the confirm click. The label swap carries the
+   second step; the tooltip carries the fine print. */
 .manage__delete {
-  flex: none;
-  padding: 8px 16px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border: none;
   border-radius: 999px;
-  border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
   font-size: var(--text-body);
   font-weight: 600;
   color: var(--accent);
@@ -1274,6 +1308,14 @@ textarea.inlineedit__input {
 .manage__delete--confirm,
 .manage__delete--confirm:hover {
   background: var(--accent);
-  border-color: var(--accent);
   color: #fff;
+}
+
+/* Narrow dialogs: the hero stacks so the fields keep a usable width.
+   Stretch (not center) so the name field spans the dialog. */
+@media (max-width: 560px) {
+  .manage__hero {
+    flex-direction: column;
+    align-items: stretch;
+  }
 }

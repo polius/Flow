@@ -8,6 +8,7 @@ import { LoadingState } from "../components/LoadingState";
 import { IconArtists } from "../components/icons";
 import { fmtCount } from "../lib/format";
 import { TrackTable } from "../components/TrackTable";
+import { TrackTableHead } from "../components/TrackTableHead";
 import "../styles/library.css";
 
 export function ArtistDetailView() {
@@ -73,6 +74,7 @@ export function ArtistDetailView() {
       {artist.tracks.length > 0 && (
         <div className="libsection">
           <h2>Songs</h2>
+          <TrackTableHead variant="artist" />
           <TrackTable tracks={artist.tracks} variant="artist" />
         </div>
       )}

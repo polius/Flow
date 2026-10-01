@@ -12,25 +12,40 @@
 
 /* ---- filter field ----------------------------------------------------------- */
 
-.orgfilter {
+/* One working row: the filter pill grows, Undo rides beside it. */
+.orgtoolbar {
   display: flex;
   align-items: center;
-  gap: 9px;
-  max-width: 360px;
+  gap: 10px;
   margin-top: 18px;
-  padding: 8px 12px;
-  border: 1px solid var(--control-border);
-  border-radius: var(--radius-m);
-  background: var(--bg-canvas);
-  transition: border-color var(--dur-fast) var(--ease-out);
+}
+
+/* The filter speaks the app's search language (the topbar pill, §9.2):
+   an inset capsule, no border, darkening on focus with a hairline ring —
+   not a boxed-in form field. */
+.orgfilter {
+  display: flex;
+  flex: 0 1 420px;
+  min-width: 200px;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 14px;
+  border-radius: 999px;
+  background: var(--bg-inset);
+  color: var(--text-tertiary);
+  transition:
+    background var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-fast) var(--ease-out);
 }
 
 .orgfilter:focus-within {
-  border-color: color-mix(in srgb, var(--text-primary) 40%, transparent);
+  background: var(--bg-active);
+  box-shadow: inset 0 0 0 1px var(--control-border);
 }
 
 .orgfilter__icon {
   display: flex;
+  flex: none;
   color: var(--text-tertiary);
 }
 
@@ -48,7 +63,7 @@
   color: var(--text-tertiary);
 }
 
-/* Focus is the wrapper's border, never the global accent ring (§8). */
+/* Focus is the capsule's fill, never the global accent ring (§8). */
 .orgfilter__input:focus,
 .orgfilter__input:focus-visible {
   outline: none;
@@ -56,6 +71,7 @@
 
 .orgfilter__clear {
   display: flex;
+  flex: none;
   align-items: center;
   justify-content: center;
   width: 18px;
@@ -67,6 +83,25 @@
 .orgfilter__clear:hover {
   color: var(--text-primary);
   background: var(--bg-hover);
+}
+
+/* Undo sits with the filter — one quiet row of working controls, a sibling
+   pill to the search field it shares the toolbar with. */
+.orgfilter__undo {
+  flex: none;
+  padding: 7px 14px;
+  border: 1px solid var(--control-border);
+  border-radius: 999px;
+  font-size: var(--text-body);
+  font-weight: 600;
+  color: var(--text-primary);
+  transition: background var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out);
+}
+
+.orgfilter__undo:hover {
+  background: var(--bg-hover);
+  border-color: transparent;
 }
 
 /* ---- review strip ("Needs attention") --------------------------------------- */
@@ -279,22 +314,6 @@ button.orghead__sort:hover {
   color: var(--text-primary);
 }
 
-/* Undo sits with the filter — one quiet row of working controls. */
-.orgfilter__undo {
-  flex: none;
-  padding: 4px 12px;
-  border: 1px solid var(--control-border);
-  border-radius: 999px;
-  font-size: var(--text-small);
-  font-weight: 600;
-  color: var(--text-primary);
-  transition: background var(--dur-fast) var(--ease-out);
-}
-
-.orgfilter__undo:hover {
-  background: var(--bg-hover);
-}
-
 /* ---- the grid ------------------------------------------------------------------ */
 
 .orggrid {
@@ -303,14 +322,15 @@ button.orghead__sort:hover {
 }
 
 /* Sticky column header: pins below the top bar as rows scroll beneath.
-   The trailing 30px slot carries the hover-revealed Get Info button (§23) —
-   Get Info's only desktop entry now lives here. */
+   Same metrics as the Tracks table's head (§9.2): 32px index column, 14px
+   gutters, uppercase caption labels, hairline underline — the Organize grid
+   and the library table read as one design. */
 .orghead,
 .orgrow {
   display: grid;
-  grid-template-columns: 26px 40px minmax(0, 1.5fr) minmax(0, 1fr) minmax(0, 1.2fr) 30px;
+  grid-template-columns: 32px 40px minmax(0, 1.5fr) minmax(0, 1fr) minmax(0, 1.2fr) minmax(0, 1fr);
   align-items: center;
-  gap: 12px;
+  gap: 14px;
   padding: 7px 12px;
 }
 
@@ -462,34 +482,17 @@ button.orghead__sort:hover {
   color: var(--text-secondary);
 }
 
-/* Get Info (§23): hover-revealed ⓘ, the same reveal grammar as the library
-   rows' heart (§8.7). The cell swallows clicks so row selection stays
-   unambiguous. */
-.orgrow__infocell {
-  display: flex;
-  justify-content: center;
-}
-
-.orgrow__infobtn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 26px;
-  height: 26px;
-  border-radius: 50%;
-  color: var(--text-secondary);
-  opacity: 0;
-  transition: opacity var(--dur-fast) var(--ease-out),
-    color var(--dur-fast) var(--ease-out);
-}
-
-.orgrow:hover .orgrow__infobtn,
-.orgrow__infobtn:focus-visible {
-  opacity: 1;
-}
-
-.orgrow__infobtn:hover {
-  color: var(--text-primary);
+/* The File column: read-only reference data, quieter than the editable
+   metadata beside it. The cell name is shown; the hover title carries the
+   full library-relative path. */
+.orgrow__file {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--text-small);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-tertiary);
 }
 
 /* Touch has no hover — but phones use the compact template (§22.9), where

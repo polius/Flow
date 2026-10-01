@@ -1,17 +1,21 @@
-/* One Organize row (§22): checkbox · track number · title · artist · album.
-   The editing grammar matches the library's click-to-edit (§15.1) — a
+/* One Organize row (§22): checkbox · track number · title · artist · album ·
+   file. The editing grammar matches the library's click-to-edit (§15.1) — a
    focused click on the words opens the editor; row clicks select. No
    playback here: this view organizes (§22), and row click must stay
-   unambiguous. Get Info lives HERE now (§23): the hover-revealed ⓘ is its
-   only desktop entry, and on phones — where cells are not editable — a tap
-   on the re-templated row opens it (§21's designed-refusal pattern, §22). */
+   unambiguous. The hover-revealed ⓘ is gone (§25): right-click opens the
+   app-wide track menu (Get Info included) — the same gesture as every other
+   row in the app — and on phones, where cells are not editable, a tap on
+   the re-templated row opens Get Info directly (§21's designed-refusal
+   pattern, §22). The File column is read-only reference data: the file name
+   with its library-relative path on hover. */
 
 import type { CSSProperties } from "react";
 
 import type { Track } from "../api/types";
+import { fmtBasename } from "../lib/format";
 import { Artwork } from "./Artwork";
 import { InlineEdit } from "./InlineEdit";
-import { IconCheck, IconInfo } from "./icons";
+import { IconCheck } from "./icons";
 
 const ROW_HEIGHT = 38;
 
@@ -32,6 +36,8 @@ interface OrganizeRowProps {
   editTitle: boolean;
   onToggle: (track: Track, index: number, mods: RowMods) => void;
   onOpenInfo: (track: Track) => void;
+  /** Right-click: the app-wide track menu (Get Info's desktop entry). */
+  onTrackMenu?: (track: Track, x: number, y: number) => void;
   onCommitTitle: (track: Track, title: string) => void;
   onCommitArtist: (track: Track, artist: string) => void;
   onCommitAlbum: (track: Track, album: string) => void;
@@ -80,6 +86,7 @@ export function OrganizeRow({
   editTitle,
   onToggle,
   onOpenInfo,
+  onTrackMenu,
   onCommitTitle,
   onCommitArtist,
   onCommitAlbum,
@@ -99,6 +106,13 @@ export function OrganizeRow({
     shiftKey: e.shiftKey,
     metaKey: e.metaKey || e.ctrlKey,
   });
+
+  const onContextMenu = onTrackMenu
+    ? (e: React.MouseEvent) => {
+        e.preventDefault();
+        onTrackMenu(track, e.clientX, e.clientY);
+      }
+    : undefined;
 
   if (compact) {
     return (
@@ -129,6 +143,7 @@ export function OrganizeRow({
       role="row"
       aria-selected={checked}
       onClick={(e) => onToggle(track, index, mods(e))}
+      onContextMenu={onContextMenu}
     >
       <span className="orgrow__check" onClick={(e) => e.stopPropagation()}>
         <button
@@ -179,16 +194,8 @@ export function OrganizeRow({
           onCommit={(album) => onCommitAlbum(track, album)}
         />
       </span>
-      <span className="orgrow__infocell" onClick={(e) => e.stopPropagation()}>
-        <button
-          type="button"
-          className="orgrow__infobtn"
-          aria-label={`Get Info for ${track.title}`}
-          title="Get Info"
-          onClick={() => onOpenInfo(track)}
-        >
-          <IconInfo size={15} />
-        </button>
+      <span className="orgrow__file" title={track.path}>
+        {fmtBasename(track.path)}
       </span>
     </div>
   );

@@ -208,7 +208,6 @@ export function useUpdatePlaylist() {
     body: {
       name?: string;
       description?: string | null;
-      tags?: string[];
       cover_artwork_id?: number | null;
     },
   ): Promise<boolean> => {

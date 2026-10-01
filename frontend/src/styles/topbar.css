@@ -16,10 +16,12 @@
 }
 
 /* ---- brand ----
-   The lockup is the Home affordance (§18) — it carries the same interactive
-   grammar as the nav items beside it: a 32px target, quiet hover fill, press
-   state. The mark inverts with the theme (near-black on light, near-white on
-   dark), reading as a miniature app icon at the head of the bar. */
+   The lockup is the Home affordance (§18). It deliberately wears no hover
+   fill: a rounded pill behind the app's own wordmark reads as chrome applied
+   to chrome. Instead the mark answers like a physical object — the dock-icon
+   grammar: a quiet spring scale with a whisper of shadow on hover, a compress
+   on press. The wordmark holds still; only the icon responds. Keyboard focus
+   keeps the global focus-visible ring. */
 
 .topbar__brand {
   display: flex;
@@ -28,19 +30,9 @@
   flex: none;
   height: 32px;
   padding: 0 10px;
-  border-radius: 9px;
   font-size: var(--text-brand);
   font-weight: 700;
   letter-spacing: var(--tracking-tight);
-  transition: background-color var(--dur-fast) var(--ease-out);
-}
-
-.topbar__brand:hover {
-  background: var(--bg-hover);
-}
-
-.topbar__brand:active {
-  background: var(--bg-active);
 }
 
 .topbar__brand-mark {
@@ -53,6 +45,19 @@
   border-radius: 9px;
   background: var(--text-primary);
   color: var(--bg-canvas);
+  transition: transform var(--dur-normal) var(--ease-spring),
+    box-shadow var(--dur-normal) var(--ease-out);
+}
+
+.topbar__brand:hover .topbar__brand-mark {
+  transform: scale(1.06);
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.18);
+}
+
+.topbar__brand:active .topbar__brand-mark {
+  transform: scale(0.92);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.14);
+  transition-duration: var(--dur-fast);
 }
 
 /* ---- scan status (§9.6) — the retired sidebar's global indicator ---- */

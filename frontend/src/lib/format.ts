@@ -33,6 +33,14 @@ export function scanProgressLabel(current: number, total: number): string {
   return `Scanning… ${fmtCount(current)}/${fmtCount(total)}`;
 }
 
+/** Library-relative path → file name ("Artist/Album/01 Song.flac" → "01 Song.flac").
+    Tolerates a missing path (older API payloads) by rendering nothing. */
+export function fmtBasename(path: string | null | undefined): string {
+  if (!path) return "";
+  const i = path.lastIndexOf("/");
+  return i >= 0 ? path.slice(i + 1) : path;
+}
+
 export function fmtDateTime(iso: string | null): string | null {
   if (!iso) return null;
   const date = new Date(iso);

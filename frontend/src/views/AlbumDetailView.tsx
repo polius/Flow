@@ -10,6 +10,7 @@ import { IconAlbums, IconPlay } from "../components/icons";
 import { fmtMinutes } from "../lib/format";
 import { usePlayerStore } from "../stores/player";
 import { TrackTable } from "../components/TrackTable";
+import { TrackTableHead } from "../components/TrackTableHead";
 import "../styles/library.css";
 
 export function AlbumDetailView() {
@@ -91,6 +92,7 @@ export function AlbumDetailView() {
         </div>
       </header>
 
+      <TrackTableHead variant="album" />
       <TrackTable tracks={album.tracks} variant="album" />
     </section>
   );

@@ -15,7 +15,6 @@ from app.schemas import (
     SearchOut,
     TrackOut,
 )
-from app.routers.playlists import tags_of
 
 router = APIRouter(tags=["search"])
 
@@ -47,10 +46,11 @@ def search(request: Request, q: str = Query(min_length=1)) -> SearchOut:
             format=r["format"],
             favorite=bool(r["favorite"]),
             artwork_id=r["artwork_id"],
+            path=r["path"],
         )
         for r in conn.execute(
             "SELECT t.id, t.title, t.track_no, t.disc_no, t.year, t.duration, "
-            "t.format, t.favorite, t.album_id, t.artist_id, t.artwork_id, "
+            "t.format, t.favorite, t.album_id, t.artist_id, t.artwork_id, t.path, "
             "ar.name AS artist, al.title AS album "
             "FROM tracks t "
             "LEFT JOIN artists ar ON ar.id = t.artist_id "
@@ -107,7 +107,6 @@ def search(request: Request, q: str = Query(min_length=1)) -> SearchOut:
             id=r["id"],
             name=r["name"],
             description=r["description"],
-            tags=tags_of(r),
             created_at=r["created_at"],
             track_count=r["track_count"],
             duration_total=r["duration_total"],
@@ -115,16 +114,16 @@ def search(request: Request, q: str = Query(min_length=1)) -> SearchOut:
             artwork_ids=[],
         )
         for r in conn.execute(
-            "SELECT p.id, p.name, p.description, p.tags, p.cover_artwork_id, "
+            "SELECT p.id, p.name, p.description, p.cover_artwork_id, "
             "p.created_at, "
             "COUNT(pt.track_id) AS track_count, "
             "COALESCE(SUM(t.duration), 0) AS duration_total "
             "FROM playlists p "
             "LEFT JOIN playlist_tracks pt ON pt.playlist_id = p.id "
             "LEFT JOIN tracks t ON t.id = pt.track_id "
-            "WHERE p.name LIKE ? ESCAPE '\\' OR p.tags LIKE ? ESCAPE '\\' "
+            "WHERE p.name LIKE ? ESCAPE '\\' "
             "GROUP BY p.id ORDER BY p.name COLLATE NOCASE LIMIT ?",
-            (term, term, GROUP_LIMIT),
+            (term, GROUP_LIMIT),
         ).fetchall()
     ]
 

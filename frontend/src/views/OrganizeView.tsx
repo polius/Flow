@@ -69,6 +69,7 @@ export function OrganizeView() {
 
   const compact = useCompactMode();
   const openGetInfo = useUiStore((s) => s.openGetInfo);
+  const openTrackMenu = useUiStore((s) => s.openTrackMenu);
   const current = useCurrentTrack();
 
   const summary = useReviewSummary();
@@ -382,27 +383,38 @@ export function OrganizeView() {
 
   return (
     <section className="view view--organize">
-      <div className="orgfilter">
-        <span className="orgfilter__icon" aria-hidden="true">
-          <IconSearch size={15} />
-        </span>
-        <input
-          className="orgfilter__input"
-          value={filterText}
-          placeholder="Filter tracks"
-          aria-label="Filter tracks"
-          onChange={(e) => setFilterText(e.target.value)}
-        />
-        {filterText && (
-          <button
-            type="button"
-            className="orgfilter__clear"
-            aria-label="Clear filter"
-            onClick={() => setFilterText("")}
-          >
-            <IconClose size={13} />
-          </button>
-        )}
+      <div className="orgtoolbar">
+        <div className="orgfilter">
+          <span className="orgfilter__icon" aria-hidden="true">
+            <IconSearch size={15} />
+          </span>
+          <input
+            className="orgfilter__input"
+            value={filterText}
+            placeholder="Filter by title, artist, or album"
+            aria-label="Filter tracks"
+            onChange={(e) => setFilterText(e.target.value)}
+            onKeyDown={(e) => {
+              // The field's own Esc: clear first, blur — the sheet closes on
+              // a second, now-unfocused Esc (the topbar search's grammar).
+              if (e.key === "Escape" && filterText) {
+                e.stopPropagation();
+                setFilterText("");
+                e.currentTarget.blur();
+              }
+            }}
+          />
+          {filterText && (
+            <button
+              type="button"
+              className="orgfilter__clear"
+              aria-label="Clear filter"
+              onClick={() => setFilterText("")}
+            >
+              <IconClose size={13} />
+            </button>
+          )}
+        </div>
         {undoAvailable && !compact && (
           <button
             type="button"
@@ -498,6 +510,7 @@ export function OrganizeView() {
             if (cursorIndex != null) editAt(cursorIndex);
           }}
           onOpenInfo={(t) => openGetInfo(t.id)}
+          onTrackMenu={(t, x, y) => openTrackMenu({ track: t, x, y, context: tracks })}
           onCommitTitle={commitTitle}
           onCommitArtist={commitArtist}
           onCommitAlbum={commitAlbum}

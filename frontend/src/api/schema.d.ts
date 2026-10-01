@@ -566,8 +566,6 @@ export interface components {
             name: string;
             /** Description */
             description: string | null;
-            /** Tags */
-            tags: string[];
             /** Created At */
             created_at: string;
             /** Track Count */
@@ -605,8 +603,6 @@ export interface components {
             name: string;
             /** Description */
             description: string | null;
-            /** Tags */
-            tags: string[];
             /** Created At */
             created_at: string;
             /** Track Count */
@@ -646,6 +642,8 @@ export interface components {
             favorite: boolean;
             /** Artwork Id */
             artwork_id: number | null;
+            /** Path */
+            path: string;
             /** Position */
             position: number;
         };
@@ -660,8 +658,6 @@ export interface components {
             name?: string | null;
             /** Description */
             description?: string | null;
-            /** Tags */
-            tags?: string[] | null;
             /** Cover Artwork Id */
             cover_artwork_id?: number | null;
         };
@@ -766,6 +762,8 @@ export interface components {
             favorite: boolean;
             /** Artwork Id */
             artwork_id: number | null;
+            /** Path */
+            path: string;
         };
         /**
          * TrackPatch

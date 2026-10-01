@@ -12,7 +12,6 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 import type { Track } from "../api/types";
 import { IconCheck, IconChevronDown, IconMinus } from "./icons";
 import { OrganizeRow, ROW_HEIGHT, type RowMods } from "./OrganizeRow";
-
 const OVERSCAN = 12;
 /** Start the next page this many rows before the loaded end runs out. */
 const PREFETCH_ROWS = 200;
@@ -40,6 +39,8 @@ interface OrganizeGridProps {
   onCursorToggle: () => void;
   onCursorEdit: () => void;
   onOpenInfo: (track: Track) => void;
+  /** Right-click: the app-wide track menu (Get Info's desktop entry). */
+  onTrackMenu?: (track: Track, x: number, y: number) => void;
   onCommitTitle: (track: Track, title: string) => void;
   onCommitArtist: (track: Track, artist: string) => void;
   onCommitAlbum: (track: Track, album: string) => void;
@@ -77,6 +78,7 @@ export function OrganizeGrid({
   onCursorToggle,
   onCursorEdit,
   onOpenInfo,
+  onTrackMenu,
   onCommitTitle,
   onCommitArtist,
   onCommitAlbum,
@@ -241,7 +243,7 @@ export function OrganizeGrid({
         {headerButton("title", "Title")}
         {headerButton("artist", "Artist")}
         {headerButton("album", "Album")}
-        <span className="orghead__info" aria-hidden="true" />
+        {headerButton("path", "File")}
       </div>
       <div className="orggrid__body" style={{ height: virtualizer.getTotalSize() }}>
         {virtualizer.getVirtualItems().map((item) => {
@@ -260,6 +262,7 @@ export function OrganizeGrid({
               editTitle={editTrackId === track.id}
               onToggle={onToggleRow}
               onOpenInfo={onOpenInfo}
+              onTrackMenu={onTrackMenu}
               onCommitTitle={onCommitTitle}
               onCommitArtist={onCommitArtist}
               onCommitAlbum={onCommitAlbum}

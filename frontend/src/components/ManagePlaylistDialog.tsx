@@ -1,6 +1,6 @@
 /* Manage Playlist — the single editing surface for a playlist (§9.2).
-   The detail page stays read-only; everything editable lives here: cover,
-   name, description, tags. Text fields commit on Save (one PATCH); the
+   The detail page stays read-only; everything editable lives here: cover
+   and name. Text fields commit on Save (one PATCH); the
    cover applies immediately (content-addressed artwork, sha1 dedup).
    The danger zone deletes the playlist after an in-place two-step confirm. */
 
@@ -12,7 +12,7 @@ import {
   useUpdatePlaylist,
   useUploadPlaylistCover,
 } from "../api/mutations";
-import { IconClose } from "./icons";
+import { IconClose, IconPlus, IconTrash } from "./icons";
 import { PlaylistArt } from "./PlaylistArt";
 import "../styles/editing.css";
 
@@ -36,9 +36,6 @@ export function ManagePlaylistDialog({
 
   // Form drafts, seeded when the dialog opens.
   const [name, setName] = useState(playlist.name);
-  const [description, setDescription] = useState(playlist.description ?? "");
-  const [tags, setTags] = useState<string[]>(playlist.tags);
-  const [tagDraft, setTagDraft] = useState("");
   const [coverArtworkId, setCoverArtworkId] = useState<number | null>(
     playlist.cover_artwork_id,
   );
@@ -62,36 +59,13 @@ export function ManagePlaylistDialog({
     return () => window.clearTimeout(timer);
   }, [confirmDelete]);
 
-  const dirty =
-    name.trim() !== playlist.name ||
-    (description.trim() || "") !== (playlist.description ?? "") ||
-    tags.join("\n") !== playlist.tags.join("\n");
-
-  const addTag = () => {
-    const tag = tagDraft.trim();
-    if (!tag) return;
-    setTagDraft("");
-    setTags((prev) =>
-      prev.some((t) => t.toLowerCase() === tag.toLowerCase()) ? prev : [...prev, tag],
-    );
-  };
-
-  const onTagKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter" || e.key === ",") {
-      e.preventDefault();
-      addTag();
-    } else if (e.key === "Backspace" && tagDraft === "" && tags.length > 0) {
-      setTags((prev) => prev.slice(0, -1));
-    }
-  };
+  const dirty = name.trim() !== playlist.name;
 
   const save = async () => {
     if (!dirty || saving || !name.trim()) return;
     setSaving(true);
     const ok = await updatePlaylist(playlist.id, {
       name: name.trim(),
-      description: description.trim() || null,
-      tags,
     });
     setSaving(false);
     if (ok) onClose();
@@ -130,124 +104,101 @@ export function ManagePlaylistDialog({
         </header>
 
         <div className="manage__body">
-          <div className="manage__cover">
-            <PlaylistArt
-              artworkIds={playlist.artwork_ids}
-              coverArtworkId={coverArtworkId}
-              size={96}
-              radius="m"
-            />
-            <div className="manage__coveractions">
+          {/* Hero: the cover mirrors the detail page (art left, name right).
+              The cover itself is the change affordance — hover or focus
+              reveals the scrim; a custom cover adds a reset below it. */}
+          <div className="manage__hero">
+            <div className="manage__covercol">
               <button
                 type="button"
-                className="view__action"
+                className={`manage__cover${uploading ? " manage__cover--busy" : ""}`}
                 onClick={() => fileInputRef.current?.click()}
                 disabled={uploading}
+                aria-label={coverArtworkId != null ? "Change cover image" : "Add cover image"}
               >
-                {uploading ? "Uploading…" : "Upload image"}
+                <PlaylistArt
+                  artworkIds={playlist.artwork_ids}
+                  coverArtworkId={coverArtworkId}
+                  size={120}
+                  radius="m"
+                />
+                <span className="manage__coverscrim" aria-hidden="true">
+                  {uploading ? (
+                    "Uploading…"
+                  ) : (
+                    <>
+                      <IconPlus size={17} />
+                      Change
+                    </>
+                  )}
+                </span>
               </button>
               {coverArtworkId != null && (
                 <button
                   type="button"
-                  className="view__action"
+                  className="manage__reset"
                   onClick={() => void resetCover()}
                   disabled={uploading}
                 >
                   Reset to tracks
                 </button>
               )}
-              <p className="manage__hint">
-                JPEG or PNG, up to 10 MB. Without a custom cover the playlist shows its
-                tracks’ artwork.
-              </p>
             </div>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/jpeg,image/png"
-              hidden
-              onChange={(e) => {
-                void onPickCover(e.target.files?.[0]);
-                e.target.value = "";
-              }}
-            />
-          </div>
 
-          <label className="manage__field">
-            <span className="manage__label">Name</span>
-            <input
-              className="manage__input"
-              value={name}
-              placeholder="Playlist name"
-              onChange={(e) => setName(e.target.value)}
-            />
-          </label>
-
-          <label className="manage__field">
-            <span className="manage__label">Description</span>
-            <textarea
-              className="manage__input manage__input--area"
-              rows={3}
-              value={description}
-              placeholder="Add a description…"
-              onChange={(e) => setDescription(e.target.value)}
-            />
-          </label>
-
-          <div className="manage__field">
-            <span className="manage__label">Tags</span>
-            <div className="manage__tags">
-              {tags.map((tag) => (
-                <span key={tag} className="chip">
-                  {tag}
-                  <button
-                    type="button"
-                    className="chip__x"
-                    aria-label={`Remove tag ${tag}`}
-                    onClick={() => setTags(tags.filter((t) => t !== tag))}
-                  >
-                    <IconClose size={10} />
-                  </button>
-                </span>
-              ))}
-              <input
-                className="manage__tagsinput"
-                value={tagDraft}
-                placeholder={tags.length ? "Add tag…" : "Add a tag…"}
-                onChange={(e) => setTagDraft(e.target.value)}
-                onKeyDown={onTagKeyDown}
-                onBlur={addTag}
-              />
+            <div className="manage__herofields">
+              <label className="manage__field">
+                <span className="manage__label">Name</span>
+                <input
+                  className="manage__input manage__input--name"
+                  value={name}
+                  placeholder="Playlist name"
+                  onChange={(e) => setName(e.target.value)}
+                />
+              </label>
             </div>
           </div>
-        </div>
 
-        <div className="manage__actions">
-          <button type="button" className="manage__cancel" onClick={onClose}>
-            Cancel
-          </button>
-          <button
-            type="button"
-            className="btn--primary"
-            onClick={() => void save()}
-            disabled={!dirty || saving || !name.trim()}
-          >
-            {saving ? "Saving…" : "Save"}
-          </button>
-        </div>
-
-        <div className="manage__danger">
-          <p className="manage__dangerhint">
-            Deletes the playlist and its order. Your tracks stay in the library.
+          <p className="manage__hint">
+            JPEG or PNG, up to 10 MB. Without a custom cover the playlist shows its
+            tracks’ artwork.
           </p>
+
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/jpeg,image/png"
+            hidden
+            onChange={(e) => {
+              void onPickCover(e.target.files?.[0]);
+              e.target.value = "";
+            }}
+          />
+        </div>
+
+        <footer className="manage__actions">
           <button
             type="button"
             className={`manage__delete${confirmDelete ? " manage__delete--confirm" : ""}`}
             onClick={() => void remove()}
+            title="Deletes the playlist and its order. Your tracks stay in the library."
           >
+            <IconTrash size={13} />
             {confirmDelete ? "Confirm delete" : "Delete playlist"}
           </button>
-        </div>
+          <div className="manage__actiongroup">
+            <button type="button" className="manage__cancel" onClick={onClose}>
+              Cancel
+            </button>
+            <button
+              type="button"
+              className="btn--primary"
+              onClick={() => void save()}
+              disabled={!dirty || saving || !name.trim()}
+            >
+              {saving ? "Saving…" : "Save"}
+            </button>
+          </div>
+        </footer>
       </div>
     </>
   );

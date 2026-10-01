@@ -118,6 +118,9 @@ export function GetInfoPanel() {
                 <p className="getinfo__format">
                   {track.format.toUpperCase()} · {Math.round(track.duration)}s
                 </p>
+                <p className="getinfo__path" title={track.path}>
+                  {track.path}
+                </p>
                 <button
                   type="button"
                   className="getinfo__favorite"

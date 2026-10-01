@@ -34,7 +34,12 @@ export function PlaylistsView() {
   return (
     <section className="view">
       <header className="view__head">
-        <h1 className="view__title">Playlists</h1>
+        <div>
+          <h1 className="view__title">Playlists</h1>
+          <p className="view__subtitle">
+            {fmtCount(playlists.length)} {playlists.length === 1 ? "playlist" : "playlists"}
+          </p>
+        </div>
         <button
           type="button"
           className="view__action"

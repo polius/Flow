@@ -37,6 +37,8 @@ TRACK_SORTS = {
     "year": "t.year",
     "duration": "t.duration",
     "added_at": "t.added_at",
+    # Organize view (§22): the file column sorts by its library-relative path.
+    "path": "t.path COLLATE NOCASE",
 }
 
 # Direction is applied per term by the endpoint (`dir` query param) so the
@@ -83,7 +85,7 @@ def _clamp(limit: int, offset: int) -> tuple[int, int]:
 
 TRACK_SELECT = """
 SELECT t.id, t.title, t.track_no, t.disc_no, t.year, t.duration, t.format,
-       t.favorite, t.album_id, t.artist_id, t.artwork_id,
+       t.favorite, t.album_id, t.artist_id, t.artwork_id, t.path,
        ar.name AS artist, al.title AS album
 FROM tracks t
 LEFT JOIN artists ar ON ar.id = t.artist_id
@@ -162,6 +164,7 @@ def track_out(row) -> TrackOut:
         format=row["format"],
         favorite=bool(row["favorite"]),
         artwork_id=row["artwork_id"],
+        path=row["path"],
     )
 
 
