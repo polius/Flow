@@ -1188,3 +1188,145 @@ Space in the search field types instead of toggling; a corrupted next
 track is skipped with the promised notice and playback continues; Settings
 shows the scan's error count. Regression suite green (`npm test`),
 `tsc --noEmit` and `vite build` clean.
+
+## 30. Addendum — Part 2, the product: header actions, media intelligence, gapless, install (2026-10-01)
+
+Implements Part 2 of `docs/UX-REVIEW.md` (§2.1–§2.8, all boxes ticked).
+Three items revise settled decisions explicitly; the review is the owner's
+work order for each.
+
+1. **Header actions are the Apple trio — Play · Shuffle · … (new §9.2
+   rule).** Album detail and artist detail share one `CollectionActions`
+   component (§2.1's grammar can't drift between them); the "…" carries
+   exactly Play Next and Add to Playlist. Shuffle means shuffle *on* — it
+   sets the store's shuffle (the player bar toggle reflects it honestly)
+   and starts at a random index. Per-album actions ride the cover cards
+   (`AlbumCard` gains a hover "…" beside the play glyph; touch sees both
+   always, same reveal grammar as the row play). `playNextMany` inserts a
+   collection into the live queue with the exact playNext grammar, N at a
+   time — guaranteed next, shuffle plan otherwise untouched.
+
+2. **"Add to Playlist" is now two-way (extends §23).** The Add Tracks
+   picker stays "inside a playlist, find me songs"; the new
+   Add-to-Playlist destination dialog is "looking at music, file it
+   somewhere" — opened from the row menu (per-track reachability restored)
+   and from every collection menu. It lists playlists (art + honest
+   count) plus **New Playlist**, which creates and immediately adds in one
+   gesture. Registered like every modal: Esc closes, the shortcut guard
+   defers, `pickerOpen` is shared.
+
+3. **Media intelligence schema (migration 005; extends §5).** Three
+   additions, all overlay-consistent:
+   - `tracks.gain_db REAL` — the Sound Check offset in dB (§30.4).
+   - `track_artists (track_id, artist_id, role, position)` — credited
+     artists with roles `main | featured | composer`. `tracks.artist_id`
+     remains the single display artist; the join table is tag-derived and
+     rebuilt on every upsert, except the *primary* credit, which follows
+     the (overlay-aware) artist column. Editing an artist through the
+     apply path maintains the credit rows, so counts never go stale.
+   - `track_genres` + `genres` — multi-genre, always tag-derived, pruned
+     like every other derived entity.
+   Parsing (`tags.py`): repeated tag values are full main credits; the
+   "feat." inside one string demotes its tail to `featured`; "&" stays one
+   artist (Simon & Garfunkel is a single credit). Genres split on ";" and
+   "/" and strip ID3v2.3 "(17)" refs, deduped case-insensitively.
+   **Artists are credited:** `/api/artists` counts and artist detail
+   include every credited appearance, so a featured artist with no lead
+   credits is browsable with an honest count. `?artist_id=` filters match
+   credits too. The Organize bulk editor and Get Info gain **Album
+   Artist** (`Edited.ALBUM_ARTIST = 16`): setting it pins the track
+   overlay AND moves the album row, so compilation resolution is one
+   gesture; undo restores per-track former names.
+
+4. **Sound Check (§2.3) — the deliberate, recorded Web Audio exception.**
+   §3's "no Web Audio at MVP" is revised exactly as the review proposed:
+   a `MediaElementSource → GainNode → destination` chain per element,
+   created lazily inside the first user-gesture play (autoplay policies),
+   resumed on every play; a context that can't start just leaves unity
+   gain — the feature degrades, playback doesn't. Scan-time analysis
+   (`app/loudness.py`): a post-reconcile **analyze phase** on the scan's
+   own SSE stream — the index is already correct while gains fill in
+   behind it. Sources in order: the file's ReplayGain tag (fast, exact),
+   else ffmpeg `ebur128` integrated LUFS with gain = (−14 LUFS − I),
+   clamped to [−24, +6] dB. **ffmpeg joins the runtime image** (the
+   §10.4-stack's first binary dep); without it the phase no-ops and
+   tracks play at unity. The phase ends by re-publishing idle — a stuck
+   "Analyzing…" state is a regression pinned in tests. Settings gains a
+   **Sound Check** toggle (`role="switch"`, persisted in the player
+   store's `partialize` next to volume); a track without a measurement
+   plays at its own level — the honest fallback.
+
+5. **Gapless playback (§2.6) — dual-element pre-roll, revising "out of
+   scope".** Two elements, one `audio` binding. Within 10 s of the end the
+   next track preloads into the standby element (gain-matched, volume
+   matched); at the `ended` boundary the binding swaps and the prepared
+   element starts — no src swap on a dying element, no re-buffer gap. All
+   element handlers guard `el !== audio` (standby events are machinery,
+   never state); a standby load error falls back to the classic advance;
+   repeat-one never preloads; `load()` resets the standby. The queue
+   snapshot self-heals: `prepareStandby()` re-peeks on every timeupdate,
+   so queue edits under a prepared standby converge within one tick.
+
+6. **Sort everywhere (§2.4).** Albums and Artists take `dir` now; both
+   views ride the shared `SortMenu` with URL state (`?sort=&dir=`), pick-
+   active-flips-direction, count sorts defaulting to most-first. Artists'
+   bespoke pill is gone — one grammar, one implementation. *Considered
+   and deferred:* year section-headers / a letter index — the counts that
+   motivate them aren't there yet; revisit only with the §4.2 schema
+   futures.
+
+7. **Genres are a filter, not a section (§2.2's "section or filter").**
+   The nav's section set is settled (§18, §23 — five sections, owner
+   approved), and a genre's natural destination is "its songs," which the
+   Tracks table already is. `GET /api/genres` (name, track/album counts,
+   a representative cover) feeds a **Genre pill** in the Tracks header:
+   URL state (`?genre=<id>`), subtitle reads "N tracks in 'Jazz'",
+   `?genre=` rides `fetchAllTracks` so play-from-here and the row menu
+   queue the whole filtered view (§29 holds).
+
+8. **Home earns its place (§2.5).** Modules: Continue listening (§29),
+   **Shuffle all** — one quiet card that fetches the *full* library before
+   queuing (never a truncated queue) and flips shuffle on — Recently
+   added, Playlists. The "cut the route" branch is resolved: Home keeps
+   its place.
+
+9. **The tab, the icon, the install (§2.7).** `document.title` follows the
+   playing track — "Artist — Track · Flow" — set engine-side (React never
+   re-renders for it) and reverted to "Flow" when the queue empties. A
+   vector favicon adapts per theme ramp (dark tile in light chrome,
+   inverted in dark); `apple-touch-icon.png` (180), PWA manifest
+   (`display: standalone`, 192/512 + maskable, theme-color per ramp), and
+   the iOS meta set. Icons are generated by a stdlib script committed to
+   no build step — regenerating is `/tmp`-script work only if the mark
+   ever changes.
+
+10. **Settings tells the truth about the machine (§2.8).** The scanner
+    persists a per-file error log (path + reason, capped at 500 with an
+    honest `total`), served by `GET /api/scan/errors` and shown in a calm
+    disclosure — "N files skipped — View" — only after a scan ends. The
+    broken-mount trip gets its own state (`scan.mount_guard`): a card,
+    not an error — what happened, that nothing was removed, what to do —
+    with the rescan action inside it. The analyze phase has its own SSE
+    label ("Analyzing audio…") everywhere "Scanning…" used to smear.
+
+**API deltas (OpenAPI → TS client regenerated):** `GET /api/genres`,
+`GET /api/scan/errors`, `?dir=` on albums/artists, `?genre_id=` on
+tracks, `gain_db` + `album_artist` on TrackOut, `album_artist` on
+TrackPatch/BulkApplyIn, `mount_guard` + `"analyze"` phase on ScanStatus.
+
+Verified in the running app against a generated 2,400-track / 120-album
+library, 372 feat. credits, 7 genre families, 277 ReplayGain-tagged files
+(the review's scale, plus this addendum's data): album/artist headers show
+Play · Shuffle · … and the "…" queues Play Next / opens the destination
+dialog; New Playlist created with the album's 20 tracks in one click; the
+per-card menu opens above the cover with all four actions; the genre pill
+filters to "?genre=2 — 271 tracks in 'Jazz'" and play-from-here queues the
+full filtered view; a 2,400-track shuffle-all runs with the Sound Check
+graph active and the queue advances track-to-track (1-second fixtures
+stress the ended→swap path continuously) with zero console errors; the
+window title reads "Artist 04 — Track 20 · Flow"; the analysis phase
+measured 2,123/2,123 in 85 s and returned to idle; a corrupt file lands
+in "1 file skipped — View" with path + reason; renaming the music folder
+away trips the calm mount-guard card and a scan after restoring it clears
+the flag with all 2,400 tracks intact. Backend suite green (101 tests,
+20 new), `tsc --noEmit`, `vite build`, and `npm test` clean.

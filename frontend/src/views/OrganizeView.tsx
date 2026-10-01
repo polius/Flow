@@ -294,7 +294,7 @@ export function OrganizeView() {
 
   // ---- apply ----------------------------------------------------------------
   const applyBulk = useCallback(
-    async (changes: { artist?: string; album?: string }) => {
+    async (changes: { artist?: string; album?: string; album_artist?: string }) => {
       setApplying(true);
       const body: BulkApplyIn = allMatching
         ? {

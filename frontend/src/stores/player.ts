@@ -1,5 +1,5 @@
 /* Player state + audio engine — one module, deliberately.
-   The <audio> element lives outside React's lifecycle so playback continues
+   The <audio> elements live outside React's lifecycle so playback continues
    across navigation (DESIGN.md §9.4). Store holds state; the thin engine
    layer below the store binds element events back into it. M5 adds queue
    removal (§9.4) and Media Session integration (§13.11).
@@ -8,7 +8,12 @@
    position persist to localStorage and restore silently on load — paused,
    player bar populated — so a reload (Cmd+R, OS update, sleep) never costs
    the listening session (§13.9's "Continue listening"). The first press of
-   play resumes the saved track at the saved position; nothing autoplays. */
+   play resumes the saved track at the saved position; nothing autoplays.
+
+   UX review Part 2 (§30 addenda): dual-element pre-roll closes most of the
+   track-change gap (§2.6); an optional Sound Check gain node matches
+   loudness across albums (§2.3 — the one deliberate Web Audio exception);
+   the window title follows the playing track (§2.7). */
 
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
@@ -29,9 +34,15 @@ interface PlayerState {
   volume: number; // 0..1
   shuffle: boolean;
   repeat: RepeatMode;
+  /** Sound Check (§2.3): apply the scan's loudness analysis so albums
+      play at a matched level. Off → unity gain, exactly as before. */
+  soundcheck: boolean;
 
   playTracks: (tracks: Track[], startIndex: number) => void;
   playNext: (track: Track) => void;
+  /** Play Next for a whole collection (§2.1 header menus): the tracks
+      insert, in order, directly after the playing one. */
+  playNextMany: (tracks: Track[]) => void;
   /** Appends tracks to the END of the play order (§23 — the queue's Add
       button). Plays nothing: the queue can be built before playback starts,
       in which case `orderPos` sits at -1 until a row is clicked. */
@@ -55,6 +66,7 @@ interface PlayerState {
   setVolume: (v: number) => void;
   setShuffle: (on: boolean) => void;
   cycleRepeat: () => void;
+  setSoundcheck: (on: boolean) => void;
 }
 
 export function useCurrentTrack(): Track | null {
@@ -93,10 +105,13 @@ export const usePlayerStore = create<PlayerState>()(
       volume: 0.8,
       shuffle: false,
       repeat: "off",
+      soundcheck: false,
 
       playTracks: (tracks, startIndex) => {
         if (tracks.length === 0) return;
         errorSkipStreak = 0; // a fresh queue is a fresh chance for the library
+        ensureGraph(); // first user gesture: the only legal moment to start audio
+        resumeGraph();
         const clamped = Math.min(Math.max(startIndex, 0), tracks.length - 1);
         const { order, pos } = buildOrder(tracks.length, get().shuffle, clamped);
         set({ queue: tracks, order, orderPos: pos });
@@ -118,6 +133,27 @@ export const usePlayerStore = create<PlayerState>()(
         const remapped = order.map((i) => (i > currentQueueIndex ? i + 1 : i));
         remapped.splice(orderPos + 1, 0, currentQueueIndex + 1);
         // Seamless: the audio element keeps playing; only the plan changes.
+        set({ queue: newQueue, order: remapped, orderPos });
+      },
+
+      playNextMany: (tracks) => {
+        if (tracks.length === 0) return;
+        const { queue, order, orderPos } = get();
+        if (queue.length === 0) {
+          get().playTracks(tracks, 0);
+          return;
+        }
+        const n = tracks.length;
+        const currentQueueIndex = order[orderPos];
+        const newQueue = [...queue];
+        newQueue.splice(currentQueueIndex + 1, 0, ...tracks);
+        // Same grammar as playNext, N at a time: queue indexes past the
+        // insertion point ride up by n, and the tracks take the play-order
+        // slots directly after the current one — guaranteed to play in
+        // order, shuffle plan otherwise untouched.
+        const remapped = order.map((i) => (i > currentQueueIndex ? i + n : i));
+        const slots = tracks.map((_, k) => currentQueueIndex + 1 + k);
+        remapped.splice(orderPos + 1, 0, ...slots);
         set({ queue: newQueue, order: remapped, orderPos });
       },
 
@@ -187,6 +223,8 @@ export const usePlayerStore = create<PlayerState>()(
         const { order, queue } = get();
         if (orderIndex < 0 || orderIndex >= order.length) return;
         errorSkipStreak = 0;
+        ensureGraph();
+        resumeGraph();
         usePlayerStore.setState({ orderPos: orderIndex });
         load(queue[order[orderIndex]], true);
       },
@@ -220,10 +258,14 @@ export const usePlayerStore = create<PlayerState>()(
         // A restored session has never loaded the current track into the
         // element: the first play resumes at the saved position (§29).
         if (loadedSrc == null) {
+          ensureGraph();
+          resumeGraph();
           load(track, true, position);
           return;
         }
         if (audio.paused) {
+          ensureGraph();
+          resumeGraph();
           void audio.play().catch(() => set({ isPlaying: false }));
         } else {
           audio.pause();
@@ -251,8 +293,15 @@ export const usePlayerStore = create<PlayerState>()(
 
       setVolume: (v) => {
         const volume = Math.min(1, Math.max(0, v));
-        if (audio) audio.volume = volume;
+        for (const el of elements()) el.volume = volume;
         set({ volume });
+      },
+
+      setSoundcheck: (on) => {
+        set({ soundcheck: on });
+        // The gain must follow the toggle immediately, not on next load.
+        applyGain(audio, currentTrack());
+        if (standbyTrack) applyGain(standby, standbyTrack);
       },
 
       setShuffle: (on) => {
@@ -275,18 +324,39 @@ export const usePlayerStore = create<PlayerState>()(
       // hand-rolled writer, not here: the middleware re-serializes on every
       // store update, and position changes 4×/s while playing, which would
       // stringify a full-library queue at that cadence.
-      partialize: (s) => ({ volume: s.volume, shuffle: s.shuffle, repeat: s.repeat }),
+      partialize: (s) => ({
+        volume: s.volume,
+        shuffle: s.shuffle,
+        repeat: s.repeat,
+        soundcheck: s.soundcheck,
+      }),
     },
   ),
 );
 
 /* ---- audio engine ------------------------------------------------------- */
 
-const audio: HTMLAudioElement | null =
+const audioA: HTMLAudioElement | null =
+  typeof window !== "undefined" ? new Audio() : null;
+const audioB: HTMLAudioElement | null =
   typeof window !== "undefined" ? new Audio() : null;
 
-/** The stream URL the element currently holds — null until the first real
-    load. A restored session plays from a populated store with a virgin
+function elements(): HTMLAudioElement[] {
+  return [audioA, audioB].filter((el): el is HTMLAudioElement => el != null);
+}
+
+/** The element playing right now. Gapless swaps this binding instead of
+    replacing `src` on a playing element — the switch happens at the ended
+    boundary, so the old element never re-buffers (§2.6). */
+let audio: HTMLAudioElement | null = audioA;
+
+/** The standby element and what it holds: the next track, preloaded and
+    gain-matched, ready to start the instant the playing one ends. */
+let standby: HTMLAudioElement | null = audioB;
+let standbyTrack: Track | null = null;
+
+/** The stream URL the active element currently holds — null until the first
+    real load. A restored session plays from a populated store with a virgin
     element; the first play loads at the saved position (§29). */
 let loadedSrc: string | null = null;
 
@@ -296,11 +366,97 @@ let loadedSrc: string | null = null;
 let errorSkipStreak = 0;
 const MAX_ERROR_SKIPS = 5;
 
+/** How close to the end (seconds) the next track starts preloading. */
+const PRELOAD_AHEAD_SECONDS = 10;
+
+const trackSrc = (track: Track): string => `/api/stream/${track.id}`;
+
+function currentTrack(): Track | null {
+  const { queue, order, orderPos } = usePlayerStore.getState();
+  return queue[order[orderPos]] ?? null;
+}
+
+/** The track that would play next — without mutating anything. */
+function peekNext(): { pos: number; track: Track } | null {
+  const state = usePlayerStore.getState();
+  if (state.queue.length === 0) return null;
+  let pos = state.orderPos + 1;
+  if (pos >= state.order.length) {
+    if (state.repeat !== "all") return null;
+    pos = 0;
+  }
+  return { pos, track: state.queue[state.order[pos]] };
+}
+
+/* -- Sound Check (§2.3): one Web Audio graph, two gain nodes -------------- */
+/* The deliberate, documented exception to §3's "no Web Audio" decision:
+   a MediaElementSource → GainNode → destination chain per element. Created
+   lazily inside the first user-gesture play (autoplay policies); a context
+   that can't start just leaves unity gain — the feature degrades, playback
+   doesn't. */
+
+let audioCtx: AudioContext | null = null;
+const gainNodes = new Map<HTMLAudioElement, GainNode>();
+
+function ensureGraph(): void {
+  if (audioCtx != null || typeof window === "undefined") return;
+  try {
+    const Ctx: typeof AudioContext =
+      window.AudioContext ??
+      (window as unknown as { webkitAudioContext: typeof AudioContext })
+        .webkitAudioContext;
+    if (!Ctx) return;
+    audioCtx = new Ctx();
+    for (const el of elements()) {
+      const src = audioCtx.createMediaElementSource(el);
+      const gain = audioCtx.createGain();
+      src.connect(gain);
+      gain.connect(audioCtx.destination);
+      gainNodes.set(el, gain);
+    }
+  } catch {
+    // No graph (old browser, blocked context): play plain, stay honest.
+    audioCtx = null;
+    gainNodes.clear();
+  }
+}
+
+function resumeGraph(): void {
+  if (audioCtx != null && audioCtx.state === "suspended") {
+    void audioCtx.resume().catch(() => {});
+  }
+}
+
+function applyGain(el: HTMLAudioElement | null, track: Track | null): void {
+  const gain = el != null ? gainNodes.get(el) : undefined;
+  if (el == null || gain == null) return;
+  const { soundcheck } = usePlayerStore.getState();
+  const db = soundcheck && track != null ? track.gain_db : null;
+  gain.gain.value = db != null ? Math.pow(10, db / 20) : 1;
+}
+
+/* -- window title (§2.7) --------------------------------------------------- */
+
+let lastTitleKey = "";
+function syncWindowTitle(): void {
+  if (typeof document === "undefined") return;
+  const track = currentTrack();
+  const key = track ? `${track.id}` : "";
+  if (key === lastTitleKey) return;
+  lastTitleKey = key;
+  document.title = track
+    ? `${[track.artist, track.title].filter(Boolean).join(" — ")} · Flow`
+    : "Flow";
+}
+
 function load(track: Track, autoplay: boolean, startAt?: number): void {
   if (!audio || !track) return;
-  const src = `/api/stream/${track.id}`;
+  const src = trackSrc(track);
   loadedSrc = src;
+  // Any prepared standby is stale from here — the plan changed underneath.
+  resetStandby();
   audio.src = src;
+  applyGain(audio, track);
   // Setting currentTime before metadata arrives sets the default playback
   // start position — the element seeks there once it can (spec behavior).
   const at = startAt != null && startAt > 0.25 ? startAt : 0;
@@ -311,9 +467,68 @@ function load(track: Track, autoplay: boolean, startAt?: number): void {
     buffered: 0,
   });
   syncMediaSessionMetadata(track);
+  syncWindowTitle();
   if (autoplay) {
     void audio.play().catch(() => usePlayerStore.setState({ isPlaying: false }));
   }
+}
+
+function resetStandby(): void {
+  if (standby != null) {
+    standby.removeAttribute("src");
+    standby.load();
+  }
+  standbyTrack = null;
+}
+
+/** Preload the next track into the standby element once the playing one is
+    close enough to the end. No-op when already prepared, at the (no-repeat)
+    end of the queue, or while the graph/element machinery is unavailable. */
+function prepareStandby(): void {
+  if (audio == null || standby == null) return;
+  if (usePlayerStore.getState().repeat === "one") {
+    // Repeat-one never advances: nothing to pre-roll.
+    if (standbyTrack != null) resetStandby();
+    return;
+  }
+  const next = peekNext();
+  if (next == null) {
+    if (standbyTrack != null) resetStandby();
+    return;
+  }
+  if (standbyTrack != null && standbyTrack.id === next.track.id) return;
+  standbyTrack = next.track;
+  standby.src = trackSrc(next.track);
+  standby.volume = usePlayerStore.getState().volume;
+  applyGain(standby, next.track);
+  standby.load();
+}
+
+/** The gapless switch: play the prepared standby at the ended boundary.
+    Returns false when nothing usable is prepared (caller falls back). */
+function swapToStandby(): boolean {
+  if (audio == null || standby == null || standbyTrack == null) return false;
+  if (standby.readyState < 2) return false; // nothing usable buffered
+  const next = peekNext();
+  if (next == null || next.track.id !== standbyTrack.id) return false;
+  const finished = audio;
+  const prepared = standby;
+  audio = prepared;
+  standby = finished;
+  loadedSrc = trackSrc(next.track);
+  standbyTrack = null;
+  resetStandby(); // the finished element becomes the next standby
+  usePlayerStore.setState({
+    orderPos: next.pos,
+    position: 0,
+    duration: next.track.duration || 0,
+    buffered: 0,
+  });
+  errorSkipStreak = 0;
+  syncMediaSessionMetadata(next.track);
+  syncWindowTitle();
+  void audio.play().catch(() => usePlayerStore.setState({ isPlaying: false }));
+  return true;
 }
 
 /* ---- Media Session (approved nicety, §13.11) — OS media keys + lock screen */
@@ -369,53 +584,79 @@ function advance(step: number, auto: boolean): void {
   load(track, true);
 }
 
-if (audio) {
-  audio.volume = usePlayerStore.getState().volume;
-  setupMediaSession();
+for (const el of elements()) {
+  el.volume = usePlayerStore.getState().volume;
 
-  audio.addEventListener("play", () => {
+  // Every handler guards on `el !== audio`: the standby element's events
+  // are machinery, never state. The one exception is its load error —
+  // a failed preload must fall back to the classic advance path.
+  el.addEventListener("play", () => {
+    if (el !== audio) return;
+    resumeGraph();
     usePlayerStore.setState({ isPlaying: true });
     errorSkipStreak = 0; // a real start — the library is alive again
     setPlaybackState("playing");
   });
-  audio.addEventListener("pause", () => {
+  el.addEventListener("pause", () => {
+    if (el !== audio) return;
     usePlayerStore.setState({ isPlaying: false });
     setPlaybackState("paused");
   });
-  audio.addEventListener("timeupdate", () =>
-    usePlayerStore.setState({ position: audio!.currentTime }),
-  );
-  audio.addEventListener("durationchange", () =>
+  el.addEventListener("timeupdate", () => {
+    if (el !== audio) return;
+    usePlayerStore.setState({ position: el.currentTime });
+    if (
+      Number.isFinite(el.duration) &&
+      el.duration - el.currentTime <= PRELOAD_AHEAD_SECONDS
+    ) {
+      prepareStandby();
+    }
+  });
+  el.addEventListener("durationchange", () => {
+    if (el !== audio) return;
     usePlayerStore.setState({
-      duration: Number.isFinite(audio!.duration) ? audio!.duration : 0,
-    }),
-  );
-  audio.addEventListener("progress", () => {
-    const b = audio!.buffered;
+      duration: Number.isFinite(el.duration) ? el.duration : 0,
+    });
+  });
+  el.addEventListener("progress", () => {
+    if (el !== audio) return;
+    const b = el.buffered;
     usePlayerStore.setState({
       buffered: b.length > 0 ? b.end(b.length - 1) : 0,
     });
   });
-  audio.addEventListener("ended", () => {
+  el.addEventListener("ended", () => {
+    if (el !== audio) return;
     const state = usePlayerStore.getState();
     if (state.repeat === "one") {
-      audio!.currentTime = 0;
-      void audio!.play();
+      el.currentTime = 0;
+      void el.play();
       return;
     }
-    advance(1, true);
+    // The pre-rolled next track starts at the boundary — no src swap on a
+    // dying element, no 100–200ms re-buffer gap (§2.6). Anything not ready
+    // falls back to the classic advance, which still never skips a beat.
+    if (!swapToStandby()) advance(1, true);
   });
-  audio.addEventListener("error", () => {
+  el.addEventListener("error", () => {
     // Missing file / flaky mount / half-written file — routine in a
     // self-hosted library (§29). Skip to the next track and say so, like
     // Plex; only a bounded streak later, stop rather than machine-gun.
-    if (loadedSrc == null || !audio) return;
+    if (el !== audio) {
+      // The standby failed to load: drop it so `ended` uses the fallback.
+      if (el === standby) {
+        standbyTrack = null;
+        el.removeAttribute("src");
+      }
+      return;
+    }
+    if (loadedSrc == null) return;
     const state = usePlayerStore.getState();
     const track = state.queue[state.order[state.orderPos]];
     // A stale event for an already-replaced source must not skip twice.
     // (audio.currentSrc is absolute and unsettled during failed loads —
     // the engine's own record of the requested URL is the truth.)
-    if (track == null || loadedSrc !== `/api/stream/${track.id}`) return;
+    if (track == null || loadedSrc !== trackSrc(track)) return;
     errorSkipStreak += 1;
     if (errorSkipStreak > MAX_ERROR_SKIPS) {
       usePlayerStore.setState({ isPlaying: false });
@@ -430,6 +671,9 @@ if (audio) {
     advance(1, true); // rest at the end of the queue, like a natural finish
   });
 }
+
+setupMediaSession();
+syncWindowTitle();
 
 /* ---- session persistence (§13.9, §29) -----------------------------------
    The queue survives a reload: two keys, written at different cadences.
@@ -570,6 +814,7 @@ function restoreSession(): void {
     position: Math.min(position, track.duration || position),
     duration: track.duration || 0,
   });
+  syncWindowTitle();
 }
 
 restoreSession();

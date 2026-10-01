@@ -3,6 +3,7 @@ import { Outlet, useLocation } from "react-router";
 
 import { ensureScanSync } from "../api/scanSync";
 import { useGlobalShortcuts } from "../lib/shortcuts";
+import { AddToPlaylistDialog } from "./AddToPlaylistDialog";
 import { GetInfoPanel } from "./GetInfoPanel";
 import { NowPlaying } from "./NowPlaying";
 import { OrganizeSheet } from "./OrganizeSheet";
@@ -55,6 +56,7 @@ export function AppShell() {
       </div>
       <GetInfoPanel />
       <TrackActionsMenu />
+      <AddToPlaylistDialog />
       <UndoToast />
       <OrganizeSheet />
       <NowPlaying />

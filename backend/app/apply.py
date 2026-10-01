@@ -28,10 +28,12 @@ UNDO_LIMIT = 20_000  # entries; a full-library apply fits with room to spare
 APPLY_SELECT = """
 SELECT t.id, t.title, t.artist_id, t.album_id, t.album_artist_id, t.track_no,
        t.year, t.artwork_id, t.user_edited,
-       ar.name AS artist, al.title AS album
+       ar.name AS artist, al.title AS album,
+       aar.name AS album_artist_name
 FROM tracks t
 LEFT JOIN artists ar ON ar.id = t.artist_id
 LEFT JOIN albums al ON al.id = t.album_id
+LEFT JOIN artists aar ON aar.id = t.album_artist_id
 """
 
 
@@ -60,6 +62,24 @@ def apply_field_changes(conn, track, fields: dict) -> dict:
     if "artist" in fields:
         columns["artist_id"] = find_or_create_artist(conn, fields["artist"])
         edited |= Edited.ARTIST
+        # Credit rows follow the primary (§2.2): the old primary's main
+        # credit is replaced by the new artist, and that artist can't
+        # double up as featured/composer on the same track.
+        conn.execute(
+            "DELETE FROM track_artists WHERE track_id = ? AND role = 'main'",
+            (track["id"],),
+        )
+        new_artist_id = columns["artist_id"]
+        if new_artist_id is not None:
+            conn.execute(
+                "DELETE FROM track_artists WHERE track_id = ? AND artist_id = ?",
+                (track["id"], new_artist_id),
+            )
+            conn.execute(
+                "INSERT INTO track_artists (track_id, artist_id, role, position) "
+                "VALUES (?, ?, 'main', 0)",
+                (track["id"], new_artist_id),
+            )
 
     if "track_no" in fields:
         track_no = fields["track_no"]
@@ -81,6 +101,21 @@ def apply_field_changes(conn, track, fields: dict) -> dict:
                 (artwork_id, columns["album_id"]),
             )
         edited |= Edited.ALBUM
+
+    if "album_artist" in fields:
+        # Compilation resolution (UX review §2.2): the album artist is the
+        # album's identity. Setting it pins the track's overlay value AND
+        # moves the album row, so every view that reads the album reads the
+        # same answer — an empty value clears both (an album with no album
+        # artist displays "Unknown artist" until tags or edits fill it).
+        artist_id = find_or_create_artist(conn, fields["album_artist"])
+        columns["album_artist_id"] = artist_id
+        if track["album_id"] is not None:
+            conn.execute(
+                "UPDATE albums SET artist_id = ? WHERE id = ?",
+                (artist_id, track["album_id"]),
+            )
+        edited |= Edited.ALBUM_ARTIST
 
     if "favorite" in fields and fields["favorite"] is not None:
         columns["favorite"] = int(fields["favorite"])

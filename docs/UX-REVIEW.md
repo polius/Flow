@@ -117,9 +117,9 @@ common curation gesture. Apple's answer, everywhere, is a consistent header trio
 **Play · Shuffle · …**, where "…" carries Add to Playlist / Play Next.
 
 **Do:**
-- [ ] Album detail: Play + Shuffle + "…" menu (Add to Playlist, Play Next).
-- [ ] Artist detail: Play + Shuffle + "…" on the whole catalog (and per-album via the cards).
-- [ ] Restore per-track "Add to Playlist" reachability (row menu / drag-to-queue). Recovery,
+- [x] Album detail: Play + Shuffle + "…" menu (Add to Playlist, Play Next).
+- [x] Artist detail: Play + Shuffle + "…" on the whole catalog (and per-album via the cards).
+- [x] Restore per-track "Add to Playlist" reachability (row menu / drag-to-queue). Recovery,
       not friction, is the HIG pattern the undo grammar already proves.
 
 ### 2.2 The data model will crack on real libraries
@@ -130,9 +130,9 @@ ratings and social — it does not rule out *genres* or *credited artists*, and 
 the first thing a large real library punishes.
 
 **Do (schema migration; Organize becomes the editing surface):**
-- [ ] tracks↔artists join table with roles (main / featured / composer).
-- [ ] tracks↔genres join table (parsed from tags at scan; genre browsing section or filter).
-- [ ] Compilation handling via album-artist semantics surfaced in Organize (§22's
+- [x] tracks↔artists join table with roles (main / featured / composer).
+- [x] tracks↔genres join table (parsed from tags at scan; genre browsing section or filter).
+- [x] Compilation handling via album-artist semantics surfaced in Organize (§22's
       `mixed_album_artist` review item is the seed).
 
 ### 2.3 Volume normalization
@@ -143,8 +143,8 @@ graph; a deliberate exception to the "no Web Audio" stack decision worth making 
 Album-to-album volume whiplash is the number-one complaint about library players.
 
 **Do:**
-- [ ] Scan-time loudness analysis (store the gain value on the track row).
-- [ ] Apply client-side; toggle in Settings ("Sound Check"), persisted like volume.
+- [x] Scan-time loudness analysis (store the gain value on the track row).
+- [x] Apply client-side; toggle in Settings ("Sound Check"), persisted like volume.
 
 ### 2.4 Albums and Artists have no sort, no view options
 
@@ -152,8 +152,9 @@ Tracks/Favorites have a full sort grammar (`SortMenu`); Albums is frozen at the 
 default. Apple Music's Albums page has a sort menu and it is used.
 
 **Do:**
-- [ ] Albums: sort (Title / Artist / Year / Recently added) in the URL, same grammar as Tracks.
-- [ ] Artists: sort; consider year section-headers or a letter index at scale.
+- [x] Albums: sort (Title / Artist / Year / Recently added) in the URL, same grammar as Tracks.
+- [x] Artists: sort; consider year section-headers or a letter index at scale. *(sort + direction
+      shipped; letter index considered and deferred — §30.6.)*
 
 ### 2.5 Home is a room without furniture
 
@@ -161,8 +162,9 @@ Today: a stats line and "Recently added." No continue listening, no recently pla
 shuffle-everything escape hatch. An empty room is not minimal — it's unfinished.
 
 **Do:**
-- [ ] Three modules: Continue listening (1.1), Recently added, a "Shuffle all" card.
-- [ ] If Home stays this thin after that, cut the route and land on Albums.
+- [x] Three modules: Continue listening (1.1), Recently added, a "Shuffle all" card.
+- [x] If Home stays this thin after that, cut the route and land on Albums. *(resolved: Home
+      keeps its place — it now has Continue listening, Shuffle all, Recently added, Playlists.)*
 
 ### 2.6 Gapless playback
 
@@ -170,7 +172,7 @@ Deferred as a "future nicety" — agreed, but for live/electronic albums the 100
 HTMLAudioElement gap is audible and is the one playback defect that can't be styled away.
 
 **Do:**
-- [ ] Dual-element pre-roll (or `HTMLAudioElement` + Web Audio scheduling) when the listening
+- [x] Dual-element pre-roll (or `HTMLAudioElement` + Web Audio scheduling) when the listening
       experience is otherwise solid. Schedule after P0/P1.
 
 ### 2.7 The tab, the icon, the install
@@ -180,9 +182,9 @@ people keep open for hours should read *"Artist — Track"* in the tab and be in
 home screen (which, with Media Session — already implemented — behaves like an app on iPad).
 
 **Do:**
-- [ ] Favicon + apple-touch-icon.
-- [ ] `document.title` follows the playing track; reverts when idle.
-- [ ] PWA manifest (name, icons, `display: standalone`, theme-color for both ramps).
+- [x] Favicon + apple-touch-icon.
+- [x] `document.title` follows the playing track; reverts when idle.
+- [x] PWA manifest (name, icons, `display: standalone`, theme-color for both ramps).
 
 ### 2.8 Settings is too quiet about the machine
 
@@ -191,8 +193,8 @@ trips) are invisible. The scanner already counts errors (§11.6, §14.1) — the
 shows them.
 
 **Do:**
-- [ ] "Last scan: N files skipped — view" disclosure listing path + reason.
-- [ ] Mount-guard trip gets its own visible, calm explanation state.
+- [x] "Last scan: N files skipped — view" disclosure listing path + reason.
+- [x] Mount-guard trip gets its own visible, calm explanation state.
 
 ---
 

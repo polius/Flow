@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!--
+    Flow favicon — the app icon's eighth note, redrawn as vectors and
+    adapted per theme ramp: the tile stays near-black in light chrome and
+    inverts in dark chrome, so it never vanishes into a dark tab bar (§2.7).
+  -->
+  <style>
+    .tile { fill: #1c1c1e; }
+    .note { fill: #f5f5f7; }
+    @media (prefers-color-scheme: dark) {
+      .tile { fill: #f5f5f7; }
+      .note { fill: #1c1c1e; }
+    }
+  </style>
+  <rect class="tile" width="512" height="512" rx="115"/>
+  <g class="note" transform="translate(14.3 0)">
+    <ellipse cx="202" cy="338" rx="44" ry="32"/>
+    <rect x="232" y="154" width="17" height="184"/>
+    <path d="M249 154 c 30 8 44 34 44 66 c 0 34 -14 58 -22 52 c 8 -22 6 -44 -6 -58 c -8 -10 -12 -22 -12 -36 Z"/>
+  </g>
+</svg>

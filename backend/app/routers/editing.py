@@ -73,6 +73,8 @@ def patch_track(request: Request, track_id: int, patch: TrackPatch) -> TrackOut:
         fields["title"] = patch.title
     if patch.artist is not None:
         fields["artist"] = patch.artist
+    if patch.album_artist is not None:
+        fields["album_artist"] = patch.album_artist
     if "track_no" in patch.model_fields_set:
         fields["track_no"] = patch.track_no
     if patch.album is not None:
@@ -106,6 +108,8 @@ def _old_value(key: str, row) -> object:
         return row["artist"] or ""
     if key == "album":
         return row["album"] or ""
+    if key == "album_artist":
+        return row["album_artist_name"] or ""
     if key == "track_no":
         return row["track_no"]
     return None
@@ -140,6 +144,8 @@ def bulk_apply_tracks(request: Request, body: BulkApplyIn) -> BulkApplyOut:
         fields["title"] = body.title
     if body.artist is not None:
         fields["artist"] = body.artist
+    if body.album_artist is not None:
+        fields["album_artist"] = body.album_artist
     if body.album is not None:
         fields["album"] = body.album
     if "track_no" in body.model_fields_set:

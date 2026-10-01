@@ -10,6 +10,7 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
 
 from app.events import ScanBus
+from app.schemas import ScanErrorEntry, ScanErrorLog
 from app.scanner import LibraryScanner
 
 router = APIRouter(tags=["scan"])
@@ -45,6 +46,19 @@ def scan_events(request: Request) -> StreamingResponse:
         event_stream(),
         media_type="text/event-stream",
         headers={"Cache-Control": "no-store", "X-Accel-Buffering": "no"},
+    )
+
+
+@router.get("/api/scan/errors", response_model=ScanErrorLog, tags=["scan"])
+def scan_error_log(request: Request) -> ScanErrorLog:
+    """Skipped files from the last scan — path + reason (§2.8). Settings
+    fetches this lazily when its disclosure opens."""
+    scanner: LibraryScanner = request.app.state.scanner
+    log_dict = scanner.scan_error_log()
+    return ScanErrorLog(
+        total=log_dict["total"],
+        truncated=log_dict["truncated"],
+        items=[ScanErrorEntry(**item) for item in log_dict["items"]],
     )
 
 

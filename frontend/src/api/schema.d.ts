@@ -39,6 +39,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/scan/errors": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Scan Error Log
+         * @description Skipped files from the last scan — path + reason (§2.8). Settings
+         *     fetches this lazily when its disclosure opens.
+         */
+        get: operations["scan_error_log_api_scan_errors_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/settings": {
         parameters: {
             query?: never;
@@ -151,6 +172,27 @@ export interface paths {
         };
         /** Get Artist */
         get: operations["get_artist_api_artists__artist_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/genres": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Genres
+         * @description Genre browse list (§2.2): the track's tags, grouped. A representative
+         *     cover keeps the grid art-first; counts are honest (distinct tracks).
+         */
+        get: operations["list_genres_api_genres_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -514,6 +556,8 @@ export interface components {
             title?: string | null;
             /** Artist */
             artist?: string | null;
+            /** Album Artist */
+            album_artist?: string | null;
             /** Album */
             album?: string | null;
             /** Track No */
@@ -534,6 +578,30 @@ export interface components {
             key: string;
             /** Albums */
             albums: components["schemas"]["AlbumRef"][];
+        };
+        /** GenreListOut */
+        GenreListOut: {
+            /** Items */
+            items: components["schemas"]["GenreSummary"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+        };
+        /** GenreSummary */
+        GenreSummary: {
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+            /** Track Count */
+            track_count: number;
+            /** Album Count */
+            album_count: number;
+            /** Artwork Id */
+            artwork_id?: number | null;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -628,6 +696,8 @@ export interface components {
             album: string | null;
             /** Album Id */
             album_id: number | null;
+            /** Album Artist */
+            album_artist?: string | null;
             /** Track No */
             track_no: number | null;
             /** Disc No */
@@ -644,6 +714,8 @@ export interface components {
             artwork_id: number | null;
             /** Path */
             path: string;
+            /** Gain Db */
+            gain_db?: number | null;
             /** Position */
             position: number;
         };
@@ -683,6 +755,25 @@ export interface components {
             /** Undo Available */
             undo_available: boolean;
         };
+        /** ScanErrorEntry */
+        ScanErrorEntry: {
+            /** Path */
+            path: string;
+            /** Reason */
+            reason: string;
+        };
+        /**
+         * ScanErrorLog
+         * @description Skipped files of the last scan, for Settings' disclosure (§2.8).
+         */
+        ScanErrorLog: {
+            /** Total */
+            total: number;
+            /** Truncated */
+            truncated: boolean;
+            /** Items */
+            items: components["schemas"]["ScanErrorEntry"][];
+        };
         /** ScanStatus */
         ScanStatus: {
             /**
@@ -691,7 +782,7 @@ export interface components {
              */
             state: "idle" | "scanning";
             /** Phase */
-            phase: ("scan" | "watch") | null;
+            phase: ("scan" | "watch" | "analyze") | null;
             /** Current */
             current: number;
             /** Total */
@@ -700,6 +791,11 @@ export interface components {
             errors: number;
             /** Finished At */
             finished_at: string | null;
+            /**
+             * Mount Guard
+             * @default false
+             */
+            mount_guard: boolean;
         };
         /** SearchOut */
         SearchOut: {
@@ -748,6 +844,8 @@ export interface components {
             album: string | null;
             /** Album Id */
             album_id: number | null;
+            /** Album Artist */
+            album_artist?: string | null;
             /** Track No */
             track_no: number | null;
             /** Disc No */
@@ -764,6 +862,8 @@ export interface components {
             artwork_id: number | null;
             /** Path */
             path: string;
+            /** Gain Db */
+            gain_db?: number | null;
         };
         /**
          * TrackPatch
@@ -771,13 +871,16 @@ export interface components {
          *
          *     artist/album are name strings — the editor find-or-creates rows. Only
          *     fields the client sends are applied; sent overlay fields set their
-         *     `user_edited` bit so rescans preserve them.
+         *     `user_edited` bit so rescans preserve them. `album_artist` pins a
+         *     compilation's identity (§2.2); an empty string clears it.
          */
         TrackPatch: {
             /** Title */
             title?: string | null;
             /** Artist */
             artist?: string | null;
+            /** Album Artist */
+            album_artist?: string | null;
             /** Album */
             album?: string | null;
             /** Track No */
@@ -867,6 +970,26 @@ export interface operations {
             };
         };
     };
+    scan_error_log_api_scan_errors_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScanErrorLog"];
+                };
+            };
+        };
+    };
     get_settings_api_settings_get: {
         parameters: {
             query?: never;
@@ -895,6 +1018,7 @@ export interface operations {
                 album_id?: number | null;
                 review?: string | null;
                 favorite?: boolean | null;
+                genre_id?: number | null;
                 sort?: string;
                 dir?: string;
                 limit?: number;
@@ -997,6 +1121,7 @@ export interface operations {
             query?: {
                 q?: string | null;
                 sort?: string;
+                dir?: string;
                 limit?: number;
                 offset?: number;
             };
@@ -1062,6 +1187,7 @@ export interface operations {
             query?: {
                 q?: string | null;
                 sort?: string;
+                dir?: string;
                 limit?: number;
                 offset?: number;
             };
@@ -1109,6 +1235,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ArtistDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_genres_api_genres_get: {
+        parameters: {
+            query?: {
+                q?: string | null;
+                sort?: string;
+                dir?: string;
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GenreListOut"];
                 };
             };
             /** @description Validation Error */

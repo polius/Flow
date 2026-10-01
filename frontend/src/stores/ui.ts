@@ -64,6 +64,12 @@ interface UiState {
       Esc precedence and the global shortcut guard defer to it (§23). */
   pickerOpen: boolean;
   setPickerOpen: (open: boolean) => void;
+  /** "Add to Playlist" from anywhere except inside a playlist (§2.1): the
+      tracks a header menu / row menu wants to file, and the destination
+      dialog that resolves where. Null = closed. */
+  addToPlaylistTarget: Track[] | null;
+  openAddToPlaylist: (tracks: Track[]) => void;
+  closeAddToPlaylist: () => void;
   /** True while a queue row is lifted mid-drag — the drag is a layer above
       the Now Playing takeover, so Esc cancels the drag first (§9.4 rev 2). */
   queueDragOpen: boolean;
@@ -102,6 +108,9 @@ export const useUiStore = create<UiState>()(
       setContextMenuOpen: (contextMenuOpen) => set({ contextMenuOpen }),
       pickerOpen: false,
       setPickerOpen: (pickerOpen) => set({ pickerOpen }),
+      addToPlaylistTarget: null,
+      openAddToPlaylist: (addToPlaylistTarget) => set({ addToPlaylistTarget }),
+      closeAddToPlaylist: () => set({ addToPlaylistTarget: null }),
       queueDragOpen: false,
       setQueueDragOpen: (queueDragOpen) => set({ queueDragOpen }),
       themeMode: "system",

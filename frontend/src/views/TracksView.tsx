@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo } from "react";
-import { useInfiniteQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { useSearchParams } from "react-router";
 
 import { api, fetchAllTracks } from "../api/client";
+import { GenreMenu } from "../components/GenreMenu";
 import { SortMenu, type SortOption } from "../components/SortMenu";
 import { TrackTableHead, type TrackSortKey } from "../components/TrackTableHead";
 import { VirtualTrackTable } from "../components/VirtualTrackTable";
@@ -42,8 +43,25 @@ export function TracksView() {
   const urlSort = searchParams.get("sort") ?? "title";
   const sort = (SORT_KEYS.has(urlSort) ? urlSort : "title") as TrackSortKey;
   const dir = searchParams.get("dir") === "desc" ? "desc" : "asc";
+  // Genre filter (§2.2): ?genre=<id>, validated against the genres query.
+  const urlGenre = searchParams.get("genre");
+  const genreId = urlGenre != null && /^\d+$/.test(urlGenre) ? Number(urlGenre) : null;
 
   const openOrganize = useUiStore((s) => s.openOrganize);
+
+  // The genres list doubles as the subtitle's vocabulary — the menu and the
+  // subtitle share the query cache, so this costs one request app-wide.
+  const { data: genresData } = useQuery({
+    queryKey: ["genres"],
+    queryFn: async () => {
+      const { data } = await api.GET("/api/genres", {
+        params: { query: { limit: 1000 } },
+      });
+      return data;
+    },
+  });
+  const genreName =
+    genresData?.items.find((g) => g.id === genreId)?.name ?? null;
 
   const summary = useReviewSummary();
   const reviewCount = useMemo(() => {
@@ -59,7 +77,7 @@ export function TracksView() {
   }, [summary.data]);
 
   const query = useInfiniteQuery({
-    queryKey: ["tracks", "all", q, sort, dir],
+    queryKey: ["tracks", "all", q, sort, dir, genreId],
     queryFn: async ({ pageParam }) => {
       const { data } = await api.GET("/api/tracks", {
         params: {
@@ -69,6 +87,7 @@ export function TracksView() {
             sort,
             dir,
             ...(q ? { q } : {}),
+            ...(genreId != null ? { genre_id: genreId } : {}),
           },
         },
       });
@@ -100,7 +119,7 @@ export function TracksView() {
         return;
       }
       const loaded = tracks;
-      void fetchAllTracks({ q: q || undefined, sort, dir })
+      void fetchAllTracks({ q: q || undefined, genreId: genreId ?? undefined, sort, dir })
         .then((full) =>
           playTracks(
             full.length > 0 ? full : loaded,
@@ -109,13 +128,13 @@ export function TracksView() {
         )
         .catch(() => playTracks(loaded, index));
     },
-    [playTracks, tracks, total, q, sort, dir],
+    [playTracks, tracks, total, q, genreId, sort, dir],
   );
 
   // The row menu's "Play" resolves the same whole view (§29).
   const contextLoader = useCallback(
-    () => fetchAllTracks({ q: q || undefined, sort, dir }),
-    [q, sort, dir],
+    () => fetchAllTracks({ q: q || undefined, genreId: genreId ?? undefined, sort, dir }),
+    [q, genreId, sort, dir],
   );
 
   const handleNearEnd = useCallback(() => {
@@ -132,11 +151,21 @@ export function TracksView() {
     [searchParams, setSearchParams],
   );
 
-  // A new ordering is a new list: land at its top, not wherever the old
-  // order's scroll offset happens to fall.
+  // A new ordering or filter is a new list: land at its top, not wherever
+  // the old order's scroll offset happens to fall.
   useEffect(() => {
     document.querySelector<HTMLElement>(".shell__canvas")?.scrollTo(0, 0);
-  }, [sort, dir]);
+  }, [sort, dir, genreId]);
+
+  const onGenre = useCallback(
+    (id: number | null) => {
+      const next = new URLSearchParams(searchParams);
+      if (id == null) next.delete("genre");
+      else next.set("genre", String(id));
+      setSearchParams(next, { replace: true });
+    },
+    [searchParams, setSearchParams],
+  );
 
   return (
     <section className="view">
@@ -144,12 +173,15 @@ export function TracksView() {
         <div>
           <h1 className="view__title">Tracks</h1>
           <p className="view__subtitle">
-            {q
-              ? `${fmtCount(total)} ${total === 1 ? "match" : "matches"} for “${q}”`
-              : `${fmtCount(total)} ${total === 1 ? "song" : "songs"}`}
+            {genreName
+              ? `${fmtCount(total)} ${total === 1 ? "track" : "tracks"} in “${genreName}”`
+              : q
+                ? `${fmtCount(total)} ${total === 1 ? "match" : "matches"} for “${q}”`
+                : `${fmtCount(total)} ${total === 1 ? "song" : "songs"}`}
           </p>
         </div>
         <div className="view__actions">
+          <GenreMenu value={genreId} onChange={onGenre} />
           <SortMenu
             options={SORT_OPTIONS}
             value={sort}

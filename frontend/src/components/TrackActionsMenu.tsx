@@ -27,6 +27,7 @@ import {
   IconMinus,
   IconNext,
   IconPlay,
+  IconPlaylistAdd,
   IconPlus,
 } from "./icons";
 import "../styles/editing.css";
@@ -45,6 +46,7 @@ export function TrackActionsMenu() {
   const playNext = usePlayerStore((s) => s.playNext);
   const addToQueue = usePlayerStore((s) => s.addToQueue);
   const openGetInfo = useUiStore((s) => s.openGetInfo);
+  const openAddToPlaylist = useUiStore((s) => s.openAddToPlaylist);
 
   const open = request != null;
 
@@ -140,6 +142,14 @@ export function TrackActionsMenu() {
       >
         <IconPlus size={15} />
         Add to Queue
+      </button>
+      <button
+        type="button"
+        className="trackmenu__item"
+        onClick={act(() => openAddToPlaylist([track]))}
+      >
+        <IconPlaylistAdd size={15} />
+        Add to Playlist
       </button>
       <div className="trackmenu__separator" role="separator" />
       <button

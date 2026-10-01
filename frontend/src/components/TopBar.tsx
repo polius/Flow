@@ -166,9 +166,11 @@ export function TopBar() {
   };
 
   const scanLabel = scan
-    ? scan.phase === "watch"
-      ? "Updating…"
-      : scanProgressLabel(scan.current, scan.total)
+    ? scan.phase === "analyze"
+      ? "Analyzing audio…"
+      : scan.phase === "watch"
+        ? "Updating…"
+        : scanProgressLabel(scan.current, scan.total)
     : null;
 
   return (

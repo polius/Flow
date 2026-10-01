@@ -12,7 +12,7 @@ import type { Track } from "../api/types";
 import { useUiStore } from "../stores/ui";
 import { IconClose } from "./icons";
 
-export type BulkField = "artist" | "album";
+export type BulkField = "artist" | "album" | "album_artist";
 
 interface BulkBarProps {
   count: number;
@@ -22,7 +22,11 @@ interface BulkBarProps {
       filter mode (unloaded pages mean consequences stay generic). */
   selectedTracks: Track[];
   onClear: () => void;
-  onApply: (changes: { artist?: string; album?: string }) => void;
+  onApply: (changes: {
+    artist?: string;
+    album?: string;
+    album_artist?: string;
+  }) => void;
 }
 
 /** Debounce helper shared by the suggestion inputs. */
@@ -85,7 +89,7 @@ export function BulkBar({ count, filterMode, applying, selectedTracks, onClear, 
   const suggestions = useQuery({
     queryKey: ["suggest", popover, q],
     queryFn: async () => {
-      // Normalized shape: the two endpoints differ, the popover doesn't care.
+      // Normalized shape: the endpoints differ, the popover doesn't care.
       if (popover === "album") {
         const { data } = await api.GET("/api/albums", {
           params: { query: { ...(q ? { q } : {}), limit: 8, sort: "title" } },
@@ -96,6 +100,7 @@ export function BulkBar({ count, filterMode, applying, selectedTracks, onClear, 
           track_count: a.track_count,
         }));
       }
+      // artist + album_artist both resolve artist names.
       const { data } = await api.GET("/api/artists", {
         params: { query: { ...(q ? { q } : {}), limit: 8 } },
       });
@@ -124,8 +129,20 @@ export function BulkBar({ count, filterMode, applying, selectedTracks, onClear, 
   };
 
   const confirmTitle = confirm?.value.trim()
-    ? `Set ${confirm.field === "album" ? "album" : "artist"} to “${confirm.value.trim()}”`
-    : `Clear ${confirm?.field === "album" ? "album" : "artist"}`;
+    ? `Set ${
+        confirm.field === "album"
+          ? "album"
+          : confirm.field === "album_artist"
+            ? "album artist"
+            : "artist"
+      } to “${confirm.value.trim()}”`
+    : `Clear ${
+        confirm?.field === "album"
+          ? "album"
+          : confirm?.field === "album_artist"
+            ? "album artist"
+            : "artist"
+      }`;
 
   return (
     <>
@@ -140,6 +157,14 @@ export function BulkBar({ count, filterMode, applying, selectedTracks, onClear, 
         </button>
         <button type="button" className="orgbar__action" onClick={() => open("artist")}>
           Set Artist…
+        </button>
+        <button
+          type="button"
+          className="orgbar__action"
+          onClick={() => open("album_artist")}
+          title="Resolve a compilation: one album artist for every selected track"
+        >
+          Set Album Artist…
         </button>
         <span className="orgbar__sep" aria-hidden="true" />
         <button type="button" className="orgbar__quiet" onClick={onClear}>
@@ -186,7 +211,11 @@ export function BulkBar({ count, filterMode, applying, selectedTracks, onClear, 
                 onClick={() => propose("")}
               >
                 <span className="orgbar__suggestname">
-                  {popover === "album" ? "Clear album" : "No artist"}
+                  {popover === "album"
+                    ? "Clear album"
+                    : popover === "album_artist"
+                      ? "No album artist"
+                      : "No artist"}
                 </span>
               </button>
               {matches.length === 0 && !q.trim() && (
@@ -216,7 +245,12 @@ export function BulkBar({ count, filterMode, applying, selectedTracks, onClear, 
                 className="btn--primary"
                 disabled={applying}
                 onClick={() => {
-                  const changes = confirm.field === "album" ? { album: confirm.value } : { artist: confirm.value };
+                  const changes =
+                    confirm.field === "album"
+                      ? { album: confirm.value }
+                      : confirm.field === "album_artist"
+                        ? { album_artist: confirm.value }
+                        : { artist: confirm.value };
                   onApply(changes);
                   setConfirm(null);
                 }}
@@ -272,7 +306,6 @@ function ConsequenceLine({
     },
     enabled: !filterMode && ids.length > 0,
   });
-
   const affected = useMemo(() => {
     if (filterMode || !details.data) return [];
     const target = value.trim();
@@ -295,6 +328,14 @@ function ConsequenceLine({
 
   const suffix = field === "album" ? "will be removed if left empty" : "will be left with no tracks";
 
+  if (field === "album_artist") {
+    return (
+      <p className="orgsheet__note">
+        The album keeps one album artist: the album page, its grouping, and
+        future rescans of these tracks all follow the name you set.
+      </p>
+    );
+  }
   if (filterMode) {
     return (
       <p className="orgsheet__note">

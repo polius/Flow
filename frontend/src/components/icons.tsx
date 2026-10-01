@@ -305,3 +305,25 @@ export function IconVolume(props: IconProps) {
     </Icon>
   );
 }
+
+export function IconEllipsis(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <circle cx="5.5" cy="12" r="1.4" fill="currentColor" stroke="none" />
+      <circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none" />
+      <circle cx="18.5" cy="12" r="1.4" fill="currentColor" stroke="none" />
+    </Icon>
+  );
+}
+
+export function IconPlaylistAdd(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M3.5 6.5h13" />
+      <path d="M3.5 12h9" />
+      <path d="M3.5 17.5h6" />
+      <path d="M17.5 13.5v7" />
+      <path d="M14 17h7" />
+    </Icon>
+  );
+}

@@ -1,11 +1,12 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useSearchParams } from "react-router";
 
 import { api } from "../api/client";
 import { EmptyState } from "../components/EmptyState";
 import { LoadingState } from "../components/LoadingState";
-import { IconArtists, IconCheck } from "../components/icons";
+import { SortMenu, type SortOption } from "../components/SortMenu";
+import { IconArtists } from "../components/icons";
 import { fmtCount } from "../lib/format";
 
 /* Artists (§9.1 revision): a wall of circular portraits — the Apple-Music
@@ -13,29 +14,30 @@ import { fmtCount } from "../lib/format";
    (that's the artwork the library has); the absence of one is a quiet
    monogram, not a broken image. Rows became cards because artists are
    browsed by face here, not scanned by name — the detail view is one tap
-   away either way. Sort by name, albums, or songs (URL state). */
+   away either way. Sort by name, albums, or songs — URL state (?sort=&dir=),
+   shared SortMenu grammar: picking the active option flips the direction,
+   count sorts read most-first (§2.4). */
 
-const SORTS = [
+const SORT_OPTIONS: SortOption[] = [
   { key: "name", label: "Name" },
-  { key: "albums", label: "Albums" },
-  { key: "songs", label: "Songs" },
-] as const;
+  { key: "albums", label: "Albums", defaultDir: "desc" },
+  { key: "songs", label: "Songs", defaultDir: "desc" },
+];
+
+const SORT_KEYS = new Set(SORT_OPTIONS.map((o) => o.key));
 
 export function ArtistsView() {
   const [searchParams, setSearchParams] = useSearchParams();
   const q = searchParams.get("q") ?? "";
   const urlSort = searchParams.get("sort") ?? "name";
-  const sort = (SORTS.some((s) => s.key === urlSort) ? urlSort : "name") as
-    | "name"
-    | "albums"
-    | "songs";
-  const [menuOpen, setMenuOpen] = useState(false);
+  const sort = SORT_KEYS.has(urlSort) ? urlSort : "name";
+  const dir = searchParams.get("dir") === "desc" ? "desc" : "asc";
 
   const { data } = useQuery({
-    queryKey: ["artists", q, sort],
+    queryKey: ["artists", q, sort, dir],
     queryFn: async () => {
       const { data } = await api.GET("/api/artists", {
-        params: { query: { limit: 1000, sort, ...(q ? { q } : {}) } },
+        params: { query: { limit: 1000, sort, dir, ...(q ? { q } : {}) } },
       });
       return data;
     },
@@ -44,34 +46,20 @@ export function ArtistsView() {
   const artists = data?.items ?? [];
   const total = data?.total ?? 0;
 
-  const pick = useCallback(
-    (key: "name" | "albums" | "songs") => {
+  const onSort = useCallback(
+    (key: string, nextDir: "asc" | "desc") => {
       const next = new URLSearchParams(searchParams);
       next.set("sort", key);
+      next.set("dir", nextDir);
       setSearchParams(next, { replace: true });
-      setMenuOpen(false);
     },
     [searchParams, setSearchParams],
   );
 
-  // The sort menu closes on outside tap and Esc, like every other menu.
-  const sortRef = useRef<HTMLDivElement>(null);
+  // A re-sort is a new wall: land at its top (same grammar as Tracks).
   useEffect(() => {
-    if (!menuOpen) return;
-    const onPointerDown = (e: PointerEvent) => {
-      if (sortRef.current?.contains(e.target as Node)) return;
-      setMenuOpen(false);
-    };
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setMenuOpen(false);
-    };
-    window.addEventListener("pointerdown", onPointerDown);
-    window.addEventListener("keydown", onKeyDown);
-    return () => {
-      window.removeEventListener("pointerdown", onPointerDown);
-      window.removeEventListener("keydown", onKeyDown);
-    };
-  }, [menuOpen]);
+    document.querySelector<HTMLElement>(".shell__canvas")?.scrollTo(0, 0);
+  }, [sort, dir]);
 
   return (
     <section className="view">
@@ -84,12 +72,13 @@ export function ArtistsView() {
               : `${fmtCount(total)} ${total === 1 ? "artist" : "artists"}`}
           </p>
         </div>
-        <div ref={sortRef}>
-          <SortPill
-            open={menuOpen}
-            setOpen={setMenuOpen}
-            sort={sort}
-            onPick={pick}
+        <div className="view__actions">
+          <SortMenu
+            options={SORT_OPTIONS}
+            value={sort}
+            dir={dir}
+            onChange={onSort}
+            label="Sort artists"
           />
         </div>
       </div>
@@ -152,50 +141,5 @@ export function ArtistPortrait({
       loading="lazy"
       onError={() => setFailed(true)}
     />
-  );
-}
-
-function SortPill({
-  open,
-  setOpen,
-  sort,
-  onPick,
-}: {
-  open: boolean;
-  setOpen: (open: boolean) => void;
-  sort: "name" | "albums" | "songs";
-  onPick: (key: "name" | "albums" | "songs") => void;
-}) {
-  return (
-    <div className="artistsort">
-      <button
-        type="button"
-        className="view__action"
-        aria-haspopup="menu"
-        aria-expanded={open}
-        onClick={() => setOpen(!open)}
-      >
-        {SORTS.find((s) => s.key === sort)?.label ?? "Sort"}
-      </button>
-      {open && (
-        <div className="trackmenu artistsort__pop" role="menu" aria-label="Sort artists">
-          {SORTS.map((s) => (
-            <button
-              key={s.key}
-              type="button"
-              role="menuitemradio"
-              aria-checked={s.key === sort}
-              className="trackmenu__item"
-              onClick={() => onPick(s.key)}
-            >
-              <span className="trackmenu__check" aria-hidden="true">
-                {s.key === sort && <IconCheck size={13} />}
-              </span>
-              {s.label}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
   );
 }

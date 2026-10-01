@@ -4,18 +4,17 @@ import { Link, useParams } from "react-router";
 import { api } from "../api/client";
 import { Ambience } from "../components/Ambience";
 import { Artwork } from "../components/Artwork";
+import { CollectionActions } from "../components/CollectionActions";
 import { EmptyState } from "../components/EmptyState";
 import { LoadingState } from "../components/LoadingState";
-import { IconAlbums, IconPlay } from "../components/icons";
+import { IconAlbums } from "../components/icons";
 import { fmtMinutes } from "../lib/format";
-import { usePlayerStore } from "../stores/player";
 import { TrackTable } from "../components/TrackTable";
 import { TrackTableHead } from "../components/TrackTableHead";
 import "../styles/library.css";
 
 export function AlbumDetailView() {
   const albumId = Number(useParams().albumId);
-  const playTracks = usePlayerStore((s) => s.playTracks);
 
   const { data: album } = useQuery({
     queryKey: ["album", albumId],
@@ -79,15 +78,7 @@ export function AlbumDetailView() {
             ))}
           </p>
           <div className="detailhead__actions">
-            <button
-              type="button"
-              className="btn--primary"
-              onClick={() => playTracks(album.tracks, 0)}
-              disabled={album.tracks.length === 0}
-            >
-              <IconPlay size={15} />
-              Play
-            </button>
+            <CollectionActions tracks={album.tracks} label={album.title} />
           </div>
         </div>
       </header>

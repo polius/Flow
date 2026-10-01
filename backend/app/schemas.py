@@ -10,11 +10,16 @@ from pydantic import BaseModel
 
 class ScanStatus(BaseModel):
     state: Literal["idle", "scanning"]
-    phase: Literal["scan", "watch"] | None
+    # "analyze" = the post-scan loudness pass (§2.3); the index is already
+    # correct, gains are being filled in behind it.
+    phase: Literal["scan", "watch", "analyze"] | None
     current: int
     total: int
     errors: int
     finished_at: str | None
+    # True when the last scan hit the broken-mount guard (§2.8): the calm,
+    # explicit state Settings explains instead of a bare error count.
+    mount_guard: bool = False
 
 
 class LibraryCounts(BaseModel):
@@ -35,6 +40,19 @@ class ScanTriggered(BaseModel):
     state: Literal["scanning"]
 
 
+class ScanErrorEntry(BaseModel):
+    path: str
+    reason: str
+
+
+class ScanErrorLog(BaseModel):
+    """Skipped files of the last scan, for Settings' disclosure (§2.8)."""
+
+    total: int
+    truncated: bool
+    items: list[ScanErrorEntry]
+
+
 # ---- Library (Milestone 3) ---------------------------------------------------
 
 
@@ -45,6 +63,9 @@ class TrackOut(BaseModel):
     artist_id: int | None
     album: str | None
     album_id: int | None
+    # The track's own album-artist tag value (§2.2) — the compilation
+    # semantics Get Info and the bulk editor pin.
+    album_artist: str | None = None
     track_no: int | None
     disc_no: int | None
     year: int | None
@@ -54,6 +75,8 @@ class TrackOut(BaseModel):
     artwork_id: int | None
     # File path relative to the library root (Organize view, §22).
     path: str
+    # Sound Check loudness offset in dB (§2.3) — NULL until measured.
+    gain_db: float | None = None
 
 
 class TrackListOut(BaseModel):
@@ -108,6 +131,26 @@ class ArtistDetail(ArtistSummary):
     tracks: list[TrackOut]
 
 
+# ---- Genres (UX review §2.2) -------------------------------------------------
+
+
+class GenreSummary(BaseModel):
+    id: int
+    name: str
+    track_count: int
+    album_count: int
+    # A representative cover from the genre's albums — the grid stays
+    # art-first, per §8.1.
+    artwork_id: int | None = None
+
+
+class GenreListOut(BaseModel):
+    items: list[GenreSummary]
+    total: int
+    limit: int
+    offset: int
+
+
 # ---- Track editing (Milestone 4) ---------------------------------------------
 
 
@@ -116,9 +159,11 @@ class TrackPatch(BaseModel):
 
     artist/album are name strings — the editor find-or-creates rows. Only
     fields the client sends are applied; sent overlay fields set their
-    `user_edited` bit so rescans preserve them."""
+    `user_edited` bit so rescans preserve them. `album_artist` pins a
+    compilation's identity (§2.2); an empty string clears it."""
     title: str | None = None
     artist: str | None = None
+    album_artist: str | None = None
     album: str | None = None
     track_no: int | None = None
     favorite: bool | None = None
@@ -145,6 +190,7 @@ class BulkApplyIn(BaseModel):
     except_ids: list[int] = []
     title: str | None = None
     artist: str | None = None
+    album_artist: str | None = None
     album: str | None = None
     track_no: int | None = None
 

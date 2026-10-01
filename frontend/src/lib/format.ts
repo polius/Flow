@@ -27,6 +27,14 @@ export function fmtMinutes(seconds: number): string {
   return m > 0 ? `${h} hr ${m} min` : `${h} hr`;
 }
 
+/* Scan-phase labels (§2.8): the loudness pass (§2.3) reads differently from
+   the index scan — it changes what the app *knows*, not what it *has*. */
+export function scanPhaseLabel(phase: string | null): string | null {
+  if (phase === "analyze") return "Analyzing audio…";
+  if (phase === "watch") return "Updating…";
+  return null;
+}
+
 /** "Scanning… 342/1,204" body — omit counts when the total isn't known yet. */
 export function scanProgressLabel(current: number, total: number): string {
   if (total === 0) return "Scanning…";

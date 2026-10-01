@@ -17,6 +17,7 @@ const PAGE_SIZE = 1000;
 export async function fetchAllTracks(params: {
   q?: string;
   favorite?: boolean;
+  genreId?: number;
   sort: string;
   dir: string;
 }): Promise<Track[]> {
@@ -26,6 +27,7 @@ export async function fetchAllTracks(params: {
     dir: params.dir as "asc" | "desc",
     ...(params.q ? { q: params.q } : {}),
     ...(params.favorite ? { favorite: true } : {}),
+    ...(params.genreId != null ? { genre_id: params.genreId } : {}),
   };
   const { data } = await api.GET("/api/tracks", { params: { query: { ...query, offset: 0 } } });
   const items: Track[] = [...(data?.items ?? [])];

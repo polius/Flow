@@ -1,14 +1,15 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router";
 
-import { api } from "../api/client";
+import { api, fetchAllTracks } from "../api/client";
 import { AlbumCard } from "../components/AlbumCard";
 import { Artwork } from "../components/Artwork";
 import { EmptyState } from "../components/EmptyState";
 import { LoadingState } from "../components/LoadingState";
-import { IconMusicNote, IconPause, IconPlay } from "../components/icons";
+import { IconMusicNote, IconPause, IconPlay, IconShuffle } from "../components/icons";
 import { PlaylistArt } from "../components/PlaylistArt";
-import { fmtCount, fmtDuration, scanProgressLabel } from "../lib/format";
+import { fmtCount, fmtDuration, scanPhaseLabel, scanProgressLabel } from "../lib/format";
 import { usePlayerStore } from "../stores/player";
 import { useScanStore } from "../stores/scan";
 
@@ -62,6 +63,53 @@ function ContinueListening() {
   );
 }
 
+/* Shuffle all (§2.5): the escape hatch. One card, whole library, shuffled —
+   "play something" answered without deciding anything. Fetches the full
+   library before queuing (§29: never a truncated queue), then flips shuffle
+   on so the plan is honest in the player bar. */
+function ShuffleAll({ count }: { count: number }) {
+  const playTracks = usePlayerStore((s) => s.playTracks);
+  const [busy, setBusy] = useState(false);
+
+  const shuffleEverything = () => {
+    if (busy || count === 0) return;
+    setBusy(true);
+    void fetchAllTracks({ sort: "title", dir: "asc" })
+      .then((all) => {
+        if (all.length === 0) return;
+        const start = Math.floor(Math.random() * all.length);
+        usePlayerStore.getState().setShuffle(true);
+        playTracks(all, start);
+      })
+      .finally(() => setBusy(false));
+  };
+
+  return (
+    <div className="libsection">
+      <div className="libsection__head">
+        <h2>Shuffle all</h2>
+      </div>
+      <button
+        type="button"
+        className="shufflecard"
+        onClick={shuffleEverything}
+        disabled={busy}
+        aria-label={`Shuffle all ${fmtCount(count)} tracks`}
+      >
+        <span className="shufflecard__tile" aria-hidden="true">
+          <IconShuffle size={20} />
+        </span>
+        <span className="shufflecard__meta">
+          <span className="shufflecard__title">{busy ? "Shuffling…" : "Everything, shuffled"}</span>
+          <span className="shufflecard__sub">
+            {fmtCount(count)} tracks · the whole library, in random order
+          </span>
+        </span>
+      </button>
+    </div>
+  );
+}
+
 export function HomeView() {
   const scan = useScanStore((s) => s.status);
   const scanning = scan?.state === "scanning";
@@ -107,13 +155,18 @@ export function HomeView() {
       <h1 className="view__title">Home</h1>
       {scanning ? (
         <p className="view__subtitle" aria-live="polite">
-          {scan && scanProgressLabel(scan.current, scan.total)}
+          {scan &&
+            (scanPhaseLabel(scan.phase) ?? scanProgressLabel(scan.current, scan.total))}
         </p>
       ) : hasLibrary ? (
         <p className="view__subtitle">{summary}</p>
       ) : null}
 
       {hasLibrary && <ContinueListening />}
+
+      {hasLibrary && counts && counts.tracks > 0 && (
+        <ShuffleAll count={counts.tracks} />
+      )}
 
       {hasLibrary && recentAlbums.length > 0 && (
         <div className="libsection">

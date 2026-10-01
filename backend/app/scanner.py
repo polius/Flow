@@ -13,6 +13,7 @@ Semantics per DESIGN.md §5 and §13:
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 import threading
@@ -24,8 +25,15 @@ from pathlib import Path
 from app import config
 from app.artwork import ArtworkStore
 from app.db import Database
-from app.entities import find_or_create_album, find_or_create_artist, prune_orphans
+from app.entities import (
+    find_or_create_album,
+    find_or_create_artist,
+    prune_orphans,
+    set_track_credits,
+    set_track_genres,
+)
 from app.events import ScanBus
+from app.loudness import analyze_file, ffmpeg_available
 from app.tags import derive_from_filename, parse_audio
 
 log = logging.getLogger("flow.scanner")
@@ -33,6 +41,9 @@ log = logging.getLogger("flow.scanner")
 MTIME_EPS = 1e-6
 DURATION_EPS = 0.05
 COMMIT_EVERY = 200
+# The per-file error log persisted with the scan result (§2.8): enough rows
+# to see the shape of a bad rip batch, few enough to stay a settings row.
+ERROR_LOG_LIMIT = 500
 
 
 class Edited(IntFlag):
@@ -43,6 +54,7 @@ class Edited(IntFlag):
     ARTIST = 2
     ALBUM = 4
     TRACK_NO = 8
+    ALBUM_ARTIST = 16
 
 
 @dataclass
@@ -79,6 +91,9 @@ class LibraryScanner:
             "total": 0,
             "errors": 0,
         }
+        # Per-file failures of the last scan (path + reason), persisted at
+        # finish and served by GET /api/scan/errors (§2.8).
+        self._error_log: list[dict] = []
 
     # ---- public API ------------------------------------------------------
 
@@ -92,12 +107,39 @@ class LibraryScanner:
             state = dict(self._state)
         conn = self._db.connect()
         row = conn.execute(
-            "SELECT value FROM settings WHERE key = 'scan_finished_at'"
+            "SELECT key, value FROM settings WHERE key IN "
+            "('scan_finished_at', 'scan_mount_guard')"
+        ).fetchall()
+        persisted = {r["key"]: r["value"] for r in row}
+        return {
+            "type": "state",
+            **state,
+            "finished_at": persisted.get("scan_finished_at") or None,
+            "mount_guard": persisted.get("scan_mount_guard") == "1",
+        }
+
+    def scan_error_log(self) -> dict:
+        """The persisted error log of the last scan (§2.8)."""
+        conn = self._db.connect()
+        row = conn.execute(
+            "SELECT value FROM settings WHERE key = 'scan_error_log'"
         ).fetchone()
-        return {"type": "state", **state, "finished_at": row["value"] if row else None}
+        if row is None:
+            return {"total": 0, "truncated": False, "items": []}
+        try:
+            parsed = json.loads(row["value"])
+        except ValueError:
+            return {"total": 0, "truncated": False, "items": []}
+        return {
+            "total": int(parsed.get("total", 0)),
+            "truncated": bool(parsed.get("truncated", False)),
+            "items": parsed.get("items", []),
+        }
 
     def start_scan(self, trigger: str) -> bool:
-        """Kick off a background scan. False if one is already running."""
+        """Kick off a background scan. False if one is already running
+        (including the post-scan loudness phase — the index it follows is
+        already correct, and the next scan re-runs whatever it missed)."""
         with self._lock:
             if self._running:
                 return False
@@ -117,6 +159,9 @@ class LibraryScanner:
     def _scan_thread(self, trigger: str) -> None:
         try:
             self._reconcile(trigger)
+            # Sound Check pass (§2.3) — after the index is correct, before
+            # the scan reports done. Skips itself when ffmpeg is absent.
+            self._analyze_gains()
         except Exception:  # noqa: BLE001 - a scan must never take the app down
             log.exception("Scan crashed")
             try:
@@ -148,8 +193,8 @@ class LibraryScanner:
         db_rows = {
             row["path"]: row
             for row in conn.execute(
-                "SELECT id, path, title, artist_id, album_id, track_no, "
-                "mtime, size, duration, user_edited FROM tracks"
+                "SELECT id, path, title, artist_id, album_id, album_artist_id, "
+                "track_no, mtime, size, duration, user_edited FROM tracks"
             )
         }
 
@@ -163,10 +208,25 @@ class LibraryScanner:
                 "skipping removals (suspected broken mount)",
                 len(db_rows),
             )
+            reason = (
+                f"Library folder was unreachable — scan skipped removals; "
+                f"{len(db_rows)} tracks kept untouched"
+            )
+            self._error_log = [{"path": "(library root)", "reason": reason}]
             self._set_state(state="idle", phase=None, errors=1)
+            conn.execute(
+                "INSERT INTO settings (key, value) VALUES ('scan_mount_guard', '1') "
+                "ON CONFLICT(key) DO UPDATE SET value = '1'"
+            )
             self._persist_finish(conn, errors=1)
             conn.commit()
             return
+        # A walk that found files proves the mount is back — clear the flag.
+        conn.execute(
+            "INSERT INTO settings (key, value) VALUES ('scan_mount_guard', '0') "
+            "ON CONFLICT(key) DO UPDATE SET value = '0'"
+        )
+        self._error_log = []
 
         disk = {f.rel: f for f in files}
 
@@ -281,6 +341,9 @@ class LibraryScanner:
         parsed = parse_audio(f.abs)
         if parsed is None:
             log.warning("Skipping unparseable file: %s", f.rel)
+            self._error_log.append(
+                {"path": f.rel, "reason": "Unreadable or unrecognized audio file"}
+            )
             return False
 
         suffix = f.abs.suffix.lower().lstrip(".")
@@ -304,9 +367,14 @@ class LibraryScanner:
         else:
             artist_id = find_or_create_artist(conn, parsed.artist)
 
-        album_artist_id = find_or_create_artist(
-            conn, parsed.album_artist or parsed.artist
-        )
+        if Edited.ALBUM_ARTIST in edited and existing:
+            # The user pinned this album's compilation semantics (§2.2);
+            # their choice outranks the tag on every rescan.
+            album_artist_id = existing["album_artist_id"]
+        else:
+            album_artist_id = find_or_create_artist(
+                conn, parsed.album_artist or parsed.artist
+            )
         if Edited.ALBUM in edited and existing:
             album_id = existing["album_id"]
         else:
@@ -337,6 +405,9 @@ class LibraryScanner:
             "format": suffix,
             "bitrate": parsed.bitrate,
             "sample_rate": parsed.sample_rate,
+            # A tag-provided ReplayGain is the free, exact loudness value
+            # (§2.3); otherwise it stays NULL for the analysis phase.
+            "gain_db": parsed.replaygain_db,
             "mtime": f.mtime,
             "size": f.size,
             "artwork_id": artwork_id,
@@ -344,18 +415,32 @@ class LibraryScanner:
 
         if existing:
             sets = ", ".join(f"{col} = ?" for col in values)
-            conn.execute(
+            cur = conn.execute(
                 f"UPDATE tracks SET {sets} WHERE id = ?",
                 (*values.values(), existing["id"]),
             )
+            track_id = existing["id"]
         else:
             columns = ", ".join(values)
             placeholders = ", ".join("?" for _ in values)
-            conn.execute(
+            cur = conn.execute(
                 f"INSERT INTO tracks ({columns}, user_edited, added_at) "
                 f"VALUES ({placeholders}, 0, ?)",
                 (*values.values(), _utcnow()),
             )
+            track_id = int(cur.lastrowid)
+
+        # Credited artists + genres (§2.2) always follow the tags; the
+        # primary display credit follows the (overlay-aware) artist column.
+        set_track_credits(
+            conn,
+            track_id,
+            primary_artist_id=artist_id,
+            main=parsed.artists,
+            featured=parsed.featured,
+            composers=parsed.composers,
+        )
+        set_track_genres(conn, track_id, parsed.genres)
         return True
 
     # -- walk --------------------------------------------------------------
@@ -384,6 +469,51 @@ class LibraryScanner:
                 )
         return out
 
+    # -- loudness analysis (§2.3) -------------------------------------------
+
+    def _analyze_gains(self) -> None:
+        """Sound Check pass: fill `gain_db` for every track still missing a
+        value (new files without ReplayGain tags, and anything scanned
+        before ffmpeg was available). Runs under phase="analyze" on the
+        scan's own SSE stream; ffmpeg absent → the pass is a no-op and the
+        app simply plays at unity gain."""
+        if not ffmpeg_available():
+            return
+        conn = self._db.connect()
+        rows = conn.execute(
+            "SELECT id, path FROM tracks WHERE gain_db IS NULL ORDER BY id"
+        ).fetchall()
+        if not rows:
+            return
+        total = len(rows)
+        log.info("Loudness analysis started (%d tracks)", total)
+        self._set_state(state="scanning", phase="analyze", current=0, total=total)
+        _settings_upsert(conn, "scan_total", str(total))
+        _settings_upsert(conn, "scan_current", "0")
+        conn.commit()
+        processed = 0
+        analyzed = 0
+        for row in rows:
+            gain = analyze_file(self._music / row["path"])
+            if gain is not None:
+                conn.execute(
+                    "UPDATE tracks SET gain_db = ? WHERE id = ?", (gain, row["id"])
+                )
+                analyzed += 1
+            processed += 1
+            self._set_state(state="scanning", phase="analyze", current=processed)
+            if processed % 25 == 0:
+                _settings_upsert(conn, "scan_current", str(processed))
+                conn.commit()
+        conn.commit()
+        log.info("Loudness analysis finished (%d/%d measured)", analyzed, total)
+        # The scan is only done when the UI says so: re-publish idle (the
+        # reconcile phase published its own idle before this pass ran).
+        errors = self._state["errors"]
+        self._persist_finish(conn, errors=errors)
+        conn.commit()
+        self._set_state(state="idle", phase=None, current=total, total=total, errors=errors)
+
     # -- settings persistence (reload shows scan state, DESIGN.md §6) ------
 
     def _persist_start(self, conn, total: int) -> None:
@@ -401,3 +531,13 @@ class LibraryScanner:
         _settings_upsert(conn, "scan_state", "idle")
         _settings_upsert(conn, "scan_finished_at", _utcnow())
         _settings_upsert(conn, "scan_errors", str(errors))
+        # The error disclosure (§2.8): path + reason for every skipped file,
+        # capped so a catastrophically bad mount can't grow a settings row
+        # without bound. `total` keeps the honest count either way.
+        logged = len(self._error_log)
+        payload = {
+            "total": logged,
+            "truncated": logged > ERROR_LOG_LIMIT,
+            "items": self._error_log[:ERROR_LOG_LIMIT],
+        }
+        _settings_upsert(conn, "scan_error_log", json.dumps(payload))

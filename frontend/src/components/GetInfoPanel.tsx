@@ -31,12 +31,19 @@ export function GetInfoPanel() {
   });
 
   // Form drafts; re-seeded whenever the panel opens on a (new) track.
-  const [draft, setDraft] = useState({ title: "", artist: "", album: "", trackNo: "" });
+  const [draft, setDraft] = useState({
+    title: "",
+    artist: "",
+    albumArtist: "",
+    album: "",
+    trackNo: "",
+  });
   useEffect(() => {
     if (track) {
       setDraft({
         title: track.title,
         artist: track.artist ?? "",
+        albumArtist: track.album_artist ?? "",
         album: track.album ?? "",
         trackNo: track.track_no != null ? String(track.track_no) : "",
       });
@@ -63,6 +70,7 @@ export function GetInfoPanel() {
     track != null &&
     (draft.title !== track.title ||
       draft.artist !== (track.artist ?? "") ||
+      draft.albumArtist !== (track.album_artist ?? "") ||
       draft.album !== (track.album ?? "") ||
       draft.trackNo !== (track.track_no != null ? String(track.track_no) : ""));
 
@@ -71,6 +79,9 @@ export function GetInfoPanel() {
     const body = {
       ...(draft.title !== track.title ? { title: draft.title } : {}),
       ...(draft.artist !== (track.artist ?? "") ? { artist: draft.artist } : {}),
+      ...(draft.albumArtist !== (track.album_artist ?? "")
+        ? { album_artist: draft.albumArtist }
+        : {}),
       ...(draft.album !== (track.album ?? "") ? { album: draft.album } : {}),
       ...(draft.trackNo !== (track.track_no != null ? String(track.track_no) : "")
         ? { track_no: draft.trackNo === "" ? null : Number(draft.trackNo) }
@@ -141,6 +152,9 @@ export function GetInfoPanel() {
 
             {field("Title", draft.title, (v) => setDraft({ ...draft, title: v }))}
             {field("Artist", draft.artist, (v) => setDraft({ ...draft, artist: v }))}
+            {field("Album Artist", draft.albumArtist, (v) =>
+              setDraft({ ...draft, albumArtist: v }),
+            )}
             {field("Album", draft.album, (v) => setDraft({ ...draft, album: v }))}
             {field("Track Number", draft.trackNo, (v) => setDraft({ ...draft, trackNo: v }), {
               type: "number",

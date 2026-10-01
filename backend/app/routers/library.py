@@ -16,6 +16,8 @@ from app.schemas import (
     ArtistDetail,
     ArtistListOut,
     ArtistSummary,
+    GenreListOut,
+    GenreSummary,
     TrackListOut,
     TrackOut,
 )
@@ -46,9 +48,9 @@ TRACK_SORTS = {
 
 ARTIST_SORTS = {
     "name": "ar.name COLLATE NOCASE",
-    # Count sorts read most-first by design — no direction param for now.
-    "albums": "album_count DESC, ar.name COLLATE NOCASE",
-    "songs": "track_count DESC, ar.name COLLATE NOCASE",
+    # Count sorts read most-first by default (the client sends dir=desc).
+    "albums": "album_count",
+    "songs": "track_count",
 }
 
 # The artist's portrait: their latest album's cover (NULL year last).
@@ -61,8 +63,16 @@ ALBUM_SORTS = {
     "title": "al.title COLLATE NOCASE",
     "artist": "(ar.name IS NULL), ar.name COLLATE NOCASE",
     "year": "al.year",
-    "recent": "MAX(t.added_at) DESC",
+    "recent": "MAX(t.added_at)",
 }
+
+# Every genre that still has at least one track — an emptied genre is
+# pruned by the scanner anyway, so this is only defensive.
+GENRE_BASE = """
+FROM genres g
+JOIN track_genres tg ON tg.genre_id = g.id
+JOIN tracks t ON t.id = tg.track_id
+"""
 
 
 def _like(term: str) -> str:
@@ -85,12 +95,14 @@ def _clamp(limit: int, offset: int) -> tuple[int, int]:
 
 TRACK_SELECT = """
 SELECT t.id, t.title, t.track_no, t.disc_no, t.year, t.duration, t.format,
-       t.favorite, t.album_id, t.artist_id, t.artwork_id, t.path,
-       ar.name AS artist, al.title AS album
+       t.favorite, t.album_id, t.artist_id, t.artwork_id, t.path, t.gain_db,
+       ar.name AS artist, al.title AS album,
+       t.album_artist_id, aar2.name AS album_artist
 FROM tracks t
 LEFT JOIN artists ar ON ar.id = t.artist_id
 LEFT JOIN albums al ON al.id = t.album_id
 LEFT JOIN artists aar ON aar.id = al.artist_id
+LEFT JOIN artists aar2 ON aar2.id = t.album_artist_id
 """
 
 # Curation predicates for the Organize view (§22) — album-level problems
@@ -116,10 +128,14 @@ def track_filter_where(
     album_id: int | None = None,
     review: str | None = None,
     favorite: bool | None = None,
+    genre_id: int | None = None,
 ) -> tuple[str, list]:
     """Shared WHERE builder for GET /api/tracks and the bulk apply (§22):
     a filter-based selection must resolve to exactly what the grid showed.
-    Raises 422 on an unknown review value."""
+    Raises 422 on an unknown review value. `artist_id` matches credited
+    tracks too (§2.2) — the filter means "this artist's music", not
+    "rows whose primary column says so".
+    """
     where, params = [], []
     if q:
         where.append(
@@ -128,8 +144,11 @@ def track_filter_where(
         )
         params += [_like(q), _like(q), _like(q)]
     if artist_id is not None:
-        where.append("t.artist_id = ?")
-        params.append(artist_id)
+        where.append(
+            "(t.artist_id = ? OR t.id IN "
+            "(SELECT track_id FROM track_artists WHERE artist_id = ?))"
+        )
+        params += [artist_id, artist_id]
     if album_id is not None:
         where.append("t.album_id = ?")
         params.append(album_id)
@@ -141,6 +160,11 @@ def track_filter_where(
     if favorite is not None:
         where.append("t.favorite = ?")
         params.append(1 if favorite else 0)
+    if genre_id is not None:
+        where.append(
+            "t.id IN (SELECT track_id FROM track_genres WHERE genre_id = ?)"
+        )
+        params.append(genre_id)
     return (f"WHERE {' AND '.join(where)}" if where else ""), params
 
 # Same shape with the playlist position prepended (playlists router).
@@ -157,6 +181,7 @@ def track_out(row) -> TrackOut:
         artist_id=row["artist_id"],
         album=row["album"],
         album_id=row["album_id"],
+        album_artist=row["album_artist"],
         track_no=row["track_no"],
         disc_no=row["disc_no"],
         year=row["year"],
@@ -165,6 +190,7 @@ def track_out(row) -> TrackOut:
         favorite=bool(row["favorite"]),
         artwork_id=row["artwork_id"],
         path=row["path"],
+        gain_db=row["gain_db"],
     )
 
 
@@ -176,6 +202,7 @@ def list_tracks(
     album_id: int | None = None,
     review: str | None = None,
     favorite: bool | None = None,
+    genre_id: int | None = None,
     sort: str = "title",
     dir: str = "asc",
     limit: int = Query(DEFAULT_LIMIT, ge=1),
@@ -190,6 +217,7 @@ def list_tracks(
         album_id=album_id,
         review=review,
         favorite=favorite,
+        genre_id=genre_id,
     )
 
     desc = dir == "desc"
@@ -225,6 +253,7 @@ def list_albums(
     request: Request,
     q: str | None = None,
     sort: str = "title",
+    dir: str = "asc",
     limit: int = Query(DEFAULT_LIMIT, ge=1),
     offset: int = Query(0, ge=0),
 ) -> AlbumListOut:
@@ -244,6 +273,7 @@ def list_albums(
         "LEFT JOIN tracks t ON t.album_id = al.id"
     )
     order = ALBUM_SORTS.get(sort, ALBUM_SORTS["title"])
+    directed = _directed(order, dir == "desc")
 
     total = conn.execute(
         f"SELECT COUNT(DISTINCT al.id) AS c {base} {clause}", params
@@ -251,7 +281,7 @@ def list_albums(
     rows = conn.execute(
         f"SELECT al.id, al.title, al.year, al.artwork_id, ar.name AS artist, "
         f"al.artist_id, COUNT(t.id) AS track_count "
-        f"{base} {clause} GROUP BY al.id ORDER BY {order}, al.title COLLATE NOCASE "
+        f"{base} {clause} GROUP BY al.id ORDER BY {directed}, al.title COLLATE NOCASE "
         f"LIMIT ? OFFSET ?",
         [*params, limit, offset],
     ).fetchall()
@@ -310,6 +340,7 @@ def list_artists(
     request: Request,
     q: str | None = None,
     sort: str = "name",
+    dir: str = "asc",
     limit: int = Query(DEFAULT_LIMIT, ge=1),
     offset: int = Query(0, ge=0),
 ) -> ArtistListOut:
@@ -326,12 +357,21 @@ def list_artists(
         f"SELECT COUNT(*) AS c FROM artists ar {clause}", params
     ).fetchone()["c"]
     order = ARTIST_SORTS.get(sort, ARTIST_SORTS["name"])
+    directed = _directed(order, dir == "desc")
+    # track_count covers every credited appearance (§2.2): a featured
+    # artist with no lead credits is still browsable, with an honest count.
+    credited_count = (
+        "(SELECT COUNT(*) FROM ("
+        "  SELECT t.id FROM tracks t WHERE t.artist_id = ar.id"
+        "  UNION"
+        "  SELECT ta.track_id FROM track_artists ta WHERE ta.artist_id = ar.id))"
+    )
     rows = conn.execute(
         f"SELECT ar.id, ar.name, {ARTIST_ARTWORK_SQL} AS artwork_id, "
         f"(SELECT COUNT(*) FROM albums al WHERE al.artist_id = ar.id) AS album_count, "
-        f"(SELECT COUNT(*) FROM tracks t WHERE t.artist_id = ar.id) AS track_count "
+        f"{credited_count} AS track_count "
         f"FROM artists ar {clause} "
-        f"ORDER BY {order} LIMIT ? OFFSET ?",
+        f"ORDER BY {directed}, ar.name COLLATE NOCASE LIMIT ? OFFSET ?",
         [*params, limit, offset],
     ).fetchall()
     return ArtistListOut(
@@ -371,10 +411,13 @@ def get_artist(request: Request, artist_id: int) -> ArtistDetail:
         "ORDER BY al.year, al.title COLLATE NOCASE",
         (artist_id,),
     ).fetchall()
+    # The artist's songs: lead credits, plus every credited appearance
+    # (featured / composer / additional main) from the join table (§2.2).
     track_rows = conn.execute(
         f"{TRACK_SELECT} WHERE t.artist_id = ? "
+        f"OR t.id IN (SELECT track_id FROM track_artists WHERE artist_id = ?) "
         f"ORDER BY t.year, t.disc_no, t.track_no, t.title COLLATE NOCASE",
-        (artist_id,),
+        (artist_id, artist_id),
     ).fetchall()
 
     albums = [
@@ -398,4 +441,65 @@ def get_artist(request: Request, artist_id: int) -> ArtistDetail:
         artwork_id=artist["artwork_id"],
         albums=albums,
         tracks=tracks,
+    )
+
+
+@router.get("/api/genres", response_model=GenreListOut)
+def list_genres(
+    request: Request,
+    q: str | None = None,
+    sort: str = "name",
+    dir: str = "asc",
+    limit: int = Query(DEFAULT_LIMIT, ge=1),
+    offset: int = Query(0, ge=0),
+) -> GenreListOut:
+    """Genre browse list (§2.2): the track's tags, grouped. A representative
+    cover keeps the grid art-first; counts are honest (distinct tracks)."""
+    conn = request.app.state.db.connect()
+    limit, offset = _clamp(limit, offset)
+
+    where, params = ["1 = 1"], []
+    if q:
+        where.append("g.name LIKE ? ESCAPE '\\'")
+        params.append(_like(q))
+    clause = f"WHERE {' AND '.join(where)}"
+
+    total = conn.execute(
+        f"SELECT COUNT(DISTINCT g.id) AS c {GENRE_BASE} {clause}", params
+    ).fetchone()["c"]
+
+    GENRE_SORTS = {
+        "name": "g.name COLLATE NOCASE",
+        "songs": "COUNT(DISTINCT tg.track_id)",
+        "recent": "MAX(t.added_at)",
+    }
+    order = GENRE_SORTS.get(sort, GENRE_SORTS["name"])
+    directed = _directed(order, dir == "desc")
+
+    rows = conn.execute(
+        f"SELECT g.id, g.name, COUNT(DISTINCT tg.track_id) AS track_count, "
+        f"COUNT(DISTINCT t.album_id) AS album_count, "
+        f"(SELECT t2.artwork_id FROM track_genres tg2 "
+        f"  JOIN tracks t2 ON t2.id = tg2.track_id "
+        f"  WHERE tg2.genre_id = g.id AND t2.artwork_id IS NOT NULL "
+        f"  ORDER BY t2.added_at DESC LIMIT 1) AS artwork_id "
+        f"{GENRE_BASE} {clause} "
+        f"GROUP BY g.id ORDER BY {directed}, g.name COLLATE NOCASE "
+        f"LIMIT ? OFFSET ?",
+        [*params, limit, offset],
+    ).fetchall()
+    return GenreListOut(
+        items=[
+            GenreSummary(
+                id=r["id"],
+                name=r["name"],
+                track_count=r["track_count"],
+                album_count=r["album_count"],
+                artwork_id=r["artwork_id"],
+            )
+            for r in rows
+        ],
+        total=total,
+        limit=limit,
+        offset=offset,
     )

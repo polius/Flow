@@ -32,7 +32,9 @@ RUN pip install --no-cache-dir -r requirements.txt \
 FROM python:3.13-alpine AS runtime
 # tini: PID 1 signal handling (§10.1). bash: the start script uses `wait -n`
 # and pipefail — kept on real bash for predictability, not busybox ash.
-RUN apk add --no-cache nginx tini bash \
+# ffmpeg: scan-time loudness analysis (UX review §2.3 / DESIGN.md §30.3);
+# its absence degrades gracefully — tracks just play at unity gain.
+RUN apk add --no-cache nginx tini bash ffmpeg \
  && adduser -D -u 1000 flow
 
 WORKDIR /app

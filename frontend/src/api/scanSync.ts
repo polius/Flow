@@ -22,6 +22,7 @@ export function ensureScanSync(): void {
         total: data.scan.total,
         errors: data.scan.errors,
         finishedAt: data.scan.finished_at,
+        mountGuard: data.scan.mount_guard,
       });
     }
   });
@@ -32,11 +33,12 @@ export function ensureScanSync(): void {
       const event = JSON.parse(message.data) as {
         type: "state";
         state: "idle" | "scanning";
-        phase: "scan" | "watch" | null;
+        phase: "scan" | "watch" | "analyze" | null;
         current: number;
         total: number;
         errors: number;
         finished_at: string | null;
+        mount_guard?: boolean;
       };
       useScanStore.getState().setStatus(statusFromEvent(event));
       // Counts and settings-derived UI refresh when a scan completes.

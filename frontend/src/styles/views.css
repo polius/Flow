@@ -293,3 +293,146 @@
 .loading-rows {
   margin-top: 18px;
 }
+
+/* ---- Settings: mount guard (§2.8) -----------------------------------------
+   The broken-mount trip is its own calm state — what happened, what was
+   protected, what to do. Not an error banner; a status card. */
+.settings-guard {
+  margin-top: 20px;
+  padding: 18px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--separator);
+  border-radius: var(--radius-m);
+}
+
+.settings-guard h2 {
+  margin: 0 0 8px;
+  font-size: var(--text-regular);
+  font-weight: 600;
+}
+
+.settings-guard p {
+  margin: 0 0 8px;
+  font-size: var(--text-small);
+  color: var(--text-secondary);
+  max-width: 60ch;
+}
+
+.settings-guard__hint {
+  color: var(--text-primary) !important;
+}
+
+.settings-guard .btn--primary {
+  margin-top: 6px;
+}
+
+/* ---- Settings: scan-error disclosure (§2.8) ------------------------------- */
+
+.settings-errors {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  min-width: 0;
+}
+
+.settings-errors__toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--text-small);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.settings-errors__chev {
+  padding: 2px 10px;
+  border: 1px solid var(--control-border);
+  border-radius: 999px;
+  font-size: var(--text-caption);
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.settings-errors__list {
+  width: 100%;
+  max-width: 520px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  background: var(--bg-inset);
+  border-radius: var(--radius-s);
+}
+
+.settings-errors__row {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  font-size: var(--text-caption);
+}
+
+.settings-errors__path {
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  color: var(--text-primary);
+  overflow-wrap: anywhere;
+}
+
+.settings-errors__reason {
+  color: var(--text-secondary);
+}
+
+.settings-errors__empty {
+  font-size: var(--text-caption);
+  color: var(--text-secondary);
+}
+
+/* ---- Settings: Sound Check toggle (§2.3) ---------------------------------- */
+
+.settings-row__hint {
+  display: block;
+  margin-top: 3px;
+  max-width: 46ch;
+  font-size: var(--text-caption);
+  font-weight: 400;
+  color: var(--text-tertiary);
+}
+
+.settingstoggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px;
+  border-radius: 999px;
+  background: var(--bg-inset);
+  border: 1px solid var(--separator);
+  transition: background var(--dur-fast) var(--ease-out);
+}
+
+.settingstoggle__knob {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--bg-elevated);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  transition: transform var(--dur-fast) var(--ease-out);
+}
+
+.settingstoggle--on {
+  background: var(--text-primary);
+}
+
+.settingstoggle--on .settingstoggle__knob {
+  transform: translateX(18px);
+}
+
+.settingstoggle__label {
+  padding-right: 8px;
+  font-size: var(--text-caption);
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.settingstoggle--on .settingstoggle__label {
+  color: var(--bg-canvas);
+}

@@ -4,7 +4,7 @@
 
 import { create } from "zustand";
 
-export type ScanPhase = "scan" | "watch" | null;
+export type ScanPhase = "scan" | "watch" | "analyze" | null;
 
 export interface ScanStatus {
   state: "idle" | "scanning";
@@ -13,6 +13,9 @@ export interface ScanStatus {
   total: number;
   errors: number;
   finishedAt: string | null;
+  /** Broken-mount guard tripped on the last scan (§2.8) — Settings reads
+      this to show the calm explanation instead of a bare error count. */
+  mountGuard: boolean;
 }
 
 interface ScanStore {
@@ -32,6 +35,7 @@ export function statusFromEvent(event: {
   total: number;
   errors: number;
   finished_at: string | null;
+  mount_guard?: boolean;
 }): ScanStatus {
   return {
     state: event.state,
@@ -40,5 +44,6 @@ export function statusFromEvent(event: {
     total: event.total,
     errors: event.errors,
     finishedAt: event.finished_at,
+    mountGuard: event.mount_guard ?? false,
   };
 }

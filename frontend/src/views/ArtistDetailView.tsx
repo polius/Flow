@@ -3,6 +3,7 @@ import { useParams } from "react-router";
 
 import { api } from "../api/client";
 import { AlbumCard } from "../components/AlbumCard";
+import { CollectionActions } from "../components/CollectionActions";
 import { EmptyState } from "../components/EmptyState";
 import { LoadingState } from "../components/LoadingState";
 import { IconArtists } from "../components/icons";
@@ -57,6 +58,12 @@ export function ArtistDetailView() {
             {artist.album_count === 1 ? "" : "s"} · {fmtCount(artist.track_count)} song
             {artist.track_count === 1 ? "" : "s"}
           </p>
+          <div className="detailhead__actions">
+            <CollectionActions
+              tracks={artist.tracks}
+              label={`${artist.name}'s songs`}
+            />
+          </div>
         </div>
       </header>
 

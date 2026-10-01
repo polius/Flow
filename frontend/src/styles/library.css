@@ -36,10 +36,18 @@
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
 }
 
-.album-card__play {
+/* §2.1: the per-album action pair — play + "…" — revealed on hover, in one
+   anchored container so the menu can hang outside the art's clip. */
+.album-card__hoveractions {
   position: absolute;
   right: 10px;
   bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.album-card__play {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -55,13 +63,47 @@
     transform var(--dur-fast) var(--ease-out);
 }
 
+.album-card__more {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  border: 1px solid var(--separator);
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.22);
+  opacity: 0;
+  transform: translateY(4px);
+  transition: opacity var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out);
+}
+
+.trackmenu.album-card__menu {
+  position: absolute;
+  right: 0;
+  left: auto;
+  bottom: calc(100% + 8px);
+  top: auto;
+  min-width: 176px;
+  max-width: none;
+}
+
 .album-card__artwrap:hover .album-card__play,
-.album-card__play:focus-visible {
+.album-card__play:focus-visible,
+.album-card__artwrap:hover .album-card__more,
+.album-card__more:focus-visible,
+.album-card__more[aria-expanded="true"] {
   opacity: 1;
   transform: translateY(0);
 }
 
 .album-card__play:hover {
+  transform: translateY(0) scale(1.06);
+}
+
+.album-card__more:hover {
   transform: translateY(0) scale(1.06);
 }
 
@@ -233,6 +275,81 @@
 
 .btn--primary:active {
   transform: scale(0.97);
+}
+
+/* ---- collection header actions (§2.1): Play · Shuffle · … ---------------- */
+
+.collactions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.collactions__more {
+  position: relative;
+  display: flex;
+}
+
+/* Two-class specificity: the shared .trackmenu rule (editing.css) sets
+   position:fixed for the row menu — this pop must anchor to its button. */
+.trackmenu.collactions__pop {
+  position: absolute;
+  left: 0;
+  top: calc(100% + 6px);
+  min-width: 176px;
+}
+
+/* ---- Home: shuffle-all card (§2.5) --------------------------------------- */
+
+.shufflecard {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 14px;
+  text-align: left;
+  background: var(--bg-elevated);
+  border: 1px solid var(--separator);
+  border-radius: var(--radius-m);
+  transition: background var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out);
+}
+
+.shufflecard:hover {
+  background: var(--bg-hover);
+}
+
+.shufflecard:active {
+  transform: scale(0.995);
+}
+
+.shufflecard__tile {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-s);
+  background: var(--text-primary);
+  color: var(--bg-canvas);
+}
+
+.shufflecard__meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.shufflecard__title {
+  font-size: var(--text-regular);
+  font-weight: 600;
+}
+
+.shufflecard__sub {
+  font-size: var(--text-small);
+  color: var(--text-secondary);
 }
 
 /* ---- track table --------------------------------------------------------- */
@@ -559,6 +676,11 @@ button.trackhead__sort:hover {
   }
 
   .album-card__play {
+    opacity: 1;
+    transform: none;
+  }
+
+  .album-card__more {
     opacity: 1;
     transform: none;
   }

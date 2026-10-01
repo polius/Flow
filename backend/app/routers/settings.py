@@ -35,6 +35,7 @@ def get_settings(request: Request) -> SettingsOut:
         total=event["total"],
         errors=event["errors"],
         finished_at=event["finished_at"] or None,
+        mount_guard=bool(event.get("mount_guard", False)),
     )
     return SettingsOut(
         library_path=persisted.get("library_path", str(config.MUSIC_DIR)),
