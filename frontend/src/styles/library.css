@@ -507,6 +507,25 @@ button.trackhead__sort:hover {
     opacity: 1;
     transform: none;
   }
+
+  /* Swipe owns removal on touch (§25): the inline minus folds away, and
+     with it the trailing slot — the row and its head both lose the column
+     so nothing misaligns. (At tablet widths the now-empty last column
+     stays: the desktop template just ends one column early.) */
+  .trackrow__remove,
+  .trackhead__remove {
+    display: none;
+  }
+}
+
+/* Touch phones (§25): the playlist row is a four-column row — the 30px the
+   remove slot held goes to the title. A combined query so tablets, whose
+   rows still carry artist/album, keep the wide template. */
+@media (hover: none) and (max-width: 640px) {
+  .trackrow--playlist,
+  .trackhead--playlist {
+    grid-template-columns: 32px minmax(0, 1fr) minmax(0, 60px) 30px;
+  }
 }
 
 /* ---- section headers with a trailing link (Home, Search) ----------------- */

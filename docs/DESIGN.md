@@ -936,3 +936,79 @@ Supersedes §13's "current track as dark pill" keep-note:
    the Organize checkbox/ⓘ recolors — the quiet fill needs none of them.
 
 
+
+## 25. Addendum — playlist removal: swipe to reveal, undo to recover (2026-10-01)
+
+Owner request: the playlist row's remove button had no confirmation — one
+accidental tap deleted a curated track — and no real touch story (the
+§21.5 always-visible minus was noise; the row needed a gesture).
+
+Decision: **no confirmation dialog.** Per-track removal is frequent and
+low-stakes — the exact profile Apple's HIG resolves with recovery, not
+friction. A dialog would tax every intended removal to guard the rare
+accident. Three pieces instead:
+
+1. **Undo toast (§25, both platforms):** removal acts at once, then a quiet
+   pill above the player bar — `Removed "<title>"` + Undo — lives five
+   seconds (`role="status"`, held while hovered/focused). One notice at a
+   time: a new removal replaces it, so undo is single-generation, the same
+   convention as Organize's bulk undo (§22.6). Undo = add the track back +
+   `PUT /order`, inserting at the position snapshotted before removal
+   **clamped into the list as it is when Undo is pressed** — so reorders
+   made after the removal survive. A failed DELETE throws and skips the
+   toast; the mutation's invalidate resyncs the optimistic row.
+2. **Swipe left to reveal (§25, touch):** playlist rows drag horizontally
+   to reveal an 84px accent Remove action behind the content — iOS Mail's
+   partial-swipe grammar. **The gesture never deletes by itself:** release
+   past half-reveal (or a leftward flick ≥0.4px/ms) snaps the action open;
+   the tap on it commits. Rubber-banding resists 25% past both ends;
+   `touch-action: pan-y` keeps vertical scrolling native; the swipe cancels
+   the long-press menu and swallows its trailing click; the transform is
+   written imperatively during the gesture (state only marks the phase
+   edges). One row open at a time, per table; tapping a revealed row closes
+   it without playing.
+3. **Long-press menu gains "Remove from Playlist"** (danger item, last,
+   playlist context only — the request carries the closure): the
+   always-reachable path for touch, per §21.5's original reasoning.
+   Right-click on desktop shows the same item.
+
+Consequences: the inline minus is **desktop-only again** (the §21.5 touch
+reveal is superseded) — on `hover: none` the slot and the head's column
+fold away, and at phone widths the 30px goes to the title. The row markup
+gains a `trackrowwrap` wrapper (presentation role, overflow clip) that
+hosts the action behind the sliding content; non-playlist rows keep the
+bare markup the virtual table positions.
+
+## 26. Addendum — undo everywhere + drag polish (2026-10-01)
+
+Follow-up to §25: the recovery grammar extends to the app's remaining
+removals, and playlist drag-to-reorder sheds its browser-default look.
+
+1. **Queue removal undo:** the ✕ button and the touch swipe-commit both
+   route through one `removeWithUndo` — the toast's undo re-inserts the
+   track at its former queue index and play-order slot (`restoreToQueue`
+   in the player store), clamped into whatever the list looks like now.
+   The playing row stays anchored (§9.4) and untouched.
+2. **`removeFromQueue` pointer fix:** removing a row queued BEFORE the
+   current one recompacted queue indexes but recomputed `orderPos` with
+   the stale current index — `indexOf` missed, `orderPos` fell to -1, and
+   the player forgot what was playing (next() restarted the current
+   track). The current index now rides the recompact, as the undo path
+   mirrors it.
+3. **Favorite removal undo:** centralized in `useToggleFavorite` (the one
+   choke point behind every row heart, the action menu, and Get Info) —
+   un-favoriting shows the toast; favoriting is a gain and stays quiet.
+   The undo rides the same toggle path (extracted `applyFavorite`), so
+   the optimistic patch and the server call can't diverge.
+4. **Toast copy now carries the surface:** `Removed "<title>" from the
+   queue / from Favorites / from this playlist`.
+5. **Playlist drag image (§26):** the browser's default drag ghost is a
+   raw snapshot of the row — hover chrome, grid columns and all. It is
+   replaced by a quiet pill (`buildDragChip`): grip glyph + title, the
+   app's elevated chrome in both themes, photographed via setDragImage at
+   dragstart and disposed at dragend (and on unmount).
+6. **Drag feedback cleanup:** while a drag is live the dragged row reads
+   as an empty slot — transparent background (no hover fill, no playing
+   fill bleeding through), content dimmed to 0.4 — and hover fills on the
+   rows beneath the pointer are suppressed (`tracktable--dragging`). The
+   insertion line stays the single placement cue.

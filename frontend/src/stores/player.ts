@@ -31,6 +31,10 @@ interface PlayerState {
   addToQueue: (tracks: Track[]) => void;
   /** Removes an upcoming track from the queue (§9.4). No-op for the current one. */
   removeFromQueue: (queueIndex: number) => void;
+  /** Undoes a queue removal (§26): re-inserts the track at its former
+      queue index and play-order slot. The playing row's pointer follows
+      the world shift, as in every other queue mutation. */
+  restoreToQueue: (orderSlot: number, queueIndex: number, track: Track) => void;
   /** Drag-to-reorder in the queue drawer: moves one entry of the PLAY ORDER
       (order indexes, not queue indexes — shuffle is respected). The playing
       row stays put; everything else reorders around it. */
@@ -129,15 +133,45 @@ export const usePlayerStore = create<PlayerState>()(
         const orderIdx = order.indexOf(queueIndex);
         if (orderIdx === -1) return;
         // The current track keeps playing untouched — drop it from the plan
-        // only, recompacting both arrays around it.
+        // only, recompacting both arrays around it. The current track's own
+        // index must ride the recompact too (removing a row queued before
+        // it shifts every later index down by one); recomputing with the
+        // stale value would lose the pointer (orderPos -1).
         const newQueue = get().queue.filter((_, i) => i !== queueIndex);
         const newOrder = order
           .filter((i) => i !== queueIndex)
           .map((i) => (i > queueIndex ? i - 1 : i));
+        const newCurrent =
+          currentQueueIndex > queueIndex ? currentQueueIndex - 1 : currentQueueIndex;
         set({
           queue: newQueue,
           order: newOrder,
-          orderPos: newOrder.indexOf(currentQueueIndex),
+          orderPos: newOrder.indexOf(newCurrent),
+        });
+      },
+
+      restoreToQueue: (orderSlot, queueIndex, track) => {
+        const { queue, order, orderPos } = get();
+        // Clamp into whatever the list looks like now — reorders or adds
+        // between removal and undo may have shifted things (§26: the
+        // restore is best-effort at the former slot).
+        const idx = Math.max(0, Math.min(queueIndex, queue.length));
+        const slot = Math.max(0, Math.min(order.length, orderSlot));
+        const currentQueueIndex = order[orderPos];
+        const newQueue = [...queue];
+        newQueue.splice(idx, 0, track);
+        // Every queue index at/after the re-insertion shifts up by one —
+        // the order entries ride along, and the track takes its slot.
+        const newOrder = order.map((i) => (i >= idx ? i + 1 : i));
+        newOrder.splice(slot, 0, idx);
+        const newCurrent =
+          currentQueueIndex != null && currentQueueIndex >= idx
+            ? currentQueueIndex + 1
+            : currentQueueIndex;
+        set({
+          queue: newQueue,
+          order: newOrder,
+          orderPos: newOrder.indexOf(newCurrent),
         });
       },
 

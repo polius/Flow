@@ -129,8 +129,10 @@ export function QueuePanel({ onCollapse }: QueuePanelProps) {
   const isPlaying = usePlayerStore((s) => s.isPlaying);
   const playAt = usePlayerStore((s) => s.playAt);
   const removeFromQueue = usePlayerStore((s) => s.removeFromQueue);
+  const restoreToQueue = usePlayerStore((s) => s.restoreToQueue);
   const moveInQueue = usePlayerStore((s) => s.moveInQueue);
   const togglePlay = usePlayerStore((s) => s.togglePlay);
+  const showUndoNotice = useUiStore((s) => s.showUndoNotice);
   const [adding, setAdding] = useState(false);
 
   // Lifted-drag state (mounted → the ghost exists) and the spring-home
@@ -186,6 +188,23 @@ export function QueuePanel({ onCollapse }: QueuePanelProps) {
   const buzz = (ms: number) => {
     // Haptic tick on lift and commit where the platform allows it.
     if ("vibrate" in navigator) navigator.vibrate(ms);
+  };
+
+  // Removal with recovery (§26): the queue is client state, so the undo is
+  // exact — the track goes back to its former queue index and play-order
+  // slot. Both removal paths (the ✕ and the swipe commit) go through here.
+  const removeWithUndo = (orderIndex: number) => {
+    const state = usePlayerStore.getState();
+    const queueIndex = state.order[orderIndex];
+    const track = state.queue[queueIndex];
+    if (track == null) return;
+    removeFromQueue(queueIndex);
+    showUndoNotice({
+      message: `Removed “${track.title}” from the queue`,
+      undo: async () => {
+        restoreToQueue(orderIndex, queueIndex, track);
+      },
+    });
   };
 
   const applyDrag = (next: DragState | null) => {
@@ -382,7 +401,7 @@ export function QueuePanel({ onCollapse }: QueuePanelProps) {
     }
     if (g.decided === "swipe") {
       if (swipe && swipe.dx <= -SWIPE_COMMIT_PX) {
-        removeFromQueue(order[swipe.index]);
+        removeWithUndo(swipe.index);
       }
       setSwipe(null);
     }
@@ -633,7 +652,7 @@ export function QueuePanel({ onCollapse }: QueuePanelProps) {
                         className="queue__remove"
                         aria-label={`Remove ${t.title} from queue`}
                         title="Remove from queue"
-                        onClick={() => removeFromQueue(order[item.index])}
+                        onClick={() => removeWithUndo(item.index)}
                       >
                         <IconClose size={13} />
                       </button>

@@ -87,7 +87,9 @@
 /* Touch devices have no hover — but a row of hearts is noise, not function
    (§21 revision). The ACTION lives in the row's long-press menu
    (TrackActionsMenu), always reachable; the heart here is a STATE marker:
-   loved songs stay visibly loved, un-loved rows stay quiet. */
+   loved songs stay visibly loved, un-loved rows stay quiet. The inline
+   remove button is desktop's hover path (§25): on touch, removal is the
+   swipe gesture — the slot folds away entirely (library.css). */
 @media (hover: none) {
   .trackrow__heartbtn {
     opacity: 0.4;
@@ -96,15 +98,107 @@
   .trackrow__heartbtn--on {
     opacity: 1;
   }
-
-  .trackrow__removebtn {
-    opacity: 1;
-  }
 }
 
-/* Drag-reorder feedback: lifted row + insertion line. */
-.trackrow--dragging {
-  opacity: 0.35;
+/* ---- swipe-to-remove (playlist rows on touch, §25) -------------------------
+   iOS Mail grammar: the leftward drag reveals the action behind the content;
+   the tap on it commits — the gesture states intent, the tap confirms it.
+   The action sits under the row's right edge and only exists (visibility)
+   while revealed or mid-gesture, so a closed row can never tap through. */
+
+.trackrowwrap {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--radius-m);
+}
+
+/* The row paints above the action; pan-y keeps vertical scrolling native
+   while the horizontal drag belongs to the row. */
+.trackrowwrap .trackrow {
+  position: relative;
+  z-index: 1;
+  transition: transform var(--dur-fast) var(--ease-out);
+  touch-action: pan-y;
+}
+
+/* While the gesture tracks the finger 1:1 there is no transition. */
+.trackrowwrap--dragging .trackrow {
+  transition: none;
+}
+
+.trackrow__swipeaction {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  visibility: hidden;
+}
+
+.trackrowwrap--open .trackrow__swipeaction,
+.trackrowwrap--dragging .trackrow__swipeaction {
+  visibility: visible;
+}
+
+.trackrow__swipedelete {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 84px;
+  height: 100%;
+  background: var(--accent);
+  color: #fff;
+  font-size: var(--text-body);
+  font-weight: 600;
+}
+
+/* Drag-reorder feedback (§26): the dragged row reads as an empty slot —
+   transparent background (no hover fill, no playing fill bleeding through),
+   dimmed content — while the insertion line shows where it will land.
+   Hover fill on OTHER rows is suppressed while a drag is live: a table of
+   flashing hover highlights behind the pointer is noise, not feedback. */
+.trackrow--dragging,
+.trackrow--dragging:hover,
+.trackrow--playing.trackrow--dragging,
+.trackrow--playing.trackrow--dragging:hover {
+  background: transparent;
+  opacity: 0.4;
+}
+
+.tracktable--dragging .trackrow:not(.trackrow--playing):hover {
+  background: transparent;
+}
+
+/* The drag image: a quiet pill of the app's own chrome — grip glyph +
+   title — replacing the browser's raw row snapshot. Offscreen: it exists
+   only to be photographed at dragstart. */
+.dragchip {
+  position: fixed;
+  top: -200px;
+  left: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 320px;
+  padding: 8px 14px 8px 11px;
+  border: 1px solid var(--separator);
+  border-radius: 999px;
+  background: var(--bg-elevated);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.22);
+  color: var(--text-primary);
+  font-size: var(--text-body);
+  font-weight: 500;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.dragchip span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dragchip svg {
+  flex: none;
+  color: var(--text-tertiary);
 }
 
 .trackrow--dropbefore {
@@ -1318,4 +1412,57 @@ textarea.inlineedit__input {
     flex-direction: column;
     align-items: stretch;
   }
+}
+
+/* ---- undo toast (§25) -------------------------------------------------------
+   The recovery affordance for destructive-but-recoverable actions: a quiet
+   pill above the player bar — message + Undo, five seconds, held on hover
+   or focus. Sits with the player's layer: above the canvas, below drawers
+   and modals, which own the whole screen when open. */
+
+.undotoast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(var(--player-height) + 14px);
+  transform: translateX(-50%);
+  z-index: calc(var(--z-player) + 5);
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  max-width: min(440px, calc(100vw - 32px));
+  padding: 9px 10px 9px 16px;
+  border: 1px solid var(--separator);
+  border-radius: 999px;
+  background: var(--bg-elevated);
+  box-shadow: 0 10px 34px rgba(0, 0, 0, 0.24);
+  animation: undotoast-in var(--dur-normal) var(--ease-out);
+}
+
+@keyframes undotoast-in {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(10px);
+  }
+}
+
+.undotoast__msg {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--text-body);
+  color: var(--text-primary);
+}
+
+.undotoast__undo {
+  flex: none;
+  padding: 5px 12px;
+  border-radius: 999px;
+  font-size: var(--text-body);
+  font-weight: 600;
+  color: var(--accent);
+  transition: background var(--dur-fast) var(--ease-out);
+}
+
+.undotoast__undo:hover {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
 }

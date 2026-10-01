@@ -12,13 +12,26 @@ export type ThemeMode = "system" | "light" | "dark";
 
 /** A track action menu request: the row's track, its open point (viewport
     coords — the menu positions itself, or falls back to a bottom sheet on
-    phones), and the play context it was invoked from. */
+    phones), and the play context it was invoked from. `removeFromPlaylist`
+    is set when the row came from a playlist — it adds the menu's danger
+    item (§25); the closure carries the playlist context the menu can't know. */
 export interface TrackMenuRequest {
   track: Track;
   x: number;
   y: number;
   context?: Track[];
+  removeFromPlaylist?: () => void;
 }
+
+/** A one-generation undo notice (§25): what happened, and the closure that
+    reverses it. The toast host renders it; a new notice replaces the old. */
+export interface UndoNotice {
+  id: number;
+  message: string;
+  undo: () => Promise<void>;
+}
+
+let undoNonce = 0;
 
 interface UiState {
   /** Track currently open in the Get Info panel, if any (§9.3). */
@@ -53,6 +66,11 @@ interface UiState {
   /** Theme override; default follows the OS (§8.6). */
   themeMode: ThemeMode;
   setThemeMode: (mode: ThemeMode) => void;
+  /** The undo toast (§25): destructive-but-recoverable actions land here —
+      one notice at a time, single-generation like Organize's bulk undo. */
+  undoNotice: UndoNotice | null;
+  showUndoNotice: (notice: Omit<UndoNotice, "id">) => void;
+  clearUndoNotice: () => void;
   /** Bumped to focus the top-bar search field from anywhere (Cmd/Ctrl+F, §9.5). */
   searchFocusSignal: number;
   focusSearch: () => void;
@@ -81,6 +99,10 @@ export const useUiStore = create<UiState>()(
       setQueueDragOpen: (queueDragOpen) => set({ queueDragOpen }),
       themeMode: "system",
       setThemeMode: (themeMode) => set({ themeMode }),
+      undoNotice: null,
+      showUndoNotice: (notice) =>
+        set({ undoNotice: { ...notice, id: ++undoNonce } }),
+      clearUndoNotice: () => set({ undoNotice: null }),
       searchFocusSignal: 0,
       focusSearch: () =>
         set((state) => ({ searchFocusSignal: state.searchFocusSignal + 1 })),

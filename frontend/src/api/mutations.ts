@@ -8,6 +8,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { api } from "./client";
 import type { BulkApplyIn, PlaylistDetail, Track, TrackPatch } from "./types";
 import { usePlayerStore } from "../stores/player";
+import { useUiStore } from "../stores/ui";
 
 /** Apply `fn` to a track wherever it sits inside the common response shapes. */
 function patchEverywhere(
@@ -57,26 +58,49 @@ function patchTracksIn(
   return touched ? next : data;
 }
 
+/** One favorite toggle, shared by the hook and the undo closure: optimistic
+    patch everywhere, server call, rollback + refetch on failure. */
+function applyFavorite(
+  queryClient: ReturnType<typeof useQueryClient>,
+  trackId: number,
+  favorite: boolean,
+): void {
+  patchEverywhere(queryClient, trackId, (t) => ({ ...t, favorite }));
+  void api
+    .PATCH("/api/tracks/{track_id}", {
+      params: { path: { track_id: trackId } },
+      body: { favorite },
+    })
+    .then(() => {
+      void queryClient.invalidateQueries({ queryKey: ["tracks"] });
+    })
+    .catch(() => {
+      // Roll back on failure; refetch tells the truth.
+      patchEverywhere(queryClient, trackId, (t) => ({
+        ...t,
+        favorite: !favorite,
+      }));
+    });
+}
+
 export function useToggleFavorite() {
   const queryClient = useQueryClient();
+  const showUndoNotice = useUiStore((s) => s.showUndoNotice);
   return (track: Track) => {
     const favorite = !track.favorite;
-    patchEverywhere(queryClient, track.id, (t) => ({ ...t, favorite }));
-    void api
-      .PATCH("/api/tracks/{track_id}", {
-        params: { path: { track_id: track.id } },
-        body: { favorite },
-      })
-      .then(() => {
-        void queryClient.invalidateQueries({ queryKey: ["tracks"] });
-      })
-      .catch(() => {
-        // Roll back on failure; refetch tells the truth.
-        patchEverywhere(queryClient, track.id, (t) => ({
-          ...t,
-          favorite: !favorite,
-        }));
+    applyFavorite(queryClient, track.id, favorite);
+    // Un-favoriting is a removal (§26): it gets the same recovery grammar
+    // as every other removal — act at once, offer Undo. Favoriting is a
+    // gain; it needs no toast. The undo rides the same toggle path, so
+    // the optimistic patch and the server call can't diverge.
+    if (!favorite) {
+      showUndoNotice({
+        message: `Removed “${track.title}” from Favorites`,
+        undo: async () => {
+          applyFavorite(queryClient, track.id, true);
+        },
       });
+    }
   };
 }
 
@@ -178,9 +202,13 @@ export function useRemoveFromPlaylist() {
         track_count: remaining.length,
       };
     });
-    await api.DELETE("/api/playlists/{playlist_id}/tracks/{track_id}", {
-      params: { path: { playlist_id: playlistId, track_id: trackId } },
-    });
+    const { response } = await api.DELETE(
+      "/api/playlists/{playlist_id}/tracks/{track_id}",
+      { params: { path: { playlist_id: playlistId, track_id: trackId } } },
+    );
+    // The caller offers Undo only when the removal landed (§25); a failure
+    // surfaces through this throw and the invalidate below resyncs the row.
+    if (!response.ok) throw new Error("Failed to remove track from playlist");
     void queryClient.invalidateQueries({ queryKey: ["playlists"] });
     void queryClient.invalidateQueries({ queryKey: ["playlist", playlistId] });
     void queryClient.invalidateQueries({ queryKey: ["search"] });

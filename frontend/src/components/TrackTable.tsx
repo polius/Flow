@@ -4,7 +4,7 @@
    these variants render full detail payloads at curated scale, so they stay
    plain. Rows are playback-only (§23); editing lives in Organize. */
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { HTMLAttributes } from "react";
 
 import type { Track } from "../api/types";
@@ -26,6 +26,33 @@ interface TrackTableProps {
   onRemoveTrack?: (track: Track) => void;
 }
 
+/* The drag image (§26): a quiet pill — grip glyph + title — matching the
+   icon set's stroke voice. Built with DOM APIs because the drag image must
+   be a real element in the document before setDragImage sees it. */
+function buildDragChip(title: string): HTMLDivElement {
+  const SVG = "http://www.w3.org/2000/svg";
+  const chip = document.createElement("div");
+  chip.className = "dragchip";
+  const grip = document.createElementNS(SVG, "svg");
+  grip.setAttribute("viewBox", "0 0 24 24");
+  grip.setAttribute("width", "13");
+  grip.setAttribute("height", "13");
+  grip.setAttribute("fill", "none");
+  grip.setAttribute("stroke", "currentColor");
+  grip.setAttribute("stroke-width", "1.6");
+  grip.setAttribute("stroke-linecap", "round");
+  grip.setAttribute("aria-hidden", "true");
+  for (const d of ["M5 9h14", "M5 15h14"]) {
+    const path = document.createElementNS(SVG, "path");
+    path.setAttribute("d", d);
+    grip.appendChild(path);
+  }
+  const label = document.createElement("span");
+  label.textContent = title;
+  chip.append(grip, label);
+  return chip;
+}
+
 export function TrackTable({
   tracks,
   variant = "all",
@@ -36,6 +63,19 @@ export function TrackTable({
   // Drag state for the playlist variant.
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [dropAt, setDropAt] = useState<number | null>(null); // insertion slot
+  // The drag-image chip: created at dragstart, disposed at dragend.
+  const chipRef = useRef<HTMLDivElement | null>(null);
+  // A drag that ends by unmounting (navigation mid-drag) never fires
+  // dragend — the offscreen chip would linger forever.
+  useEffect(
+    () => () => {
+      chipRef.current?.remove();
+      chipRef.current = null;
+    },
+    [],
+  );
+  // Swipe-to-remove (§25): one revealed row at a time, per table.
+  const [openSwipeId, setOpenSwipeId] = useState<number | null>(null);
   const current = useCurrentTrack();
   const isPlaying = usePlayerStore((s) => s.isPlaying);
   const playTracks = usePlayerStore((s) => s.playTracks);
@@ -44,11 +84,28 @@ export function TrackTable({
 
   const play = (index: number) => playTracks(context ?? tracks, index);
 
+  // Removal goes through one path so every entry point — hover minus,
+  // swipe action, long-press menu — closes any revealed row first.
+  const removeTrack = onRemoveTrack
+    ? (track: Track) => {
+        setOpenSwipeId(null);
+        onRemoveTrack(track);
+      }
+    : undefined;
+
   // Row action menu (right-click / long-press): carries the table's context
-  // so "Play" from the menu plays in place.
+  // so "Play" from the menu plays in place, and — in a playlist — the remove
+  // closure the menu's danger item needs (§25).
   const openTrackMenu = useUiStore((s) => s.openTrackMenu);
   const trackMenu = (track: Track, x: number, y: number) =>
-    openTrackMenu({ track, x, y, context: context ?? tracks });
+    openTrackMenu({
+      track,
+      x,
+      y,
+      context: context ?? tracks,
+      removeFromPlaylist:
+        variant === "playlist" && removeTrack ? () => removeTrack(track) : undefined,
+    });
 
   const handleDrop = () => {
     if (dragIndex != null && dropAt != null && onMove) {
@@ -67,6 +124,14 @@ export function TrackTable({
       setDragIndex(index);
       e.dataTransfer.effectAllowed = "move";
       e.dataTransfer.setData("text/plain", String(index));
+      // The browser's default drag image is a raw snapshot of the row —
+      // hover chrome, grid columns and all (§26). The chip reads as the
+      // app's own chrome in both themes, offset so it sits under the
+      // pointer instead of floating off to its corner.
+      const chip = buildDragChip(tracks[index].title);
+      document.body.appendChild(chip);
+      chipRef.current = chip;
+      e.dataTransfer.setDragImage(chip, 24, 18);
     },
     onDragOver: (e) => {
       if (dragIndex == null || !onMove) return;
@@ -79,6 +144,8 @@ export function TrackTable({
     onDragEnd: () => {
       setDragIndex(null);
       setDropAt(null);
+      chipRef.current?.remove();
+      chipRef.current = null;
     },
   });
 
@@ -107,13 +174,26 @@ export function TrackTable({
         onToggleFavorite={toggleFavorite}
         onTrackMenu={trackMenu}
         dragHandlers={dragHandlers(index)}
-        onRemove={variant === "playlist" && onRemoveTrack ? onRemoveTrack : undefined}
+        onRemove={variant === "playlist" && removeTrack ? removeTrack : undefined}
+        swipeOpen={variant === "playlist" && openSwipeId === track.id}
+        onSwipeOpenChange={
+          variant === "playlist"
+            ? (open) =>
+                setOpenSwipeId((cur) =>
+                  open ? track.id : cur === track.id ? null : cur,
+                )
+            : undefined
+        }
       />
     );
   });
 
   return (
-    <div className={`tracktable tracktable--${variant}`} role="table" aria-label="Tracks">
+    <div
+      className={`tracktable tracktable--${variant}${dragIndex != null ? " tracktable--dragging" : ""}`}
+      role="table"
+      aria-label="Tracks"
+    >
       {rows}
     </div>
   );

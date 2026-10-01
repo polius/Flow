@@ -8,8 +8,12 @@ import { useQuery } from "@tanstack/react-query";
 import { useNavigate, useParams } from "react-router";
 
 import { api } from "../api/client";
-import type { PlaylistDetail as PlaylistDetailT } from "../api/types";
-import { useRemoveFromPlaylist, useReorderPlaylist } from "../api/mutations";
+import type { PlaylistDetail as PlaylistDetailT, Track } from "../api/types";
+import {
+  useAddToPlaylist,
+  useRemoveFromPlaylist,
+  useReorderPlaylist,
+} from "../api/mutations";
 import { AddTracksDialog } from "../components/AddTracksDialog";
 import { EmptyState } from "../components/EmptyState";
 import { LoadingState } from "../components/LoadingState";
@@ -20,6 +24,7 @@ import { TrackTable } from "../components/TrackTable";
 import { TrackTableHead } from "../components/TrackTableHead";
 import { fmtCount, fmtDateTime, fmtMinutes } from "../lib/format";
 import { usePlayerStore } from "../stores/player";
+import { useUiStore } from "../stores/ui";
 import { useQueryClient } from "@tanstack/react-query";
 import "../styles/library.css";
 import "../styles/editing.css";
@@ -30,6 +35,8 @@ export function PlaylistDetailView() {
   const playTracks = usePlayerStore((s) => s.playTracks);
   const reorderPlaylist = useReorderPlaylist();
   const removeFromPlaylist = useRemoveFromPlaylist();
+  const addToPlaylist = useAddToPlaylist();
+  const showUndoNotice = useUiStore((s) => s.showUndoNotice);
   const [managing, setManaging] = useState(false);
   const [adding, setAdding] = useState(false);
   const queryClient = useQueryClient();
@@ -87,6 +94,34 @@ export function PlaylistDetailView() {
     playlist.track_count > 0 ? fmtMinutes(playlist.duration_total) : null,
     fmtDateTime(playlist.created_at),
   ].filter(Boolean);
+
+  // Removal (§25): no confirmation — a frequent, low-stakes action recovers
+  // by undo, not by dialog. The position is snapshotted now; the undo
+  // closure re-adds the track and PUTs the order back, inserting at that
+  // slot of whatever the list looks like when Undo is pressed (so reorders
+  // made after the removal survive).
+  const removeTrack = async (track: Track) => {
+    const index = playlist.tracks.findIndex((t) => t.id === track.id);
+    try {
+      await removeFromPlaylist(playlistId, track.id);
+    } catch {
+      return; // the mutation's invalidate resyncs the optimistic row
+    }
+    showUndoNotice({
+      message: `Removed “${track.title}” from this playlist`,
+      undo: async () => {
+        // Re-add appends to the end; the order PUT restores the original slot.
+        await addToPlaylist(playlistId, [track.id]);
+        const { data } = await api.GET("/api/playlists/{playlist_id}", {
+          params: { path: { playlist_id: playlistId } },
+        });
+        if (!data) return;
+        const ids = data.tracks.map((t) => t.id).filter((id) => id !== track.id);
+        ids.splice(Math.min(Math.max(index, 0), ids.length), 0, track.id);
+        await reorderPlaylist(playlistId, ids);
+      },
+    });
+  };
 
   return (
     <section className="view">
@@ -159,7 +194,7 @@ export function PlaylistDetailView() {
             tracks={playlist.tracks}
             variant="playlist"
             onMove={move}
-            onRemoveTrack={(track) => void removeFromPlaylist(playlistId, track.id)}
+            onRemoveTrack={(track) => void removeTrack(track)}
           />
         </>
       )}

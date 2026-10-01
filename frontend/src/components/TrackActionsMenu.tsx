@@ -8,8 +8,9 @@
    STATE indicator; the ACTION lives here, where it's always reachable.
 
    Items: Play (in the row's context), Play next, Add to queue, Favorite,
-   Get Info. Surface reuses the shared menu language (elevated panel,
-   hairline border, scale-in). */
+   Get Info — and, when the row came from a playlist, Remove from Playlist
+   (§25). Surface reuses the shared menu language (elevated panel, hairline
+   border, scale-in). */
 
 import { useEffect, useRef } from "react";
 import { useLocation } from "react-router";
@@ -23,6 +24,7 @@ import {
   IconHeart,
   IconHeartFill,
   IconInfo,
+  IconMinus,
   IconNext,
   IconPlay,
   IconPlus,
@@ -84,7 +86,7 @@ export function TrackActionsMenu() {
   }, [pathname, close]);
 
   if (request == null) return null;
-  const { track, x, y, context } = request;
+  const { track, x, y, context, removeFromPlaylist } = request;
 
   const act = (fn: () => void) => () => {
     fn();
@@ -138,6 +140,19 @@ export function TrackActionsMenu() {
         <IconInfo size={15} />
         Get Info
       </button>
+      {removeFromPlaylist && (
+        <>
+          <div className="trackmenu__separator" role="separator" />
+          <button
+            type="button"
+            className="trackmenu__item trackmenu__item--danger"
+            onClick={act(removeFromPlaylist)}
+          >
+            <IconMinus size={15} />
+            Remove from Playlist
+          </button>
+        </>
+      )}
     </>
   );
 

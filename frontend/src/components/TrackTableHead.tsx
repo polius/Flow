@@ -96,8 +96,9 @@ export function TrackTableHead({
       </span>
       <span className="trackhead__heart" aria-hidden="true" />
       {/* Playlist rows carry a second hover slot (remove); the head keeps
-          the column honest with an empty span of its own. */}
-      {variant === "playlist" && <span className="trackhead__heart" aria-hidden="true" />}
+          the column honest with an empty span of its own. Own class so the
+          touch sweep (§25) can fold it away with the row's slot. */}
+      {variant === "playlist" && <span className="trackhead__remove" aria-hidden="true" />}
     </div>
   );
 }

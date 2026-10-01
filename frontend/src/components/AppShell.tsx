@@ -9,6 +9,7 @@ import { OrganizeSheet } from "./OrganizeSheet";
 import { PlayerBar } from "./PlayerBar";
 import { TopBar } from "./TopBar";
 import { TrackActionsMenu } from "./TrackActionsMenu";
+import { UndoToast } from "./UndoToast";
 import { useUiStore } from "../stores/ui";
 import "../styles/shell.css";
 
@@ -54,6 +55,7 @@ export function AppShell() {
       </div>
       <GetInfoPanel />
       <TrackActionsMenu />
+      <UndoToast />
       <OrganizeSheet />
       <NowPlaying />
     </div>
