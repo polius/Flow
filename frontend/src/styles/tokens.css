@@ -78,6 +78,18 @@
   --z-modal: 80;
 }
 
+/* ---- breakpoints: the canonical set ----
+   CSS media queries cannot read custom properties, so this comment is the
+   contract: every media query and every JS matchMedia constant mirrors
+   these numbers (PHONE_BP/LABELED_BP in TopBar, NARROW_BP in NowPlaying,
+   SHEET_BP in TrackActionsMenu). §28 records the rationales.
+     640  phone — overflow nav sheet, mini player, compact insets
+     760  the brand wordmark hides
+     940  top-bar nav gains text labels; Now Playing queue → sheet
+   Independent of width, touch capability ((hover: none) +
+   (pointer: coarse)) sizes the top bar's targets to the 44pt HIG floor
+   with invisible slop (§28). */
+
 /* Phones (§20): the mini player bar is one row — 62px, iOS-like. The canvas
    and any other consumer of --player-height follow the bar automatically. */
 @media (max-width: 640px) {

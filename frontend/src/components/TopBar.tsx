@@ -1,8 +1,9 @@
 /* TopBar — the full-width chrome bar (§9.1). The sidebar was retired with
-   the owner's approval: with a fixed, small set of sections, icon-only nav
-   lives here and the canvas gets the whole window (§18).
-   Zones: brand · scan status · search · section nav. On phones (§19) the
-   section nav collapses into an overflow button + pull-down sheet.
+   the owner's approval: with a fixed, small set of sections, nav lives here
+   and the canvas gets the whole window (§18).
+   Zones: brand · scan status · search · section nav. The nav has three
+   forms (§28): icon + text labels on wide windows, the icon-only row below
+   that, and — on phones (§19) — an overflow button + pull-down sheet.
 
    Search (§9.2 revision): typing NEVER navigates. Results drop from the
    field as a Spotlight-style panel, in place — the user keeps their
@@ -22,6 +23,7 @@ import { useQuery } from "@tanstack/react-query";
 
 import { api } from "../api/client";
 import { fmtCount, scanProgressLabel } from "../lib/format";
+import { useMediaQuery } from "../lib/media";
 import { useScanStore } from "../stores/scan";
 import { usePlayerStore } from "../stores/player";
 import { useUiStore } from "../stores/ui";
@@ -66,8 +68,12 @@ const NAV: NavEntry[] = [
 ];
 
 /* Below the phone breakpoint the icon row collapses into an overflow
-   button + pull-down sheet (§19) — see topbar.css. Desktop is untouched. */
+   button + pull-down sheet (§19); at and above the labeled breakpoint the
+   row shows text beside each icon (§28). The numbers mirror topbar.css —
+   CSS media queries cannot read JS constants, so the two must be kept
+   in step (tokens.css documents the canonical set). */
 const PHONE_BP = "(min-width: 641px)";
+const LABELED_BP = "(min-width: 940px)";
 
 export function TopBar() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -79,6 +85,10 @@ export function TopBar() {
   const focusSignal = useUiStore((s) => s.searchFocusSignal);
   const scan = useScanStore((s) => s.status);
   const scanning = scan?.state === "scanning";
+  // Wide windows: the section nav wears visible labels (§28). The only JS
+  // consumer is the tooltip — a labeled control needs no "Tracks" tooltip
+  // hovering beside the word "Tracks" (HIG: don't restate the obvious).
+  const labeledNav = useMediaQuery(LABELED_BP);
   const [navOpen, setNavOpen] = useState(false);
   const navBtnRef = useRef<HTMLButtonElement>(null);
   const sheetRef = useRef<HTMLDivElement>(null);
@@ -190,21 +200,26 @@ export function TopBar() {
         navigate={navigate}
       />
 
-      {/* Desktop: the icon-only row (§18). Phone: collapsed into the
-          overflow sheet below (§19) — the CSS swaps the two forms at the
-          phone breakpoint. */}
+      {/* Section nav in three forms (§28): labeled on wide windows, the
+          icon-only row below that (§18), and the overflow sheet on phones
+          (§19) — the CSS swaps the forms at the breakpoints. Settings stays
+          icon-only after the hairline: a utility, not a section, mirroring
+          a macOS toolbar's item groups. */}
       <nav className="topbar__nav" aria-label="Library">
         {NAV.map(({ to, label, Icon }) => (
           <NavLink
             key={to}
             to={to}
             className={({ isActive }) =>
-              `topbar__nav-item${isActive ? " topbar__nav-item--active" : ""}`
+              `topbar__nav-item topbar__nav-item--labeled${
+                isActive ? " topbar__nav-item--active" : ""
+              }`
             }
             aria-label={label}
-            title={label}
+            title={labeledNav ? undefined : label}
           >
             <Icon size={18} />
+            <span className="topbar__nav-label">{label}</span>
           </NavLink>
         ))}
         <span className="topbar__nav-sep" aria-hidden="true" />
@@ -469,7 +484,11 @@ function SearchZone({
 
   return (
     <div className="topbar__searchzone" ref={zoneRef}>
-      <div className="topbar__search">
+      {/* A <label>, not a div: the pill's whole surface — padding strips
+          included — focuses the field. The strips used to be dead zones
+          (§28). The input keeps its aria-label; a wrapping label without
+          text adds nothing, overrides nothing. */}
+      <label className="topbar__search">
         <IconSearch size={15} />
         <input
           ref={inputRef}
@@ -488,7 +507,7 @@ function SearchZone({
           }}
           onKeyDown={onInputKeyDown}
         />
-      </div>
+      </label>
 
       {panelOpen && (
         <div className="suggest" role="listbox" aria-label="Search results">

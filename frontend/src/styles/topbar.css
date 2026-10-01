@@ -1,8 +1,9 @@
 /* Top bar — the full-width chrome bar (§9.1, §18). Brand and scan status sit
    left, the search field floats centered in the free space, and the section
-   nav (icon-only) sits right — collapsing into an overflow pull-down sheet
-   on phones (§19). Chrome stays near-monochrome (§8): the accent appears
-   only as the active section's icon, on a quiet pill — the same active-nav
+   nav sits right in three forms (§28): icon + text on wide windows, the
+   icon-only row below that (§18), and an overflow pull-down sheet on phones
+   (§19). Chrome stays near-monochrome (§8): the accent appears only as the
+   active section's icon and label on a quiet pill — the same active-nav
    language the sidebar used. */
 
 .topbar {
@@ -110,7 +111,9 @@
 /* ---- search ---- */
 
 /* The zone owns the flex sizing and anchors the spotlight panel; the pill
-   inside is the visible field. */
+   inside is the visible field. The pill is a <label> (§28): its entire
+   surface — padding strips included — focuses the input, so the soft edges
+   of the target are live, not dead. */
 .topbar__searchzone {
   position: relative;
   display: flex;
@@ -305,7 +308,7 @@
   background: var(--bg-hover);
 }
 
-/* ---- section nav (icon-only, §18) ---- */
+/* ---- section nav (§18, §28) ---- */
 
 .topbar__nav {
   display: flex;
@@ -324,6 +327,18 @@
   color: var(--text-secondary);
   transition: color var(--dur-fast) var(--ease-out),
     background-color var(--dur-fast) var(--ease-out);
+}
+
+/* The text half of a section item (§28): hidden at the compact tiers, shown
+   beside the icon from the labeled breakpoint up. It rides the item's
+   color — secondary at rest, primary on hover, accent when active — and
+   never wraps: the breakpoint guarantees the row fits whole. */
+.topbar__nav-label {
+  display: none;
+  font-size: var(--text-body);
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
 }
 
 .topbar__nav-item:hover {
@@ -349,6 +364,46 @@
   height: 16px;
   margin: 0 6px;
   background: var(--separator);
+}
+
+/* ---- labeled nav (wide windows, §28) ----
+   HIG: show a label whenever space allows — icons earn text before the
+   layout starts spending it. From the labeled breakpoint up each section
+   wears its text beside the icon; Settings stays icon-only after the group
+   break, a utility rather than a section. The breakpoint is measured, not
+   chosen: the narrowest window where the labeled row fits whole with the
+   search field at its natural 240px flex basis — below it the search would
+   be the first thing squeezed, and it never is. */
+@media (min-width: 940px) {
+  .topbar__nav-item--labeled {
+    width: auto;
+    gap: 7px;
+    padding: 0 10px;
+  }
+
+  .topbar__nav-label {
+    display: block;
+  }
+}
+
+/* ---- touch (§28) ----
+   HIG floors touch targets at 44×44pt. The rows keep their 32px visual
+   geometry for the mouse; on coarse pointers each control instead extends
+   its hit area with a 6px slop — 44px overall, zero layout change. Where
+   neighbours' slops overlap, the painted-on-top item wins, matching the
+   visual order. The compact sheet rows are now 44px too (§28). */
+@media (hover: none) and (pointer: coarse) {
+  .topbar__nav-item,
+  .topbar__brand {
+    position: relative;
+  }
+
+  .topbar__nav-item::before,
+  .topbar__brand::before {
+    content: "";
+    position: absolute;
+    inset: -6px;
+  }
 }
 
 /* ---- overflow nav (phones, §19) ----
@@ -395,7 +450,7 @@
   align-items: center;
   gap: 10px;
   width: 100%;
-  height: 40px; /* touch target, not the desktop's 32px hover row */
+  height: 44px; /* the HIG touch-target floor (§28) */
   padding: 0 12px;
   border-radius: var(--radius-s);
   font-size: var(--text-regular);

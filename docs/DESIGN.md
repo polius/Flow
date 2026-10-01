@@ -649,7 +649,8 @@ on wayfinding that six icons can carry. **Supersedes §9.1's sidebar:**
    search input, §15.5), and the section nav (right) — icon-only NavLinks
    with `aria-label` + tooltip, a hairline group break before Settings, and
    the established active-nav language: accent icon on a quiet `--bg-active`
-   pill (§8.1 — the accent's one chrome appearance).
+   pill (§8.1 — the accent's one chrome appearance). (The icon-only rule is
+   superseded above 940px by §28: wide windows label the sections.)
 2. **The collapse state is gone** (`sidebarCollapsed` removed from the ui
    store; `Sidebar.tsx` / `sidebar.css` / `IconPanel` / `--sidebar-width*` /
    `--bg-sidebar` all removed).
@@ -1052,3 +1053,56 @@ a placement, a gap IS the placement.
    vs 480ms menu), and Apple answers this exact conflict with Edit-mode
    grips the design doesn't have. If touch reorder arrives, it needs that
    grip — not a timer race.
+
+## 28. Addendum — top bar nav: labels on wide windows, 44pt touch targets (2026-10-01)
+
+Owner request: the top-right icons should carry their text on non-small
+devices, icons alone when narrower, the phone overflow sheet when small —
+to Apple's standards. The ladder was two-thirds built already: the phone
+sheet is §19, the icon row is §18. This adds the top tier and repairs the
+touch story under all of them.
+
+1. **Labeled nav (≥ 940px):** each library section wears its text beside
+   the icon — HIG: label a control when space allows. The label rides the
+   item's color (secondary at rest, primary on hover, accent when active),
+   so the active-nav language (§8.1) extends to the text with no new
+   states. The breakpoint is measured, not chosen: the labeled row is
+   524px, brand 93px, bar chrome 72px, so the floor is 929px — the
+   narrowest window where the search field still sits at its natural 240px
+   flex basis. 940 gives 11px of slack and aligns with the queue-sheet
+   boundary (§23.7): below it the search would be the first thing
+   squeezed, and it never is. Measured at 940: search 251px, zero
+   overflow; at 939 the icon row returns and the search gets 557px. During
+   a scan the pill (§9.6) sheds its text first, so the labeled row itself
+   never shrinks.
+2. **Settings stays icon-only at every tier**, after the hairline break:
+   a utility, not a section — the macOS toolbar-item-group grammar §18
+   adopted. Its 32px geometry is untouched by the labels; only sections
+   grow (`topbar__nav-item--labeled`).
+3. **No tooltip beside a label:** when the row is labeled, the `title`
+   attribute drops (a JS mirror of the CSS breakpoint — a "Tracks" tooltip
+   hovering beside the word "Tracks" is noise, and HIG says don't restate
+   the visible). `aria-label` stays: identical to the visible text, it
+   adds nothing for assistive tech and keeps the DOM robust if the tiers
+   ever move.
+4. **Touch targets — HIG's 44×44pt floor:** on coarse pointers
+   (`hover: none` + `pointer: coarse`) the 32px controls keep their visual
+   geometry for the eye and extend their hit area with a 6px invisible
+   slop instead — 44px overall, zero layout change. Where neighbours'
+   slops overlap, the painted-on-top item wins, matching the visual
+   order. This retires a width-only tier switch that handed an iPad in
+   landscape the desktop's 32px targets. Verified end to end: a click 5px
+   above a row's box lands on the row. The sheet's rows go 40px → 44px
+   (supersedes §19's 40px "touch target").
+5. **The search pill is a `<label>` now:** its whole surface — padding
+   strips included — focuses the field. The strips used to be dead zones
+   on every device: clicks on the pill's soft edges did nothing.
+6. **Breakpoints live in one place now** (tokens.css, as a comment —
+   media queries can't read custom properties): 640 phone, 760 wordmark,
+   940 labeled nav / queue sheet; touch capability sizes targets
+   independently of width. The JS constants (`PHONE_BP`, `LABELED_BP`,
+   `NARROW_BP`, `SHEET_BP`) mirror it.
+
+Verified in the running app at 320/375/700/939/940/1280, light + dark: no
+overflow at any width, labels never wrap, the active pill carries icon and
+text together, sheet rows at 44px, search ≥ 240px wherever labels show.
