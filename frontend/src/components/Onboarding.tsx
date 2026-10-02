@@ -85,10 +85,11 @@ export function FirstRun({ settings }: { settings: SettingsOut }) {
               Make sure the drive or share holding your music is mounted and
               this path exists: <PathChip path={settings.library_path} />
             </Step>
-            <Step n={2} title="Point Flow at it">
-              If the folder moved, update{" "}
-              <code className="onboard__env">FLOW_MUSIC_DIR</code> in your
-              docker-compose.yml and restart the container.
+            <Step n={2} title="Check the mount">
+              Make sure the volume in docker-compose.yml points at the folder
+              holding your music (host <code className="onboard__code">./flow/music</code> →{" "}
+              container <code className="onboard__code">/flow/music</code>) and
+              restart the container.
             </Step>
             <Step n={3} title="Rescan">
               One scan brings every album, playlist, and edit back exactly as
