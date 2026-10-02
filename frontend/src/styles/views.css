@@ -141,6 +141,141 @@
   text-decoration-thickness: 2px;
 }
 
+/* ---- first-run onboarding (§8.8, §9.6) ------------------------------------
+   An empty library is the first thing a new owner sees. The centered hero +
+   numbered steps below carry the setup story; 560px is the app's content
+   width (the continuecard's, the Settings column's) so the page reads as
+   composed, not stranded. Monochrome throughout (§8.1) — the only color on
+   this page will be the user's own artwork, once there is any. */
+.onboard {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 72px 24px 24px;
+}
+
+.onboard__glyph {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  border-radius: var(--radius-l);
+  background: var(--bg-inset);
+  color: var(--text-tertiary);
+}
+
+/* The one moving thing (§8.4): a quiet monochrome arc while the first scan
+   walks the folder — same ring language as the topbar's scan indicator. */
+.onboard__spin {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid var(--text-tertiary);
+  border-top-color: var(--text-primary);
+  animation: scan-spin 0.8s linear infinite;
+}
+
+.onboard__title {
+  margin: 20px 0 0;
+  font-size: var(--text-title);
+  font-weight: 600;
+  letter-spacing: var(--tracking-tight);
+  color: var(--text-primary);
+}
+
+.onboard__lede {
+  margin: 10px 0 0;
+  max-width: 52ch;
+  font-size: var(--text-regular);
+  line-height: var(--leading-normal);
+  color: var(--text-secondary);
+}
+
+.onboard__steps {
+  margin: 36px 0 0;
+  width: 100%;
+  max-width: 560px;
+  padding: 0;
+  list-style: none;
+  text-align: left;
+}
+
+.onboard__step {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 2px;
+}
+
+.onboard__step + .onboard__step {
+  border-top: 1px solid var(--separator);
+}
+
+.onboard__num {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--bg-inset);
+  font-size: var(--text-caption);
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.onboard__steptext {
+  min-width: 0;
+}
+
+.onboard__steptitle {
+  display: block;
+  font-size: var(--text-body);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.onboard__stepbody {
+  margin: 3px 0 0;
+  font-size: var(--text-small);
+  line-height: var(--leading-normal);
+  color: var(--text-secondary);
+}
+
+/* A path is data, not prose — set it in the mono stack inside a quiet chip. */
+.onboard__path,
+.onboard__env {
+  font-family: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: var(--text-caption);
+  color: var(--text-primary);
+  background: var(--bg-inset);
+  border-radius: var(--radius-s);
+  padding: 2px 7px;
+  overflow-wrap: anywhere;
+}
+
+.onboard__actions {
+  margin-top: 30px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.onboard__actions .btn {
+  padding: 8px 16px;
+  border-radius: 999px;
+}
+
+/* Phones (§21): the hero shouldn't float mid-screen on a short canvas. */
+@media (max-width: 640px) {
+  .onboard {
+    padding-top: 44px;
+  }
+}
+
 /* Settings rows (grows in Milestone 2 with the live scan API).
    One left-pinned column (owner, 2026-10-02): removing the Keyboard section
    left §37's second column empty, so the wide-window two-column grid went

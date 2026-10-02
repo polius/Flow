@@ -7,9 +7,9 @@ import { playByFilter } from "../api/queue";
 import type { QueueOrigin } from "../api/types";
 import { AlbumCard } from "../components/AlbumCard";
 import { Artwork } from "../components/Artwork";
-import { EmptyState } from "../components/EmptyState";
 import { LoadingState } from "../components/LoadingState";
-import { IconMusicNote, IconPause, IconPlay, IconShuffle } from "../components/icons";
+import { FirstRun, FirstScan } from "../components/Onboarding";
+import { IconPause, IconPlay, IconShuffle } from "../components/icons";
 import { PlaylistArt } from "../components/PlaylistArt";
 import { fmtCount, fmtDuration, scanPhaseLabel, scanProgressLabel } from "../lib/format";
 import { trackIsUnverified, usePlayerStore } from "../stores/player";
@@ -269,12 +269,19 @@ export function HomeView() {
           <div className="covergrid covergrid--home">
             {playlistsData!.items.map((playlist) => (
               <Link key={playlist.id} to={`/playlists/${playlist.id}`} className="album-card">
-                <PlaylistArt
-                  artworkIds={playlist.artwork_ids}
-                  size={180}
-                  radius="m"
-                  className="album-card__art"
-                />
+                {/* The artwrap carries the art→title margin (10px) that every
+                    album-card grid relies on — without it the name sat glued
+                    to the mosaic. Same structure as the Playlists grid card,
+                    user-set cover included. */}
+                <span className="album-card__artwrap">
+                  <PlaylistArt
+                    artworkIds={playlist.artwork_ids}
+                    coverArtworkId={playlist.cover_artwork_id}
+                    size={180}
+                    radius="m"
+                    className="album-card__art"
+                  />
+                </span>
                 <span className="album-card__title">{playlist.name}</span>
                 <span className="album-card__meta">
                   {fmtCount(playlist.track_count)} track{playlist.track_count === 1 ? "" : "s"}
@@ -285,15 +292,14 @@ export function HomeView() {
         </div>
       )}
 
-      {!scanning && !hasLibrary &&
-        (settings === undefined ? (
+      {!hasLibrary &&
+        (scanning ? (
+          /* The startup auto-scan caught mid-flight — say so (§9.6). */
+          <FirstScan scan={scan} />
+        ) : settings === undefined ? (
           <LoadingState variant="rows" />
         ) : (
-          <EmptyState
-            icon={<IconMusicNote size={26} />}
-            title="Your library is empty"
-            hint="Point Flow at your music folder and it will scan, index, and stream it — without ever touching your files."
-          />
+          <FirstRun settings={settings} />
         ))}
     </section>
   );
