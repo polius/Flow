@@ -146,13 +146,31 @@
    numbered steps below carry the setup story; 560px is the app's content
    width (the continuecard's, the Settings column's) so the page reads as
    composed, not stranded. Monochrome throughout (§8.1) — the only color on
-   this page will be the user's own artwork, once there is any. */
+   this page will be the user's own artwork, once there is any.
+
+   .view--fill (Home sets it whenever the library is empty): the view becomes
+   a min-height:100% flex column and the panel centers in the space below the
+   title via auto margins — the whole story fits one laptop viewport with no
+   scroll, on any canvas that can hold it. The canvas's hidden 92px player
+   clearance tips the optical center slightly high, which is where it should
+   sit above the player bar anyway. On genuinely short windows the content
+   simply reflows taller and scrolls, as any page would. */
+.view--fill {
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.view--fill .onboard {
+  margin: auto 0;
+}
+
 .onboard {
   display: flex;
   flex-direction: column;
   align-items: center;
   text-align: center;
-  padding: 72px 24px 24px;
+  padding: 16px 24px 8px;
 }
 
 .onboard__glyph {
@@ -178,7 +196,7 @@
 }
 
 .onboard__title {
-  margin: 20px 0 0;
+  margin: 14px 0 0;
   font-size: var(--text-title);
   font-weight: 600;
   letter-spacing: var(--tracking-tight);
@@ -186,7 +204,7 @@
 }
 
 .onboard__lede {
-  margin: 10px 0 0;
+  margin: 6px 0 0;
   max-width: 52ch;
   font-size: var(--text-regular);
   line-height: var(--leading-normal);
@@ -194,7 +212,7 @@
 }
 
 .onboard__steps {
-  margin: 36px 0 0;
+  margin: 20px 0 0;
   width: 100%;
   max-width: 560px;
   padding: 0;
@@ -206,7 +224,7 @@
   display: flex;
   align-items: center;
   gap: 14px;
-  padding: 14px 2px;
+  padding: 10px 2px;
 }
 
 .onboard__step + .onboard__step {
@@ -258,7 +276,7 @@
 }
 
 .onboard__actions {
-  margin-top: 30px;
+  margin-top: 20px;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -267,13 +285,6 @@
 .onboard__actions .btn {
   padding: 8px 16px;
   border-radius: 999px;
-}
-
-/* Phones (§21): the hero shouldn't float mid-screen on a short canvas. */
-@media (max-width: 640px) {
-  .onboard {
-    padding-top: 44px;
-  }
 }
 
 /* Settings rows (grows in Milestone 2 with the live scan API).

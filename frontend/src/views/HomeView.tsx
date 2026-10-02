@@ -223,7 +223,7 @@ export function HomeView() {
     : null;
 
   return (
-    <section className="view">
+    <section className={`view${hasLibrary ? "" : " view--fill"}`}>
       <h1 className="view__title">Home</h1>
       {scanning ? (
         <p className="view__subtitle" aria-live="polite">
