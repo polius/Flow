@@ -248,7 +248,7 @@ Design notes:
 │   ├── app/
 │   │   ├── main.py          ← FastAPI app factory, static serving in prod
 │   │   ├── db.py            ← connection, WAL, migrations (user_version)
-│   │   ├── migrations/      ← 001_init.sql, …
+│   │   ├── migrations/      ← 001_init.sql (squashed pre-release)
 │   │   ├── scanner.py       ← walk, mutagen parsing, overlay logic
 │   │   ├── watcher.py       ← watchdog events → targeted reindex
 │   │   ├── routers/         ← tracks, albums, artists, playlists, search, stream, scan
