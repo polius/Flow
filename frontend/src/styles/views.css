@@ -196,7 +196,7 @@
 }
 
 .onboard__title {
-  margin: 14px 0 0;
+  margin: 20px 0 0;
   font-size: var(--text-title);
   font-weight: 600;
   letter-spacing: var(--tracking-tight);
@@ -204,15 +204,19 @@
 }
 
 .onboard__lede {
-  margin: 6px 0 0;
+  margin: 10px 0 0;
   max-width: 52ch;
   font-size: var(--text-regular);
   line-height: var(--leading-normal);
   color: var(--text-secondary);
 }
 
+/* The spacing is the hierarchy (§8.3): a tight hero (glyph→title→lede reads
+   as one thought), then the largest break before the steps — the page's
+   subject changes from what Flow IS to what YOU do — then a calmer list
+   rhythm inside the hairlines, and a clear break before the actions. */
 .onboard__steps {
-  margin: 20px 0 0;
+  margin: 36px 0 0;
   width: 100%;
   max-width: 560px;
   padding: 0;
@@ -223,8 +227,8 @@
 .onboard__step {
   display: flex;
   align-items: center;
-  gap: 14px;
-  padding: 10px 2px;
+  gap: 16px;
+  padding: 13px 2px;
 }
 
 .onboard__step + .onboard__step {
@@ -276,15 +280,20 @@
 }
 
 .onboard__actions {
-  margin-top: 20px;
+  margin-top: 28px;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
 }
 
+/* The pair must be identical chrome — same 14px type, height, radius — with
+   the hierarchy carried by fill alone (inverted vs outline), never by a
+   size jump. (.btn is the app-wide 12px quiet button; the onboarding pair
+   is a matched set, so it meets .btn--primary's scale here.) */
 .onboard__actions .btn {
-  padding: 8px 16px;
+  padding: 8px 18px;
   border-radius: 999px;
+  font-size: var(--text-body);
 }
 
 /* Settings rows (grows in Milestone 2 with the live scan API).

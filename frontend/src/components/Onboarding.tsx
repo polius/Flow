@@ -83,17 +83,16 @@ export function FirstRun({ settings }: { settings: SettingsOut }) {
           <>
             <Step n={1} title="Check the mount">
               Make sure the drive or share holding your music is mounted and
-              that this path exists on the server:{" "}
-              <PathChip path={settings.library_path} />
+              this path exists: <PathChip path={settings.library_path} />
             </Step>
             <Step n={2} title="Point Flow at it">
-              If the folder moved, set <code className="onboard__env">FLOW_MUSIC_DIR</code>{" "}
-              in your docker-compose.yml (or run command) to the right location
-              and restart the container.
+              If the folder moved, update{" "}
+              <code className="onboard__env">FLOW_MUSIC_DIR</code> in your
+              docker-compose.yml and restart the container.
             </Step>
             <Step n={3} title="Rescan">
-              Once the folder is back, one scan brings every album, playlist,
-              and edit back exactly as you left them.
+              One scan brings every album, playlist, and edit back exactly as
+              you left them.
             </Step>
           </>
         ) : (
@@ -103,12 +102,12 @@ export function FirstRun({ settings }: { settings: SettingsOut }) {
               Flow is watching: <PathChip path={settings.library_path} />
             </Step>
             <Step n={2} title="Let Flow read it">
-              New files are picked up automatically, moments after they land.
-              Starting a scan by hand works too, any time.
+              New files are picked up on their own — a manual scan works too,
+              any time.
             </Step>
             <Step n={3} title="Press play">
-              Albums, artists, and playlists assemble themselves from your
-              files’ tags — and this page becomes your Home.
+              Albums, artists, and playlists build themselves from your files’
+              tags.
             </Step>
           </>
         )}
