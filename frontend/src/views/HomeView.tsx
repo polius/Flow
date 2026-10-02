@@ -224,15 +224,21 @@ export function HomeView() {
 
   return (
     <section className={`view${hasLibrary ? "" : " view--fill"}`}>
-      <h1 className="view__title">Home</h1>
-      {scanning ? (
-        <p className="view__subtitle" aria-live="polite">
-          {scan &&
-            (scanPhaseLabel(scan.phase) ?? scanProgressLabel(scan.current, scan.total))}
-        </p>
-      ) : hasLibrary ? (
-        <p className="view__subtitle">{summary}</p>
-      ) : null}
+      {/* Onboarding owns the page when the library is empty: FirstRun /
+          FirstScan carry their own title ("Welcome to Flow", "Building your
+          library"), so the Home chrome — title and subtitle — steps aside.
+          The scan progress the subtitle duplicated is already spoken live in
+          FirstScan's lede. A rescan of a full library keeps the title. */}
+      {hasLibrary && <h1 className="view__title">Home</h1>}
+      {hasLibrary &&
+        (scanning ? (
+          <p className="view__subtitle" aria-live="polite">
+            {scan &&
+              (scanPhaseLabel(scan.phase) ?? scanProgressLabel(scan.current, scan.total))}
+          </p>
+        ) : (
+          <p className="view__subtitle">{summary}</p>
+        ))}
 
       {hasLibrary && <ContinueListening />}
 
