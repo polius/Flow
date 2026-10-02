@@ -14,7 +14,7 @@
 
 ## Features
 
-- **Read-only by design**: your music folder is mounted read-only — scanning, playback, and editing never modify a single file. Metadata edits live in SQLite as overlays, not in your files' tags.
+- **Read-only by design**: Flow never modifies a single file of yours — scanning, playback, and editing only read. Metadata edits live in SQLite as overlays, not in your files' tags.
 - **Built for big libraries**: the Tracks view and the queue drawer render only the visible window of rows and fetch pages as you scroll, so a 10,000-track library opens instantly and scrolls smoothly end to end.
 - **Mass metadata curation**: the Organize view gives you bulk re-grouping, inline cell edits, a "Needs attention" review strip, and one-generation undo.
 - **Forgiving scanner**: corrupt or unreadable files are skipped and logged, never crash a scan. A scan that finds zero files against a non-empty index is treated as a broken mount, not a library cleanup.
@@ -32,7 +32,7 @@
 ### Setup
 
 1. Download [`docker-compose.yml`](docker-compose.yml).
-2. Put your music in a `music` folder next to it (or point `FLOW_MUSIC` at an existing folder).
+2. Create a `flow` folder next to it and put your music in a `music` subfolder (`flow/music/*.mp3`, …).
 3. Start it:
 
 ```bash
@@ -66,18 +66,18 @@ The port is published on all interfaces — LAN access is intended.
 
 ## Configuration
 
-Environment variables are set in `docker-compose.yml`:
+No configuration needed. Everything Flow touches lives in one host folder, mounted at `/flow` inside the container:
 
-| Env var | Container default | Meaning |
+| Host path | Container path | Contents |
 |---|---|---|
-| `FLOW_MUSIC_DIR` | `/music` | Library root, mounted read-only |
-| `FLOW_DATA_DIR` | `/data` | SQLite database location |
-| `FLOW_DIST_DIR` | `/app/static` | Built frontend served by uvicorn (nginx does the same in front) |
-| `FLOW_STREAM_MODE` | `nginx` in Docker, `direct` in dev | `nginx` = X-Accel-Redirect into the internal music location (native sendfile/Range); `direct` = FastAPI streams with Range |
-| `FLOW_WATCHER` | `auto` | `auto` (polling in Docker, native elsewhere), `native`, or `polling` |
-| `FLOW_POLL_INTERVAL` | `5` | Polling observer interval (seconds), Docker only |
-| `FLOW_WATCH_DEBOUNCE` | `2` | Debounce window before a watch-triggered rescan |
-| `FLOW_LOG_LEVEL` | `INFO` | uvicorn/app log verbosity (`docker logs`) |
+| `./flow/music` | `/flow/music` | Your audio files — read as-is, never written to |
+| `./flow/data` | `/flow/data` | SQLite index (created automatically on first start) |
+
+**Upgrading from an earlier release?** Move your existing folders into place:
+
+```bash
+mkdir flow && mv music flow/music && mv data flow/data
+```
 
 **Custom port.** Change the **first** number of the port mapping; the second is the container's internal port, leave it as `8080`:
 
@@ -88,7 +88,7 @@ ports:
 
 ## How it works
 
-Point Flow at a folder and it scans every audio file it can parse into a SQLite index — tags, artwork, and structure. A filesystem watcher keeps the index in sync as files appear or disappear. The music folder is mounted read-only: every metadata edit is an overlay row in SQLite applied at read time, so your files' tags are never rewritten. Removed files delete their rows (playlists cascade), and a scan that finds **zero** files against a non-empty index refuses to delete anything — that pattern means a broken mount, not a library cleanup. To reset a library, remove the `flow-data` volume.
+Point Flow at a folder and it scans every audio file it can parse into a SQLite index — tags, artwork, and structure. A filesystem watcher keeps the index in sync as files appear or disappear. Your music files are never written to: every metadata edit is an overlay row in SQLite applied at read time, so your files' tags are never rewritten. Removed files delete their rows (playlists cascade), and a scan that finds **zero** files against a non-empty index refuses to delete anything — that pattern means a broken mount, not a library cleanup. To reset a library, delete the `flow/data` folder.
 
 Audio is streamed, not proxied through the application: FastAPI answers a track request with an internal X-Accel-Redirect and nginx serves the bytes straight from disk with native `Range` support, which is what makes seeking instant.
 

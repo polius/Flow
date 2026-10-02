@@ -91,7 +91,7 @@ for MVP.
 
 ### In scope
 
-1. **Library scan** of one configured folder (`/music` in the container, configurable via env).
+1. **Library scan** of one configured folder (`/flow/music` in the container).
    Recursive. Reads tags: title, artist, album artist, album, track no, disc no, year,
    duration, embedded artwork. Falls back to filename parsing when tags are missing.
 2. **Background re-scan + filesystem watching** (chokidar semantics via `watchdog`): new,
@@ -396,8 +396,9 @@ Dockerfile — do not regress them):
 5. Nginx: serves frontend + `/api` proxy, handles `sendfile`/Range for audio streaming,
    gzips static assets, long-cache artwork (`immutable`).
 
-**`docker-compose.yml`:** mounts `./music:/music` (configurable), named volume for the SQLite
-file, `restart: unless-stopped`, healthcheck, port 8080.
+**`docker-compose.yml`:** mounts `./flow:/flow` (library at `/flow/music`, SQLite at
+`/flow/data` — one host folder for everything; container paths are baked into the
+Dockerfile ENV), `restart: unless-stopped`, healthcheck, port 8080.
 
 **Sizing expectation:** ~150–200MB final image. "Lightweight" is a stated product goal —
 keep it honest.

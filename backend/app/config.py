@@ -1,8 +1,9 @@
 """Runtime configuration, resolved from the environment.
 
 Defaults target local development (paths relative to the working directory);
-the Dockerfile / docker-compose.yml set the container values explicitly
-(see DESIGN.md §7, §10).
+the Dockerfile bakes the container values in via ENV (see DESIGN.md §7, §10).
+The FLOW_* variables are dev/test plumbing — end users configure nothing:
+docker-compose.yml just mounts one host folder at /flow.
 """
 
 from __future__ import annotations

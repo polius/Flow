@@ -1,17 +1,15 @@
 services:
   flow:
-    image: poliuscorp/flow:latest
+    # image: poliuscorp/flow:latest
+    build: .
     ports:
       # 0.0.0.0 — LAN access intended; no-auth trade-off accepted (DESIGN.md §13.5)
       - "8080:8080"
-    environment:
-      FLOW_MUSIC_DIR: /music
-      FLOW_DATA_DIR: /data
-      FLOW_DIST_DIR: /app/static
     volumes:
-      # The music folder is mounted READ-ONLY. Flow never writes to it. Ever.
-      - ${FLOW_MUSIC:-./music}:/music:ro
-      - flow-data:/data
+      # One folder for everything: ./flow/music holds your files (Flow never
+      # writes there — edits are SQLite overlays) and ./flow/data holds the
+      # index, created automatically on first start.
+      - ./flow:/flow
     restart: unless-stopped
     healthcheck:
       test:
@@ -23,6 +21,3 @@ services:
       timeout: 5s
       retries: 3
       start_period: 10s
-
-volumes:
-  flow-data:

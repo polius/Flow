@@ -45,13 +45,13 @@ COPY nginx/default.conf /app/nginx.conf
 COPY docker/start.sh /app/start.sh
 
 RUN chmod +x /app/start.sh \
- && mkdir -p /data /music /tmp/nginx \
- && chown -R flow:flow /app /data /tmp/nginx
+ && mkdir -p /flow/music /flow/data /tmp/nginx \
+ && chown -R flow:flow /app /flow /tmp/nginx
 
 USER flow
 ENV PATH="/opt/venv/bin:$PATH" \
-    FLOW_MUSIC_DIR=/music \
-    FLOW_DATA_DIR=/data \
+    FLOW_MUSIC_DIR=/flow/music \
+    FLOW_DATA_DIR=/flow/data \
     FLOW_DIST_DIR=/app/static \
     FLOW_STREAM_MODE=nginx
 
