@@ -13,13 +13,12 @@ Positions may carry gaps after a track's row is deleted from the library
 
 from __future__ import annotations
 
-import hashlib
 from collections import Counter
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, HTTPException, Query, Request, Response, UploadFile
 
-from app.artwork import sniff_mime
+from app.routers.covers import store_uploaded_artwork
 from app.schemas import (
     PlaylistCreate,
     PlaylistDetail,
@@ -36,9 +35,6 @@ router = APIRouter(tags=["playlists"])
 
 DEFAULT_LIMIT = 200
 MAX_LIMIT = 1000
-
-# Cover uploads: raw bytes stored as-is (sha1 dedup), same rules as scan art.
-MAX_COVER_BYTES = 10 * 1024 * 1024
 
 
 def _utcnow() -> str:
@@ -196,27 +192,7 @@ def set_playlist_cover(
     content-addressed `artwork` table (sha1 dedup), like scan-derived art."""
     conn = request.app.state.db.connect()
     _require_playlist(conn, playlist_id)
-
-    data = file.file.read(MAX_COVER_BYTES + 1)
-    if not data:
-        raise HTTPException(status_code=422, detail="Cover image is empty")
-    if len(data) > MAX_COVER_BYTES:
-        raise HTTPException(status_code=413, detail="Cover image must be 10 MB or smaller")
-    mime = sniff_mime(data)
-    if mime is None:
-        raise HTTPException(status_code=415, detail="Only JPEG or PNG images are supported")
-
-    digest = hashlib.sha1(data).hexdigest()
-    row = conn.execute("SELECT id FROM artwork WHERE hash = ?", (digest,)).fetchone()
-    if row is not None:
-        artwork_id = int(row["id"])
-    else:
-        artwork_id = int(
-            conn.execute(
-                "INSERT INTO artwork (hash, blob, mime) VALUES (?, ?, ?)",
-                (digest, data, mime),
-            ).lastrowid
-        )
+    artwork_id = store_uploaded_artwork(conn, file)
     conn.execute(
         "UPDATE playlists SET cover_artwork_id = ? WHERE id = ?",
         (artwork_id, playlist_id),

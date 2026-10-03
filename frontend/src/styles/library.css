@@ -367,6 +367,38 @@
   background: rgba(0, 0, 0, 0.75);
 }
 
+/* The artist header's portrait joins the same grammar (2026-10-03),
+   masked to the circle the Artists grid reads as a face: same 220px
+   column, same scrim, same corner × — only the silhouette differs. */
+.detailhead__artbutton--round,
+.detailhead__artbutton--round .detailhead__artscrim {
+  border-radius: 50%;
+}
+
+.detailhead__art--round {
+  display: block;
+  width: 220px;
+  height: 220px;
+  border-radius: 50%;
+  overflow: hidden;
+  background: var(--bg-inset);
+  /* Tight and low, like the square art above (the table head's opaque
+     band slices a wide shadow flat). */
+  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.18);
+}
+
+.detailhead__art--round .artistcard__img,
+.detailhead__art--round .artistcard__monogram {
+  width: 100%;
+  height: 100%;
+  border-radius: 0;
+}
+
+/* The grid's 34px monogram would read as a stamp at 220px. */
+.detailhead__art--round .artistcard__monogram {
+  font-size: 64px;
+}
+
 .detailhead__meta {
   margin: 8px 0 0;
   font-size: var(--text-small);

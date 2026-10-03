@@ -6,7 +6,14 @@
 import { useQueryClient } from "@tanstack/react-query";
 
 import { api } from "./client";
-import type { BulkApplyIn, PlaylistDetail, Track, TrackPatch } from "./types";
+import type {
+  AlbumDetail,
+  ArtistDetail,
+  BulkApplyIn,
+  PlaylistDetail,
+  Track,
+  TrackPatch,
+} from "./types";
 import { usePlayerStore } from "../stores/player";
 import { useUiStore } from "../stores/ui";
 
@@ -47,7 +54,7 @@ function patchTracksIn(
   for (const key of ["items", "tracks"]) {
     const list = next[key];
     if (Array.isArray(list)) {
-      next[key] = list.map((t) =>
+      next[key] = list.map((t: unknown) =>
         t && typeof t === "object" && (t as Track).id === trackId
           ? fn(t as Track)
           : t,
@@ -353,6 +360,122 @@ export function useDeletePlaylist() {
     void queryClient.invalidateQueries({ queryKey: ["playlists"] });
     void queryClient.invalidateQueries({ queryKey: ["settings"] });
     void queryClient.invalidateQueries({ queryKey: ["search"] });
+    return response.ok;
+  };
+}
+
+/** Album & artist covers (2026-10-03): the playlist cover contract over
+    the library entities — PUT stores an upload, DELETE restores the
+    derived art. Both endpoints echo the refreshed detail; invalidation
+    is the source of truth, the same cadence as the playlist cover. The
+    artist-page hooks also refresh ["albums"]: its grid embeds the
+    artist's album cards, which read the album's own override. */
+function invalidateAlbumCovers(
+  queryClient: ReturnType<typeof useQueryClient>,
+  albumId: number,
+): void {
+  void queryClient.invalidateQueries({ queryKey: ["album", albumId] });
+  void queryClient.invalidateQueries({ queryKey: ["albums"] });
+  void queryClient.invalidateQueries({ queryKey: ["artist"] });
+  void queryClient.invalidateQueries({ queryKey: ["search"] });
+}
+
+export function useUploadAlbumCover() {
+  const queryClient = useQueryClient();
+  return async (albumId: number, file: File): Promise<AlbumDetail | null> => {
+    // openapi-typescript types multipart bodies as { file: string }; the
+    // runtime contract is FormData (hand-built here), as the playlist's.
+    const form = new FormData();
+    form.append("file", file);
+    const { data, response } = await api.PUT("/api/albums/{album_id}/cover", {
+      params: { path: { album_id: albumId } },
+      body: form as unknown as { file: string },
+    });
+    if (!response.ok || !data) return null;
+    invalidateAlbumCovers(queryClient, albumId);
+    return data;
+  };
+}
+
+export function useRemoveAlbumCover() {
+  const queryClient = useQueryClient();
+  return async (albumId: number): Promise<AlbumDetail | null> => {
+    const { data, response } = await api.DELETE("/api/albums/{album_id}/cover", {
+      params: { path: { album_id: albumId } },
+    });
+    if (!response.ok || !data) return null;
+    invalidateAlbumCovers(queryClient, albumId);
+    return data;
+  };
+}
+
+function invalidateArtistCovers(
+  queryClient: ReturnType<typeof useQueryClient>,
+  artistId: number,
+): void {
+  void queryClient.invalidateQueries({ queryKey: ["artist", artistId] });
+  void queryClient.invalidateQueries({ queryKey: ["artists"] });
+  void queryClient.invalidateQueries({ queryKey: ["search"] });
+}
+
+export function useUploadArtistCover() {
+  const queryClient = useQueryClient();
+  return async (artistId: number, file: File): Promise<ArtistDetail | null> => {
+    const form = new FormData();
+    form.append("file", file);
+    const { data, response } = await api.PUT("/api/artists/{artist_id}/cover", {
+      params: { path: { artist_id: artistId } },
+      body: form as unknown as { file: string },
+    });
+    if (!response.ok || !data) return null;
+    invalidateArtistCovers(queryClient, artistId);
+    return data;
+  };
+}
+
+export function useRemoveArtistCover() {
+  const queryClient = useQueryClient();
+  return async (artistId: number): Promise<ArtistDetail | null> => {
+    const { data, response } = await api.DELETE("/api/artists/{artist_id}/cover", {
+      params: { path: { artist_id: artistId } },
+    });
+    if (!response.ok || !data) return null;
+    invalidateArtistCovers(queryClient, artistId);
+    return data;
+  };
+}
+
+/** Cover removal's undo path (2026-10-03): re-point the cover at the
+    artwork row the removal just cleared. The upload itself is never gone
+    — the `artwork` table is content-addressed and unpruned — so restoring
+    is one reference write, not a re-upload. Same shape as
+    useUpdatePlaylist, whose cover field this mirrors. */
+export function useUpdateAlbum() {
+  const queryClient = useQueryClient();
+  return async (
+    albumId: number,
+    body: { cover_artwork_id?: number | null },
+  ): Promise<boolean> => {
+    const { response } = await api.PATCH("/api/albums/{album_id}", {
+      params: { path: { album_id: albumId } },
+      body,
+    });
+    if (response.ok) invalidateAlbumCovers(queryClient, albumId);
+    return response.ok;
+  };
+}
+
+export function useUpdateArtist() {
+  const queryClient = useQueryClient();
+  return async (
+    artistId: number,
+    body: { cover_artwork_id?: number | null },
+  ): Promise<boolean> => {
+    const { response } = await api.PATCH("/api/artists/{artist_id}", {
+      params: { path: { artist_id: artistId } },
+      body,
+    });
+    if (response.ok) invalidateArtistCovers(queryClient, artistId);
     return response.ok;
   };
 }

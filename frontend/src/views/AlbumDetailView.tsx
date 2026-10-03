@@ -3,14 +3,22 @@ import { Link, useNavigate, useParams } from "react-router";
 
 import { api } from "../api/client";
 import type { AlbumDetail } from "../api/types";
-import { useReorderTracks } from "../api/mutations";
+import {
+  useRemoveAlbumCover,
+  useReorderTracks,
+  useUpdateAlbum,
+  useUploadAlbumCover,
+} from "../api/mutations";
 import { Ambience } from "../components/Ambience";
 import { Artwork } from "../components/Artwork";
 import { CollectionActions } from "../components/CollectionActions";
+import { CoverEdit } from "../components/CoverEdit";
 import { EmptyState } from "../components/EmptyState";
 import { LoadingState } from "../components/LoadingState";
 import { IconAlbums, IconArtists } from "../components/icons";
+import { coverChangeNotice, coverRemovalNotice } from "../lib/coverUndo";
 import { fmtMinutes } from "../lib/format";
+import { useUiStore } from "../stores/ui";
 import { TrackTable } from "../components/TrackTable";
 import { TrackTableHead } from "../components/TrackTableHead";
 import "../styles/library.css";
@@ -20,6 +28,10 @@ export function AlbumDetailView() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const reorderTracks = useReorderTracks();
+  const uploadCover = useUploadAlbumCover();
+  const removeCover = useRemoveAlbumCover();
+  const updateAlbum = useUpdateAlbum();
+  const showUndoNotice = useUiStore((s) => s.showUndoNotice);
 
   const { data: album } = useQuery({
     queryKey: ["album", albumId],
@@ -95,11 +107,59 @@ export function AlbumDetailView() {
     });
   };
 
+  // Cover editing (§25): the action lands, then the toast offers Undo —
+  // the same recovery grammar as every removal. The artwork table is
+  // content-addressed and unpruned, so undo re-points the cover's
+  // reference (to the previous upload, or to the artwork row a removal
+  // cleared); it never re-uploads. The toast rides only a landed action;
+  // a failure surfaces through the invalidate resync.
+  const removeCoverWithUndo = () => {
+    const removed = album.cover_artwork_id;
+    void removeCover(album.id).then((ok) => {
+      if (ok)
+        coverRemovalNotice(
+          showUndoNotice,
+          album.title,
+          removed,
+          (id) => updateAlbum(album.id, { cover_artwork_id: id }),
+        );
+    });
+  };
+
+  const onCoverFile = (file: File) => {
+    const previous = album.cover_artwork_id;
+    return uploadCover(album.id, file).then((ok) => {
+      if (ok)
+        coverChangeNotice(
+          showUndoNotice,
+          album.title,
+          previous,
+          (id) => updateAlbum(album.id, { cover_artwork_id: id }),
+        );
+    });
+  };
+
   return (
     <section className="view view--ambient">
-      <Ambience artworkId={album.artwork_id} variant="banner" />
+      {/* The ambience washes from the art the header shows — a user-set
+          cover (2026-10-03) recolors the room with it. */}
+      <Ambience artworkId={album.cover_artwork_id ?? album.artwork_id} variant="banner" />
       <header className="detailhead">
-        <Artwork artworkId={album.artwork_id} size={220} radius="l" className="detailhead__art" />
+        {/* §9.2 joins the playlist's cover grammar (§13.10): the art is
+            click-to-edit with the hover scrim; the corner × removes a
+            user-set cover and the scan-derived artwork takes back over. */}
+        <CoverEdit
+          hasCover={album.cover_artwork_id != null}
+          onFile={onCoverFile}
+          onRemove={removeCoverWithUndo}
+        >
+          <Artwork
+            artworkId={album.cover_artwork_id ?? album.artwork_id}
+            size={220}
+            radius="l"
+            className="detailhead__art"
+          />
+        </CoverEdit>
         <div className="detailhead__info">
           <p className="detailhead__kind">Album</p>
           <h1 className="detailhead__title">{album.title}</h1>

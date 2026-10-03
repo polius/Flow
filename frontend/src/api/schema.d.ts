@@ -143,7 +143,14 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        patch?: never;
+        /**
+         * Update Album
+         * @description Re-point the album's cover at an existing artwork row, or clear it.
+         *     This is cover removal's undo path: the removed upload is still in the
+         *     content-addressed `artwork` table, so restoring it is a reference
+         *     write, not a re-upload (2026-10-03).
+         */
+        patch: operations["update_album_api_albums__album_id__patch"];
         trace?: never;
     };
     "/api/artists": {
@@ -177,7 +184,12 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        patch?: never;
+        /**
+         * Update Artist
+         * @description Re-point the artist's portrait at an existing artwork row, or clear
+         *     it — cover removal's undo path, same as the album's.
+         */
+        patch: operations["update_artist_api_artists__artist_id__patch"];
         trace?: never;
     };
     "/api/genres": {
@@ -196,6 +208,57 @@ export interface paths {
         put?: never;
         post?: never;
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/albums/{album_id}/cover": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set Album Cover
+         * @description Store an uploaded cover image and set it as the album's cover,
+         *     overriding the scan-derived artwork while set.
+         */
+        put: operations["set_album_cover_api_albums__album_id__cover_put"];
+        post?: never;
+        /**
+         * Reset Album Cover
+         * @description Clear the user-set cover — the scan-derived artwork takes back over.
+         */
+        delete: operations["reset_album_cover_api_albums__album_id__cover_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/artists/{artist_id}/cover": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set Artist Cover
+         * @description Store an uploaded image and set it as the artist's portrait,
+         *     overriding the latest-album cover while set.
+         */
+        put: operations["set_artist_cover_api_artists__artist_id__cover_put"];
+        post?: never;
+        /**
+         * Reset Artist Cover
+         * @description Clear the user-set portrait — the derived artwork takes back over
+         *     (latest album's cover, or the client's monogram when there is none).
+         */
+        delete: operations["reset_artist_cover_api_artists__artist_id__cover_delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -244,7 +307,14 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Reorder Tracks */
+        /**
+         * Reorder Tracks
+         * @description Renumber the given tracks 1..n in the order listed (§22's drag
+         *     gesture): the client sends one album's tracks in their new sequence and
+         *     each track's number is rewritten to its position. Every rewritten number
+         *     is flagged user-edited, so a rescan preserves it — the same overlay the
+         *     № cell's manual edit sets.
+         */
         post: operations["reorder_tracks_api_tracks_reorder_post"];
         delete?: never;
         options?: never;
@@ -261,7 +331,15 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Reorder Favorites */
+        /**
+         * Reorder Favorites
+         * @description Write the Favorites view's manual order: the client sends the whole
+         *     favorites list in its new sequence and each track's favorite_position
+         *     is rewritten to that slot (1..n) — the same contract as the playlist
+         *     order PUT, expressed over the favorites filter. Only currently loved
+         *     tracks are placed: one un-favorited mid-gesture is skipped, not an
+         *     error (the client's refetch resyncs the row).
+         */
         post: operations["reorder_favorites_api_favorites_reorder_post"];
         delete?: never;
         options?: never;
@@ -354,7 +432,13 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Add Tracks */
+        /**
+         * Add Tracks
+         * @description Append tracks to the playlist, skipping ones already in it (§2.1):
+         *     the same track lives in many playlists but never twice in one. The
+         *     `X-Tracks-Added` / `X-Tracks-Skipped` headers carry the honest counts
+         *     for the client's confirmation toast.
+         */
         post: operations["add_tracks_api_playlists__playlist_id__tracks_post"];
         delete?: never;
         options?: never;
@@ -511,6 +595,8 @@ export interface components {
             track_count: number;
             /** Played At */
             played_at?: string | null;
+            /** Cover Artwork Id */
+            cover_artwork_id?: number | null;
             /** Duration Total */
             duration_total: number;
             /** Tracks */
@@ -554,6 +640,13 @@ export interface components {
             track_count: number;
             /** Played At */
             played_at?: string | null;
+            /** Cover Artwork Id */
+            cover_artwork_id?: number | null;
+        };
+        /** AlbumUpdate */
+        AlbumUpdate: {
+            /** Cover Artwork Id */
+            cover_artwork_id?: number | null;
         };
         /** ArtistDetail */
         ArtistDetail: {
@@ -567,6 +660,8 @@ export interface components {
             track_count: number;
             /** Artwork Id */
             artwork_id?: number | null;
+            /** Cover Artwork Id */
+            cover_artwork_id?: number | null;
             /** Albums */
             albums: components["schemas"]["AlbumSummary"][];
             /** Tracks */
@@ -595,6 +690,29 @@ export interface components {
             track_count: number;
             /** Artwork Id */
             artwork_id?: number | null;
+            /** Cover Artwork Id */
+            cover_artwork_id?: number | null;
+        };
+        /** ArtistUpdate */
+        ArtistUpdate: {
+            /** Cover Artwork Id */
+            cover_artwork_id?: number | null;
+        };
+        /** Body_set_album_cover_api_albums__album_id__cover_put */
+        Body_set_album_cover_api_albums__album_id__cover_put: {
+            /**
+             * File
+             * Format: binary
+             */
+            file: string;
+        };
+        /** Body_set_artist_cover_api_artists__artist_id__cover_put */
+        Body_set_artist_cover_api_artists__artist_id__cover_put: {
+            /**
+             * File
+             * Format: binary
+             */
+            file: string;
         };
         /** Body_set_playlist_cover_api_playlists__playlist_id__cover_put */
         Body_set_playlist_cover_api_playlists__playlist_id__cover_put: {
@@ -649,16 +767,6 @@ export interface components {
         BulkApplyOut: {
             /** Applied */
             applied: number;
-        };
-        /**
-         * TrackReorderIn
-         * @description Organize drag-reorder (§22): the album's tracks in their new order.
-         *     Each track's number is rewritten to its position in the list (1..n) and
-         *     flagged user-edited, so a rescan preserves it.
-         */
-        TrackReorderIn: {
-            /** Track Ids */
-            track_ids: number[];
         };
         /**
          * CollisionGroup
@@ -810,6 +918,10 @@ export interface components {
             gain_db?: number | null;
             /** Played At */
             played_at?: string | null;
+            /** Genre */
+            genre?: string | null;
+            /** Added At */
+            added_at?: string | null;
             /** Position */
             position: number;
         };
@@ -1111,7 +1223,8 @@ export interface components {
          *     artist/album are name strings — the editor find-or-creates rows. Only
          *     fields the client sends are applied; sent overlay fields set their
          *     `user_edited` bit so rescans preserve them. `album_artist` pins a
-         *     compilation's identity (§2.2); an empty string clears it.
+         *     compilation's identity (§2.2); an empty string clears it. `genre`
+         *     replaces the track's tag genres with the one named (empty clears).
          */
         TrackPatch: {
             /** Title */
@@ -1128,6 +1241,16 @@ export interface components {
             favorite?: boolean | null;
             /** Genre */
             genre?: string | null;
+        };
+        /**
+         * TrackReorderIn
+         * @description Organize drag-reorder (§22): the album's tracks in their new order.
+         *     Each track's number is rewritten to its position in the list (1..n) and
+         *     flagged user-edited, so a rescan preserves it.
+         */
+        TrackReorderIn: {
+            /** Track Ids */
+            track_ids: number[];
         };
         /** ValidationError */
         ValidationError: {
@@ -1423,6 +1546,41 @@ export interface operations {
             };
         };
     };
+    update_album_api_albums__album_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                album_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AlbumUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AlbumDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_artists_api_artists_get: {
         parameters: {
             query?: {
@@ -1489,6 +1647,41 @@ export interface operations {
             };
         };
     };
+    update_artist_api_artists__artist_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                artist_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ArtistUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArtistDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_genres_api_genres_get: {
         parameters: {
             query?: {
@@ -1511,6 +1704,138 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["GenreListOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_album_cover_api_albums__album_id__cover_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                album_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_set_album_cover_api_albums__album_id__cover_put"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AlbumDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reset_album_cover_api_albums__album_id__cover_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                album_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AlbumDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_artist_cover_api_artists__artist_id__cover_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                artist_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_set_artist_cover_api_artists__artist_id__cover_put"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArtistDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reset_artist_cover_api_artists__artist_id__cover_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                artist_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArtistDetail"];
                 };
             };
             /** @description Validation Error */
@@ -1610,13 +1935,6 @@ export interface operations {
             };
         };
     };
-    /**
-     * Reorder Favorites
-     * @description Write the Favorites view's manual order: the client sends the whole
-     *     favorites list in its new sequence and each track's favorite_position
-     *     is rewritten to that slot (1..n) — the same contract as the playlist
-     *     order PUT, expressed over the favorites filter.
-     */
     reorder_favorites_api_favorites_reorder_post: {
         parameters: {
             query?: never;

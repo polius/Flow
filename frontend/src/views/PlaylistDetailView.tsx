@@ -3,12 +3,11 @@
    reorder is optimistic and the PUT is the source of truth.
 
    Editing lives in the header (2026-10-03): the name and the cover are
-   click-to-edit in place — the Manage dialog is gone. The cover button
-   uploads a new image (the scrim reveals on hover/focus) and its corner ×
-   removes a custom cover; deletion lives in the "…" menu behind a two-step
-   confirm. */
+   click-to-edit in place — the Manage dialog is gone. The cover cell is
+   the shared CoverEdit grammar (now album/artist headers too); deletion
+   lives in the "…" menu behind a two-step confirm. */
 
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate, useParams } from "react-router";
 
@@ -24,85 +23,61 @@ import {
 } from "../api/mutations";
 import { AddTracksDialog } from "../components/AddTracksDialog";
 import { CollectionActions } from "../components/CollectionActions";
+import { CoverEdit } from "../components/CoverEdit";
 import { EmptyState } from "../components/EmptyState";
 import { InlineEdit } from "../components/InlineEdit";
 import { LoadingState } from "../components/LoadingState";
-import { IconClose, IconPlaylists, IconPlus, IconTrash } from "../components/icons";
+import { IconPlaylists, IconPlus, IconTrash } from "../components/icons";
 import { PlaylistArt } from "../components/PlaylistArt";
 import { TrackTable } from "../components/TrackTable";
 import { TrackTableHead } from "../components/TrackTableHead";
 import { fmtCount, fmtDateTime, fmtMinutes } from "../lib/format";
+import { coverChangeNotice, coverRemovalNotice } from "../lib/coverUndo";
 import { useUiStore } from "../stores/ui";
 import { useQueryClient } from "@tanstack/react-query";
 import "../styles/library.css";
 import "../styles/editing.css";
 
-/** The header cover is its own edit affordance: click changes the image,
-    the corner × removes a custom one (the mosaic takes back over). */
+/** The header cover is its own edit affordance (the shared CoverEdit):
+    click changes the image, the corner × removes a custom one (the
+    mosaic takes back over) — both offer the §25 undo toast, composed in
+    lib/coverUndo with the album and artist headers. */
 function PlaylistCoverCell({ playlist }: { playlist: PlaylistDetailT }) {
   const uploadCover = useUploadPlaylistCover();
   const updatePlaylist = useUpdatePlaylist();
-  const [uploading, setUploading] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const hasCover = playlist.cover_artwork_id != null;
+  const showUndoNotice = useUiStore((s) => s.showUndoNotice);
 
-  const onPick = async (file: File | undefined) => {
-    if (!file || uploading) return;
-    setUploading(true);
-    await uploadCover(playlist.id, file);
-    setUploading(false);
+  const apply = (coverArtworkId: number | null) =>
+    updatePlaylist(playlist.id, { cover_artwork_id: coverArtworkId });
+
+  const removeWithUndo = () => {
+    const removed = playlist.cover_artwork_id;
+    void apply(null).then((ok) => {
+      if (ok) coverRemovalNotice(showUndoNotice, playlist.name, removed, apply);
+    });
+  };
+
+  const onCoverFile = (file: File) => {
+    const previous = playlist.cover_artwork_id;
+    return uploadCover(playlist.id, file).then((ok) => {
+      if (ok) coverChangeNotice(showUndoNotice, playlist.name, previous, apply);
+    });
   };
 
   return (
-    <div className="detailhead__artcol">
-      <button
-        type="button"
-        className={`detailhead__artbutton${uploading ? " detailhead__artbutton--busy" : ""}`}
-        onClick={() => fileInputRef.current?.click()}
-        disabled={uploading}
-        aria-label={hasCover ? "Change cover image" : "Add cover image"}
-        title="JPEG or PNG, up to 10 MB"
-      >
-        <PlaylistArt
-          artworkIds={playlist.artwork_ids}
-          coverArtworkId={playlist.cover_artwork_id}
-          size={220}
-          radius="l"
-          className="detailhead__art"
-        />
-        <span className="detailhead__artscrim" aria-hidden="true">
-          {uploading ? (
-            "Uploading…"
-          ) : (
-            <>
-              <IconPlus size={17} />
-              Change
-            </>
-          )}
-        </span>
-      </button>
-      {hasCover && (
-        <button
-          type="button"
-          className="detailhead__artremove"
-          aria-label="Remove cover image"
-          title="Remove cover image"
-          onClick={() => void updatePlaylist(playlist.id, { cover_artwork_id: null })}
-        >
-          <IconClose size={11} />
-        </button>
-      )}
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="image/jpeg,image/png"
-        hidden
-        onChange={(e) => {
-          void onPick(e.target.files?.[0]);
-          e.target.value = "";
-        }}
+    <CoverEdit
+      hasCover={playlist.cover_artwork_id != null}
+      onFile={onCoverFile}
+      onRemove={removeWithUndo}
+    >
+      <PlaylistArt
+        artworkIds={playlist.artwork_ids}
+        coverArtworkId={playlist.cover_artwork_id}
+        size={220}
+        radius="l"
+        className="detailhead__art"
       />
-    </div>
+    </CoverEdit>
   );
 }
 
@@ -264,7 +239,7 @@ export function PlaylistDetailView() {
                   confirmLabel: "Confirm Delete",
                   onSelect: () => {
                     void deletePlaylist(playlist.id).then((ok) => {
-                      if (ok) navigate("/playlists");
+                      if (ok) void navigate("/playlists");
                     });
                   },
                 },

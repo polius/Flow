@@ -4,12 +4,21 @@ import { useParams } from "react-router";
 
 import { api } from "../api/client";
 import type { QueueOrigin } from "../api/types";
+import {
+  useRemoveArtistCover,
+  useUpdateArtist,
+  useUploadArtistCover,
+} from "../api/mutations";
 import { AlbumCard } from "../components/AlbumCard";
+import { ArtistPortrait } from "../components/ArtistPortrait";
 import { CollectionActions } from "../components/CollectionActions";
+import { CoverEdit } from "../components/CoverEdit";
 import { EmptyState } from "../components/EmptyState";
 import { LoadingState } from "../components/LoadingState";
 import { IconArtists } from "../components/icons";
+import { coverChangeNotice, coverRemovalNotice } from "../lib/coverUndo";
 import { fmtCount } from "../lib/format";
+import { useUiStore } from "../stores/ui";
 import { TrackTable } from "../components/TrackTable";
 import { TrackTableHead } from "../components/TrackTableHead";
 import "../styles/library.css";
@@ -22,6 +31,10 @@ const COLLAPSE_ABOVE = 30;
 export function ArtistDetailView() {
   const artistId = Number(useParams().artistId);
   const [showAll, setShowAll] = useState(false);
+  const uploadCover = useUploadArtistCover();
+  const removeCover = useRemoveArtistCover();
+  const updateArtist = useUpdateArtist();
+  const showUndoNotice = useUiStore((s) => s.showUndoNotice);
 
   const { data: artist } = useQuery({
     queryKey: ["artist", artistId],
@@ -66,9 +79,57 @@ export function ArtistDetailView() {
     ? artist.tracks.slice(0, COLLAPSED_ROWS)
     : artist.tracks;
 
+  // Cover editing (§25): the action lands, then the toast offers Undo —
+  // see AlbumDetailView for the full note; this is the same grammar with
+  // the artist's hooks (§2.1: the sentence cannot fork).
+  const removeCoverWithUndo = () => {
+    const removed = artist.cover_artwork_id;
+    void removeCover(artist.id).then((ok) => {
+      if (ok)
+        coverRemovalNotice(
+          showUndoNotice,
+          artist.name,
+          removed,
+          (id) => updateArtist(artist.id, { cover_artwork_id: id }),
+        );
+    });
+  };
+
+  const onCoverFile = (file: File) => {
+    const previous = artist.cover_artwork_id;
+    return uploadCover(artist.id, file).then((ok) => {
+      if (ok)
+        coverChangeNotice(
+          showUndoNotice,
+          artist.name,
+          previous,
+          (id) => updateArtist(artist.id, { cover_artwork_id: id }),
+        );
+    });
+  };
+
   return (
     <section className="view">
       <header className="detailhead">
+        {/* The artist header joins the cover grammar (2026-10-03): the
+            portrait is click-to-edit, masked to the circle the Artists
+            grid reads as a face. The latest album's cover stands in
+            until the user sets one; the × restores it. No art at all →
+            the monogram, a designed state (§8.1), still invites the
+            first upload. */}
+        <CoverEdit
+          round
+          hasCover={artist.cover_artwork_id != null}
+          onFile={onCoverFile}
+          onRemove={removeCoverWithUndo}
+        >
+          <span className="detailhead__art detailhead__art--round">
+            <ArtistPortrait
+              artworkId={artist.cover_artwork_id ?? artist.artwork_id}
+              name={artist.name}
+            />
+          </span>
+        </CoverEdit>
         <div className="detailhead__info">
           <p className="detailhead__kind">Artist</p>
           <h1 className="detailhead__title">{artist.name}</h1>

@@ -302,8 +302,9 @@ def list_albums(
         f"SELECT COUNT(DISTINCT al.id) AS c {base} {clause}", params
     ).fetchone()["c"]
     rows = conn.execute(
-        f"SELECT al.id, al.title, al.year, al.artwork_id, ar.name AS artist, "
-        f"al.artist_id, COUNT(t.id) AS track_count, MAX(t.played_at) AS played_at "
+        f"SELECT al.id, al.title, al.year, al.artwork_id, al.cover_artwork_id, "
+        f"ar.name AS artist, al.artist_id, COUNT(t.id) AS track_count, "
+        f"MAX(t.played_at) AS played_at "
         f"{base} {clause} GROUP BY al.id ORDER BY {directed}, al.title COLLATE NOCASE "
         f"LIMIT ? OFFSET ?",
         [*params, limit, offset],
@@ -317,6 +318,7 @@ def list_albums(
                 artist_id=r["artist_id"],
                 year=r["year"],
                 artwork_id=r["artwork_id"],
+                cover_artwork_id=r["cover_artwork_id"],
                 track_count=r["track_count"],
                 played_at=r["played_at"],
             )
@@ -328,12 +330,13 @@ def list_albums(
     )
 
 
-@router.get("/api/albums/{album_id}", response_model=AlbumDetail)
-def get_album(request: Request, album_id: int) -> AlbumDetail:
-    conn = request.app.state.db.connect()
+def album_detail(conn, album_id: int) -> AlbumDetail:
+    """The album detail payload — shared by the read endpoint and the
+    cover router (a cover PUT/DELETE echoes the refreshed detail)."""
     album = conn.execute(
-        "SELECT al.id, al.title, al.year, al.artwork_id, ar.name AS artist, "
-        "al.artist_id FROM albums al LEFT JOIN artists ar ON ar.id = al.artist_id "
+        "SELECT al.id, al.title, al.year, al.artwork_id, al.cover_artwork_id, "
+        "ar.name AS artist, al.artist_id FROM albums al "
+        "LEFT JOIN artists ar ON ar.id = al.artist_id "
         "WHERE al.id = ?",
         (album_id,),
     ).fetchone()
@@ -353,11 +356,18 @@ def get_album(request: Request, album_id: int) -> AlbumDetail:
         artist_id=album["artist_id"],
         year=album["year"],
         artwork_id=album["artwork_id"],
+        cover_artwork_id=album["cover_artwork_id"],
         track_count=len(tracks),
         duration_total=sum(t.duration for t in tracks),
         played_at=max((t.played_at for t in tracks if t.played_at), default=None),
         tracks=tracks,
     )
+
+
+@router.get("/api/albums/{album_id}", response_model=AlbumDetail)
+def get_album(request: Request, album_id: int) -> AlbumDetail:
+    conn = request.app.state.db.connect()
+    return album_detail(conn, album_id)
 
 
 @router.get("/api/artists", response_model=ArtistListOut)
@@ -392,7 +402,8 @@ def list_artists(
         "  SELECT ta.track_id FROM track_artists ta WHERE ta.artist_id = ar.id))"
     )
     rows = conn.execute(
-        f"SELECT ar.id, ar.name, {ARTIST_ARTWORK_SQL} AS artwork_id, "
+        f"SELECT ar.id, ar.name, ar.cover_artwork_id, "
+        f"{ARTIST_ARTWORK_SQL} AS artwork_id, "
         f"(SELECT COUNT(*) FROM albums al WHERE al.artist_id = ar.id) AS album_count, "
         f"{credited_count} AS track_count "
         f"FROM artists ar {clause} "
@@ -407,6 +418,7 @@ def list_artists(
                 album_count=r["album_count"],
                 track_count=r["track_count"],
                 artwork_id=r["artwork_id"],
+                cover_artwork_id=r["cover_artwork_id"],
             )
             for r in rows
         ],
@@ -416,11 +428,12 @@ def list_artists(
     )
 
 
-@router.get("/api/artists/{artist_id}", response_model=ArtistDetail)
-def get_artist(request: Request, artist_id: int) -> ArtistDetail:
-    conn = request.app.state.db.connect()
+def artist_detail(conn, artist_id: int) -> ArtistDetail:
+    """The artist detail payload — shared by the read endpoint and the
+    cover router (a cover PUT/DELETE echoes the refreshed detail)."""
     artist = conn.execute(
-        f"SELECT ar.id, ar.name, {ARTIST_ARTWORK_SQL} AS artwork_id "
+        f"SELECT ar.id, ar.name, ar.cover_artwork_id, "
+        f"{ARTIST_ARTWORK_SQL} AS artwork_id "
         f"FROM artists ar WHERE ar.id = ?",
         (artist_id,),
     ).fetchone()
@@ -428,8 +441,8 @@ def get_artist(request: Request, artist_id: int) -> ArtistDetail:
         raise HTTPException(status_code=404, detail="Artist not found")
 
     album_rows = conn.execute(
-        "SELECT al.id, al.title, al.year, al.artwork_id, ar.name AS artist, "
-        "al.artist_id, COUNT(t.id) AS track_count "
+        "SELECT al.id, al.title, al.year, al.artwork_id, al.cover_artwork_id, "
+        "ar.name AS artist, al.artist_id, COUNT(t.id) AS track_count "
         "FROM albums al LEFT JOIN artists ar ON ar.id = al.artist_id "
         "LEFT JOIN tracks t ON t.album_id = al.id "
         "WHERE al.artist_id = ? GROUP BY al.id "
@@ -453,6 +466,7 @@ def get_artist(request: Request, artist_id: int) -> ArtistDetail:
             artist_id=r["artist_id"],
             year=r["year"],
             artwork_id=r["artwork_id"],
+            cover_artwork_id=r["cover_artwork_id"],
             track_count=r["track_count"],
         )
         for r in album_rows
@@ -464,9 +478,16 @@ def get_artist(request: Request, artist_id: int) -> ArtistDetail:
         album_count=len(albums),
         track_count=len(tracks),
         artwork_id=artist["artwork_id"],
+        cover_artwork_id=artist["cover_artwork_id"],
         albums=albums,
         tracks=tracks,
     )
+
+
+@router.get("/api/artists/{artist_id}", response_model=ArtistDetail)
+def get_artist(request: Request, artist_id: int) -> ArtistDetail:
+    conn = request.app.state.db.connect()
+    return artist_detail(conn, artist_id)
 
 
 @router.get("/api/genres", response_model=GenreListOut)

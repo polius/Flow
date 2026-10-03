@@ -19,6 +19,7 @@ from app.db import Database
 from app.events import ScanBus
 from app.scanner import LibraryScanner
 from app.routers import editing as editing_router
+from app.routers import covers as covers_router
 from app.routers import library as library_router
 from app.routers import media as media_router
 from app.routers import playlists as playlists_router
@@ -93,6 +94,7 @@ def create_app() -> FastAPI:
     app.include_router(scan_router.router)
     app.include_router(settings_router.router)
     app.include_router(library_router.router)
+    app.include_router(covers_router.router)
     app.include_router(editing_router.router)
     app.include_router(playlists_router.router)
     app.include_router(search_router.router)

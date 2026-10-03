@@ -82,7 +82,12 @@ export function AlbumCard({ album }: { album: AlbumSummary }) {
     <div className="album-card">
       <div className="album-card__artwrap">
         <Link to={`/albums/${album.id}`} className="album-card__artlink" aria-label={album.title}>
-          <Artwork artworkId={album.artwork_id} size={180} radius="m" className="album-card__art" />
+          <Artwork
+            artworkId={album.cover_artwork_id ?? album.artwork_id}
+            size={180}
+            radius="m"
+            className="album-card__art"
+          />
         </Link>
         <div className="album-card__hoveractions" ref={menuRef}>
           <button

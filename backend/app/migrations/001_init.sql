@@ -46,7 +46,8 @@ CREATE TABLE tracks (
 
 CREATE TABLE artists (
   id   INTEGER PRIMARY KEY,
-  name TEXT NOT NULL UNIQUE COLLATE NOCASE
+  name TEXT NOT NULL UNIQUE COLLATE NOCASE,
+  cover_artwork_id INTEGER REFERENCES artwork(id)  -- user-set portrait; overrides the latest-album cover
 );
 
 CREATE TABLE albums (
@@ -54,7 +55,8 @@ CREATE TABLE albums (
   title      TEXT NOT NULL COLLATE NOCASE,
   artist_id  INTEGER REFERENCES artists(id),
   year       INTEGER,
-  artwork_id INTEGER REFERENCES artwork(id)  -- deduped: cover of first track seen
+  artwork_id INTEGER REFERENCES artwork(id),  -- deduped: cover of first track seen
+  cover_artwork_id INTEGER REFERENCES artwork(id)  -- user-set cover; overrides artwork_id (§9.2, like playlists)
 );
 
 -- track_artists: credited artists per track with a role. The single

@@ -11,7 +11,7 @@ import { EmptyState } from "../components/EmptyState";
 import { IconSearch } from "../components/icons";
 import { PlaylistArt } from "../components/PlaylistArt";
 import { TrackTable } from "../components/TrackTable";
-import { ArtistPortrait } from "./ArtistsView";
+import { ArtistPortrait } from "../components/ArtistPortrait";
 import { fmtMinutes } from "../lib/format";
 import "../styles/library.css";
 
@@ -33,8 +33,7 @@ export function SearchView() {
   const hasQuery = urlQuery.trim().length > 0;
   const results = hasQuery ? data : undefined;
   const nothing =
-    results != null &&
-    results.tracks.length === 0 &&
+    results?.tracks.length === 0 &&
     results.albums.length === 0 &&
     results.artists.length === 0 &&
     results.playlists.length === 0;
@@ -103,7 +102,10 @@ export function SearchView() {
                 {results.artists.map((artist) => (
                   <Link key={artist.id} to={`/artists/${artist.id}`} className="artistrow">
                     <span className="artistrow__portrait">
-                      <ArtistPortrait artworkId={artist.artwork_id} name={artist.name} />
+                      <ArtistPortrait
+                        artworkId={artist.cover_artwork_id ?? artist.artwork_id}
+                        name={artist.name}
+                      />
                     </span>
                     <span>{artist.name}</span>
                     <span className="artistrow__counts">

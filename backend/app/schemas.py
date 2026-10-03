@@ -106,6 +106,9 @@ class AlbumSummary(BaseModel):
     # The album's most recent play (§4.1) — recency sorts and the Home
     # "Recently played" module. NULL = never played on this server.
     played_at: str | None = None
+    # User-set cover (2026-10-03): overrides the scan-derived `artwork_id`
+    # while set, exactly as a playlist's cover overrides its track mosaic.
+    cover_artwork_id: int | None = None
 
 
 class AlbumListOut(BaseModel):
@@ -120,6 +123,11 @@ class AlbumDetail(AlbumSummary):
     tracks: list[TrackOut]
 
 
+class AlbumUpdate(BaseModel):
+    # Null restores the scan-derived artwork (the cover-reset verb).
+    cover_artwork_id: int | None = None
+
+
 class ArtistSummary(BaseModel):
     id: int
     name: str
@@ -129,6 +137,9 @@ class ArtistSummary(BaseModel):
     # grid reads as a wall of circular covers, Apple-Music style). None → the
     # client renders a monogram.
     artwork_id: int | None = None
+    # User-set portrait (2026-10-03): overrides `artwork_id` while set —
+    # the same override a playlist's cover applies to its track mosaic.
+    cover_artwork_id: int | None = None
 
 
 class ArtistListOut(BaseModel):
@@ -141,6 +152,11 @@ class ArtistListOut(BaseModel):
 class ArtistDetail(ArtistSummary):
     albums: list[AlbumSummary]
     tracks: list[TrackOut]
+
+
+class ArtistUpdate(BaseModel):
+    # Null restores the derived portrait (the latest album's cover).
+    cover_artwork_id: int | None = None
 
 
 # ---- Genres (UX review §2.2) -------------------------------------------------

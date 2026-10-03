@@ -430,7 +430,7 @@ function SearchZone({
         key: `a-${a.id}`,
         render: () => (
           <>
-            <Artwork artworkId={a.artwork_id} size={28} radius="s" />
+            <Artwork artworkId={a.cover_artwork_id ?? a.artwork_id} size={28} radius="s" />
             <span className="suggest__name">{a.title}</span>
             <span className="suggest__meta">{a.artist ?? " "}</span>
           </>
@@ -444,7 +444,11 @@ function SearchZone({
         render: () => (
           <>
             <span className="suggest__avatar" aria-hidden="true">
-              <Artwork artworkId={a.artwork_id} size={28} radius="s" />
+              <Artwork
+                artworkId={a.cover_artwork_id ?? a.artwork_id}
+                size={28}
+                radius="s"
+              />
             </span>
             <span className="suggest__name">{a.name}</span>
             <span className="suggest__meta">Artist</span>

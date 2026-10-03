@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useSearchParams } from "react-router";
 
 import { api } from "../api/client";
 import { EmptyState } from "../components/EmptyState";
 import { LoadingState } from "../components/LoadingState";
+import { ArtistPortrait } from "../components/ArtistPortrait";
 import { SortMenu, type SortOption } from "../components/SortMenu";
 import { IconArtists } from "../components/icons";
 import { fmtCount } from "../lib/format";
@@ -99,7 +100,12 @@ export function ArtistsView() {
           {artists.map((artist) => (
             <Link key={artist.id} to={`/artists/${artist.id}`} className="artistcard">
               <span className="artistcard__portrait">
-                <ArtistPortrait artworkId={artist.artwork_id} name={artist.name} />
+                {/* A user-set portrait (2026-10-03) stands in for the
+                    latest album's cover everywhere the artist appears. */}
+                <ArtistPortrait
+                  artworkId={artist.cover_artwork_id ?? artist.artwork_id}
+                  name={artist.name}
+                />
               </span>
               <span className="artistcard__name">{artist.name}</span>
               <span className="artistcard__meta">
@@ -112,34 +118,5 @@ export function ArtistsView() {
         </div>
       )}
     </section>
-  );
-}
-
-/* The portrait: artwork cropped to a circle, or a monogram when the artist
-   has no cover — or the cover is broken (demo libraries happen; the img
-   element's error is a designed state, not a glyph). */
-export function ArtistPortrait({
-  artworkId,
-  name,
-}: {
-  artworkId: number | null | undefined;
-  name: string;
-}): ReactNode {
-  const [failed, setFailed] = useState(false);
-  if (artworkId == null || failed) {
-    return (
-      <span className="artistcard__monogram" aria-hidden="true">
-        {(name.trim()[0] ?? "?").toUpperCase()}
-      </span>
-    );
-  }
-  return (
-    <img
-      className="artistcard__img"
-      src={`/api/artwork/${artworkId}`}
-      alt=""
-      loading="lazy"
-      onError={() => setFailed(true)}
-    />
   );
 }

@@ -70,11 +70,12 @@ def search(request: Request, q: str = Query(min_length=1)) -> SearchOut:
             artist_id=r["artist_id"],
             year=r["year"],
             artwork_id=r["artwork_id"],
+            cover_artwork_id=r["cover_artwork_id"],
             track_count=r["track_count"],
         )
         for r in conn.execute(
-            "SELECT al.id, al.title, al.year, al.artwork_id, ar.name AS artist, "
-            "al.artist_id, COUNT(t.id) AS track_count "
+            "SELECT al.id, al.title, al.year, al.artwork_id, al.cover_artwork_id, "
+            "ar.name AS artist, al.artist_id, COUNT(t.id) AS track_count "
             "FROM albums al LEFT JOIN artists ar ON ar.id = al.artist_id "
             "LEFT JOIN tracks t ON t.album_id = al.id "
             "WHERE al.title LIKE ? ESCAPE '\\' OR ar.name LIKE ? ESCAPE '\\' "
@@ -88,9 +89,10 @@ def search(request: Request, q: str = Query(min_length=1)) -> SearchOut:
             id=r["id"], name=r["name"],
             album_count=r["album_count"], track_count=r["track_count"],
             artwork_id=r["artwork_id"],
+            cover_artwork_id=r["cover_artwork_id"],
         )
         for r in conn.execute(
-            "SELECT ar.id, ar.name, "
+            "SELECT ar.id, ar.name, ar.cover_artwork_id, "
             "(SELECT al2.artwork_id FROM albums al2 WHERE al2.artist_id = ar.id "
             "AND al2.artwork_id IS NOT NULL "
             "ORDER BY (al2.year IS NULL), al2.year DESC LIMIT 1) AS artwork_id, "
