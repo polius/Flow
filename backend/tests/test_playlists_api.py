@@ -78,16 +78,17 @@ def test_add_remove_tracks_and_positions(client, library):
         sum(t["duration"] for t in body["tracks"])
     )
 
-    # Appends continue the position sequence.
-    again = client.post(f"/api/playlists/{pid}/tracks", json={"track_ids": [ids[0]]})
+    # Appends continue the position sequence. (Re-adding ids[0] would be a
+    # set-like no-op now — §2.1: never twice in one playlist.)
+    again = client.post(f"/api/playlists/{pid}/tracks", json={"track_ids": [ids[3]]})
     assert again.json()["tracks"][-1]["position"] == 4
 
     # Removal takes out every occurrence and resequences.
     removed = client.delete(f"/api/playlists/{pid}/tracks/{ids[0]}")
     assert removed.status_code == 200
     remaining = removed.json()["tracks"]
-    assert [t["position"] for t in remaining] == [1, 2]
-    assert [t["title"] for t in remaining] == ["Bravo", "Charlie"]
+    assert [t["position"] for t in remaining] == [1, 2, 3]
+    assert [t["title"] for t in remaining] == ["Bravo", "Charlie", "Delta"]
 
     assert client.post(f"/api/playlists/{pid}/tracks", json={"track_ids": [99999]}).status_code == 422
     assert client.post(f"/api/playlists/{pid}/tracks", json={"track_ids": []}).status_code == 422
@@ -114,16 +115,32 @@ def test_reorder_requires_permutation_of_membership(client, library):
     assert [t["title"] for t in ok.json()["tracks"]] == ["Charlie", "Alpha", "Bravo"]
 
 
-def test_duplicate_tracks_are_allowed_and_reorder_keeps_multiplicity(client, library):
+def test_duplicate_tracks_are_skipped_set_like_membership(client, library):
+    """§2.1: the same track may live in many playlists but never twice in
+    one — add is set-like, deduping the request and skipping what the
+    playlist already holds. The counts ride the response headers so the
+    client's confirmation stays honest."""
     pid = client.post("/api/playlists", json={"name": "Repeats"}).json()["id"]
     ids = [t["id"] for t in _tracks(client)]
-    client.post(f"/api/playlists/{pid}/tracks", json={"track_ids": [ids[0], ids[1], ids[0]]})
+    added = client.post(
+        f"/api/playlists/{pid}/tracks", json={"track_ids": [ids[0], ids[1], ids[0]]}
+    )
+    assert added.status_code == 201
+    assert added.headers["x-tracks-added"] == "2"
+    assert added.headers["x-tracks-skipped"] == "1"
+    assert [t["id"] for t in added.json()["tracks"]] == [ids[0], ids[1]]
 
-    detail = client.get(f"/api/playlists/{pid}").json()
-    assert [t["id"] for t in detail["tracks"]] == [ids[0], ids[1], ids[0]]
+    # Re-adding an existing track adds nothing — and the playlist is honest.
+    again = client.post(
+        f"/api/playlists/{pid}/tracks", json={"track_ids": [ids[1], ids[2]]}
+    )
+    assert again.headers["x-tracks-added"] == "1"
+    assert again.headers["x-tracks-skipped"] == "1"
+    assert [t["id"] for t in again.json()["tracks"]] == [ids[0], ids[1], ids[2]]
 
+    # Reorder still accepts the (now duplicate-free) membership.
     shuffled = client.put(
-        f"/api/playlists/{pid}/order", json={"track_ids": [ids[0], ids[0], ids[1]]}
+        f"/api/playlists/{pid}/order", json={"track_ids": [ids[2], ids[0], ids[1]]}
     )
     assert shuffled.status_code == 200
 

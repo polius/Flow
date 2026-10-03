@@ -1,9 +1,12 @@
 """Playlist CRUD, membership, and ordering (DESIGN.md §6, §9.2, §13.10).
 
 Lists return the mosaic payload (up to four artwork ids in playlist order);
-detail returns tracks with their positions. Reorder is a full-replace PUT:
-the client sends the complete membership in its new order (a multiset match
-is required — playlists may legally contain a track more than once).
+detail returns tracks with their positions. Add is set-like: a track that is
+already in the playlist is skipped (once, in the request, is the same as
+twice) — the same track may live in many playlists, but never twice in one.
+Reorder is a full-replace PUT: the client sends the complete membership in
+its new order (a multiset match is required — historical duplicates, from
+before the set-like rule, may still be reordered without loss).
 Positions may carry gaps after a track's row is deleted from the library
 (FK cascade) — ordering stays stable and removal/reorder recompact them.
 """
@@ -237,8 +240,12 @@ def delete_playlist(request: Request, playlist_id: int) -> Response:
     status_code=201,
 )
 def add_tracks(
-    request: Request, playlist_id: int, body: PlaylistTracksIn
+    request: Request, playlist_id: int, body: PlaylistTracksIn, response: Response
 ) -> PlaylistDetail:
+    """Append tracks to the playlist, skipping ones already in it (§2.1):
+    the same track lives in many playlists but never twice in one. The
+    `X-Tracks-Added` / `X-Tracks-Skipped` headers carry the honest counts
+    for the client's confirmation toast."""
     conn = request.app.state.db.connect()
     _require_playlist(conn, playlist_id)
     if not body.track_ids:
@@ -254,19 +261,34 @@ def add_tracks(
             status_code=422, detail=f"Unknown track ids: {unknown[:5]}"
         )
 
-    next_pos = (
-        conn.execute(
-            "SELECT COALESCE(MAX(position), 0) AS m FROM playlist_tracks "
-            "WHERE playlist_id = ?",
+    # Set-like membership: dedupe the request, then drop anything the
+    # playlist already holds — in order, once.
+    wanted = list(dict.fromkeys(body.track_ids))
+    present = {
+        r["track_id"]
+        for r in conn.execute(
+            "SELECT track_id FROM playlist_tracks WHERE playlist_id = ?",
             (playlist_id,),
-        ).fetchone()["m"]
-        + 1
-    )
-    conn.executemany(
-        "INSERT INTO playlist_tracks (playlist_id, track_id, position) VALUES (?, ?, ?)",
-        [(playlist_id, tid, next_pos + i) for i, tid in enumerate(body.track_ids)],
-    )
-    conn.commit()
+        ).fetchall()
+    }
+    to_add = [tid for tid in wanted if tid not in present]
+
+    if to_add:
+        next_pos = (
+            conn.execute(
+                "SELECT COALESCE(MAX(position), 0) AS m FROM playlist_tracks "
+                "WHERE playlist_id = ?",
+                (playlist_id,),
+            ).fetchone()["m"]
+            + 1
+        )
+        conn.executemany(
+            "INSERT INTO playlist_tracks (playlist_id, track_id, position) VALUES (?, ?, ?)",
+            [(playlist_id, tid, next_pos + i) for i, tid in enumerate(to_add)],
+        )
+        conn.commit()
+    response.headers["X-Tracks-Added"] = str(len(to_add))
+    response.headers["X-Tracks-Skipped"] = str(len(body.track_ids) - len(to_add))
     return _detail(conn, playlist_id)
 
 
