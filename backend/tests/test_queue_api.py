@@ -299,3 +299,109 @@ def test_get_degrades_corrupt_origin_to_none(client, library):
     got = client.get("/api/queue").json()
     assert got["origin"] is None
     assert len(got["items"]) > 0  # the session itself is untouched
+
+
+# ---- write-lock resilience (§lock) ---------------------------------------------
+
+
+def test_write_transaction_retries_then_succeeds(db):
+    """A locked attempt is retried with backoff; the write lands on the
+    first free window instead of surfacing `database is locked` as a 500."""
+    import sqlite3 as _sqlite3
+
+    from app.routers.queue import _write_transaction
+
+    conn = db.connect()
+    calls = {"n": 0}
+
+    def flaky():
+        calls["n"] += 1
+        if calls["n"] < 3:
+            raise _sqlite3.OperationalError("database is locked")
+        conn.execute(
+            "UPDATE queue_state SET updated_at = ? WHERE id = 0", ("2026-10-03",)
+        )
+        conn.commit()
+        return "ok"
+
+    assert _write_transaction(conn, flaky) == "ok"
+    assert calls["n"] == 3
+
+
+def test_write_transaction_raises_through_non_lock_errors(db):
+    """A genuine failure (not a lock) is not retried — it propagates."""
+    import sqlite3 as _sqlite3
+
+    from app.routers.queue import _write_transaction
+
+    conn = db.connect()
+
+    def broken():
+        raise _sqlite3.OperationalError("no such table: nothing")
+
+    with pytest.raises(_sqlite3.OperationalError, match="no such table"):
+        _write_transaction(conn, broken)
+
+
+def test_retry_locked_exhausts_deadline_and_raises(db):
+    """A lock held past the deadline re-raises — honest failure, not a hang."""
+    import sqlite3 as _sqlite3
+
+    from app.db import retry_locked
+
+    conn = db.connect()
+
+    def always_locked():
+        raise _sqlite3.OperationalError("database is locked")
+
+    with pytest.raises(_sqlite3.OperationalError, match="locked"):
+        retry_locked(conn, always_locked, deadline=0.2)
+
+
+def test_playhead_write_lands_while_another_writer_holds_the_lock(db):
+    """The reported failure mode: another writer holds the WAL write lock
+    while the queue mirror writes its playhead. The write waits out the
+    window and lands — no `database is locked` exception surfaces."""
+    import sqlite3 as _sqlite3
+    import threading
+    import time as _time
+
+    from app.routers.queue import _write_transaction
+
+    conn = db.connect()
+    locked = threading.Event()
+    # A second connection plays the long-writer role (the scanner's). It
+    # lives entirely in its own thread (sqlite3 objects are thread-bound).
+    def hold_and_release():
+        b = _sqlite3.connect(db.path)
+        b.execute("PRAGMA busy_timeout=50")
+        b.execute("CREATE TABLE IF NOT EXISTS lock_probe (id INTEGER)")
+        b.commit()
+        b.execute("BEGIN IMMEDIATE")
+        b.execute("INSERT INTO lock_probe VALUES (1)")
+        locked.set()
+        _time.sleep(1.0)
+        b.rollback()
+        b.close()
+
+    releaser = threading.Thread(target=hold_and_release)
+    releaser.start()
+    assert locked.wait(2.0)
+
+    start = _time.monotonic()
+    try:
+        _write_transaction(
+            conn,
+            lambda: (
+                conn.execute(
+                    "UPDATE queue_state SET updated_at = ? WHERE id = 0", ("held",)
+                ),
+                conn.commit(),
+            ),
+        )
+    finally:
+        releaser.join()
+    assert _time.monotonic() - start >= 0.9
+
+    row = conn.execute("SELECT updated_at FROM queue_state WHERE id = 0").fetchone()
+    assert row["updated_at"] == "held"

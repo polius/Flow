@@ -40,7 +40,10 @@ log = logging.getLogger("flow.scanner")
 
 MTIME_EPS = 1e-6
 DURATION_EPS = 0.05
-COMMIT_EVERY = 200
+# Lock hygiene (§lock): the scanner commits PER FILE (and the analysis pass
+# per track) so its WAL write-lock windows stay milliseconds wide — a busy
+# scan must never starve the queue mirror's 3 s playhead writes into 500s.
+# `synchronous=NORMAL` (db.py) keeps those commits cheap.
 # The per-file error log persisted with the scan result (§2.8): enough rows
 # to see the shape of a bad rip batch, few enough to stay a settings row.
 ERROR_LOG_LIMIT = 500
@@ -55,6 +58,7 @@ class Edited(IntFlag):
     ALBUM = 4
     TRACK_NO = 8
     ALBUM_ARTIST = 16
+    GENRE = 32
 
 
 @dataclass
@@ -259,27 +263,29 @@ class LibraryScanner:
                 "UPDATE tracks SET path = ? WHERE id = ?", (rel, moves[rel]["id"])
             )
             tick()
+            # Lock hygiene (§lock): one tiny transaction per row — the queue
+            # mirror's writes land in the gaps instead of piling into 500s.
+            conn.commit()
 
         # Files matched as moves are already handled above — skip them here.
         for rel in sorted(added - set(moves)):
             if not self._upsert_file(conn, artstore, disk[rel], None):
                 errors += 1
             tick()
-            if processed % COMMIT_EVERY == 0:
-                self._persist_progress(conn, processed, errors)
-                conn.commit()
+            self._persist_progress(conn, processed, errors)
+            conn.commit()
 
         for rel in sorted(changed):
             if not self._upsert_file(conn, artstore, disk[rel], db_rows[rel]):
                 errors += 1
             tick()
-            if processed % COMMIT_EVERY == 0:
-                self._persist_progress(conn, processed, errors)
-                conn.commit()
+            self._persist_progress(conn, processed, errors)
+            conn.commit()
 
         for rel in sorted(disappeared - moved_old_paths):
             conn.execute("DELETE FROM tracks WHERE id = ?", (db_rows[rel]["id"],))
             tick()
+            conn.commit()
 
         prune_orphans(conn)
         self._persist_finish(conn, errors=errors)
@@ -430,8 +436,10 @@ class LibraryScanner:
             )
             track_id = int(cur.lastrowid)
 
-        # Credited artists + genres (§2.2) always follow the tags; the
-        # primary display credit follows the (overlay-aware) artist column.
+        # Credited artists always follow the tags; the primary display
+        # credit follows the (overlay-aware) artist column. Genres follow
+        # the tags too — unless the user set one in Organize (§22): their
+        # choice is the overlay, so the tag genre never overwrites it.
         set_track_credits(
             conn,
             track_id,
@@ -440,7 +448,10 @@ class LibraryScanner:
             featured=parsed.featured,
             composers=parsed.composers,
         )
-        set_track_genres(conn, track_id, parsed.genres)
+        if Edited.GENRE in edited and existing:
+            pass  # the user's genre outranks the tag on every rescan
+        else:
+            set_track_genres(conn, track_id, parsed.genres)
         return True
 
     # -- walk --------------------------------------------------------------
@@ -495,6 +506,10 @@ class LibraryScanner:
         analyzed = 0
         for row in rows:
             gain = analyze_file(self._music / row["path"])
+            # Lock hygiene (§lock): the write transaction opens at the UPDATE
+            # below and ends at the commit — ffmpeg NEVER runs inside one.
+            # A transaction held across ~25 analyses (the old batching) kept
+            # the WAL write lock for minutes and 500'd the queue mirror.
             if gain is not None:
                 conn.execute(
                     "UPDATE tracks SET gain_db = ? WHERE id = ?", (gain, row["id"])
@@ -504,8 +519,7 @@ class LibraryScanner:
             self._set_state(state="scanning", phase="analyze", current=processed)
             if processed % 25 == 0:
                 _settings_upsert(conn, "scan_current", str(processed))
-                conn.commit()
-        conn.commit()
+            conn.commit()
         log.info("Loudness analysis finished (%d/%d measured)", analyzed, total)
         # The scan is only done when the UI says so: re-publish idle (the
         # reconcile phase published its own idle before this pass ran).

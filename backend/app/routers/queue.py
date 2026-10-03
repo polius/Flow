@@ -24,11 +24,11 @@ from __future__ import annotations
 import json
 import random
 import sqlite3
-import time
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, HTTPException, Request
 
+from app.db import retry_locked
 from app.routers.library import (
     TRACK_SELECT,
     TRACK_SORTS,
@@ -65,24 +65,16 @@ def _now() -> str:
 
 
 def _write_transaction(conn: sqlite3.Connection, fn):
-    """Run a queue write, retrying briefly while the database is busy.
+    """Run a queue write, retrying with backoff while the database is busy.
 
     The queue's writes are tiny and routine (the §32 mirror's 3 s playhead
-    cadence) — but the scanner's reconcile/analyze transactions hold the
-    WAL write lock for seconds at a time, and a fire-and-forget mirror that
-    500s through every scan would be noise, not resilience. Bounded retries
-    land as soon as the scanner's commit gap appears; exhaustion keeps the
-    error (honest) instead of writing partial state."""
-    last: sqlite3.OperationalError | None = None
-    for attempt in range(4):
-        try:
-            return fn()
-        except sqlite3.OperationalError as exc:
-            if "locked" not in str(exc) and "busy" not in str(exc):
-                raise
-            last = exc
-            time.sleep(0.3 * (attempt + 1))
-    raise last  # type: ignore[misc]
+    cadence) — but the scanner's transactions hold the WAL write lock while
+    they run, and a fire-and-forget mirror that 500s through every scan
+    would be noise, not resilience. The deadline (~20 s) out-waits any lock
+    window the scanner can produce (it commits per file, and its analysis
+    pass never holds a transaction across an ffmpeg run); exhaustion keeps
+    the error (honest) instead of writing partial state."""
+    return retry_locked(conn, fn, deadline=20.0)
 
 
 def _chunks(seq: list, size: int):
