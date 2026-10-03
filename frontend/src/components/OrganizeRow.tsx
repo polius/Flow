@@ -1,16 +1,20 @@
-/* One Organize row (§22): checkbox · track number · title · artist · album ·
-   genre · added · file. The editing grammar matches the library's
-   click-to-edit (§15.1) — a focused click on the words opens the editor;
-   row clicks select. No playback here: this view organizes (§22), and row
-   click must stay unambiguous. The hover-revealed ⓘ is gone (§25):
-   right-click opens the app-wide track menu (Get Info included) — the same
-   gesture as every other row in the app — and on phones, where cells are
-   not editable, a tap on the re-templated row opens Get Info directly
-   (§21's designed-refusal pattern, §22). The Genre cell edits the track's
-   primary genre (§2.2 — the value the Tracks filter groups by). The Added
-   column is read-only reference: when the scanner first saw the file.
-   The File column is read-only reference data: the file name with its
-   library-relative path on hover.
+/* One Organize row (§22): checkbox · title · artist · album · genre ·
+   added · file. The editing grammar matches the library's click-to-edit
+   (§15.1) — a focused click on the words opens the editor; row clicks
+   select. No playback here: this view organizes (§22), and row click must
+   stay unambiguous. The hover-revealed ⓘ is gone (§25): right-click opens
+   the app-wide track menu (Get Info included) — the same gesture as every
+   other row in the app — and on phones, where cells are not editable, a
+   tap on the re-templated row opens Get Info directly (§21's
+   designed-refusal pattern, §22). The Genre cell edits the track's primary
+   genre (§2.2 — the value the Tracks filter groups by). The Added column is
+   read-only reference: when the scanner first saw the file. The File column
+   is read-only reference data: the file name with its library-relative
+   path on hover.
+
+   The track-number cell is gone (2026-10-03): ordering within an album is
+   the drag gesture's job now — numbers are written by the reorder, never
+   typed by hand.
 
    Drag-reorder (§22): a pressed row that moves past the slop lifts and
    reorders within its album — the grid owns the gesture; the row only
@@ -53,39 +57,7 @@ interface OrganizeRowProps {
   onCommitTitle: (track: Track, title: string) => void;
   onCommitArtist: (track: Track, artist: string) => void;
   onCommitAlbum: (track: Track, album: string) => void;
-  onCommitTrackNo: (track: Track, value: number | null) => void;
   onCommitGenre: (track: Track, genre: string) => void;
-}
-
-/** Track number cell: a number when set, a quiet dash placeholder when not.
-    Empty commits clear (explicit null on the wire); garbage cancels. */
-function NumberCell({
-  value,
-  label,
-  onCommit,
-}: {
-  value: number | null;
-  label: string;
-  onCommit: (value: number | null) => void;
-}) {
-  const shown = value != null ? String(value) : "";
-  return (
-    <InlineEdit
-      value={shown}
-      ariaLabel={label}
-      className="orgrow__no"
-      placeholder="—"
-      allowEmpty
-      onCommit={(text) => {
-        if (text === "") {
-          onCommit(null);
-          return;
-        }
-        const n = Number(text);
-        if (Number.isInteger(n) && n > 0) onCommit(n);
-      }}
-    />
-  );
 }
 
 export function OrganizeRow({
@@ -105,7 +77,6 @@ export function OrganizeRow({
   onCommitTitle,
   onCommitArtist,
   onCommitAlbum,
-  onCommitTrackNo,
   onCommitGenre,
 }: OrganizeRowProps) {
   const classes = [
@@ -174,13 +145,6 @@ export function OrganizeRow({
         >
           {checked && <IconCheck size={11} />}
         </button>
-      </span>
-      <span className="orgrow__nocell" onClick={(e) => e.stopPropagation()}>
-        <NumberCell
-          value={track.track_no}
-          label={`Track number for ${track.title}`}
-          onCommit={(n) => onCommitTrackNo(track, n)}
-        />
       </span>
       <span className="orgrow__titlecell" onClick={(e) => e.stopPropagation()}>
         {/* Text only (owner, 2026-10-02): the 24px artwork left the title

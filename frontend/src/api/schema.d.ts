@@ -252,6 +252,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/favorites/reorder": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reorder Favorites */
+        post: operations["reorder_favorites_api_favorites_reorder_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/review/summary": {
         parameters: {
             query?: never;
@@ -1561,6 +1578,46 @@ export interface operations {
         };
     };
     reorder_tracks_api_tracks_reorder_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TrackReorderIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BulkApplyOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    /**
+     * Reorder Favorites
+     * @description Write the Favorites view's manual order: the client sends the whole
+     *     favorites list in its new sequence and each track's favorite_position
+     *     is rewritten to that slot (1..n) — the same contract as the playlist
+     *     order PUT, expressed over the favorites filter.
+     */
+    reorder_favorites_api_favorites_reorder_post: {
         parameters: {
             query?: never;
             header?: never;

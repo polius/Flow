@@ -93,12 +93,21 @@ export function AddToPlaylistDialog() {
   };
 
   const createAndAdd = async () => {
-    if (busy) return;
+    const name = newName.trim();
+    if (busy || !name) return; // a nameless playlist is never created (2026-10-03)
     setBusy(true);
-    const created = await createPlaylist(newName.trim() || "New Playlist");
+    const created = await createPlaylist(name);
     setBusy(false);
     if (created) await commit(created.id);
     else setNaming(false);
+  };
+
+  /** Enters the naming step: the list gives way to the name field, and
+      nothing is created until the user names it (2026-10-03 — the old
+      direct path created "New Playlist" with no say in the name). */
+  const beginNaming = () => {
+    setNewName("");
+    setNaming(true);
   };
 
   if (naming) {
@@ -151,7 +160,7 @@ export function AddToPlaylistDialog() {
                 type="button"
                 className="btn--primary"
                 onClick={() => void createAndAdd()}
-                disabled={busy}
+                disabled={busy || !newName.trim()}
               >
                 {busy ? "Creating…" : "Create & Add"}
               </button>
@@ -173,7 +182,7 @@ export function AddToPlaylistDialog() {
     } else if (e.key === "Enter") {
       e.preventDefault();
       if (cursor < playlists.length) void commit(playlists[cursor].id);
-      else void createAndAdd();
+      else beginNaming();
     }
   };
 
@@ -238,7 +247,7 @@ export function AddToPlaylistDialog() {
             }`}
             disabled={busy}
             onMouseEnter={() => setCursor(playlists.length)}
-            onClick={() => void createAndAdd()}
+            onClick={beginNaming}
           >
             <span className="addto__newtile" aria-hidden="true">
               <IconPlus size={16} />

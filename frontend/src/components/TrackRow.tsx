@@ -76,7 +76,7 @@ interface TrackRowProps {
   swipeOpen?: boolean;
   /** Reports open/close so the parent can close the previously open row. */
   onSwipeOpenChange?: (open: boolean) => void;
-  /** Marquee selection (§4.1): modifier-clicks (Cmd/Ctrl toggle, Shift
+  /** Marquee selection (§4.1): modifier-clicks (Cmd/Ctrl/Alt toggle, Shift
       range) are offered to the table's selection hook, which returns true
       when it consumed the click — the row must not play. Plain clicks fall
       through untouched: any live selection clears and the row keeps its
@@ -84,7 +84,7 @@ interface TrackRowProps {
   onSelectClick?: (
     track: Track,
     index: number,
-    e: { metaKey: boolean; ctrlKey: boolean; shiftKey: boolean },
+    e: { metaKey: boolean; ctrlKey: boolean; altKey: boolean; shiftKey: boolean },
   ) => boolean;
 }
 
@@ -255,8 +255,11 @@ export function TrackRow({
       role="row"
       // Keyboard-cursor anchor (§3.4): the table scrolls the cursor row into
       // view by this index; the playlist wrapper keeps its own data-idx for
-      // the pointer gestures.
+      // the pointer gestures. Wrapper-less reorderable rows (Favorites,
+      // 2026-10-03) carry data-idx on the row itself — same contract, no
+      // wrapper to hang it on.
       data-rowindex={index}
+      data-idx={dataIdx != null && !swipeable ? dataIdx : undefined}
       onClick={(e) => {
         // Idempotent play (§23): never toggles — a second click (the tail of
         // a double-click, a restless re-click) must not pause. The click a

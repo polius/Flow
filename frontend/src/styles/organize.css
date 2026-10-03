@@ -197,6 +197,164 @@
   gap: 4px;
 }
 
+/* ---- album filter (2026-10-03) --------------------------------------------
+   The pill is the undo pill's sibling; the popover speaks the filter
+   panel's language (inset search, elevated list). Open it, type, click an
+   album — the grid becomes that album, ordered for the drag. */
+
+.orgalbum {
+  position: relative;
+  flex: none;
+}
+
+.orgalbum__button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  max-width: 260px;
+  padding: 7px 14px;
+  border: 1px solid var(--control-border);
+  border-radius: 999px;
+  font-size: var(--text-body);
+  font-weight: 600;
+  color: var(--text-primary);
+  transition: background var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out);
+}
+
+.orgalbum__button:hover {
+  background: var(--bg-hover);
+  border-color: transparent;
+}
+
+/* The active filter wears the active-filter language (§8.1). */
+.orgalbum__button--on,
+.orgalbum__button--on:hover {
+  background: var(--bg-active);
+  border-color: transparent;
+}
+
+.orgalbum__icon {
+  display: flex;
+  flex: none;
+  color: var(--text-tertiary);
+}
+
+.orgalbum__label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.orgalbum__x {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  margin-right: -6px;
+  border-radius: 50%;
+  color: var(--text-tertiary);
+}
+
+.orgalbum__x:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+
+/* The popover hangs below the pill — same surface as the collision
+   popover, sized to the toolbar row it drops from. */
+.orgalbum__pop {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  z-index: calc(var(--z-modal) + 1);
+  width: min(340px, 88vw);
+  padding: 10px;
+  border: 1px solid var(--separator);
+  border-radius: var(--radius-m);
+  background: var(--bg-elevated);
+  box-shadow: 0 10px 34px rgba(0, 0, 0, 0.24);
+  animation: orgpop-in var(--dur-fast) var(--ease-out);
+}
+
+.orgalbum__searchrow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: var(--bg-inset);
+  color: var(--text-tertiary);
+}
+
+.orgalbum__searchicon {
+  display: flex;
+  flex: none;
+}
+
+.orgalbum__search {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  font-size: var(--text-body);
+  color: var(--text-primary);
+  outline: none;
+}
+
+.orgalbum__search::placeholder {
+  color: var(--text-tertiary);
+}
+
+.orgalbum__list {
+  margin-top: 8px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.orgalbum__row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  padding: 7px 10px;
+  border-radius: var(--radius-s);
+  text-align: left;
+}
+
+.orgalbum__row:hover {
+  background: var(--bg-hover);
+}
+
+.orgalbum__row--on,
+.orgalbum__row--on:hover {
+  background: var(--bg-active);
+}
+
+.orgalbum__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--text-body);
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.orgalbum__meta {
+  flex: none;
+  font-size: var(--text-small);
+  color: var(--text-tertiary);
+}
+
+.orgalbum__empty {
+  padding: 8px 10px;
+  font-size: var(--text-small);
+  color: var(--text-tertiary);
+}
+
 /* ---- collision popover (surface language of the context menus, §15.6) --------- */
 
 .orgpop {
@@ -265,27 +423,35 @@
 }
 
 /* ---- sortable column headers ------------------------------------------------
-   Finder grammar: click a column to sort, click again to flip. The № header
-   restores the curated order (the grid's native grouping). */
+   Finder grammar: click a column to sort, click again to flip. In album mode
+   (2026-10-03) the head renders static — the filtered album's curated order
+   is the view, and columns don't sort against the drag's truth. */
 
 .orghead__sort {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
   min-width: 0;
+}
+
+.orghead__sortbtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   border: none;
   background: none;
   padding: 0;
+  font: inherit;
   text-align: left;
+  color: var(--text-tertiary);
   transition: color var(--dur-fast) var(--ease-out);
 }
 
-button.orghead__sort:hover {
+.orghead__sortbtn:hover {
   color: var(--text-primary);
 }
 
-.orghead__sort[aria-sort="ascending"],
-.orghead__sort[aria-sort="descending"] {
+.orghead__sort[aria-sort="ascending"] .orghead__sortbtn,
+.orghead__sort[aria-sort="descending"] .orghead__sortbtn {
   color: var(--text-primary);
 }
 
@@ -298,22 +464,6 @@ button.orghead__sort:hover {
   transform: rotate(-180deg);
 }
 
-.orghead__no .orghead__nobtn {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  border: none;
-  background: none;
-  padding: 0;
-  font: inherit;
-  color: inherit;
-  cursor: pointer;
-}
-
-.orghead__no .orghead__nobtn:hover {
-  color: var(--text-primary);
-}
-
 /* ---- the grid ------------------------------------------------------------------ */
 
 .orggrid {
@@ -324,13 +474,14 @@ button.orghead__sort:hover {
 /* Sticky column header: pins below the top bar as rows scroll beneath.
    Same metrics as the Tracks table's head (§9.2): 32px index column, 14px
    gutters, uppercase caption labels, hairline underline — the Organize grid
-   and the library table read as one design. Columns: check · № · title ·
-   artist · album · genre · added · file. */
+   and the library table read as one design. Columns: check · title ·
+   artist · album · genre · added · file (the № column left with the
+   track-number cell it carried — 2026-10-03). */
 .orghead,
 .orgrow {
   display: grid;
   grid-template-columns:
-    32px 40px minmax(0, 1.35fr) minmax(0, 1fr) minmax(0, 1.1fr)
+    32px minmax(0, 1.35fr) minmax(0, 1fr) minmax(0, 1.1fr)
     minmax(0, 0.85fr) minmax(64px, 0.6fr) minmax(0, 0.7fr);
   align-items: center;
   gap: 14px;
@@ -351,10 +502,6 @@ button.orghead__sort:hover {
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--text-tertiary);
-}
-
-.orghead__no {
-  text-align: right;
 }
 
 .orggrid__body {
@@ -422,24 +569,6 @@ button.orghead__sort:hover {
 .orgbox--on:hover {
   border-color: var(--text-primary);
   background: var(--text-primary);
-}
-
-.orgrow__nocell {
-  min-width: 0;
-  text-align: right;
-}
-
-.orgrow__no {
-  display: inline-block;
-  min-width: 100%;
-  font-variant-numeric: tabular-nums;
-  color: var(--text-secondary);
-  text-align: right;
-}
-
-/* The dash placeholder for a missing number stays quiet. */
-.orgrow__no.inlineedit__placeholder {
-  text-align: right;
 }
 
 .orgrow__titlecell {
@@ -672,7 +801,6 @@ button.orghead__sort:hover {
 
 .orgbar__suggestrow--clear .orgbar__suggestname {
   color: var(--text-primary); /* §31: full ink, not alarm color */
-}
 }
 
 .orgbar__suggestcount {

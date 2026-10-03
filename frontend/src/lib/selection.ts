@@ -7,8 +7,10 @@
    The contract is "transient and listening-safe":
    - rows keep their §23.1 playback-only plain click — a plain click clears
      any live selection and plays, exactly as before;
-   - Cmd/Ctrl-click toggles one row; Shift-click selects the contiguous
-     range from the anchor (the last selection click), Finder-style;
+   - Cmd/Ctrl/Alt-click toggles one row (2026-10-03: Alt joins the set —
+     the same grammar, one more key people already reach for); Shift-click
+     selects the contiguous range from the anchor (the last selection
+     click), Finder-style;
    - selection is identified by TRACK ID, so a playlist reorder or removal
      under a live selection moves with the rows instead of silently
      re-pointing at different ones (duplicates select together — it reads
@@ -28,6 +30,7 @@ import { useUiStore } from "../stores/ui";
 export interface SelectClick {
   metaKey: boolean;
   ctrlKey: boolean;
+  altKey: boolean;
   shiftKey: boolean;
 }
 
@@ -47,7 +50,7 @@ export function useTrackSelection(tracks: Track[]) {
       selection and returns false — the row keeps its §23.1 play. */
   const onRowClick = useCallback(
     (track: Track, index: number, e: SelectClick): boolean => {
-      const mod = e.metaKey || e.ctrlKey;
+      const mod = e.metaKey || e.ctrlKey || e.altKey;
       if (!mod && !e.shiftKey) {
         if (ids.size > 0) clear();
         return false;

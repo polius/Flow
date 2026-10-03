@@ -23,6 +23,7 @@ import {
   useUndoBulkApply,
 } from "../api/mutations";
 import { BulkBar, BulkBanner } from "../components/BulkBar";
+import { AlbumFilterMenu } from "../components/AlbumFilterMenu";
 import { EmptyState } from "../components/EmptyState";
 import { LoadingState } from "../components/LoadingState";
 import { OrganizeGrid, type SelectAllState } from "../components/OrganizeGrid";
@@ -69,13 +70,22 @@ export function OrganizeView() {
   const albumId = albumParam != null ? Number(albumParam) : null;
   const artistId = artistParam != null ? Number(artistParam) : null;
   // Latest-added-first is the default read (§22): finding and fixing what
-  // just landed is the job. The № header restores the curated album order.
+  // just landed is the job. In album mode (2026-10-03) the sort stands
+  // down — see effSort below.
   const hasSort = searchParams.get("sort") != null;
   const urlSort = searchParams.get("sort") ?? "added_at";
   const sort = urlSort; // whitelisted server-side; unknown → server default
   const dirParam = searchParams.get("dir");
   const dir =
     dirParam === "desc" ? "desc" : dirParam === "asc" ? "asc" : hasSort ? "asc" : "desc";
+
+  // Album mode (2026-10-03): filtering to one album IS the organizing read —
+  // the grid shows that album's curated order (album block, track order
+  // within) and the drag writes exactly what's on screen. Column sorting
+  // stands down while the filter holds: sorting by, say, title and then
+  // dragging would write an order the screen never showed.
+  const effSort = albumId != null ? "curate" : sort;
+  const effDir: "asc" | "desc" = albumId != null ? "asc" : dir;
 
   const compact = useCompactMode();
   const openGetInfo = useUiStore((s) => s.openGetInfo);
@@ -125,15 +135,15 @@ export function OrganizeView() {
 
   // ---- data ---------------------------------------------------------------
   const query = useInfiniteQuery({
-    queryKey: ["tracks", "organize", { q: urlQ, review, albumId, artistId, sort, dir }],
+    queryKey: ["tracks", "organize", { q: urlQ, review, albumId, artistId, sort: effSort, dir: effDir }],
     queryFn: async ({ pageParam }) => {
       const { data } = await api.GET("/api/tracks", {
         params: {
           query: {
             limit: PAGE_SIZE,
             offset: pageParam,
-            sort,
-            dir,
+            sort: effSort,
+            dir: effDir,
             ...(urlQ ? { q: urlQ } : {}),
             ...(review ? { review } : {}),
             ...(albumId != null ? { album_id: albumId } : {}),
@@ -165,21 +175,21 @@ export function OrganizeView() {
   }, [query.hasNextPage, query.isFetchingNextPage, query.fetchNextPage]);
 
   // Column sorting (Finder grammar): click a header to sort by it, click
-  // again to flip. The № header restores the curate order (the grid's
-  // native grouping).
+  // again to flip. Offered only outside album mode (see effSort).
   const onSort = useCallback(
     (key: string, nextDir: "asc" | "desc") => {
+      if (albumId != null) return;
       const next = new URLSearchParams(searchParams);
       next.set("sort", key);
       next.set("dir", nextDir);
       setSearchParams(next, { replace: true });
     },
-    [searchParams, setSearchParams],
+    [searchParams, setSearchParams, albumId],
   );
 
   useEffect(() => {
     document.querySelector<HTMLElement>(".shell__canvas")?.scrollTo(0, 0);
-  }, [sort, dir]);
+  }, [sort, dir, albumId]);
 
   // ---- selection -----------------------------------------------------------
   const [selected, setSelected] = useState<Map<number, Track>>(new Map());
@@ -344,10 +354,6 @@ export function OrganizeView() {
     async (t: Track, album: string) => void patchTrack(t.id, { album }),
     [patchTrack],
   );
-  const commitTrackNo = useCallback(
-    async (t: Track, value: number | null) => void patchTrack(t.id, { track_no: value }),
-    [patchTrack],
-  );
   const commitGenre = useCallback(
     async (t: Track, genre: string) => void patchTrack(t.id, { genre }),
     [patchTrack],
@@ -355,6 +361,8 @@ export function OrganizeView() {
 
   // Drag-reorder within an album (§22): the grid resolves one album's block
   // into its new order; the server renumbers 1..n as overlay edits.
+  // (2026-10-03: the track-number cell is gone — the drag is the only way
+  // order is written, so the numbers can never disagree with the rows.)
   const onReorderBlock = useCallback(
     async (orderedIds: number[]) => {
       await reorderTracks(orderedIds);
@@ -364,7 +372,7 @@ export function OrganizeView() {
   // Dragging needs the album grouping to be the truth on screen — the
   // curated order (album blocks, track order within) or a single album's
   // filter. Any other sort would reorder against a different reading.
-  const reorderable = sort === "curate" || albumId != null;
+  const reorderable = effSort === "curate" || albumId != null;
 
   // ---- chip labels for entity filters ---------------------------------------
   const albumChip = useQuery({
@@ -447,6 +455,14 @@ export function OrganizeView() {
             </button>
           )}
         </div>
+        {/* The album filter (2026-10-03): pin the grid to one album — the
+            organizing unit. Album mode shows the album's curated order and
+            arms the drag, so organizing within an album is the filter plus
+            the gesture. */}
+        <AlbumFilterMenu
+          albumId={albumId}
+          onChange={(id) => setParam("album_id", id != null ? String(id) : null)}
+        />
         {undoAvailable && !compact && (
           <button
             type="button"
@@ -526,9 +542,9 @@ export function OrganizeView() {
           compact={compact}
           cursorIndex={compact ? null : cursorIndex}
           editTrackId={compact ? null : editTrackId}
-          sort={sort}
-          dir={dir}
-          onSort={onSort}
+          sort={effSort}
+          dir={effDir}
+          onSort={albumId != null ? undefined : onSort}
           onNearEnd={handleNearEnd}
           onToggleAll={toggleAll}
           onToggleRow={toggleRow}
@@ -546,7 +562,6 @@ export function OrganizeView() {
           onCommitTitle={commitTitle}
           onCommitArtist={commitArtist}
           onCommitAlbum={commitAlbum}
-          onCommitTrackNo={commitTrackNo}
           onCommitGenre={commitGenre}
           canReorder={reorderable && !compact}
           libraryTruncated={tracks.length < total}

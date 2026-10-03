@@ -204,6 +204,23 @@ export function useReorderTracks() {
   };
 }
 
+/** Favorites drag-reorder (2026-10-03): the whole favorites list in its
+    new order — the server rewrites each favorite_position 1..n. The
+    caller applies the optimistic splice; the invalidate resyncs anything
+    the caller's cache couldn't know. */
+export function useReorderFavorites() {
+  const queryClient = useQueryClient();
+  return async (trackIds: number[]): Promise<boolean> => {
+    const { response } = await api.POST("/api/favorites/reorder", {
+      body: { track_ids: trackIds },
+    });
+    if (response.ok) {
+      void queryClient.invalidateQueries({ queryKey: ["tracks"] });
+    }
+    return response.ok;
+  };
+}
+
 export function useCreatePlaylist() {
   const queryClient = useQueryClient();
   return async (name = "New Playlist"): Promise<PlaylistDetail | null> => {

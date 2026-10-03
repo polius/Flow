@@ -287,6 +287,46 @@ def reorder_tracks(request: Request, body: TrackReorderIn) -> BulkApplyOut:
     return BulkApplyOut(applied=applied)
 
 
+# ---- Favorites manual order (drag & drop in Favorites, 2026-10-03) -------------
+
+
+@router.post("/api/favorites/reorder", response_model=BulkApplyOut)
+def reorder_favorites(request: Request, body: TrackReorderIn) -> BulkApplyOut:
+    """Write the Favorites view's manual order: the client sends the whole
+    favorites list in its new sequence and each track's favorite_position
+    is rewritten to that slot (1..n) — the same contract as the playlist
+    order PUT, expressed over the favorites filter. Only currently loved
+    tracks are placed: one un-favorited mid-gesture is skipped, not an
+    error (the client's refetch resyncs the row)."""
+    conn = request.app.state.db.connect()
+    if not body.track_ids:
+        raise HTTPException(status_code=422, detail="track_ids must not be empty")
+
+    # Dedupe, keep order; unknown ids simply place nothing.
+    ids = list(dict.fromkeys(body.track_ids))
+    position_of = {tid: pos for pos, tid in enumerate(ids, start=1)}
+
+    def _apply() -> int:
+        applied = 0
+        for chunk in _chunks(ids, _CHUNK):
+            placeholders = ", ".join("?" * len(chunk))
+            rows = conn.execute(
+                f"SELECT id FROM tracks WHERE favorite = 1 AND id IN ({placeholders})",
+                chunk,
+            ).fetchall()
+            for row in rows:
+                conn.execute(
+                    "UPDATE tracks SET favorite_position = ? WHERE id = ?",
+                    (position_of[row["id"]], row["id"]),
+                )
+                applied += 1
+        conn.commit()
+        return applied
+
+    applied = retry_locked(conn, _apply)
+    return BulkApplyOut(applied=applied)
+
+
 # ---- review summary ("Needs attention", §22) -----------------------------------
 
 _COLLISION_SUFFIX = re.compile(

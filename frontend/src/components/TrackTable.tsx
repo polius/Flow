@@ -4,21 +4,18 @@
    these variants render full detail payloads at curated scale, so they stay
    plain. Rows are playback-only (§23); editing lives in Organize.
 
-   Playlist reorder (§27): the queue's press-and-drag grammar (§9.4 rev 2).
-   Press-and-move lifts a row into a floating ghost — the row itself,
-   elevated — and its origin opens into a gap that travels with the pointer;
-   the neighbors part around it, and the gap is the only placement cue. The
-   old HTML5 drag (static chip + 2px insertion line) is gone. Release
-   settles the ghost onto the slot; Escape springs it home. Touch keeps the
-   §25 grammar (swipe, long-press menu) — a touch lift would starve the
-   menu timer, and the design has no Edit-mode grip to disambiguate. */
+   Playlist reorder (§27, §9.2): the queue's press-and-drag grammar, owned
+   by the shared useRowDragReorder hook (2026-10-03) — the same gesture the
+   Favorites table speaks. Reorder is optimistic and the PUT is the source
+   of truth. Touch keeps the §25 grammar (swipe, long-press menu). */
 
 import { useEffect, useRef, useState } from "react";
-import type { KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent } from "react";
+import type { KeyboardEvent as ReactKeyboardEvent } from "react";
 
 import type { QueueOrigin, Track } from "../api/types";
 import { useSetFavoriteMany, useToggleFavorite } from "../api/mutations";
 import { useRowCursor } from "../lib/rowCursor";
+import { useRowDragReorder } from "../lib/rowDrag";
 import { useTrackSelection } from "../lib/selection";
 import { isInteractiveControl } from "../lib/shortcuts";
 import { useCurrentTrack, usePlayerStore } from "../stores/player";
@@ -47,57 +44,6 @@ interface TrackTableProps {
   hideIndex?: boolean;
 }
 
-/** Mouse press-move slop before a drag lifts. */
-const MOUSE_LIFT_PX = 5;
-/** Auto-scroll edge band (px) and top speed (px per frame). */
-const EDGE_PX = 56;
-const EDGE_SPEED = 14;
-/** The settle flight after release (matches the queue's 200ms). */
-const SETTLE_MS = 200;
-
-/* One live gesture at a time. The ref is the truth between renders — the
-   frame loop must never read stale state. */
-interface DragGesture {
-  pointerId: number;
-  from: number;
-  el: HTMLElement | null; // the grabbed row wrapper (measured at lift)
-  startX: number;
-  startY: number;
-  clientX: number;
-  clientY: number;
-  lifted: boolean;
-  grabDy: number;
-  /** Measured row height — the parting rows and the slot math slide by it. */
-  rowH: number;
-  raf: number | null;
-  esc: ((e: KeyboardEvent) => void) | null;
-  canvas: HTMLElement | null; // the shell scroll container (auto-scroll)
-}
-
-const freshGesture = (): DragGesture => ({
-  pointerId: -1,
-  from: -1,
-  el: null,
-  startX: 0,
-  startY: 0,
-  clientX: 0,
-  clientY: 0,
-  lifted: false,
-  grabDy: 0,
-  rowH: 0,
-  raf: null,
-  esc: null,
-  canvas: null,
-});
-
-interface DragState {
-  from: number;
-  /** Tentative insertion slot (0..tracks.length) in the current list. */
-  slot: number;
-  /** Measured row height — the parting rows slide by exactly this. */
-  h: number;
-}
-
 export function TrackTable({
   tracks,
   variant = "all",
@@ -107,25 +53,7 @@ export function TrackTable({
   onRemoveTrack,
   hideIndex,
 }: TrackTableProps) {
-  // Drag state for the playlist variant (mounted → the ghost exists).
-  const [drag, setDrag] = useState<DragState | null>(null);
-  const dragRef = useRef<DragState | null>(null);
-  const gestureRef = useRef<DragGesture>(freshGesture());
   const tableRef = useRef<HTMLDivElement>(null);
-  const ghostRef = useRef<HTMLElement | null>(null);
-  const settleTimerRef = useRef<number | null>(null);
-  // A drag that ends by unmounting (navigation mid-drag) never releases.
-  useEffect(
-    () => () => {
-      const g = gestureRef.current;
-      if (g.raf != null) cancelAnimationFrame(g.raf);
-      if (g.esc) document.removeEventListener("keydown", g.esc);
-      ghostRef.current?.remove();
-      ghostRef.current = null;
-      if (settleTimerRef.current) window.clearTimeout(settleTimerRef.current);
-    },
-    [],
-  );
 
   // Swipe-to-remove (§25): one revealed row at a time, per table.
   const [openSwipeId, setOpenSwipeId] = useState<number | null>(null);
@@ -227,215 +155,17 @@ export function TrackTable({
         variant === "playlist" && removeTrack ? () => removeTrack(track) : undefined,
     });
 
-  /* ---- the drag gesture (playlist variant, mouse) ---- */
+  /* ---- the drag gesture (playlist variant, mouse) ----
+     The shared hook (lib/rowDrag.ts) owns the whole press-lift-ghost-settle
+     arc; the table only wears its states. */
 
-  const applyDrag = (next: DragState | null) => {
-    dragRef.current = next;
-    setDrag(next);
-  };
-
-  /** Tear down whatever gesture is live and leave a clean slate. */
-  const resetGesture = () => {
-    const g = gestureRef.current;
-    if (g.raf != null) cancelAnimationFrame(g.raf);
-    if (g.esc) document.removeEventListener("keydown", g.esc);
-    gestureRef.current = freshGesture();
-  };
-
-  /** Commit (or cancel): settle the ghost onto the slot, then clean up. */
-  const finish = (commit: boolean) => {
-    const g = gestureRef.current;
-    const d = dragRef.current;
-    const ghost = ghostRef.current;
-    const table = tableRef.current;
-    if (g.raf != null) cancelAnimationFrame(g.raf);
-    if (g.esc) document.removeEventListener("keydown", g.esc);
-    gestureRef.current.esc = null;
-    gestureRef.current.raf = null;
-    applyDrag(null);
-    if (g.lifted && d && ghost && table) {
-      const eff = d.slot <= d.from ? d.slot : d.slot - 1;
-      // Fly the ghost the last few pixels onto the slot it lands on (back
-      // onto its origin on a cancel) — the real row is already beneath it.
-      const rect = table.getBoundingClientRect();
-      const targetY = rect.top + (commit ? eff : d.from) * d.h;
-      ghost.classList.add("trackrowghost--settle");
-      ghost.style.transform = `translate(${rect.left}px, ${targetY}px) scale(1)`;
-      if (settleTimerRef.current) window.clearTimeout(settleTimerRef.current);
-      settleTimerRef.current = window.setTimeout(() => {
-        ghost.remove();
-        ghostRef.current = null;
-      }, SETTLE_MS + 40);
-      if (commit && eff !== d.from) onMove?.(d.from, eff);
-    }
-    resetGesture();
-  };
-
-  const lift = () => {
-    const g = gestureRef.current;
-    const table = tableRef.current;
-    const rowEl = g.el;
-    if (!table || !rowEl || !rowEl.isConnected) {
-      resetGesture();
-      return;
-    }
-    const rowRect = rowEl.getBoundingClientRect();
-    g.lifted = true;
-    g.grabDy = g.clientY - rowRect.top;
-    g.rowH = rowRect.height;
-    // Pointer capture retargets the release to the table — a committed drag
-    // can't leave a click behind that plays the row.
-    try {
-      table.setPointerCapture(g.pointerId);
-    } catch {
-      // The pointer may have died between down and lift — up/cancel clean up.
-    }
-    // The ghost: the row itself, cloned at lift and elevated. Live hover
-    // chrome can't be photographed (the clone is pointer-events: none), so
-    // it always reads as the row at rest.
-    const inner = rowEl.querySelector<HTMLElement>(".trackrow");
-    if (inner) {
-      const ghost = inner.cloneNode(true) as HTMLElement;
-      ghost.classList.add("trackrowghost");
-      ghost.classList.remove("trackrow--dragging");
-      ghost.removeAttribute("style"); // a resting swipe offset must not ride along
-      ghost.setAttribute("aria-hidden", "true");
-      ghost.style.width = `${rowRect.width}px`;
-      ghost.style.height = `${rowRect.height}px`;
-      ghost.style.transform = `translate(${rowRect.left}px, ${rowRect.top}px)`;
-      document.body.appendChild(ghost);
-      ghostRef.current = ghost;
-    }
-    setOpenSwipeId(null); // dragging a revealed row closes it first
-    applyDrag({ from: g.from, slot: g.from, h: rowRect.height });
-    // Escape now belongs to the drag until it ends.
-    g.esc = (e: KeyboardEvent) => {
-      if (e.key === "Escape") finish(false);
-    };
-    document.addEventListener("keydown", g.esc);
-    startFrameLoop();
-  };
-
-  const startFrameLoop = () => {
-    const frame = () => {
-      const g = gestureRef.current;
-      const table = tableRef.current;
-      const ghost = ghostRef.current;
-      if (!g.lifted || !table || !ghost) return;
-      const rect = table.getBoundingClientRect();
-      // Edge auto-scroll on the shell canvas: speed ramps across the band
-      // as the pointer nears the rim — long playlists stay reorderable
-      // end to end without the pointer leaving the list.
-      const canvas = g.canvas;
-      if (canvas) {
-        const crect = canvas.getBoundingClientRect();
-        const band = Math.min(EDGE_PX, crect.height / 4);
-        const toTop = g.clientY - (crect.top + band);
-        const toBottom = g.clientY - (crect.bottom - band);
-        let vy = 0;
-        if (toTop < 0) vy = (toTop / band) * EDGE_SPEED;
-        else if (toBottom > 0) vy = (toBottom / band) * EDGE_SPEED;
-        if (vy !== 0) {
-          canvas.scrollTop = Math.max(
-            0,
-            Math.min(canvas.scrollHeight - canvas.clientHeight, canvas.scrollTop + vy),
-          );
-        }
-      }
-      // The ghost rides the pointer's y, locked to the list's left edge —
-      // a full-width row, clamped into the table's own extent.
-      const y = Math.max(
-        rect.top,
-        Math.min(rect.bottom - g.rowH, g.clientY - g.grabDy),
-      );
-      ghost.style.transform = `translate(${rect.left}px, ${y}px) scale(1.02)`;
-      // The tentative slot: the row boundary nearest the pointer.
-      const slot = Math.max(
-        0,
-        Math.min(tracks.length, Math.round((g.clientY - rect.top) / g.rowH)),
-      );
-      const d = dragRef.current;
-      if (d && d.slot !== slot) applyDrag({ ...d, slot });
-      g.raf = requestAnimationFrame(frame);
-    };
-    gestureRef.current.raf = requestAnimationFrame(frame);
-  };
-
-  const onTablePointerDown = (e: ReactPointerEvent) => {
-    if (variant !== "playlist" || !onMove) return;
-    if (e.pointerType !== "mouse" || e.button !== 0) return;
-    if (gestureRef.current.pointerId !== -1) return;
-    if (ghostRef.current) return; // a settle is still in flight
-    const target = e.target as Element;
-    if (target.closest("button, a, input, textarea")) return; // their own press
-    const rowEl = target.closest<HTMLElement>("[data-idx]");
-    if (!rowEl || !tableRef.current?.contains(rowEl)) return;
-    const from = Number(rowEl.dataset.idx);
-    if (Number.isNaN(from)) return;
-    resetGesture();
-    gestureRef.current = {
-      ...freshGesture(),
-      pointerId: e.pointerId,
-      from,
-      el: rowEl,
-      startX: e.clientX,
-      startY: e.clientY,
-      clientX: e.clientX,
-      clientY: e.clientY,
-      canvas: tableRef.current.closest<HTMLElement>(".shell__canvas"),
-    };
-  };
-
-  const onTablePointerMove = (e: ReactPointerEvent) => {
-    const g = gestureRef.current;
-    if (g.pointerId !== e.pointerId) return;
-    g.clientX = e.clientX;
-    g.clientY = e.clientY;
-    if (!g.lifted) {
-      const dx = e.clientX - g.startX;
-      const dy = e.clientY - g.startY;
-      if (dx * dx + dy * dy >= MOUSE_LIFT_PX * MOUSE_LIFT_PX) lift();
-    }
-  };
-
-  const onTablePointerUp = (e: ReactPointerEvent) => {
-    const g = gestureRef.current;
-    if (g.pointerId !== e.pointerId) return;
-    if (g.lifted) {
-      finish(true);
-      return;
-    }
-    resetGesture();
-  };
-
-  const onTablePointerCancel = (e: ReactPointerEvent) => {
-    const g = gestureRef.current;
-    if (g.pointerId !== e.pointerId) return;
-    if (g.lifted) {
-      finish(false); // the system took the pointer — commit nothing
-      return;
-    }
-    resetGesture();
-  };
-
-  const onTablePointerLeave = (e: ReactPointerEvent) => {
-    const g = gestureRef.current;
-    // A mouse pressed-but-not-lifted that leaves the table is a dead arm.
-    if (g.lifted || g.pointerId !== e.pointerId) return;
-    resetGesture();
-  };
-
-  // Displacement while a drag is live: the grabbed row's gap travels to
-  // the tentative slot and neighbors between origin and slot slide one row
-  // over — the same splice math the commit applies.
-  const effSlot = drag ? (drag.slot <= drag.from ? drag.slot : drag.slot - 1) : -1;
-  const shiftFor = (i: number) => {
-    if (!drag) return 0;
-    if (i === drag.from) return (effSlot - i) * drag.h;
-    if (i > drag.from && i <= effSlot) return -drag.h;
-    if (i < drag.from && i >= effSlot) return drag.h;
-    return 0;
-  };
+  const { drag, offsetFor, handlers } = useRowDragReorder({
+    containerRef: tableRef,
+    enabled: variant === "playlist" && onMove != null,
+    count: tracks.length,
+    onMove: (from, to) => onMove?.(from, to),
+    onLift: () => setOpenSwipeId(null), // dragging a revealed row closes it first
+  });
 
   const rows = tracks.map((track, index) => (
     <TrackRow
@@ -455,7 +185,7 @@ export function TrackTable({
           .filter(Boolean)
           .join(" ") || undefined
       }
-      wrapStyle={drag ? { transform: `translateY(${shiftFor(index)}px)` } : undefined}
+      wrapStyle={drag ? { transform: `translateY(${offsetFor(index)}px)` } : undefined}
       dataIdx={variant === "playlist" ? index : undefined}
       onActivate={play}
       onTogglePlay={togglePlay}
@@ -484,11 +214,7 @@ export function TrackTable({
         aria-label="Tracks"
         tabIndex={0}
         onKeyDown={onTableKeyDown}
-        onPointerDown={onTablePointerDown}
-        onPointerMove={onTablePointerMove}
-        onPointerUp={onTablePointerUp}
-        onPointerCancel={onTablePointerCancel}
-        onPointerLeave={onTablePointerLeave}
+        {...handlers}
         // Native image/link drag would hijack the press — the table's only
         // drag is the reorder gesture.
         onDragStart={(e) => e.preventDefault()}

@@ -20,6 +20,7 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 import type { Track } from "../api/types";
 import { useSetFavoriteMany, useToggleFavorite } from "../api/mutations";
 import { useRowCursor } from "../lib/rowCursor";
+import { useRowDragReorder } from "../lib/rowDrag";
 import { useTrackSelection } from "../lib/selection";
 import { isInteractiveControl } from "../lib/shortcuts";
 import { useCurrentTrack, usePlayerStore } from "../stores/player";
@@ -45,6 +46,14 @@ interface VirtualTrackTableProps {
   onPlay: (index: number) => void;
   /** Resolves the whole view for the row menu's Play item (§29). */
   contextLoader?: () => Promise<Track[]>;
+  /** Drag-to-reorder (2026-10-03, Favorites): commit a dragged row's move.
+      The gesture is the shared §27 hook — the same one the playlist table
+      speaks. */
+  onMove?: (fromIndex: number, toIndex: number) => void;
+  /** True only when the gesture can write the whole list: every row is
+      loaded and the view isn't narrowed by a search filter — a drag
+      against a subset would re-point the unshown rows' positions. */
+  reorderable?: boolean;
 }
 
 export function VirtualTrackTable({
@@ -52,6 +61,8 @@ export function VirtualTrackTable({
   onNearEnd,
   onPlay,
   contextLoader,
+  onMove,
+  reorderable = false,
 }: VirtualTrackTableProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [scrollEl, setScrollEl] = useState<HTMLElement | null>(null);
@@ -163,16 +174,31 @@ export function VirtualTrackTable({
     [openTrackMenu, tracks, contextLoader, selection.ids, selection.selectedTracks],
   );
 
+  /* Drag-to-reorder (2026-10-03): the shared §27 gesture. The displacement
+     rides each row's translateY — the virtualizer's `item.start` plus the
+     row's drag offset — so parting neighbors and the gap read exactly like
+     the playlist table's. */
+  const canDrag = reorderable && onMove != null;
+  const { drag, offsetFor, handlers } = useRowDragReorder({
+    containerRef,
+    enabled: canDrag,
+    count: tracks.length,
+    onMove: (from, to) => onMove?.(from, to),
+  });
+
   return (
     <>
       <div
         ref={containerRef}
-        className="tracktable tracktable--all tracktable--virtual"
+        className={`tracktable tracktable--all tracktable--virtual${
+          canDrag ? " tracktable--reorderable" : ""
+        }${drag ? " tracktable--dragging" : ""}`}
         role="table"
         aria-label="Tracks"
         tabIndex={0}
         onKeyDown={onTableKeyDown}
         style={{ height: virtualizer.getTotalSize() }}
+        {...handlers}
       >
         {virtualizer.getVirtualItems().map((item) => {
           const track = tracks[item.index];
@@ -189,13 +215,15 @@ export function VirtualTrackTable({
                 [
                   cursor === item.index ? "trackrow--cursor" : "",
                   selection.ids.has(track.id) ? "trackrow--selected" : "",
+                  drag?.from === item.index ? "trackrow--dragging" : "",
                 ]
                   .filter(Boolean)
                   .join(" ") || undefined
               }
               style={{
-                transform: `translateY(${item.start}px)`,
+                transform: `translateY(${item.start + offsetFor(item.index)}px)`,
               }}
+              dataIdx={canDrag ? item.index : undefined}
               onActivate={play}
               onTogglePlay={togglePlay}
               onToggleFavorite={toggleFavorite}

@@ -254,6 +254,119 @@
   line-height: var(--leading-tight);
 }
 
+/* The playlist name is click-to-edit (2026-10-03): the InlineEdit span
+   wears the title styles; hover reveals the quiet edit field the Organize
+   grid's cells use, and the editing input inherits the display type. */
+.detailhead__titlerow {
+  margin: 0;
+  max-width: 100%;
+}
+
+.detailhead__title.inlineedit__text {
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  border-radius: var(--radius-s);
+  padding: 0 6px;
+  margin: 0 -6px;
+  cursor: text;
+}
+
+.detailhead__title.inlineedit__text:hover {
+  background: color-mix(in srgb, var(--text-primary) 8%, transparent);
+}
+
+.detailhead__title.inlineedit__input {
+  display: block;
+  width: 100%;
+  border: none;
+  background: transparent;
+  padding: 0 6px;
+  margin: 0 -6px;
+  font: inherit;
+  color: inherit;
+  letter-spacing: inherit;
+  outline: none;
+  border-bottom: 2px solid color-mix(in srgb, var(--text-primary) 40%, transparent);
+}
+
+/* The playlist cover is its own edit affordance (2026-10-03): click to
+   change the image, the corner × removes a custom one. Hover or focus
+   reveals the scrim; the mosaic/cover art itself stays exactly the
+   album/artist header's. */
+.detailhead__artcol {
+  position: relative;
+  flex: none;
+}
+
+.detailhead__artbutton {
+  position: relative;
+  display: block;
+  padding: 0;
+  border: none;
+  background: none;
+  border-radius: var(--radius-l);
+  cursor: pointer;
+}
+
+.detailhead__artbutton:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--text-primary) 40%, transparent);
+  outline-offset: 2px;
+}
+
+.detailhead__artscrim {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  border-radius: var(--radius-l);
+  background: rgba(0, 0, 0, 0);
+  color: #fff;
+  font-size: var(--text-body);
+  font-weight: 600;
+  opacity: 0;
+  transition: opacity var(--dur-fast) var(--ease-out),
+    background var(--dur-fast) var(--ease-out);
+}
+
+.detailhead__artbutton:hover .detailhead__artscrim,
+.detailhead__artbutton:focus-visible .detailhead__artscrim,
+.detailhead__artbutton--busy .detailhead__artscrim {
+  opacity: 1;
+  background: rgba(0, 0, 0, 0.45);
+}
+
+.detailhead__artremove {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  opacity: 0;
+  transition: opacity var(--dur-fast) var(--ease-out),
+    background var(--dur-fast) var(--ease-out);
+}
+
+.detailhead__artcol:hover .detailhead__artremove,
+.detailhead__artremove:focus-visible {
+  opacity: 1;
+}
+
+.detailhead__artremove:hover {
+  background: rgba(0, 0, 0, 0.75);
+}
+
 .detailhead__meta {
   margin: 8px 0 0;
   font-size: var(--text-small);

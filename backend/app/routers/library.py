@@ -49,6 +49,10 @@ TRACK_SORTS = {
         "JOIN genres g2 ON g2.id = tg2.genre_id "
         "WHERE tg2.track_id = t.id ORDER BY tg2.genre_id LIMIT 1) COLLATE NOCASE"
     ),
+    # Favorites' manual order (2026-10-03): the drag-written curation order.
+    # Unplaced favorites (loved before the order existed) trail the placed
+    # ones deterministically by title (the endpoint's tie-breaker).
+    "favorite": "(t.favorite_position IS NULL), t.favorite_position",
 }
 
 # Direction is applied per term by the endpoint (`dir` query param) so the

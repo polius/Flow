@@ -1,9 +1,14 @@
 /* Playlist detail — header, mosaic or custom cover, drag-to-reorder tracks
    (§9.2, §9.3, §13.10). Adding tracks opens the in-place Add Tracks picker;
-   metadata editing lives behind the Manage dialog; reorder is optimistic and
-   the PUT is the source of truth. */
+   reorder is optimistic and the PUT is the source of truth.
 
-import { useState } from "react";
+   Editing lives in the header (2026-10-03): the name and the cover are
+   click-to-edit in place — the Manage dialog is gone. The cover button
+   uploads a new image (the scrim reveals on hover/focus) and its corner ×
+   removes a custom cover; deletion lives in the "…" menu behind a two-step
+   confirm. */
+
+import { useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate, useParams } from "react-router";
 
@@ -11,15 +16,18 @@ import { api } from "../api/client";
 import type { PlaylistDetail as PlaylistDetailT, QueueOrigin, Track } from "../api/types";
 import {
   useAddToPlaylist,
+  useDeletePlaylist,
   useRemoveFromPlaylist,
   useReorderPlaylist,
+  useUpdatePlaylist,
+  useUploadPlaylistCover,
 } from "../api/mutations";
 import { AddTracksDialog } from "../components/AddTracksDialog";
 import { CollectionActions } from "../components/CollectionActions";
 import { EmptyState } from "../components/EmptyState";
+import { InlineEdit } from "../components/InlineEdit";
 import { LoadingState } from "../components/LoadingState";
-import { ManagePlaylistDialog } from "../components/ManagePlaylistDialog";
-import { IconPlaylists, IconPlus, IconSettings } from "../components/icons";
+import { IconClose, IconPlaylists, IconPlus, IconTrash } from "../components/icons";
 import { PlaylistArt } from "../components/PlaylistArt";
 import { TrackTable } from "../components/TrackTable";
 import { TrackTableHead } from "../components/TrackTableHead";
@@ -29,14 +37,84 @@ import { useQueryClient } from "@tanstack/react-query";
 import "../styles/library.css";
 import "../styles/editing.css";
 
+/** The header cover is its own edit affordance: click changes the image,
+    the corner × removes a custom one (the mosaic takes back over). */
+function PlaylistCoverCell({ playlist }: { playlist: PlaylistDetailT }) {
+  const uploadCover = useUploadPlaylistCover();
+  const updatePlaylist = useUpdatePlaylist();
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const hasCover = playlist.cover_artwork_id != null;
+
+  const onPick = async (file: File | undefined) => {
+    if (!file || uploading) return;
+    setUploading(true);
+    await uploadCover(playlist.id, file);
+    setUploading(false);
+  };
+
+  return (
+    <div className="detailhead__artcol">
+      <button
+        type="button"
+        className={`detailhead__artbutton${uploading ? " detailhead__artbutton--busy" : ""}`}
+        onClick={() => fileInputRef.current?.click()}
+        disabled={uploading}
+        aria-label={hasCover ? "Change cover image" : "Add cover image"}
+        title="JPEG or PNG, up to 10 MB"
+      >
+        <PlaylistArt
+          artworkIds={playlist.artwork_ids}
+          coverArtworkId={playlist.cover_artwork_id}
+          size={220}
+          radius="l"
+          className="detailhead__art"
+        />
+        <span className="detailhead__artscrim" aria-hidden="true">
+          {uploading ? (
+            "Uploading…"
+          ) : (
+            <>
+              <IconPlus size={17} />
+              Change
+            </>
+          )}
+        </span>
+      </button>
+      {hasCover && (
+        <button
+          type="button"
+          className="detailhead__artremove"
+          aria-label="Remove cover image"
+          title="Remove cover image"
+          onClick={() => void updatePlaylist(playlist.id, { cover_artwork_id: null })}
+        >
+          <IconClose size={11} />
+        </button>
+      )}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/jpeg,image/png"
+        hidden
+        onChange={(e) => {
+          void onPick(e.target.files?.[0]);
+          e.target.value = "";
+        }}
+      />
+    </div>
+  );
+}
+
 export function PlaylistDetailView() {
   const playlistId = Number(useParams().playlistId);
   const navigate = useNavigate();
   const reorderPlaylist = useReorderPlaylist();
   const removeFromPlaylist = useRemoveFromPlaylist();
   const addToPlaylist = useAddToPlaylist();
+  const updatePlaylist = useUpdatePlaylist();
+  const deletePlaylist = useDeletePlaylist();
   const showUndoNotice = useUiStore((s) => s.showUndoNotice);
-  const [managing, setManaging] = useState(false);
   const [adding, setAdding] = useState(false);
   const queryClient = useQueryClient();
 
@@ -133,16 +211,19 @@ export function PlaylistDetailView() {
   return (
     <section className="view">
       <header className="detailhead">
-        <PlaylistArt
-          artworkIds={playlist.artwork_ids}
-          coverArtworkId={playlist.cover_artwork_id}
-          size={220}
-          radius="l"
-          className="detailhead__art"
-        />
+        <PlaylistCoverCell playlist={playlist} />
         <div className="detailhead__info">
           <p className="detailhead__kind">Playlist</p>
-          <h1 className="detailhead__title">{playlist.name}</h1>
+          {/* The name is click-to-edit (2026-10-03): Enter commits, Esc
+              cancels — the Organize grid's inline grammar (§15.1). */}
+          <h1 className="detailhead__titlerow">
+            <InlineEdit
+              value={playlist.name}
+              onCommit={(name) => void updatePlaylist(playlist.id, { name })}
+              className="detailhead__title"
+              ariaLabel="Rename playlist"
+            />
+          </h1>
           {playlist.description && (
             <p className="detailhead__meta detailhead__meta--stack">
               {playlist.description}
@@ -159,10 +240,9 @@ export function PlaylistDetailView() {
           <div className="detailhead__actions">
             {/* §2.1: the playlist joins the §30.1 header trio — Play ·
                 Shuffle · … — shared with album/artist detail so the grammar
-                cannot fork. The editing verbs (Add Tracks, Manage) live in
-                the "…" menu; the empty state below keeps the one prominent
-                Add affordance (§8.8). Delete stays in the Manage dialog,
-                where its two-step confirm lives. */}
+                cannot fork. Add Tracks stays in the "…" menu; deletion is
+                there too now, behind the two-step confirm (2026-10-03) —
+                the editing dialog is gone, its verbs live in the page. */}
             <CollectionActions
               tracks={playlist.tracks}
               label={playlist.name}
@@ -174,9 +254,15 @@ export function PlaylistDetailView() {
                   onSelect: () => setAdding(true),
                 },
                 {
-                  label: "Manage",
-                  icon: <IconSettings size={15} />,
-                  onSelect: () => setManaging(true),
+                  label: "Delete Playlist",
+                  icon: <IconTrash size={15} />,
+                  danger: true,
+                  confirmLabel: "Confirm Delete",
+                  onSelect: () => {
+                    void deletePlaylist(playlist.id).then((ok) => {
+                      if (ok) navigate("/playlists");
+                    });
+                  },
                 },
               ]}
             />
@@ -212,17 +298,6 @@ export function PlaylistDetailView() {
 
       {adding && (
         <AddTracksDialog kind="playlist" playlist={playlist} onClose={() => setAdding(false)} />
-      )}
-
-      {managing && (
-        <ManagePlaylistDialog
-          playlist={playlist}
-          onClose={() => setManaging(false)}
-          onDeleted={() => {
-            setManaging(false);
-            navigate("/playlists");
-          }}
-        />
       )}
     </section>
   );

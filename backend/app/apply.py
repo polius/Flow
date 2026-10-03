@@ -9,7 +9,9 @@ their wire semantics into the dict (PATCH: only non-null patch fields; the
 track number additionally honours explicit null via model_fields_set).
 Values follow §15.2: empty artist/album strings clear the reference,
 an explicit-null track_no clears the number, 0 normalizes to null, and a
-title must be non-empty. `favorite` is a plain flag outside the overlay.
+title must be non-empty. `favorite` is a plain flag outside the overlay;
+loving a track also appends it to the Favorites manual order
+(favorite_position — 2026-10-03) and unloving releases the slot.
 """
 
 from __future__ import annotations
@@ -28,7 +30,7 @@ UNDO_LIMIT = 20_000  # entries; a full-library apply fits with room to spare
 # (undo restores it the same way).
 APPLY_SELECT = """
 SELECT t.id, t.title, t.artist_id, t.album_id, t.album_artist_id, t.track_no,
-       t.year, t.artwork_id, t.user_edited,
+       t.year, t.artwork_id, t.user_edited, t.favorite, t.favorite_position,
        ar.name AS artist, al.title AS album,
        aar.name AS album_artist_name,
        (SELECT g.name FROM track_genres tg
@@ -122,7 +124,24 @@ def apply_field_changes(conn, track, fields: dict) -> dict:
         edited |= Edited.ALBUM_ARTIST
 
     if "favorite" in fields and fields["favorite"] is not None:
-        columns["favorite"] = int(fields["favorite"])
+        favorite = int(bool(fields["favorite"]))
+        # Only a real transition writes the flag — a re-set of the state the
+        # row already holds is a no-op (an empty columns dict tells the
+        # caller nothing changed).
+        if favorite != (track["favorite"] or 0):
+            columns["favorite"] = favorite
+        # The Favorites manual order (2026-10-03): loving a track appends it
+        # after the last placed favorite (and heals legacy unplaced rows);
+        # unloving releases the slot. Like `favorite`, the position lives
+        # outside the overlay — the scanner never touches it.
+        if favorite and track["favorite_position"] is None:
+            last = conn.execute(
+                "SELECT MAX(favorite_position) AS m FROM tracks "
+                "WHERE favorite = 1 AND favorite_position IS NOT NULL"
+            ).fetchone()["m"]
+            columns["favorite_position"] = (last or 0) + 1
+        elif not favorite:
+            columns["favorite_position"] = None
 
     # Genre (§2.2): replace the track's tag genres with the one named —
     # the primary genre the Tracks filter groups by. An empty string clears.

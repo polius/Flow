@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useInfiniteQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "react-router";
 
 import { api, fetchAllTracks } from "../api/client";
+import type { Track, TrackList } from "../api/types";
+import { useReorderFavorites } from "../api/mutations";
 import { playByFilter } from "../api/queue";
 import type { QueueOrigin } from "../api/types";
-import { SortMenu, type SortOption } from "../components/SortMenu";
-import { TrackTableHead, type TrackSortKey } from "../components/TrackTableHead";
 import { VirtualTrackTable } from "../components/VirtualTrackTable";
+import { TrackTableHead } from "../components/TrackTableHead";
 import { EmptyState } from "../components/EmptyState";
 import { LoadingState } from "../components/LoadingState";
 import { IconHeart, IconPlay, IconShuffle } from "../components/icons";
@@ -15,32 +16,23 @@ import { fmtCount } from "../lib/format";
 import { usePlayerStore } from "../stores/player";
 
 /* Favorites — the library's loved songs, first-class (§9.1). The heart is a
-   state indicator on every row; this view is where the state lands. Same
-   windowed table + URL sort state as Tracks, so the two views share one
-   mental model and one set of gestures (headers, long-press menu). */
+   state indicator on every row; this view is where the state lands.
+
+   Manual order (2026-10-03): Favorites is a curated list like a playlist —
+   the view has NO sort menu. The order is the drag-written one
+   (favorite_position 1..n, persisted server-side); press-and-drag reorders
+   it with the same §27 gesture the playlist table speaks. A freshly loved
+   track appends at the end; the search filter narrows the list but the
+   order never re-sorts behind the user's back. */
+
 const PAGE_SIZE = 1000;
 
-const SORT_OPTIONS: SortOption[] = [
-  { key: "title", label: "Title" },
-  { key: "artist", label: "Artist" },
-  { key: "album", label: "Album" },
-  { key: "duration", label: "Duration" },
-  { key: "year", label: "Year" },
-  { key: "added_at", label: "Recently added", defaultDir: "desc" },
-];
-
-const SORT_KEYS = new Set(SORT_OPTIONS.map((o) => o.key));
-
 export function FavoritesView() {
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchParams] = useSearchParams();
   const q = searchParams.get("q") ?? "";
-  const urlSort = searchParams.get("sort") ?? "added_at";
-  const sort = (SORT_KEYS.has(urlSort) ? urlSort : "added_at") as TrackSortKey;
-  const dir = searchParams.get("dir") === "asc" ? "asc" : "desc";
-
 
   const query = useInfiniteQuery({
-    queryKey: ["tracks", "favorites", q, sort, dir],
+    queryKey: ["tracks", "favorites", q],
     queryFn: async ({ pageParam }) => {
       const { data } = await api.GET("/api/tracks", {
         params: {
@@ -48,8 +40,9 @@ export function FavoritesView() {
             limit: PAGE_SIZE,
             offset: pageParam,
             favorite: true,
-            sort,
-            dir,
+            // The drag-written manual order — the only order this view has.
+            sort: "favorite",
+            dir: "asc",
             ...(q ? { q } : {}),
           },
         },
@@ -57,7 +50,7 @@ export function FavoritesView() {
       return data;
     },
     initialPageParam: 0,
-    // Keep the previous order on the page while a re-sort fetches — the
+    // Keep the previous order on the page while a refetch lands — the
     // table must swap orders in one paint, not flash a skeleton (§2.6).
     placeholderData: (prev) => prev,
     getNextPageParam: (lastPage, allPages) => {
@@ -97,8 +90,8 @@ export function FavoritesView() {
       void playByFilter({
         q: q || undefined,
         favorite: true,
-        sort,
-        dir,
+        sort: "favorite",
+        dir: "asc",
         start: index,
         origin: viewOrigin,
       }).then((snapshot) => {
@@ -106,21 +99,25 @@ export function FavoritesView() {
           playSnapshot(snapshot);
           return;
         }
-        return fetchAllTracks({ q: q || undefined, sort, dir, favorite: true }).then(
-          (full) => {
-            const list = full.length > 0 ? full : tracks;
-            playTracks(list, Math.min(index, list.length - 1), viewOrigin);
-          },
-        );
+        return fetchAllTracks({
+          q: q || undefined,
+          sort: "favorite",
+          dir: "asc",
+          favorite: true,
+        }).then((full) => {
+          const list = full.length > 0 ? full : tracks;
+          playTracks(list, Math.min(index, list.length - 1), viewOrigin);
+        });
       });
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [playTracks, playSnapshot, tracks, total, q, sort, dir],
+    [playTracks, playSnapshot, tracks, total, q],
   );
 
   const contextLoader = useCallback(
-    () => fetchAllTracks({ q: q || undefined, sort, dir, favorite: true }),
-    [q, sort, dir],
+    () =>
+      fetchAllTracks({ q: q || undefined, sort: "favorite", dir: "asc", favorite: true }),
+    [q],
   );
 
   // Shuffle (§2.5's escape hatch, scoped to the view): the whole filter,
@@ -137,8 +134,8 @@ export function FavoritesView() {
     void playByFilter({
       q: q || undefined,
       favorite: true,
-      sort,
-      dir,
+      sort: "favorite",
+      dir: "asc",
       start,
       shuffle: true,
       origin: viewOrigin,
@@ -148,35 +145,73 @@ export function FavoritesView() {
           playSnapshot(snapshot);
           return;
         }
-        return fetchAllTracks({ q: q || undefined, sort, dir, favorite: true }).then(
-          (full) => {
-            const list = full.length > 0 ? full : tracks;
-            if (list.length === 0) return;
-            playTracks(list, Math.min(start, list.length - 1), viewOrigin);
-          },
-        );
+        return fetchAllTracks({
+          q: q || undefined,
+          sort: "favorite",
+          dir: "asc",
+          favorite: true,
+        }).then((full) => {
+          const list = full.length > 0 ? full : tracks;
+          if (list.length === 0) return;
+          playTracks(list, Math.min(start, list.length - 1), viewOrigin);
+        });
       })
       .finally(() => setShuffling(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [shuffling, total, q, sort, dir, playSnapshot, playTracks, tracks]);
+  }, [shuffling, total, q, playSnapshot, playTracks, tracks]);
 
   const handleNearEnd = useCallback(() => {
     if (query.hasNextPage && !query.isFetchingNextPage) void query.fetchNextPage();
   }, [query.hasNextPage, query.isFetchingNextPage, query.fetchNextPage]);
 
-  const onSort = useCallback(
-    (key: TrackSortKey, nextDir: "asc" | "desc") => {
-      const next = new URLSearchParams(searchParams);
-      next.set("sort", key);
-      next.set("dir", nextDir);
-      setSearchParams(next, { replace: true });
+  // ---- drag-to-reorder (the view's whole ordering story) -------------------
+
+  const queryClient = useQueryClient();
+  const reorderFavorites = useReorderFavorites();
+
+  // The drag writes the whole list — only offer it when every favorite is
+  // loaded and no search filter narrows the visible subset: reordering
+  // against a partial or filtered read would silently re-point the rows
+  // the screen can't show.
+  const reorderable = !q && tracks.length > 1 && tracks.length >= total;
+
+  const move = useCallback(
+    (fromIndex: number, toIndex: number) => {
+      if (fromIndex === toIndex) return;
+      const ids = tracks.map((t) => t.id);
+      const [moved] = ids.splice(fromIndex, 1);
+      ids.splice(toIndex, 0, moved);
+      // Optimistic rewrite of the cached pages: one flat splice,
+      // redistributed by the same PAGE_SIZE the query fetched with — the
+      // server PUT confirms behind it (the playlist-detail pattern).
+      queryClient.setQueryData<{ pages: (TrackList | undefined)[]; pageParams: unknown[] }>(
+        ["tracks", "favorites", q],
+        (data) => {
+          if (!data) return data;
+          const flat = data.pages.flatMap((p) => p?.items ?? []);
+          const [movedTrack] = flat.splice(fromIndex, 1);
+          flat.splice(toIndex, 0, movedTrack);
+          const pages = data.pages.map((page, i) => {
+            if (!page) return page;
+            return {
+              ...page,
+              items: flat
+                .slice(i * PAGE_SIZE, (i + 1) * PAGE_SIZE)
+                .map((t): Track => ({ ...t })),
+              offset: i * PAGE_SIZE,
+            };
+          });
+          return { ...data, pages };
+        },
+      );
+      void reorderFavorites(ids);
     },
-    [searchParams, setSearchParams],
+    [tracks, q, queryClient, reorderFavorites],
   );
 
   useEffect(() => {
     document.querySelector<HTMLElement>(".shell__canvas")?.scrollTo(0, 0);
-  }, [sort, dir]);
+  }, [q]);
 
   return (
     <section className="view">
@@ -196,13 +231,6 @@ export function FavoritesView() {
           </p>
         </div>
         <div className="view__actions">
-          <SortMenu
-            options={SORT_OPTIONS}
-            value={sort}
-            dir={dir}
-            onChange={(key, nextDir) => onSort(key as TrackSortKey, nextDir)}
-            label="Sort favorites"
-          />
           {total > 0 && (
             <button
               type="button"
@@ -248,12 +276,14 @@ export function FavoritesView() {
         />
       ) : (
         <>
-          <TrackTableHead sort={sort} dir={dir} onSort={onSort} />
+          <TrackTableHead />
           <VirtualTrackTable
             tracks={tracks}
             onNearEnd={handleNearEnd}
             onPlay={playFromHere}
             contextLoader={contextLoader}
+            onMove={move}
+            reorderable={reorderable}
           />
         </>
       )}

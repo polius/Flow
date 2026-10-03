@@ -172,6 +172,18 @@
   pointer-events: none;
 }
 
+/* Reorderable rows announce the gesture (2026-10-03, Favorites): a grab
+   cursor anywhere on the row, the playlist table's cue — the pointer
+   handlers refuse presses that start on buttons/links, so their own
+   cursors still win. */
+.tracktable--reorderable .trackrow {
+  cursor: grab;
+}
+
+.tracktable--reorderable .trackrow:active {
+  cursor: grabbing;
+}
+
 /* The parting motion: the wrapper slides one row height with the same fast
    ease the queue rows use — the list reads as yielding to the hand, not
    rows teleporting. Unconditional (like .queue__row) so the release/cancel
@@ -342,6 +354,19 @@ textarea.inlineedit__input {
 .trackmenu__item--danger {
   /* §31: the consequence reads through weight, not alarm color. */
   font-weight: 650;
+}
+
+/* The armed two-step confirm (2026-10-03): the delete item inverts — the
+   Manage dialog's confirm grammar (§9.2) living in a menu item. §31 again:
+   inversion carries the step, no alarm color. */
+.collactions__item--armed {
+  background: var(--text-primary);
+  color: var(--bg-canvas);
+}
+
+.collactions__item--armed:hover {
+  background: var(--text-primary);
+  color: var(--bg-canvas);
 }
 
 .trackmenu__item--new {
@@ -1207,269 +1232,6 @@ textarea.inlineedit__input {
 .chip__x:hover {
   color: var(--text-primary);
   background: var(--bg-hover);
-}
-
-/* ---- Manage Playlist dialog -------------------------------------------------- */
-/* Shell matches the dialog family (Add Tracks / Get Info): fixed center card,
-   radius-l, hairline border, one big shadow. The body mirrors the detail page
-   it edits — art left, name right — instead of a form-in-a-box. */
-
-.manage__scrim {
-  position: fixed;
-  inset: 0;
-  z-index: calc(var(--z-modal) - 1);
-  background: rgba(0, 0, 0, 0.18);
-}
-
-.manage {
-  position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  z-index: var(--z-modal);
-  display: flex;
-  flex-direction: column;
-  width: min(520px, 92vw);
-  max-height: min(680px, 92vh);
-  background: var(--bg-elevated);
-  border: 1px solid var(--separator);
-  border-radius: var(--radius-l);
-  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.32);
-  animation: manage-in var(--dur-normal) var(--ease-out);
-}
-
-@keyframes manage-in {
-  from {
-    transform: translate(-50%, calc(-50% + 10px));
-    opacity: 0;
-  }
-}
-
-.manage__head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 20px 24px 12px;
-}
-
-.manage__title {
-  margin: 0;
-  font-size: var(--text-title);
-  font-weight: 700;
-  letter-spacing: var(--tracking-tight);
-}
-
-.manage__close {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  color: var(--text-secondary);
-}
-
-.manage__close:hover {
-  background: var(--bg-hover);
-  color: var(--text-primary);
-}
-
-.manage__body {
-  flex: 1;
-  overflow-y: auto;
-  padding: 6px 24px 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-
-/* Hero: cover column + name column, echoing the detail header. The lone
-   name field centers vertically against the cover so the row stays balanced. */
-.manage__hero {
-  display: flex;
-  align-items: center;
-  gap: 20px;
-}
-
-.manage__covercol {
-  flex: none;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-}
-
-/* The cover is its own affordance — no separate "Upload" button. */
-.manage__cover {
-  position: relative;
-  padding: 0;
-  border: none;
-  background: none;
-  border-radius: var(--radius-m);
-  cursor: pointer;
-}
-
-.manage__cover .playlistart {
-  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.18);
-}
-
-.manage__coverscrim {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 3px;
-  border-radius: var(--radius-m);
-  background: rgba(0, 0, 0, 0);
-  color: #fff;
-  font-size: var(--text-small);
-  font-weight: 600;
-  opacity: 0;
-  transition: opacity var(--dur-fast) var(--ease-out),
-    background var(--dur-fast) var(--ease-out);
-}
-
-.manage__cover:hover .manage__coverscrim,
-.manage__cover:focus-visible .manage__coverscrim,
-.manage__cover--busy .manage__coverscrim {
-  opacity: 1;
-  background: rgba(0, 0, 0, 0.45);
-}
-
-.manage__reset {
-  padding: 2px 6px;
-  border: none;
-  background: none;
-  font-size: var(--text-caption);
-  font-weight: 600;
-  color: var(--text-secondary);
-  text-decoration: underline;
-  text-underline-offset: 3px;
-}
-
-.manage__reset:hover {
-  color: var(--text-primary);
-}
-
-.manage__herofields {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-
-.manage__hint {
-  margin: -4px 0 0;
-  font-size: var(--text-caption);
-  color: var(--text-tertiary);
-}
-
-.manage__field {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-}
-
-.manage__label {
-  font-size: var(--text-caption);
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--text-tertiary);
-}
-
-/* Filled fields — quiet at rest (no border), focus is the border appearing.
-   The 1px transparent border prevents any layout shift on focus. */
-.manage__input {
-  padding: 8px 12px;
-  border: 1px solid transparent;
-  border-radius: var(--radius-m);
-  background: var(--bg-canvas);
-  font-size: var(--text-regular);
-  color: var(--text-primary);
-  outline: none;
-}
-
-.manage__input--name {
-  font-weight: 600;
-}
-
-/* Text fields always match :focus-visible, so the global accent ring
-   (base.css) would paint a 2px red border around the field while typing.
-   Focus here is the border-color change; the outline is suppressed. */
-.manage__input:focus,
-.manage__input:focus-visible {
-  border-color: color-mix(in srgb, var(--text-primary) 40%, transparent);
-  outline: none;
-}
-
-.manage__actions {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 14px 24px;
-  border-top: 1px solid var(--separator);
-}
-
-.manage__actiongroup {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.manage__cancel {
-  padding: 8px 16px;
-  border-radius: 999px;
-  font-size: var(--text-body);
-  font-weight: 600;
-  color: var(--text-secondary);
-}
-
-.manage__cancel:hover {
-  color: var(--text-primary);
-  background: var(--bg-hover);
-}
-
-/* Destructive action lives in the footer, quiet until armed: full-ink ghost
-   text first, inverted fill only for the confirm click (§31 — weight and
-   inversion carry the danger, no alarm color). The label swap carries the
-   second step; the tooltip carries the fine print. */
-.manage__delete {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 14px;
-  border: none;
-  border-radius: 999px;
-  font-size: var(--text-body);
-  font-weight: 600;
-  color: var(--text-primary);
-  white-space: nowrap;
-  transition: background var(--dur-fast) var(--ease-out),
-    color var(--dur-fast) var(--ease-out);
-}
-
-.manage__delete:hover {
-  background: var(--bg-hover);
-}
-
-.manage__delete--confirm,
-.manage__delete--confirm:hover {
-  background: var(--text-primary);
-  color: var(--bg-canvas);
-}
-
-/* Narrow dialogs: the hero stacks so the fields keep a usable width.
-   Stretch (not center) so the name field spans the dialog. */
-@media (max-width: 560px) {
-  .manage__hero {
-    flex-direction: column;
-    align-items: stretch;
-  }
 }
 
 /* ---- undo toast (§25) -------------------------------------------------------

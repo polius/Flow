@@ -2085,3 +2085,61 @@ mp3 demuxer ("Header missing").
 loss); re-downloading from anywhere (out of scope §4). Known cost: a
 repaired file's bytes exist twice (original + copy in the data dir);
 accepted — repairs are rare, and the alternative is invisible tracks.
+
+## 39. Addendum — UX pass: Alt-select, named playlists, inline playlist editing, album-mode Organize, a manual-order Favorites (2026-10-03)
+
+An owner five-item list; decisions confirmed with the owner where the
+grammar forked.
+
+1. **Alt-click joins the selection modifiers (§4.1).** Cmd/Ctrl-click
+   still toggles a row; Alt-click now toggles too (owner request) — the
+   same consume-the-click contract, Shift-click ranges unchanged.
+
+2. **"New Playlist" always asks its name (§2.1).** The Add-to-Playlist
+   picker's naming step existed but was unreachable — the New row's
+   click called create-and-add directly, which fell back to the default
+   name. The row (and its Enter path) now enters the naming step; a
+   nameless playlist is never created (the create button stays disabled
+   until the field has content).
+
+3. **Playlist editing moves into the header (§9.2, revising the Manage
+   dialog).** The Manage dialog is gone. The name is click-to-edit
+   inline (the §15.1 grammar); the cover is click-to-change with the
+   hover scrim, and a custom cover gains a corner × to remove it (the
+   mosaic takes back over). Delete lives in the "…" menu as a two-step
+   confirm item (click → "Confirm Delete" for 5 s → fires; §31
+   inversion, no alarm color), and the "…" button stays reachable on an
+   empty playlist — the old Manage path was unreachable exactly when
+   deletion was most needed. `CollectionActions` gained
+   `confirmLabel`/`danger` items for this; the armed state disarms on
+   close or after five seconds.
+
+4. **Organize gains an album filter and loses the № column (§22).** A
+   searchable album picker sits in the toolbar (server-filtered, limit
+   50). Filtering to an album is now "album mode": the grid shows the
+   album's curated order (`sort=curate` forced), column sorting stands
+   down, and drag-reorder is armed — the drag writes exactly what the
+   screen shows. The № column (the editable track-number cell and its
+   header) is removed on the owner's call: within an album, order is the
+   drag's to write, so numbers can never disagree with the rows. The
+   drag was previously gated behind sorts most users never reach — that
+   gate is what read as "missing".
+
+5. **Favorites becomes a manual-order list (§9.1, revising the sort
+   menu).** The sort menu is removed (owner decision): the order is the
+   drag-written one. Backend: `tracks.favorite_position` (1..n, NULL =
+   unplaced — schema lives in the pre-release init migration), loving
+   appends after the last placed favorite via the shared apply path,
+   unloving releases the slot, `sort=favorite` reads the order, and
+   `POST /api/favorites/reorder` writes it (the playlist order PUT's
+   contract over the favorites filter; only currently-loved tracks are
+   placed). Frontend: the §27 press-and-drag gesture was extracted from
+   the playlist table into `lib/rowDrag.ts` and adopted by
+   `VirtualTrackTable`; reorder is offered only when the view is fully
+   loaded and unfiltered (a drag against a subset would re-point rows
+   the screen can't show), and the commit splices the cached pages
+   optimistically before the PUT.
+
+Verification: `tsc --noEmit` clean, frontend suite green (31 tests),
+backend suite green (137 tests, including four new favorites-order
+tests).

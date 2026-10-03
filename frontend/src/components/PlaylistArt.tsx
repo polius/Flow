@@ -1,7 +1,8 @@
 /* Playlist card artwork — the 2×2 mosaic of track covers (§13.10).
    0 tracks → all-monochrome placeholder; 1 → full bleed; 2 → halves;
-   3–4 → quadrant grid. A user-set cover (Manage) overrides the mosaic.
-   Never synthesizes color (§8.1). */
+   3–4 → quadrant grid. A user-set cover (2026-10-03: set from the detail
+   header's cover button) overrides the mosaic. Never synthesizes color
+   (§8.1). */
 
 import { Artwork } from "./Artwork";
 import { IconPlaylists } from "./icons";

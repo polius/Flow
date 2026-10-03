@@ -13,6 +13,11 @@
 --   play at unity gain). played_at is set when the track actually starts
 --   playing — no counts, no charts (§1's non-goal) — and the scanner's
 --   upsert never touches it, exactly like `favorite`.
+-- favorite_position is the track's 1..n slot in the Favorites view's
+--   manual order — the drag-written curation order (2026-10-03). NULL =
+--   not placed yet (a freshly loved track appends after the last placed
+--   one; unloving releases the slot). Like `favorite` itself, the
+--   scanner's upsert never touches it: the order is the user's.
 
 CREATE TABLE tracks (
   id              INTEGER PRIMARY KEY,
@@ -35,6 +40,7 @@ CREATE TABLE tracks (
   user_edited     INTEGER NOT NULL DEFAULT 0,
   artwork_id      INTEGER REFERENCES artwork(id),
   favorite        INTEGER NOT NULL DEFAULT 0,
+  favorite_position INTEGER,             -- 1..n slot in Favorites' manual drag order (NULL = unplaced)
   added_at        TEXT NOT NULL          -- ISO-8601 UTC
 );
 

@@ -21,7 +21,16 @@ export interface CollectionMenuItem {
   label: string;
   icon?: ReactNode;
   onSelect: () => void;
+  /** Two-step confirm (2026-10-03): the first click arms in place — the
+      item's label becomes `confirmLabel` — and only the second fires.
+      Arming expires after five seconds and disarms when the menu closes. */
+  confirmLabel?: string;
+  /** Destructive: wears the shared danger styling from the start. */
+  danger?: boolean;
 }
+
+/** How long an armed confirm stays armed before disarming itself. */
+const CONFIRM_ARM_MS = 5000;
 
 interface CollectionActionsProps {
   tracks: Track[];
@@ -41,9 +50,14 @@ export function CollectionActions({ tracks, label, origin, extraItems }: Collect
   const addToQueue = usePlayerStore((s) => s.addToQueue);
   const openAddToPlaylist = useUiStore((s) => s.openAddToPlaylist);
   const [open, setOpen] = useState(false);
+  const [armed, setArmed] = useState<string | null>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
 
   const empty = tracks.length === 0;
+  // The "…" button stays reachable when the surface declares items that
+  // don't need tracks (the playlist's Delete) — a one-track menu with no
+  // way to act on the collection itself would be a dead end.
+  const menuUseful = !empty || (extraItems != null && extraItems.length > 0);
 
   // Menu lifecycle: outside tap, Esc, teardown — the shared menu grammar.
   useEffect(() => {
@@ -62,6 +76,19 @@ export function CollectionActions({ tracks, label, origin, extraItems }: Collect
       window.removeEventListener("keydown", onKeyDown);
     };
   }, [open]);
+
+  // An armed confirm disarms itself: when the menu closes, and again five
+  // seconds after arming — a hesitate-means-no guard, the Manage dialog's
+  // two-step grammar (§9.2) living in a menu item.
+  useEffect(() => {
+    if (!open) {
+      setArmed(null);
+      return;
+    }
+    if (armed == null) return;
+    const timer = window.setTimeout(() => setArmed(null), CONFIRM_ARM_MS);
+    return () => window.clearTimeout(timer);
+  }, [open, armed]);
 
   const shufflePlay = () => {
     if (empty) return;
@@ -100,7 +127,7 @@ export function CollectionActions({ tracks, label, origin, extraItems }: Collect
           aria-expanded={open}
           aria-label={`More actions for ${label}`}
           onClick={() => setOpen((o) => !o)}
-          disabled={empty}
+          disabled={!menuUseful}
         >
           <IconEllipsis size={15} />
         </button>
@@ -110,6 +137,7 @@ export function CollectionActions({ tracks, label, origin, extraItems }: Collect
               type="button"
               role="menuitem"
               className="trackmenu__item"
+              disabled={empty}
               onClick={() => {
                 playNextMany(tracks);
                 setOpen(false);
@@ -126,6 +154,7 @@ export function CollectionActions({ tracks, label, origin, extraItems }: Collect
               type="button"
               role="menuitem"
               className="trackmenu__item"
+              disabled={empty}
               onClick={() => {
                 addToQueue(tracks);
                 setOpen(false);
@@ -138,6 +167,7 @@ export function CollectionActions({ tracks, label, origin, extraItems }: Collect
               type="button"
               role="menuitem"
               className="trackmenu__item"
+              disabled={empty}
               onClick={() => {
                 openAddToPlaylist(tracks);
                 setOpen(false);
@@ -149,21 +179,31 @@ export function CollectionActions({ tracks, label, origin, extraItems }: Collect
             {extraItems && extraItems.length > 0 && (
               <>
                 <div className="trackmenu__separator" role="separator" />
-                {extraItems.map((item) => (
-                  <button
-                    key={item.label}
-                    type="button"
-                    role="menuitem"
-                    className="trackmenu__item"
-                    onClick={() => {
-                      item.onSelect();
-                      setOpen(false);
-                    }}
-                  >
-                    {item.icon}
-                    {item.label}
-                  </button>
-                ))}
+                {extraItems.map((item) => {
+                  const isArmed = item.confirmLabel != null && armed === item.label;
+                  return (
+                    <button
+                      key={item.label}
+                      type="button"
+                      role="menuitem"
+                      className={`trackmenu__item${
+                        item.danger ? " trackmenu__item--danger" : ""
+                      }${isArmed ? " collactions__item--armed" : ""}`}
+                      onClick={() => {
+                        // Two-step confirm: arm in place first, fire second.
+                        if (item.confirmLabel != null && !isArmed) {
+                          setArmed(item.label);
+                          return;
+                        }
+                        item.onSelect();
+                        setOpen(false);
+                      }}
+                    >
+                      {item.icon}
+                      {isArmed ? item.confirmLabel : item.label}
+                    </button>
+                  );
+                })}
               </>
             )}
           </div>

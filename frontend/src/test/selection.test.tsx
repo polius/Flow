@@ -1,5 +1,5 @@
 /* Marquee selection on the listening tables (UX review 2, §4.1, DESIGN.md
-   §36): Cmd/Ctrl-click toggles and consumes the click (the row must not
+   §36): Cmd/Ctrl/Alt-click toggles and consumes the click (the row must not
    play), Shift-click ranges from the anchor, a plain click clears any
    selection and falls through to the row's §23.1 play, Enter's
    last-selected row is exposed, and Esc clears — unless a surface owns the
@@ -39,13 +39,14 @@ type Selection = ReturnType<typeof useTrackSelection>;
 const click = (
   result: { current: Selection },
   index: number,
-  init: Partial<{ metaKey: boolean; ctrlKey: boolean; shiftKey: boolean }> = {},
+  init: Partial<{ metaKey: boolean; ctrlKey: boolean; altKey: boolean; shiftKey: boolean }> = {},
 ) => {
   let consumed: boolean | undefined;
   act(() => {
     consumed = result.current.onRowClick(tracks[index], index, {
       metaKey: false,
       ctrlKey: false,
+      altKey: false,
       shiftKey: false,
       ...init,
     });
@@ -76,6 +77,16 @@ describe("marquee selection (§4.1)", () => {
     expect(result.current.count).toBe(1);
     expect(click(result, 2, { metaKey: true })).toBe(true);
     expect(result.current.count).toBe(0);
+  });
+
+  it("Alt-click toggles one row too (2026-10-03: Alt joins the modifier set)", () => {
+    const { result } = renderHook(() => useTrackSelection(tracks));
+    expect(click(result, 1, { altKey: true })).toBe(true);
+    expect(result.current.count).toBe(1);
+    expect(click(result, 3, { altKey: true })).toBe(true);
+    expect(result.current.count).toBe(2);
+    expect(click(result, 1, { altKey: true })).toBe(true);
+    expect(result.current.count).toBe(1);
   });
 
   it("a plain click clears any selection and falls through to play (§23.1)", () => {

@@ -1,6 +1,6 @@
 /* Playlists — card grid with 2×2 artwork mosaics (§9.2, §13.10).
-   Cards are entry points only; editing and deleting live in the
-   playlist's Manage dialog. */
+   Cards are entry points only; editing lives in the playlist's header
+   (name + cover, click-to-edit), deletion in the "…" menu (2026-10-03). */
 
 import { useQuery } from "@tanstack/react-query";
 import { Link, useNavigate } from "react-router";

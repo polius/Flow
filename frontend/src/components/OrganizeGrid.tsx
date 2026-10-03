@@ -1,8 +1,10 @@
 /* The Organize grid (§22): windowed rows over the full (filtered) library,
-   a sticky column header, and a keyboard cursor. Columns: checkbox · № ·
+   a sticky column header, and a keyboard cursor. Columns: checkbox ·
    title · artist · album · genre · added · file — the fields curation
    edits, plus the two reference columns (genre feeds the Tracks filter;
-   added-at answers "what did I just drop in?").
+   added-at answers "what did I just drop in?"). The track-number column
+   is gone (2026-10-03): within an album, order is the drag gesture's to
+   write, not a cell's.
 
    Scroller note (§17.2 revision): the shell canvas is the app's scroll
    container (AppShell), so this uses an element virtualizer bound to
@@ -12,10 +14,10 @@
    Drag-reorder (§22): press a row and move — inside its ALBUM block the
    row lifts, neighbors part, and release renumbers the block 1..n through
    POST /api/tracks/reorder (overlay edits, rescan-safe). The gesture is
-   bounded by the album: an album is the unit the № column orders, so a
-   drag can never scatter tracks across albums. Only the curated order
-   (or a single album's filter) allows it — the screen must be showing the
-   order the drag writes. */
+   bounded by the album: an album is the unit the drag orders, so a drag
+   can never scatter tracks across albums. Only the curated order (in
+   practice: a single album's filter — 2026-10-03's album mode) allows it —
+   the screen must be showing the order the drag writes. */
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
@@ -45,7 +47,9 @@ interface OrganizeGridProps {
   /** Current column sort (URL state owned by OrganizeView). */
   sort: string;
   dir: "asc" | "desc";
-  onSort: (key: string, dir: "asc" | "desc") => void;
+  /** Absent → a static head (album mode, 2026-10-03: the filtered album's
+      curated order is the view, columns don't sort against it). */
+  onSort?: (key: string, dir: "asc" | "desc") => void;
   onNearEnd: () => void;
   onToggleAll: () => void;
   onToggleRow: (track: Track, index: number, mods: RowMods) => void;
@@ -58,7 +62,6 @@ interface OrganizeGridProps {
   onCommitTitle: (track: Track, title: string) => void;
   onCommitArtist: (track: Track, artist: string) => void;
   onCommitAlbum: (track: Track, album: string) => void;
-  onCommitTrackNo: (track: Track, value: number | null) => void;
   onCommitGenre: (track: Track, genre: string) => void;
   /** Drag-reorder: true when the on-screen order is the album grouping
       (curated sort, or a single album's filter) and the grid is at full
@@ -123,7 +126,6 @@ export function OrganizeGrid({
   onCommitTitle,
   onCommitArtist,
   onCommitAlbum,
-  onCommitTrackNo,
   onCommitGenre,
   canReorder,
   libraryTruncated,
@@ -332,9 +334,10 @@ export function OrganizeGrid({
   };
 
   // Column sort (Finder grammar): click a header to sort by it, click
-  // again to flip. The № header restores the curate order (the grid's
-  // native grouping).
+  // again to flip. Absent in album mode — the filtered album shows its
+  // curated order and columns don't sort against the drag's truth.
   const sortClick = (key: string) => {
+    if (!onSort) return;
     if (key === "curate") {
       onSort("curate", "asc");
       return;
@@ -352,21 +355,31 @@ export function OrganizeGrid({
     ) : null;
 
   const headerButton = (key: string, label: string, className?: string) => (
-    <button
-      type="button"
+    <span
       role="columnheader"
-      aria-sort={sort === key ? (dir === "asc" ? "ascending" : "descending") : "none"}
-      className={`orghead__label orghead__sort${className ? ` ${className}` : ""}`}
-      onClick={() => sortClick(key)}
-      title={
-        sort === key && key !== "curate"
-          ? `Sorted by ${label} — click to reverse`
-          : `Sort by ${label}`
+      aria-sort={
+        onSort && sort === key ? (dir === "asc" ? "ascending" : "descending") : "none"
       }
+      className={`orghead__label${onSort ? " orghead__sort" : ""}${className ? ` ${className}` : ""}`}
     >
-      {label}
-      {headerArrow(key)}
-    </button>
+      {onSort ? (
+        <button
+          type="button"
+          className="orghead__sortbtn"
+          onClick={() => sortClick(key)}
+          title={
+            sort === key && key !== "curate"
+              ? `Sorted by ${label} — click to reverse`
+              : `Sort by ${label}`
+          }
+        >
+          {label}
+          {headerArrow(key)}
+        </button>
+      ) : (
+        label
+      )}
+    </span>
   );
 
   return (
@@ -396,21 +409,6 @@ export function OrganizeGrid({
           >
             {selectAllState === "all" && <IconCheck size={11} />}
             {selectAllState === "some" && <IconMinus size={11} />}
-          </button>
-        </span>
-        <span
-          className="orghead__label orghead__no orghead__sort"
-          role="columnheader"
-          aria-sort={sort === "track_no" ? (dir === "asc" ? "ascending" : "descending") : "none"}
-        >
-          <button
-            type="button"
-            className="orghead__nobtn"
-            onClick={() => sortClick("track_no")}
-            title="Sort by track number — or reset to the curated order"
-          >
-            №
-            {sort === "track_no" && headerArrow("track_no")}
           </button>
         </span>
         {headerButton("title", "Title")}
@@ -443,7 +441,6 @@ export function OrganizeGrid({
               onCommitTitle={onCommitTitle}
               onCommitArtist={onCommitArtist}
               onCommitAlbum={onCommitAlbum}
-              onCommitTrackNo={onCommitTrackNo}
               onCommitGenre={onCommitGenre}
             />
           );

@@ -277,3 +277,72 @@ def test_reorder_renumbers_and_sets_overlay(client, library):
     assert again.status_code == 200
     assert again.json()["applied"] == 1
     assert client.get(f"/api/tracks/{loose['id']}").json()["track_no"] == 1
+
+
+# ---- Favorites manual order (drag & drop, 2026-10-03) -------------------------
+
+
+def _favorites_in_order(client) -> list[int]:
+    items = client.get(
+        "/api/tracks", params={"favorite": True, "sort": "favorite", "dir": "asc"}
+    ).json()["items"]
+    return [t["id"] for t in items]
+
+
+def test_loving_appends_to_favorites_order(client, library):
+    """Loving a track appends it to the Favorites manual order; the view's
+    sort=favorite reads that order back."""
+    first = _track(client, "First")
+    second = _track(client, "Second")
+    loose = _track(client, "Loose")
+
+    client.patch(f"/api/tracks/{second['id']}", json={"favorite": True})
+    client.patch(f"/api/tracks/{first['id']}", json={"favorite": True})
+    client.patch(f"/api/tracks/{loose['id']}", json={"favorite": True})
+
+    assert _favorites_in_order(client) == [second["id"], first["id"], loose["id"]]
+
+
+def test_unloving_releases_and_reloving_appends(client, library):
+    first = _track(client, "First")
+    second = _track(client, "Second")
+    client.patch(f"/api/tracks/{first['id']}", json={"favorite": True})
+    client.patch(f"/api/tracks/{second['id']}", json={"favorite": True})
+
+    # Unloving releases the slot; re-loving appends after the survivors.
+    client.patch(f"/api/tracks/{first['id']}", json={"favorite": False})
+    loose = _track(client, "Loose")
+    client.patch(f"/api/tracks/{loose['id']}", json={"favorite": True})
+    client.patch(f"/api/tracks/{first['id']}", json={"favorite": True})
+
+    assert _favorites_in_order(client) == [second["id"], loose["id"], first["id"]]
+
+
+def test_favorites_reorder_writes_manual_order(client, library):
+    first = _track(client, "First")
+    second = _track(client, "Second")
+    loose = _track(client, "Loose")
+    for tid in (first["id"], second["id"], loose["id"]):
+        client.patch(f"/api/tracks/{tid}", json={"favorite": True})
+
+    out = client.post(
+        "/api/favorites/reorder",
+        json={"track_ids": [loose["id"], first["id"], second["id"]]},
+    )
+    assert out.status_code == 200
+    assert out.json()["applied"] == 3
+    assert _favorites_in_order(client) == [loose["id"], first["id"], second["id"]]
+
+    # A track un-favorited mid-gesture is skipped, not fatal.
+    client.patch(f"/api/tracks/{first['id']}", json={"favorite": False})
+    again = client.post(
+        "/api/favorites/reorder",
+        json={"track_ids": [first["id"], second["id"], loose["id"], 99999]},
+    )
+    assert again.status_code == 200
+    assert again.json()["applied"] == 2
+
+
+def test_favorites_reorder_rejects_empty(client, library):
+    out = client.post("/api/favorites/reorder", json={"track_ids": []})
+    assert out.status_code == 422
