@@ -13,9 +13,9 @@
     }
   </style>
   <rect class="tile" width="512" height="512" rx="115"/>
-  <g class="note" transform="translate(14.3 0)">
-    <ellipse cx="202" cy="338" rx="44" ry="32"/>
-    <rect x="232" y="154" width="17" height="184"/>
-    <path d="M249 154 c 30 8 44 34 44 66 c 0 34 -14 58 -22 52 c 8 -22 6 -44 -6 -58 c -8 -10 -12 -22 -12 -36 Z"/>
+  <g class="note" transform="translate(38 9)">
+    <ellipse cx="185" cy="336" rx="62" ry="44" transform="rotate(-20 185 336)"/>
+    <rect x="218" y="112" width="27" height="240"/>
+    <path d="M243 112 C 290 121 314 142 326 176 C 331 196 330 210 323 221 C 315 233 302 241 286 242 C 293 230 296 219 297 205 C 298 187 292 172 282 166 C 271 159 258 158 245 158 Z"/>
   </g>
 </svg>
