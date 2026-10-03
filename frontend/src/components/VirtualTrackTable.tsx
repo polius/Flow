@@ -143,11 +143,24 @@ export function VirtualTrackTable({
   };
 
   // Row action menu (right-click / long-press) with the full loaded context.
+  // A right-click on a row inside the live selection carries the whole
+  // selection — the menu files every selected track at once (§4.1).
   const openTrackMenu = useUiStore((s) => s.openTrackMenu);
   const trackMenu = useCallback(
     (track: Track, x: number, y: number) =>
-      openTrackMenu({ track, x, y, context: tracks, contextLoader }),
-    [openTrackMenu, tracks, contextLoader],
+      openTrackMenu({
+        track,
+        x,
+        y,
+        context: tracks,
+        contextLoader,
+        selection:
+          selection.count > 0 && selection.ids.has(track.id)
+            ? selection.selectedTracks
+            : undefined,
+      }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [openTrackMenu, tracks, contextLoader, selection.ids, selection.selectedTracks],
   );
 
   return (

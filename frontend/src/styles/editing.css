@@ -432,17 +432,21 @@ textarea.inlineedit__input {
   display: inline-flex;
 }
 
-/* The shared .trackmenu surface, anchored to its pill. */
+/* The shared .trackmenu surface, anchored to its pill. The pill sits in the
+   header's action group at the view's right edge, so the popover must grow
+   LEFTWARD (right: 0) — a left-anchored menu on the Albums/Artists pills
+   extended past the page edge (its own width minus the pill's). */
 .sortmenu__pop,
 .artistsort__pop {
   position: absolute;
   top: calc(100% + 6px);
   min-width: 190px;
   max-height: none;
+  max-width: min(320px, calc(100vw - 24px));
 }
 
 .sortmenu__pop {
-  left: 0;
+  right: 0;
 }
 
 .artistsort__pop {
@@ -1632,6 +1636,55 @@ textarea.inlineedit__input {
   padding: 8px 16px 12px;
   font-size: var(--text-caption);
   color: var(--text-secondary);
+}
+
+/* The New Playlist naming step: the list gives way to one field and its
+   action pair — the dialog is already the modal, no second one needed. */
+.addto__naming {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 6px 4px 4px;
+}
+
+.addto__nameinput {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius-s);
+  background: var(--bg-canvas);
+  font-size: var(--text-body);
+  color: var(--text-primary);
+  outline: none;
+}
+
+.addto__nameinput:focus,
+.addto__nameinput:focus-visible {
+  border-color: color-mix(in srgb, var(--text-primary) 40%, transparent);
+  outline: none;
+}
+
+.addto__namingactions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 10px;
+}
+
+.addto__cancel {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  font-size: var(--text-body);
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.addto__cancel:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
 }
 
 /* Menu extras shared by the genre + collection menus (§2.1, §2.2). */

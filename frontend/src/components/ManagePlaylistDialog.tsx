@@ -39,11 +39,14 @@ export function ManagePlaylistDialog({
   // Modal focus (§3.4): focus in, Tab cycled, focus restored on close.
   useModalFocus(surfaceRef, true);
 
-  // Form drafts, seeded when the dialog opens.
+  // Form drafts, seeded when the dialog opens. `coverOriginal` is the
+  // snapshot at open time — the query cache may refresh the playlist prop
+  // mid-edit (a cover upload invalidates it), and dirty must not reset.
   const [name, setName] = useState(playlist.name);
   const [coverArtworkId, setCoverArtworkId] = useState<number | null>(
     playlist.cover_artwork_id,
   );
+  const [coverOriginal] = useState(playlist.cover_artwork_id);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -64,14 +67,20 @@ export function ManagePlaylistDialog({
     return () => window.clearTimeout(timer);
   }, [confirmDelete]);
 
-  const dirty = name.trim() !== playlist.name;
+  // Dirty means "there is anything to commit": a renamed playlist, or a
+  // cover change (upload/reset) that a Save should acknowledge. Changing
+  // only the image must not lock Save behind a name edit.
+  const nameDirty = name.trim() !== playlist.name;
+  const coverDirty = coverArtworkId !== coverOriginal;
+  const dirty = nameDirty || coverDirty;
 
   const save = async () => {
     if (!dirty || saving || !name.trim()) return;
     setSaving(true);
-    const ok = await updatePlaylist(playlist.id, {
-      name: name.trim(),
-    });
+    const body: { name?: string; cover_artwork_id?: number | null } = {};
+    if (nameDirty) body.name = name.trim();
+    if (coverDirty) body.cover_artwork_id = coverArtworkId;
+    const ok = await updatePlaylist(playlist.id, body);
     setSaving(false);
     if (ok) onClose();
   };
@@ -151,7 +160,7 @@ export function ManagePlaylistDialog({
                   onClick={() => void resetCover()}
                   disabled={uploading}
                 >
-                  Reset to tracks
+                  Remove image
                 </button>
               )}
             </div>

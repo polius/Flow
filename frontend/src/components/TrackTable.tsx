@@ -208,7 +208,9 @@ export function TrackTable({
 
   // Row action menu (right-click / long-press): carries the table's context
   // so "Play" from the menu plays in place, and — in a playlist — the remove
-  // closure the menu's danger item needs (§25).
+  // closure the menu's danger item needs (§25). When the right-clicked row
+  // is part of a live selection, the menu carries the whole selection so
+  // "Add to Playlist" files every selected track at once (§4.1).
   const openTrackMenu = useUiStore((s) => s.openTrackMenu);
   const trackMenu = (track: Track, x: number, y: number) =>
     openTrackMenu({
@@ -217,6 +219,10 @@ export function TrackTable({
       y,
       context: context ?? tracks,
       origin,
+      selection:
+        selection.count > 0 && selection.ids.has(track.id)
+          ? selection.selectedTracks
+          : undefined,
       removeFromPlaylist:
         variant === "playlist" && removeTrack ? () => removeTrack(track) : undefined,
     });

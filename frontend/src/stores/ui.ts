@@ -27,6 +27,10 @@ export interface TrackMenuRequest {
   contextLoader?: () => Promise<Track[]>;
   origin?: QueueOrigin | null;
   removeFromPlaylist?: () => void;
+  /** The invoking table's live selection (§4.1), when the right-clicked
+      row is part of it: the menu's file/queue verbs then act on the WHOLE
+      selection, not just the row under the pointer. */
+  selection?: Track[];
 }
 
 /** A one-generation notice (§25): what happened, and the closure that

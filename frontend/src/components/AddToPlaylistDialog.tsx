@@ -4,8 +4,11 @@
    directions, so curation never dead-ends at a single path.
 
    Lists every playlist (mosaic art + honest count) plus "New Playlist",
-   which creates and immediately adds. Enter opens the highlighted row,
-   Esc closes; registered like every modal so Esc precedence holds (§15.7). */
+   which first asks for a NAME (an inline step over the list — the dialog
+   is already the modal, a second dialog inside it would be chrome for
+   chrome's sake) and then creates and immediately adds. Enter opens the
+   highlighted row, Esc closes; registered like every modal so Esc
+   precedence holds (§15.7). */
 
 import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -14,7 +17,7 @@ import { api } from "../api/client";
 import { useAddToPlaylist, useCreatePlaylist } from "../api/mutations";
 import { useModalFocus } from "../lib/focus";
 import { useUiStore } from "../stores/ui";
-import { IconMusicNote, IconPlus } from "./icons";
+import { IconClose, IconMusicNote, IconPlus } from "./icons";
 import { PlaylistArt } from "./PlaylistArt";
 import { fmtCount, fmtMinutes } from "../lib/format";
 import "../styles/editing.css";
@@ -26,6 +29,11 @@ export function AddToPlaylistDialog() {
   const createPlaylist = useCreatePlaylist();
   const [cursor, setCursor] = useState(0);
   const [busy, setBusy] = useState(false);
+  // The New Playlist step: the list gives way to a name field — the user
+  // names the destination before the tracks land in it.
+  const [naming, setNaming] = useState(false);
+  const [newName, setNewName] = useState("");
+  const nameInputRef = useRef<HTMLInputElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
 
   const open = tracks != null && tracks.length > 0;
@@ -35,19 +43,30 @@ export function AddToPlaylistDialog() {
   useModalFocus(panelRef, open);
 
   // Modal lifecycle (§15.7): Esc closes, the shortcut guard defers, and
-  // the dialog owns its one moment of attention.
+  // the dialog owns its one moment of attention. Esc inside the naming
+  // step unwinds the step first — the dialog closes on the second Esc.
   useEffect(() => {
     if (!open) return;
     useUiStore.getState().setPickerOpen(true);
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") close();
+      if (e.key !== "Escape") return;
+      if (naming) {
+        setNaming(false);
+        return;
+      }
+      close();
     };
     window.addEventListener("keydown", onKeyDown);
     return () => {
       useUiStore.getState().setPickerOpen(false);
       window.removeEventListener("keydown", onKeyDown);
     };
-  }, [open, close]);
+  }, [open, close, naming]);
+
+  // The name field focuses the moment the step opens.
+  useEffect(() => {
+    if (naming) nameInputRef.current?.focus();
+  }, [naming]);
 
   const { data } = useQuery({
     queryKey: ["playlists", "picker"],
@@ -76,10 +95,72 @@ export function AddToPlaylistDialog() {
   const createAndAdd = async () => {
     if (busy) return;
     setBusy(true);
-    const created = await createPlaylist("New Playlist");
+    const created = await createPlaylist(newName.trim() || "New Playlist");
     setBusy(false);
     if (created) await commit(created.id);
+    else setNaming(false);
   };
+
+  if (naming) {
+    return (
+      <>
+        <div className="addtracks__scrim" onClick={close} aria-hidden="true" />
+        <div
+          ref={panelRef}
+          className="addto"
+          role="dialog"
+          aria-modal="true"
+          aria-label="New Playlist"
+          tabIndex={-1}
+        >
+          <header className="addto__head">
+            <h2 className="addto__title">New Playlist</h2>
+            <p className="addto__sub">
+              {fmtCount(tracks!.length)} {tracks!.length === 1 ? "track" : "tracks"}
+              {totalSeconds > 0 && <> · {fmtMinutes(totalSeconds)}</>} will land in it
+            </p>
+          </header>
+          <div className="addto__naming">
+            <input
+              ref={nameInputRef}
+              className="addto__nameinput"
+              value={newName}
+              placeholder="Playlist name"
+              aria-label="Playlist name"
+              disabled={busy}
+              maxLength={200}
+              onChange={(e) => setNewName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  void createAndAdd();
+                }
+              }}
+            />
+            <div className="addto__namingactions">
+              <button
+                type="button"
+                className="addto__cancel"
+                onClick={() => setNaming(false)}
+                disabled={busy}
+              >
+                <IconClose size={13} />
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="btn--primary"
+                onClick={() => void createAndAdd()}
+                disabled={busy}
+              >
+                {busy ? "Creating…" : "Create & Add"}
+              </button>
+            </div>
+          </div>
+        </div>
+      </>
+    );
+  }
 
   const rowCount = playlists.length + 1; // + New Playlist
   const onPanelKeyDown = (e: React.KeyboardEvent) => {
@@ -164,7 +245,7 @@ export function AddToPlaylistDialog() {
             </span>
             <span className="addto__names">
               <span className="addto__name">New Playlist</span>
-              <span className="addto__meta">Created with these tracks in it</span>
+              <span className="addto__meta">Name it, then these tracks land in it</span>
             </span>
           </button>
         </div>

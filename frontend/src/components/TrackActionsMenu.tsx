@@ -47,7 +47,7 @@ export function TrackActionsMenu() {
   const panelRef = useRef<HTMLDivElement>(null);
   const toggleFavorite = useToggleFavorite();
   const play = usePlayerStore((s) => s.playTracks);
-  const playNext = usePlayerStore((s) => s.playNext);
+  const playNextMany = usePlayerStore((s) => s.playNextMany);
   const addToQueue = usePlayerStore((s) => s.addToQueue);
   const openGetInfo = useUiStore((s) => s.openGetInfo);
   const openAddToPlaylist = useUiStore((s) => s.openAddToPlaylist);
@@ -93,7 +93,12 @@ export function TrackActionsMenu() {
   }, [pathname, close]);
 
   if (request == null) return null;
-  const { track, x, y, context, contextLoader, origin, removeFromPlaylist } = request;
+  const { track, x, y, context, contextLoader, origin, removeFromPlaylist, selection } =
+    request;
+  // A right-click on a row inside a live selection acts on the WHOLE
+  // selection (§4.1): the verbs file, queue, and play every selected track,
+  // not just the row under the pointer. Otherwise the row stands alone.
+  const targets = selection && selection.length > 0 ? selection : [track];
 
   const act = (fn: () => void) => () => {
     fn();
@@ -137,26 +142,28 @@ export function TrackActionsMenu() {
       <button
         type="button"
         className="trackmenu__item"
-        onClick={act(() => playNext(track))}
+        onClick={act(() => playNextMany(targets))}
       >
         <IconNext size={15} />
-        Play Next
+        {targets.length > 1 ? "Play Next (selection)" : "Play Next"}
       </button>
       <button
         type="button"
         className="trackmenu__item"
-        onClick={act(() => addToQueue([track]))}
+        onClick={act(() => addToQueue(targets))}
       >
         <IconPlus size={15} />
-        Add to Queue
+        {targets.length > 1 ? `Add ${targets.length} to Queue` : "Add to Queue"}
       </button>
       <button
         type="button"
         className="trackmenu__item"
-        onClick={act(() => openAddToPlaylist([track]))}
+        onClick={act(() => openAddToPlaylist(targets))}
       >
         <IconPlaylistAdd size={15} />
-        Add to Playlist
+        {targets.length > 1
+          ? `Add ${targets.length} to Playlist`
+          : "Add to Playlist"}
       </button>
       {/* §2.2: the menu answers "where can I go from here" — the same two
           destinations the row's link grammar carries (§1.4), each present
@@ -227,7 +234,11 @@ export function TrackActionsMenu() {
       <Artwork artworkId={track.artwork_id} size={36} radius="s" />
       <div className="trackmenu__identitymeta">
         <span className="trackmenu__identitytitle">{track.title}</span>
-        <span className="trackmenu__identitysub">{track.artist ?? " "}</span>
+        <span className="trackmenu__identitysub">
+          {targets.length > 1
+            ? `${targets.length} tracks selected`
+            : track.artist ?? " "}
+        </span>
       </div>
     </div>
   );
