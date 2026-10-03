@@ -15,6 +15,8 @@ backend/.test-data/
 backend/.test-music/
 music/
 music-demo/
+# docker-compose mounts ./flow at /flow: the music library + runtime data
+flow/
 .playwright-mcp/
 *.db
 *.db-wal

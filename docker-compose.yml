@@ -7,8 +7,9 @@ services:
       - "8080:8080"
     volumes:
       # One folder for everything: ./flow/music holds your files (Flow never
-      # writes there — edits are SQLite overlays) and ./flow/data holds the
-      # index, created automatically on first start.
+      # writes there — edits are SQLite overlays, repairs are remuxed copies)
+      # and ./flow/data holds the index + repaired copies, created
+      # automatically on first start.
       - ./flow:/flow
     restart: unless-stopped
     healthcheck:

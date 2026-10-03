@@ -68,12 +68,50 @@ def parse_audio(path: Path) -> ParsedTags | None:
     """Parse one file. The whole body runs inside the guarded call: mutagen
     can raise while *reading* (truncated/zero-byte, wrong container) or while
     *decoding frames* (malformed text encodings), and neither may crash the
-    scan (DESIGN.md §11.6)."""
+    scan (DESIGN.md §11.6). Each failure logs exactly one actionable line —
+    the full traceback stays at DEBUG so startup output stays readable."""
     try:
         return _parse_audio(path)
-    except Exception:  # noqa: BLE001
-        log.warning("Unreadable audio file skipped: %s", path, exc_info=True)
+    except Exception as exc:  # noqa: BLE001
+        mislabel = _mislabeled_container(path)
+        if mislabel:
+            log.warning(
+                "Unreadable audio file skipped: %s — bytes are %s, not what the "
+                "extension claims (re-encode or rename to index it)",
+                path, mislabel,
+            )
+        else:
+            log.warning(
+                "Unreadable audio file skipped: %s (%s: %s)",
+                path, type(exc).__name__, exc,
+            )
+        log.debug("Audio parse traceback for %s", path, exc_info=True)
         return None
+
+
+def _mislabeled_container(path: Path) -> str | None:
+    """Sniff the leading bytes for a container other than the extension's.
+    Stream-ripped files often arrive as fragmented MP4/DASH (or WAV/FLAC)
+    data wearing an .mp3 name — mutagen can never decode those, and neither
+    can the browser, so the skip is worth naming precisely. Failure-path
+    only, one bounded read per rejected file."""
+    try:
+        with path.open("rb") as fh:
+            head = fh.read(65536)
+    except OSError:
+        return None
+    if b"ftyp" in head:
+        brand = head[head.index(b"ftyp") + 4 : head.index(b"ftyp") + 8]
+        name = brand.decode("ascii", "replace").strip() or "iso"
+        label = "DASH" if name == "dash" else "MP4"
+        return f"{label}/{name} (ISO-BMFF) container"
+    if head[:4] == b"RIFF" and head[8:12] == b"WAVE":
+        return "WAV (RIFF) file"
+    if head[:4] == b"fLaC":
+        return "FLAC file"
+    if head[:4] == b"OggS":
+        return "Ogg container"
+    return None
 
 
 def _parse_audio(path: Path) -> ParsedTags:

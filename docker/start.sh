@@ -6,7 +6,10 @@
 # serving static files, and `docker stop` is graceful, never hard-kill.
 set -euo pipefail
 
-nginx -c /app/nginx.conf -g 'daemon off;' &
+# -e: nginx opens its compile-time default error log (/var/lib/nginx/logs/)
+# *before* parsing any config, which the flow user cannot write. Point that
+# pre-config log at stderr too (§10: everything logs to the container stream).
+nginx -e /dev/stderr -c /app/nginx.conf -g 'daemon off;' &
 nginx_pid=$!
 
 cd /app

@@ -2033,3 +2033,49 @@ ramps, Shuffle started a random favorite with the bar's shuffle flag
 lit, Settings checked at 1440 / 1000 / 375, and the owed §35/§36 at-rest
 sweeps (1440 / 1280 / 375) are now partially discharged by the same
 pass — the offline-shell check remains.
+
+## 38. Addendum — self-healing scan: repair mislabeled containers (2026-10-03)
+
+**Context.** The first real library shipped 5 files that are fragmented-MP4
+(DASH) streams wearing an `.mp3` name with an ID3v2.3 tag glued on the
+front — the shape stream-rippers produce (`ftyp dash … moof/mdat` after the
+ID3 header). Mutagen refuses them (correctly: no MPEG frames exist), so
+they were invisible tracks with a mutagen traceback each, forever. ffmpeg
+could not see them either — the ID3 prefix locks format detection onto the
+mp3 demuxer ("Header missing").
+
+**Decision.** The scan self-heals what is healable, losslessly
+(`backend/app/repair.py`):
+
+1. When a file fails `parse_audio`, probe it with ffprobe — the decoder's
+   opinion of the bytes, extension notwithstanding. An ISO-BMFF payload
+   behind junk is found by scanning for `ftyp`; the junk is skipped onto a
+   temp copy, never rewritten.
+2. REMUX the audio stream (`ffmpeg -c copy`) into a canonical container
+   for the codec inside (aac/alac→m4a, mp3, flac, vorbis→ogg, opus,
+   pcm→wav). Never a re-encode: a lossy transcode of a file that cannot be
+   re-downloaded is silent quality loss.
+3. Map the original's ID3 tags onto the copy (the ID3 area parses even when
+   the audio it prefixes does not) — title/artist/album/track, MP4 atoms or
+   Vorbis comments by target container. Best effort; never fails a repair.
+4. Verify the copy by re-parsing it (`parse_audio`, duration > 0) before it
+   may enter the index. Atomic promote (`os.replace`), temp files cleaned.
+5. Originals are NEVER modified (§5 stands): copies live under
+   `DATA_DIR/repaired/`, named `sha1(rel path, size, mtime)[:20].ext` — an
+   unchanged original reuses its copy across rescans (no ffmpeg), a changed
+   or replaced original is re-derived (and heals or unheals naturally),
+   a removed original's copy is garbage-collected, and a copy deleted
+   out-of-band re-derives on the next scan.
+6. Tracks keep their library path and identity; `tracks.media_path` (§5
+   overlay-adjacent, migration 002) points at the copy, `format` reflects
+   the file actually streamed, and streaming redirects into the new
+   internal nginx location `/repaired-internal/` → `/flow/data/repaired/`.
+7. Unrepairable files keep the §11.6 behavior (skip + persisted error log),
+   with the failure reason appended. `FLOW_REPAIR=off` (default on)
+   disables the pass; files < 1 KB are never attempted (nothing to rescue —
+   and a library full of junk must not pay ffmpeg spawns per scan).
+
+**Rejected:** in-place repair (violates §5); automatic re-encoding (quality
+loss); re-downloading from anywhere (out of scope §4). Known cost: a
+repaired file's bytes exist twice (original + copy in the data dir);
+accepted — repairs are rare, and the alternative is invisible tracks.

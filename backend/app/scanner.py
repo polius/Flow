@@ -34,6 +34,7 @@ from app.entities import (
 )
 from app.events import ScanBus
 from app.loudness import analyze_file, ffmpeg_available
+from app.repair import repair_file
 from app.tags import derive_from_filename, parse_audio
 
 log = logging.getLogger("flow.scanner")
@@ -198,7 +199,7 @@ class LibraryScanner:
             row["path"]: row
             for row in conn.execute(
                 "SELECT id, path, title, artist_id, album_id, album_artist_id, "
-                "track_no, mtime, size, duration, user_edited FROM tracks"
+                "track_no, mtime, size, duration, media_path, user_edited FROM tracks"
             )
         }
 
@@ -245,6 +246,18 @@ class LibraryScanner:
         moves = self._match_moves(added, disappeared, disk, db_rows)
         moved_old_paths = {row["path"] for row in moves.values()}
 
+        # A repaired copy deleted out-of-band (data dir cleaned by hand)
+        # leaves a track whose stream 404s though its original never
+        # changed — reprocess the original so the repair is re-derived.
+        lost_copies = {
+            rel
+            for rel, row in db_rows.items()
+            if row["media_path"]
+            and rel in disk
+            and not Path(row["media_path"]).is_file()
+        }
+        changed |= lost_copies
+
         total = len(moves) + len(added) + len(changed) + len(disappeared)
         self._set_state(state="scanning", phase="scan", current=0, total=total, errors=0)
         self._persist_start(conn, total=total)
@@ -283,6 +296,13 @@ class LibraryScanner:
             conn.commit()
 
         for rel in sorted(disappeared - moved_old_paths):
+            # The repaired copy (if any) exists only because this row did.
+            stale = db_rows[rel]["media_path"]
+            if stale:
+                try:
+                    Path(stale).unlink()
+                except OSError:
+                    pass
             conn.execute("DELETE FROM tracks WHERE id = ?", (db_rows[rel]["id"],))
             tick()
             conn.commit()
@@ -343,16 +363,36 @@ class LibraryScanner:
     def _upsert_file(
         self, conn, artstore: ArtworkStore, f: WalkedFile, existing: dict | None
     ) -> bool:
-        """Parse and write one file. Returns False on parse failure."""
+        """Parse and write one file. Returns False on parse failure. A file
+        mutagen cannot read gets one repair attempt (§38): a lossless remux
+        of the audio inside, verified before it may enter the index. The
+        original is never modified — the row points at the copy via
+        media_path, and the copy is re-derived whenever the original
+        changes or the copy itself disappears."""
         parsed = parse_audio(f.abs)
+        media_path: str | None = None
+        detail: str | None = None
         if parsed is None:
-            log.warning("Skipping unparseable file: %s", f.rel)
-            self._error_log.append(
-                {"path": f.rel, "reason": "Unreadable or unrecognized audio file"}
-            )
+            repaired, detail = repair_file(f.rel, f.abs, mtime=f.mtime, size=f.size)
+            if repaired is not None:
+                parsed = parse_audio(repaired)
+                if parsed is not None:
+                    media_path = str(repaired)
+        if parsed is None:
+            # One user-facing line per file already went out from tags.py;
+            # the persisted scan error log (§2.8) is the durable record.
+            log.debug("Skipping unparseable file: %s", f.rel)
+            reason = "Unreadable or unrecognized audio file"
+            if detail:
+                reason += f" — repair attempted but failed ({detail})"
+            self._error_log.append({"path": f.rel, "reason": reason})
             return False
 
+        # The streamed format follows the file that actually plays: a
+        # remuxed copy is canonical (m4a for AAC, wav for PCM, …).
         suffix = f.abs.suffix.lower().lstrip(".")
+        if media_path:
+            suffix = Path(media_path).suffix.lower().lstrip(".")
         edited = Edited(existing["user_edited"]) if existing else Edited(0)
         fallback_track_no, fallback_title = derive_from_filename(f.rel)
 
@@ -416,10 +456,20 @@ class LibraryScanner:
             "gain_db": parsed.replaygain_db,
             "mtime": f.mtime,
             "size": f.size,
+            "media_path": media_path,
             "artwork_id": artwork_id,
         }
 
         if existing:
+            # The file was reprocessed: a repair copy it pointed at is now
+            # stale (the original healed, changed shape, or re-repaired
+            # under a new key) — drop the orphan copy before rewriting.
+            stale = existing["media_path"]
+            if stale and stale != media_path:
+                try:
+                    Path(stale).unlink()
+                except OSError:
+                    pass
             sets = ", ".join(f"{col} = ?" for col in values)
             cur = conn.execute(
                 f"UPDATE tracks SET {sets} WHERE id = ?",
@@ -492,7 +542,7 @@ class LibraryScanner:
             return
         conn = self._db.connect()
         rows = conn.execute(
-            "SELECT id, path FROM tracks WHERE gain_db IS NULL ORDER BY id"
+            "SELECT id, path, media_path FROM tracks WHERE gain_db IS NULL ORDER BY id"
         ).fetchall()
         if not rows:
             return
@@ -505,7 +555,14 @@ class LibraryScanner:
         processed = 0
         analyzed = 0
         for row in rows:
-            gain = analyze_file(self._music / row["path"])
+            # Repaired tracks analyze their remuxed copy — the original's
+            # bytes are what mutagen refused in the first place (§38).
+            source = (
+                Path(row["media_path"])
+                if row["media_path"]
+                else self._music / row["path"]
+            )
+            gain = analyze_file(source)
             # Lock hygiene (§lock): the write transaction opens at the UPDATE
             # below and ends at the commit — ffmpeg NEVER runs inside one.
             # A transaction held across ~25 analyses (the old batching) kept
