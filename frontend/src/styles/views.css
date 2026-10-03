@@ -506,63 +506,228 @@
 
 /* ---- Settings: scan-error disclosure (§2.8) ------------------------------- */
 
-.settings-errors {
+/* The Skipped row is stacked: the label (with its explanation) leads, the
+   full list follows at full width — no View ceremony. */
+.settings-row--skipped {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 12px;
+}
+
+.settings-row--skipped .settings-row__value {
+  display: block;
+}
+
+/* ---- the skipped-files list (shared: Settings inline + the top-bar dialog) -- */
+
+.scanerrors {
   display: flex;
   flex-direction: column;
-  align-items: flex-end;
   gap: 8px;
   min-width: 0;
 }
 
-.settings-errors__toggle {
-  display: inline-flex;
+.scanerrors__bar {
+  display: flex;
   align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
   gap: 8px;
+}
+
+.scanerrors__count {
   font-size: var(--text-small);
   font-weight: 600;
   color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
 }
 
-.settings-errors__chev {
-  padding: 2px 10px;
-  border: 1px solid var(--control-border);
+.scanerrors__filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 200px;
+  flex: 0 1 260px;
+  padding: 6px 12px;
   border-radius: 999px;
-  font-size: var(--text-caption);
-  font-weight: 500;
-  color: var(--text-secondary);
+  background: var(--bg-inset);
+  color: var(--text-tertiary);
 }
 
-.settings-errors__list {
-  width: 100%;
-  max-width: 520px;
+.scanerrors__filter:focus-within {
+  background: var(--bg-active);
+  box-shadow: inset 0 0 0 1px var(--control-border);
+}
+
+.scanerrors__filter input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  font-size: var(--text-caption);
+  color: var(--text-primary);
+  outline: none;
+}
+
+.scanerrors__filter input:focus,
+.scanerrors__filter input:focus-visible {
+  outline: none;
+}
+
+.scanerrors__filterclear {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  color: var(--text-tertiary);
+}
+
+.scanerrors__filterclear:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+
+/* The table: two columns (path | reason), monospace paths, hairline rows —
+   a log, not a pile. */
+.scanerrors__head {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+  gap: 14px;
+  padding: 4px 10px;
+  font-size: var(--text-caption);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-tertiary);
+}
+
+.scanerrors__list {
+  max-height: 300px;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding: 10px 12px;
   background: var(--bg-inset);
   border-radius: var(--radius-s);
 }
 
-.settings-errors__row {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
+.scanerrors__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+  gap: 14px;
+  align-items: baseline;
+  padding: 7px 10px;
   font-size: var(--text-caption);
+  border-top: 1px solid var(--separator);
 }
 
-.settings-errors__path {
+.scanerrors__row:first-child {
+  border-top: none;
+}
+
+.scanerrors__path {
   font-family: ui-monospace, "SF Mono", Menlo, monospace;
   color: var(--text-primary);
-  overflow-wrap: anywhere;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  direction: rtl;
+  text-align: left;
 }
 
-.settings-errors__reason {
+.scanerrors__reason {
   color: var(--text-secondary);
 }
 
-.settings-errors__empty {
+.scanerrors__empty {
+  padding: 14px 10px;
   font-size: var(--text-caption);
   color: var(--text-secondary);
+}
+
+.scanerrors__note {
+  margin: 0;
+  font-size: var(--text-caption);
+  color: var(--text-tertiary);
+}
+
+/* The dialog the top-bar pill opens mid-scan. */
+.scanerrors__scrim {
+  position: fixed;
+  inset: 0;
+  z-index: calc(var(--z-modal) - 1);
+  background: rgba(0, 0, 0, 0.18);
+}
+
+.scanerrors__dialog {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: var(--z-modal);
+  width: min(720px, 94vw);
+  max-height: min(80vh, 640px);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 18px 20px;
+  border: 1px solid var(--separator);
+  border-radius: var(--radius-l);
+  background: var(--bg-elevated);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.32);
+  animation: scanerrors-in var(--dur-fast) var(--ease-out);
+}
+
+@keyframes scanerrors-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, calc(-50% + 6px));
+  }
+}
+
+.scanerrors__dialoghead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.scanerrors__dialogtitle {
+  margin: 0;
+  font-size: var(--text-regular);
+  font-weight: 700;
+  letter-spacing: var(--tracking-tight);
+}
+
+.scanerrors__dialogsub {
+  margin: 4px 0 0;
+  font-size: var(--text-small);
+  color: var(--text-secondary);
+  max-width: 52ch;
+}
+
+.scanerrors__close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  color: var(--text-secondary);
+}
+
+.scanerrors__close:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+
+/* The dialog's list fills the dialog; the panel's keeps its own cap. */
+.scanerrors__dialog .scanerrors__list {
+  max-height: none;
+  flex: 1;
+  min-height: 120px;
 }
 
 /* ---- Settings: Sound Check toggle (§2.3) ---------------------------------- */

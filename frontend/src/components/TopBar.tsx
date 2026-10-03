@@ -29,6 +29,7 @@ import { usePlayerStore } from "../stores/player";
 import { useUiStore } from "../stores/ui";
 import { Artwork } from "./Artwork";
 import { PlaylistArt } from "./PlaylistArt";
+import { ScanErrorsDialog } from "./ScanErrors";
 import {
   IconAlbums,
   IconArtists,
@@ -91,6 +92,9 @@ export function TopBar() {
   // hovering beside the word "Tracks" (HIG: don't restate the obvious).
   const labeledNav = useMediaQuery(LABELED_BP);
   const [navOpen, setNavOpen] = useState(false);
+  // The scan pill's error count opens the skipped-files dialog (§2.8) —
+  // the count without the list behind it was a dead end.
+  const [scanErrorsOpen, setScanErrorsOpen] = useState(false);
   const navBtnRef = useRef<HTMLButtonElement>(null);
   const sheetRef = useRef<HTMLDivElement>(null);
   // ⌘F skips the mount run (StrictMode re-runs effects), which would steal
@@ -184,15 +188,37 @@ export function TopBar() {
       </NavLink>
 
       {/* Global scan indicator — inherited from the retired sidebar (§9.6).
-          Quiet, tabular, honest; gone the moment the scan settles. */}
+          Quiet, tabular, honest; gone the moment the scan settles. The
+          error count is a real control: it opens the skipped-files list
+          (§2.8) — a count nobody can inspect is a dead end. */}
       {scanning && scan && scanLabel && (
         <div className="topbar__scan" role="status" aria-live="polite">
           <span className="topbar__scan-spin" aria-hidden="true" />
           <span className="topbar__scan-text">
             {scanLabel}
-            {scan.errors > 0 ? ` · ${fmtCount(scan.errors)} errors` : ""}
+            {scan.errors > 0 && (
+              <>
+                {" · "}
+                <button
+                  type="button"
+                  className="topbar__scanerrors"
+                  onClick={() => setScanErrorsOpen(true)}
+                  aria-haspopup="dialog"
+                  title="Show the skipped files"
+                >
+                  {fmtCount(scan.errors)} {scan.errors === 1 ? "error" : "errors"}
+                </button>
+              </>
+            )}
           </span>
         </div>
+      )}
+
+      {scanErrorsOpen && (
+        <ScanErrorsDialog
+          onClose={() => setScanErrorsOpen(false)}
+          live={scanning}
+        />
       )}
 
       <SearchZone

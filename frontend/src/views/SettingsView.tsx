@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 
 import { api } from "../api/client";
@@ -6,66 +5,13 @@ import { fmtCount, fmtDateTime, scanPhaseLabel, scanProgressLabel } from "../lib
 import { usePlayerStore } from "../stores/player";
 import { useScanStore } from "../stores/scan";
 import { useUiStore, type ThemeMode } from "../stores/ui";
+import { ScanErrorsPanel } from "../components/ScanErrors";
 
 const THEME_MODES: { mode: ThemeMode; label: string }[] = [
   { mode: "system", label: "Auto" },
   { mode: "light", label: "Light" },
   { mode: "dark", label: "Dark" },
 ];
-
-/* The scan-error disclosure (§2.8): the scan's failure modes — files that
-   couldn't be read, mounts that went away — were collected but never shown.
-   Calm by design: a count, then path + reason on demand. */
-function ScanErrors({ errorCount }: { errorCount: number }) {
-  const [open, setOpen] = useState(false);
-  const { data } = useQuery({
-    queryKey: ["scan", "errors"],
-    queryFn: async () => {
-      const { data } = await api.GET("/api/scan/errors");
-      return data;
-    },
-    enabled: open,
-  });
-
-  return (
-    <div className="settings-errors">
-      <button
-        type="button"
-        className="settings-errors__toggle"
-        aria-expanded={open}
-        onClick={() => setOpen((o) => !o)}
-      >
-        {fmtCount(errorCount)} {errorCount === 1 ? "file" : "files"} skipped
-        <span className="settings-errors__chev" aria-hidden="true">
-          {open ? "Hide" : "View"}
-        </span>
-      </button>
-      {open && (
-        <div className="settings-errors__list" role="list">
-          {data === undefined ? (
-            <span className="settings-errors__empty">Loading…</span>
-          ) : data.items.length === 0 ? (
-            <span className="settings-errors__empty">Nothing to show.</span>
-          ) : (
-            data.items.map((item) => (
-              <div key={item.path} className="settings-errors__row" role="listitem">
-                <span className="settings-errors__path" title={item.path}>
-                  {item.path}
-                </span>
-                <span className="settings-errors__reason">{item.reason}</span>
-              </div>
-            ))
-          )}
-          {data?.truncated && (
-            <span className="settings-errors__empty">
-              Showing the first {fmtCount(data.items.length)} of {fmtCount(data.total)}.
-            </span>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
 
 export function SettingsView() {
   const scan = useScanStore((s) => s.status);
@@ -182,10 +128,16 @@ export function SettingsView() {
               </span>
             </div>
             {!scanning && errorCount > 0 && (
-              <div className="settings-row">
-                <span className="settings-row__label">Skipped</span>
+              <div className="settings-row settings-row--skipped">
+                <span className="settings-row__label">
+                  Skipped
+                  <span className="settings-row__hint">
+                    These files could not be read. Fix them and rescan — the
+                    scan changes nothing in your music folder.
+                  </span>
+                </span>
                 <span className="settings-row__value">
-                  <ScanErrors errorCount={errorCount} />
+                  <ScanErrorsPanel />
                 </span>
               </div>
             )}
