@@ -235,6 +235,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/tracks/reorder": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reorder Tracks */
+        post: operations["reorder_tracks_api_tracks_reorder_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/review/summary": {
         parameters: {
             query?: never;
@@ -608,11 +625,23 @@ export interface components {
             album?: string | null;
             /** Track No */
             track_no?: number | null;
+            /** Genre */
+            genre?: string | null;
         };
         /** BulkApplyOut */
         BulkApplyOut: {
             /** Applied */
             applied: number;
+        };
+        /**
+         * TrackReorderIn
+         * @description Organize drag-reorder (§22): the album's tracks in their new order.
+         *     Each track's number is rewritten to its position in the list (1..n) and
+         *     flagged user-edited, so a rescan preserves it.
+         */
+        TrackReorderIn: {
+            /** Track Ids */
+            track_ids: number[];
         };
         /**
          * CollisionGroup
@@ -1053,6 +1082,10 @@ export interface components {
             gain_db?: number | null;
             /** Played At */
             played_at?: string | null;
+            /** Genre */
+            genre?: string | null;
+            /** Added At */
+            added_at?: string | null;
         };
         /**
          * TrackPatch
@@ -1076,6 +1109,8 @@ export interface components {
             track_no?: number | null;
             /** Favorite */
             favorite?: boolean | null;
+            /** Genre */
+            genre?: string | null;
         };
         /** ValidationError */
         ValidationError: {
@@ -1521,6 +1556,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["BulkApplyOut"];
+                };
+            };
+        };
+    };
+    reorder_tracks_api_tracks_reorder_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TrackReorderIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BulkApplyOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

@@ -16,7 +16,12 @@ import { useSearchParams } from "react-router";
 
 import { api } from "../api/client";
 import type { BulkApplyIn, Track } from "../api/types";
-import { useBulkApply, usePatchTrack, useUndoBulkApply } from "../api/mutations";
+import {
+  useBulkApply,
+  usePatchTrack,
+  useReorderTracks,
+  useUndoBulkApply,
+} from "../api/mutations";
 import { BulkBar, BulkBanner } from "../components/BulkBar";
 import { EmptyState } from "../components/EmptyState";
 import { LoadingState } from "../components/LoadingState";
@@ -63,9 +68,14 @@ export function OrganizeView() {
   const artistParam = searchParams.get("artist_id");
   const albumId = albumParam != null ? Number(albumParam) : null;
   const artistId = artistParam != null ? Number(artistParam) : null;
-  const urlSort = searchParams.get("sort") ?? "curate";
+  // Latest-added-first is the default read (§22): finding and fixing what
+  // just landed is the job. The № header restores the curated album order.
+  const hasSort = searchParams.get("sort") != null;
+  const urlSort = searchParams.get("sort") ?? "added_at";
   const sort = urlSort; // whitelisted server-side; unknown → server default
-  const dir = searchParams.get("dir") === "desc" ? "desc" : "asc";
+  const dirParam = searchParams.get("dir");
+  const dir =
+    dirParam === "desc" ? "desc" : dirParam === "asc" ? "asc" : hasSort ? "asc" : "desc";
 
   const compact = useCompactMode();
   const openGetInfo = useUiStore((s) => s.openGetInfo);
@@ -76,6 +86,7 @@ export function OrganizeView() {
   const patchTrack = usePatchTrack();
   const bulkApply = useBulkApply();
   const undoBulk = useUndoBulkApply();
+  const reorderTracks = useReorderTracks();
 
   // ---- filters -----------------------------------------------------------
   const [filterText, setFilterText] = useState(urlQ);
@@ -137,6 +148,10 @@ export function OrganizeView() {
       const loaded = allPages.reduce((n, p) => n + (p?.items.length ?? 0), 0);
       return loaded < (lastPage?.total ?? 0) ? loaded : undefined;
     },
+    // A filter change or a header click must not tear the grid down to a
+    // skeleton while it fetches — the rows stay mounted and the new order
+    // swaps in in one paint. This is the typing-glitch fix (§22).
+    placeholderData: (prev) => prev,
   });
 
   const tracks = useMemo(
@@ -333,6 +348,23 @@ export function OrganizeView() {
     async (t: Track, value: number | null) => void patchTrack(t.id, { track_no: value }),
     [patchTrack],
   );
+  const commitGenre = useCallback(
+    async (t: Track, genre: string) => void patchTrack(t.id, { genre }),
+    [patchTrack],
+  );
+
+  // Drag-reorder within an album (§22): the grid resolves one album's block
+  // into its new order; the server renumbers 1..n as overlay edits.
+  const onReorderBlock = useCallback(
+    async (orderedIds: number[]) => {
+      await reorderTracks(orderedIds);
+    },
+    [reorderTracks],
+  );
+  // Dragging needs the album grouping to be the truth on screen — the
+  // curated order (album blocks, track order within) or a single album's
+  // filter. Any other sort would reorder against a different reading.
+  const reorderable = sort === "curate" || albumId != null;
 
   // ---- chip labels for entity filters ---------------------------------------
   const albumChip = useQuery({
@@ -515,6 +547,10 @@ export function OrganizeView() {
           onCommitArtist={commitArtist}
           onCommitAlbum={commitAlbum}
           onCommitTrackNo={commitTrackNo}
+          onCommitGenre={commitGenre}
+          canReorder={reorderable && !compact}
+          libraryTruncated={tracks.length < total}
+          onReorderBlock={(ids) => void onReorderBlock(ids)}
         />
       )}
 

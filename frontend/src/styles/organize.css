@@ -324,11 +324,14 @@ button.orghead__sort:hover {
 /* Sticky column header: pins below the top bar as rows scroll beneath.
    Same metrics as the Tracks table's head (§9.2): 32px index column, 14px
    gutters, uppercase caption labels, hairline underline — the Organize grid
-   and the library table read as one design. */
+   and the library table read as one design. Columns: check · № · title ·
+   artist · album · genre · added · file. */
 .orghead,
 .orgrow {
   display: grid;
-  grid-template-columns: 32px 40px minmax(0, 1.5fr) minmax(0, 1fr) minmax(0, 1.2fr) minmax(0, 1fr);
+  grid-template-columns:
+    32px 40px minmax(0, 1.35fr) minmax(0, 1fr) minmax(0, 1.1fr)
+    minmax(0, 0.85fr) minmax(64px, 0.6fr) minmax(0, 0.7fr);
   align-items: center;
   gap: 14px;
   padding: 7px 12px;
@@ -488,6 +491,41 @@ button.orghead__sort:hover {
   font-size: var(--text-small);
   font-variant-numeric: tabular-nums;
   color: var(--text-tertiary);
+}
+
+/* The Added column: when the scanner first saw the file (§22) — the
+   "latest added first" read. Read-only, quiet, tabular. */
+.orgrow__added {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--text-small);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-tertiary);
+}
+
+/* ---- drag-reorder within an album (§22) ------------------------------------
+   The row is the affordance: reorderable rows show a grab cursor, the
+   dragged row dims, and the body's rows are what shift. The gesture lives
+   in the grid; these are only its states. */
+
+.orgrow--draggable {
+  cursor: grab;
+}
+
+.orgrow--dragging {
+  cursor: grabbing;
+  opacity: 0.4;
+  z-index: 1;
+}
+
+.orggrid--dragging .orgrow {
+  cursor: grabbing;
+}
+
+.orggrid--dragging .orgrow--dragging:hover {
+  background: transparent;
 }
 
 /* Touch has no hover — but phones use the compact template (§22.9), where

@@ -58,3 +58,17 @@ export function fmtDateTime(iso: string | null): string | null {
     timeStyle: "short",
   });
 }
+
+/** A compact date for dense tables (Organize's Added column, §22):
+    "Oct 3" this year, the year appended once it isn't. */
+export function fmtDateShort(iso: string | null | undefined): string | null {
+  if (!iso) return null;
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return null;
+  const sameYear = date.getFullYear() === new Date().getFullYear();
+  return date.toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    ...(sameYear ? {} : { year: "numeric" }),
+  });
+}

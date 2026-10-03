@@ -12,7 +12,7 @@ import type { Track } from "../api/types";
 import { useUiStore } from "../stores/ui";
 import { IconClose } from "./icons";
 
-export type BulkField = "artist" | "album" | "album_artist";
+export type BulkField = "artist" | "album" | "album_artist" | "genre";
 
 interface BulkBarProps {
   count: number;
@@ -26,6 +26,7 @@ interface BulkBarProps {
     artist?: string;
     album?: string;
     album_artist?: string;
+    genre?: string;
   }) => void;
 }
 
@@ -100,6 +101,18 @@ export function BulkBar({ count, filterMode, applying, selectedTracks, onClear, 
           track_count: a.track_count,
         }));
       }
+      // Genres: one small list, filtered here — the vocabulary is the
+      // same one the Tracks filter menu reads (§2.2).
+      if (popover === "genre") {
+        const { data } = await api.GET("/api/genres", {
+          params: { query: { limit: 1000 } },
+        });
+        const needle = q.trim().toLowerCase();
+        return (data?.items ?? [])
+          .filter((g) => !needle || g.name.toLowerCase().includes(needle))
+          .slice(0, 8)
+          .map((g) => ({ id: g.id, name: g.name, track_count: g.track_count }));
+      }
       // artist + album_artist both resolve artist names.
       const { data } = await api.GET("/api/artists", {
         params: { query: { ...(q ? { q } : {}), limit: 8 } },
@@ -134,14 +147,18 @@ export function BulkBar({ count, filterMode, applying, selectedTracks, onClear, 
           ? "album"
           : confirm.field === "album_artist"
             ? "album artist"
-            : "artist"
+            : confirm.field === "genre"
+              ? "genre"
+              : "artist"
       } to “${confirm.value.trim()}”`
     : `Clear ${
         confirm?.field === "album"
           ? "album"
           : confirm?.field === "album_artist"
             ? "album artist"
-            : "artist"
+            : confirm?.field === "genre"
+              ? "genre"
+              : "artist"
       }`;
 
   return (
@@ -166,6 +183,14 @@ export function BulkBar({ count, filterMode, applying, selectedTracks, onClear, 
         >
           Set Album Artist…
         </button>
+        <button
+          type="button"
+          className="orgbar__action"
+          onClick={() => open("genre")}
+          title="Set the genre the Tracks filter groups these tracks by"
+        >
+          Set Genre…
+        </button>
         <span className="orgbar__sep" aria-hidden="true" />
         <button type="button" className="orgbar__quiet" onClick={onClear}>
           Clear
@@ -177,8 +202,20 @@ export function BulkBar({ count, filterMode, applying, selectedTracks, onClear, 
               ref={inputRef}
               className="orgbar__input"
               value={input}
-              placeholder={popover === "album" ? "Album name" : "Artist name"}
-              aria-label={popover === "album" ? "Album name" : "Artist name"}
+              placeholder={
+                popover === "album"
+                  ? "Album name"
+                  : popover === "genre"
+                    ? "Genre name"
+                    : "Artist name"
+              }
+              aria-label={
+                popover === "album"
+                  ? "Album name"
+                  : popover === "genre"
+                    ? "Genre name"
+                    : "Artist name"
+              }
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === "Enter" && input.trim()) propose(input.trim());
@@ -215,7 +252,9 @@ export function BulkBar({ count, filterMode, applying, selectedTracks, onClear, 
                     ? "Clear album"
                     : popover === "album_artist"
                       ? "No album artist"
-                      : "No artist"}
+                      : popover === "genre"
+                        ? "No genre"
+                        : "No artist"}
                 </span>
               </button>
               {matches.length === 0 && !q.trim() && (
@@ -250,7 +289,9 @@ export function BulkBar({ count, filterMode, applying, selectedTracks, onClear, 
                       ? { album: confirm.value }
                       : confirm.field === "album_artist"
                         ? { album_artist: confirm.value }
-                        : { artist: confirm.value };
+                        : confirm.field === "genre"
+                          ? { genre: confirm.value }
+                          : { artist: confirm.value };
                   onApply(changes);
                   setConfirm(null);
                 }}
@@ -304,7 +345,7 @@ function ConsequenceLine({
       }
       return out;
     },
-    enabled: !filterMode && ids.length > 0,
+    enabled: !filterMode && ids.length > 0 && field !== "genre",
   });
   const affected = useMemo(() => {
     if (filterMode || !details.data) return [];
@@ -333,6 +374,14 @@ function ConsequenceLine({
       <p className="orgsheet__note">
         The album keeps one album artist: the album page, its grouping, and
         future rescans of these tracks all follow the name you set.
+      </p>
+    );
+  }
+  if (field === "genre") {
+    return (
+      <p className="orgsheet__note">
+        Genres are what the Tracks view's filter menu reads (§2.2). A new
+        name appears there immediately; a rescan keeps your choice.
       </p>
     );
   }

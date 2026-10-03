@@ -1,18 +1,26 @@
 /* One Organize row (§22): checkbox · track number · title · artist · album ·
-   file. The editing grammar matches the library's click-to-edit (§15.1) — a
-   focused click on the words opens the editor; row clicks select. No
-   playback here: this view organizes (§22), and row click must stay
-   unambiguous. The hover-revealed ⓘ is gone (§25): right-click opens the
-   app-wide track menu (Get Info included) — the same gesture as every other
-   row in the app — and on phones, where cells are not editable, a tap on
-   the re-templated row opens Get Info directly (§21's designed-refusal
-   pattern, §22). The File column is read-only reference data: the file name
-   with its library-relative path on hover. */
+   genre · added · file. The editing grammar matches the library's
+   click-to-edit (§15.1) — a focused click on the words opens the editor;
+   row clicks select. No playback here: this view organizes (§22), and row
+   click must stay unambiguous. The hover-revealed ⓘ is gone (§25):
+   right-click opens the app-wide track menu (Get Info included) — the same
+   gesture as every other row in the app — and on phones, where cells are
+   not editable, a tap on the re-templated row opens Get Info directly
+   (§21's designed-refusal pattern, §22). The Genre cell edits the track's
+   primary genre (§2.2 — the value the Tracks filter groups by). The Added
+   column is read-only reference: when the scanner first saw the file.
+   The File column is read-only reference data: the file name with its
+   library-relative path on hover.
+
+   Drag-reorder (§22): a pressed row that moves past the slop lifts and
+   reorders within its album — the grid owns the gesture; the row only
+   wears the states (grab cursor when reorderable, dimmed while dragged,
+   displaced while neighbors part). */
 
 import type { CSSProperties } from "react";
 
 import type { Track } from "../api/types";
-import { fmtBasename } from "../lib/format";
+import { fmtBasename, fmtDateShort } from "../lib/format";
 import { Artwork } from "./Artwork";
 import { InlineEdit } from "./InlineEdit";
 import { IconCheck } from "./icons";
@@ -34,6 +42,10 @@ interface OrganizeRowProps {
   compact: boolean;
   /** Grid keyboard: Enter opens this row's title editor once. */
   editTitle: boolean;
+  /** Drag-reorder (§22): this row is the one being dragged. */
+  dragging?: boolean;
+  /** Drag-reorder: the row may start a drag (mouse reorderable album block). */
+  draggable?: boolean;
   onToggle: (track: Track, index: number, mods: RowMods) => void;
   onOpenInfo: (track: Track) => void;
   /** Right-click: the app-wide track menu (Get Info's desktop entry). */
@@ -42,6 +54,7 @@ interface OrganizeRowProps {
   onCommitArtist: (track: Track, artist: string) => void;
   onCommitAlbum: (track: Track, album: string) => void;
   onCommitTrackNo: (track: Track, value: number | null) => void;
+  onCommitGenre: (track: Track, genre: string) => void;
 }
 
 /** Track number cell: a number when set, a quiet dash placeholder when not.
@@ -84,6 +97,8 @@ export function OrganizeRow({
   isCurrent,
   compact,
   editTitle,
+  dragging = false,
+  draggable = false,
   onToggle,
   onOpenInfo,
   onTrackMenu,
@@ -91,6 +106,7 @@ export function OrganizeRow({
   onCommitArtist,
   onCommitAlbum,
   onCommitTrackNo,
+  onCommitGenre,
 }: OrganizeRowProps) {
   const classes = [
     "orgrow",
@@ -98,6 +114,8 @@ export function OrganizeRow({
     checked && !isCurrent ? "orgrow--selected" : "",
     isCursor && !checked && !isCurrent ? "orgrow--cursor" : "",
     compact ? "orgrow--compact" : "",
+    dragging ? "orgrow--dragging" : "",
+    draggable ? "orgrow--draggable" : "",
   ]
     .filter(Boolean)
     .join(" ");
@@ -194,6 +212,22 @@ export function OrganizeRow({
           allowEmpty
           onCommit={(album) => onCommitAlbum(track, album)}
         />
+      </span>
+      <span className="orgrow__cell" onClick={(e) => e.stopPropagation()}>
+        <InlineEdit
+          value={track.genre ?? ""}
+          ariaLabel={`Genre for ${track.title}`}
+          placeholder="No genre"
+          className="orgrow__celltext"
+          allowEmpty
+          onCommit={(genre) => onCommitGenre(track, genre)}
+        />
+      </span>
+      <span
+        className="orgrow__added"
+        title={track.added_at ? `Added ${track.added_at}` : undefined}
+      >
+        {fmtDateShort(track.added_at) ?? "—"}
       </span>
       <span className="orgrow__file" title={track.path}>
         {fmtBasename(track.path)}

@@ -100,6 +100,10 @@ export function TracksView() {
       const loaded = allPages.reduce((n, p) => n + (p?.items.length ?? 0), 0);
       return loaded < (lastPage?.total ?? 0) ? loaded : undefined;
     },
+    // A re-sort must not tear the table down to a skeleton while it fetches
+    // (the header-click "glitch"): the previous rows stay mounted and the
+    // refetched order swaps in in one paint.
+    placeholderData: (prev) => prev,
   });
 
   const tracks = useMemo(

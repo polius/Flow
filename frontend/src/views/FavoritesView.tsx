@@ -57,6 +57,9 @@ export function FavoritesView() {
       return data;
     },
     initialPageParam: 0,
+    // Keep the previous order on the page while a re-sort fetches — the
+    // table must swap orders in one paint, not flash a skeleton (§2.6).
+    placeholderData: (prev) => prev,
     getNextPageParam: (lastPage, allPages) => {
       const loaded = allPages.reduce((n, p) => n + (p?.items.length ?? 0), 0);
       return loaded < (lastPage?.total ?? 0) ? loaded : undefined;

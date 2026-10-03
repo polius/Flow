@@ -143,6 +143,7 @@ export function usePatchTrack() {
       void queryClient.invalidateQueries({ queryKey: ["playlist"] });
       void queryClient.invalidateQueries({ queryKey: ["playlists"] });
       void queryClient.invalidateQueries({ queryKey: ["search"] });
+      void queryClient.invalidateQueries({ queryKey: ["genres"] });
       // Regrouping can change every review count (§22).
       void queryClient.invalidateQueries({ queryKey: ["review"] });
       return true;
@@ -164,6 +165,7 @@ export function useBulkApply() {
     void queryClient.invalidateQueries({ queryKey: ["playlist"] });
     void queryClient.invalidateQueries({ queryKey: ["playlists"] });
     void queryClient.invalidateQueries({ queryKey: ["search"] });
+    void queryClient.invalidateQueries({ queryKey: ["genres"] });
     void queryClient.invalidateQueries({ queryKey: ["review"] });
     return data.applied;
   };
@@ -180,8 +182,25 @@ export function useUndoBulkApply() {
     void queryClient.invalidateQueries({ queryKey: ["playlist"] });
     void queryClient.invalidateQueries({ queryKey: ["playlists"] });
     void queryClient.invalidateQueries({ queryKey: ["search"] });
+    void queryClient.invalidateQueries({ queryKey: ["genres"] });
     void queryClient.invalidateQueries({ queryKey: ["review"] });
     return data.applied;
+  };
+}
+
+/** Organize drag-reorder (§22): one album's tracks in their new order —
+    the server renumbers 1..n and flags each overlay-edited. */
+export function useReorderTracks() {
+  const queryClient = useQueryClient();
+  return async (trackIds: number[]): Promise<boolean> => {
+    const { response } = await api.POST("/api/tracks/reorder", {
+      body: { track_ids: trackIds },
+    });
+    if (response.ok) {
+      void queryClient.invalidateQueries({ queryKey: ["tracks"] });
+      void queryClient.invalidateQueries({ queryKey: ["review"] });
+    }
+    return response.ok;
   };
 }
 
@@ -200,12 +219,24 @@ export function useCreatePlaylist() {
 
 export function useAddToPlaylist() {
   const queryClient = useQueryClient();
+  const showUndoNotice = useUiStore((s) => s.showUndoNotice);
   return async (playlistId: number, trackIds: number[]): Promise<boolean> => {
     const { response } = await api.POST("/api/playlists/{playlist_id}/tracks", {
       params: { path: { playlist_id: playlistId } },
       body: { track_ids: trackIds },
     });
     if (response.ok) {
+      // Set-like membership (§2.1): the server skips tracks the playlist
+      // already holds. The headers carry the honest split — say so, or a
+      // "0 added" add would look like a lie.
+      const added = Number(response.headers.get("x-tracks-added") ?? trackIds.length);
+      const skipped = Number(response.headers.get("x-tracks-skipped") ?? 0);
+      if (skipped > 0) {
+        const parts = [`Added ${added} ${added === 1 ? "track" : "tracks"}`];
+        if (added === 0) parts[0] = "Already in this playlist";
+        else parts.push(`${skipped} already ${skipped === 1 ? "was" : "were"} in it`);
+        showUndoNotice({ message: parts.join(" · ") });
+      }
       void queryClient.invalidateQueries({ queryKey: ["playlists"] });
       void queryClient.invalidateQueries({ queryKey: ["playlist", playlistId] });
       void queryClient.invalidateQueries({ queryKey: ["search"] });
