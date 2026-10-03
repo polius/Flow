@@ -5,15 +5,17 @@ re-parsing, and only then index it. Originals are never modified."""
 
 from __future__ import annotations
 
+import logging
 import shutil
 import subprocess
 import time
 from pathlib import Path
 
 import pytest
-from mutagen.id3 import ID3, TALB, TIT2, TPE1, TRCK
+from mutagen.id3 import APIC, ID3, TALB, TIT2, TPE1, TRCK
+from mutagen.mp4 import MP4
 
-from tests.audio_fixtures import make_mp3
+from tests.audio_fixtures import jpeg_bytes, make_mp3
 
 
 def ffmpeg_present() -> bool:
@@ -224,6 +226,45 @@ def test_wav_content_in_mp3_name_indexes_directly(conn, music, scanner):
     assert row["media_path"] is None  # nothing needed healing
     assert row["duration"] == pytest.approx(1.0, abs=0.1)
     assert row["sample_rate"] == 44100
+
+
+# ---- artwork ---------------------------------------------------------------------
+
+
+@requires_ffmpeg
+def test_repaired_track_falls_back_to_folder_cover_silently(
+    conn, music, scanner, caplog
+):
+    """The repaired track's ORIGINAL is unparseable by mutagen — artwork
+    resolution must not try to extract embedded art from it (that was the
+    startup traceback noise this test pins). Folder covers still apply."""
+    make_dash_as_mp3(music / "song.mp3", seconds=1.0, title="T", artist="A")
+    (music / "cover.jpg").write_bytes(jpeg_bytes())
+    with caplog.at_level(logging.WARNING, logger="flow.artwork"):
+        scanner.run_scan("test")
+
+    row = track_row(conn, "song.mp3")
+    assert row is not None
+    assert row["artwork_id"] is not None  # the folder cover applied
+    assert [r for r in caplog.records if r.name == "flow.artwork"] == []
+
+
+@requires_ffmpeg
+def test_embedded_cover_from_broken_original_rides_along(conn, music, scanner):
+    """A stream-rip whose ID3 prefix carries a cover keeps it: APIC frames
+    are mapped onto the remux's covr atom, and the scanner picks them up."""
+    src = make_dash_as_mp3(music / "art.mp3", seconds=1.0, title="Art", artist="B")
+    tags = ID3(src)
+    tags.add(APIC(encoding=3, mime="image/jpeg", type=3, desc="", data=jpeg_bytes()))
+    tags.save(str(src), v2_version=3)
+    scanner.run_scan("test")
+
+    row = track_row(conn, "art.mp3")
+    assert row is not None and row["media_path"] is not None
+    covr = MP4(str(Path(row["media_path"]))).tags.get("covr")
+    assert covr is not None
+    assert bytes(covr[0]) == jpeg_bytes()
+    assert row["artwork_id"] is not None
 
 
 # ---- streaming -------------------------------------------------------------------

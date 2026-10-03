@@ -2074,6 +2074,12 @@ mp3 demuxer ("Header missing").
    with the failure reason appended. `FLOW_REPAIR=off` (default on)
    disables the pass; files < 1 KB are never attempted (nothing to rescue —
    and a library full of junk must not pay ffmpeg spawns per scan).
+8. Artwork follows the same parseable-file rule: embedded art is probed
+   from the remuxed copy, never from the unparseable original
+   (`ArtworkStore.resolve(embedded_from=…)`), while folder covers still
+   come from the library folder. APIC covers on the broken original's ID3
+   prefix are mapped onto `covr` during repair, so rips that carried art
+   keep it. Artwork failures log one line (traceback at DEBUG).
 
 **Rejected:** in-place repair (violates §5); automatic re-encoding (quality
 loss); re-downloading from anywhere (out of scope §4). Known cost: a

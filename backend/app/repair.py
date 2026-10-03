@@ -37,9 +37,10 @@ from pathlib import Path
 
 from mutagen import File as MutagenFile
 from mutagen.id3 import ID3
-from mutagen.mp4 import MP4
+from mutagen.mp4 import MP4, MP4Cover
 
 from app import config
+from app.artwork import sniff_mime
 from app.tags import parse_audio
 
 log = logging.getLogger("flow.repair")
@@ -259,6 +260,23 @@ def _tags_to_mp4(tags: ID3, dst: Path) -> None:
     disk = _id3_pair(tags.get("TPOS"))
     if disk:
         audio["disk"] = [disk]
+    # Covers ride along too: the remux itself strips all metadata, so the
+    # APIC frames from the broken original are the only source (§38).
+    covers = []
+    for apic in tags.getall("APIC"):
+        mime = sniff_mime(apic.data)
+        if mime is None:
+            continue
+        covers.append(
+            MP4Cover(
+                apic.data,
+                imageformat=(
+                    MP4Cover.FORMAT_PNG if mime == "image/png" else MP4Cover.FORMAT_JPEG
+                ),
+            )
+        )
+    if covers:
+        audio["covr"] = covers
     audio.save()
 
 

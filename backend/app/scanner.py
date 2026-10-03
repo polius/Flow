@@ -428,7 +428,12 @@ class LibraryScanner:
                 conn, parsed.album, album_artist_id, parsed.year
             )
 
-        artwork_id = artstore.resolve(f.abs, f.abs.suffix.lower())
+        # Embedded art must be probed from a file mutagen can parse: a
+        # repaired track's original never will (that is why it was repaired),
+        # while the remuxed copy may carry mapped cover art (§38). The folder
+        # fallback still reads the library folder.
+        art_file = Path(media_path) if media_path else f.abs
+        artwork_id = artstore.resolve(f.abs, art_file.suffix.lower(), embedded_from=art_file)
 
         # Album-level facts follow the first track seen (DESIGN.md §5):
         # artwork backfills only when the album has none yet.

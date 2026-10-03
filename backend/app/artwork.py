@@ -92,13 +92,25 @@ class ArtworkStore:
     def reset(self) -> None:
         self._folder_cache.clear()
 
-    def resolve(self, path: Path, suffix: str) -> int | None:
-        """Artwork id for a track: embedded art first, folder image second."""
+    def resolve(
+        self, path: Path, suffix: str, *, embedded_from: Path | None = None
+    ) -> int | None:
+        """Artwork id for a track: embedded art first, folder image second.
+
+        `embedded_from` overrides the file probed for embedded art — repaired
+        tracks (§38) keep their library path (the broken original, which
+        mutagen can never parse), while the parseable remux lives in the
+        data dir. The folder fallback always reads `path.parent`: the
+        repaired folder holds only remuxes, never covers."""
         embedded = None
         try:
-            embedded = _extract_embedded(path, suffix)
-        except Exception:  # noqa: BLE001 - bad tags must not stop the scan
-            log.warning("Artwork extraction failed for %s", path, exc_info=True)
+            embedded = _extract_embedded(embedded_from or path, suffix)
+        except Exception as exc:  # noqa: BLE001 - bad files must not stop the scan
+            log.warning(
+                "Artwork extraction failed for %s (%s: %s)",
+                embedded_from or path, type(exc).__name__, exc,
+            )
+            log.debug("Artwork extraction traceback", exc_info=True)
 
         if embedded is not None:
             data, mime = embedded
