@@ -3,13 +3,8 @@ services:
     # image: poliuscorp/flow:latest
     build: .
     ports:
-      # 0.0.0.0 — LAN access intended; no-auth trade-off accepted (DESIGN.md §13.5)
       - "8080:8080"
     volumes:
-      # One folder for everything: ./flow/music holds your files (Flow never
-      # writes there — edits are SQLite overlays, repairs are remuxed copies)
-      # and ./flow/data holds the index + repaired copies, created
-      # automatically on first start.
       - ./flow:/flow
     restart: unless-stopped
     healthcheck:

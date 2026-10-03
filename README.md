@@ -1,8 +1,8 @@
 <div align="center">
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/logo-dark.svg">
-  <img src="docs/assets/logo-light.svg" alt="Flow — an eighth note on a rounded tile" width="120">
+  <source media="(prefers-color-scheme: dark)" srcset="assets/logo-dark.svg">
+  <img src="assets/logo-light.svg" alt="Flow — an eighth note on a rounded tile" width="120">
 </picture>
 
 <h1>Flow</h1>
@@ -19,12 +19,11 @@
 
 </div>
 
-## Why Flow
+## Features
 
 - **Read-only by design** — metadata edits live in SQLite as overlays, never in your files' tags.
 - **Built for big libraries** — windowed rendering and paged fetching: a 10,000-track library opens instantly and scrolls smoothly end to end.
 - **Mass curation** — bulk re-grouping, inline cell edits, a "Needs attention" review strip, one-generation undo.
-- **Forgiving scanner** — corrupt files are skipped and logged; a scan that finds zero files against a non-empty index is a broken mount, not a cleanup.
 - **Instant seeking** — audio streams straight from disk with native `Range` support, not proxied through the app.
 - **One small image** — ~99 MB with base OS, nginx, backend, and the built frontend. No accounts, LAN + VPN by design.
 
@@ -42,7 +41,7 @@ docker compose up -d
 
 Open `http://localhost:8080` — API docs live at `/api/docs`.
 
-> **Keep it on the LAN.** Flow has no authentication by design; anyone who can reach the port can browse, stream, and rewrite your library's metadata. To listen from outside, tunnel in with a VPN (WireGuard, Tailscale).
+> **Keep it on the LAN.** Flow has no authentication by design; anyone who can reach the port can browse, stream, and rewrite your library's metadata. To listen from outside, tunnel in with a VPN (Cloudflare, WireGuard, Tailscale).
 
 An empty index next to a non-empty music folder triggers a scan on startup; after that the watcher keeps the index in sync, and Settings has a Rescan button.
 
@@ -61,66 +60,6 @@ Everything Flow touches lives in one host folder, mounted at `/flow` inside the 
 ports:
   - "8888:8080"
 ```
-
-**Upgrading from an earlier release** — move your folders into place:
-
-```bash
-mkdir flow && mv music flow/music && mv data flow/data
-```
-
-## How it works
-
-Flow scans every audio file it can parse into a SQLite index — tags, artwork, structure — and a filesystem watcher keeps the index in sync as files appear or disappear. Metadata edits are overlay rows applied at read time, so your files are never rewritten. Removed files delete their rows (playlists cascade), and a zero-file scan against a non-empty index refuses to delete anything — that pattern means a broken mount, not a library cleanup. To reset, delete `flow/data`.
-
-Audio is streamed, not proxied: FastAPI answers with an internal `X-Accel-Redirect` and nginx serves the bytes straight from disk with native `Range` support — which is what makes seeking instant. The frontend is a React SPA served by the same container: one image, one port. The full product and engineering contract lives in [`docs/DESIGN.md`](docs/DESIGN.md).
-
-## Development
-
-Backend:
-
-```bash
-cd backend
-python3 -m venv .venv
-.venv/bin/pip install -r requirements.txt -r requirements-dev.txt
-FLOW_MUSIC_DIR=$PWD/../music FLOW_DATA_DIR=$PWD/.data .venv/bin/uvicorn app.main:app --reload
-```
-
-Frontend (second terminal — Vite proxies `/api` to `127.0.0.1:8000`, no CORS):
-
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
-Tests are hermetic; no real audio files needed:
-
-```bash
-cd backend && .venv/bin/python -m pytest tests/ -q   # backend
-cd frontend && npm test                              # frontend
-cd frontend && npm run lint                          # ESLint (type-aware)
-```
-
-The frontend TypeScript client is generated from the OpenAPI schema — never hand-written:
-
-```bash
-cd frontend && npm run gen:api
-```
-
-Commit the regenerated `src/api/schema.d.ts` whenever the API changes.
-
-For visual work against a realistic library (with renderable cover art):
-
-```bash
-cd backend && .venv/bin/python scripts/dev_library.py --out /tmp/flow-music --tracks 10000
-FLOW_MUSIC_DIR=/tmp/flow-music FLOW_DATA_DIR=/tmp/flow-data .venv/bin/uvicorn app.main:app --port 8000
-```
-
-Artwork responses are `Cache-Control: immutable`, so hard-reload when pointing the same dev port at a different data dir.
-
-## Related projects
-
-Need to get files onto the machine running Flow? Check out [FileSync](https://github.com/polius/FileSync) — send files from one device to many, in real time, private and peer-to-peer.
 
 ## License
 
