@@ -1,15 +1,4 @@
-"""Media endpoints: audio streaming + artwork (DESIGN.md §6, §13.1).
-
-Streaming has two modes (config.STREAM_MODE):
-- "nginx": FastAPI resolves the track and answers with an X-Accel-Redirect
-  into the internal /music-internal/ location; nginx then serves the bytes
-  with native sendfile + Range. Paths are URL-encoded.
-- "direct": FastAPI serves the file itself; Starlette's FileResponse
-  implements Range/206 correctly. Used in dev behind the Vite proxy.
-
-There is no silent 200-with-full-body path: either nginx answers with real
-Range semantics, or FileResponse does.
-"""
+"""Media endpoints: audio streaming (nginx X-Accel-Redirect or direct FileResponse) + artwork."""
 
 from __future__ import annotations
 
@@ -36,15 +25,14 @@ def stream_track(request: Request, track_id: int) -> Response:
     if track is None:
         raise HTTPException(status_code=404, detail="Track not found")
 
-    # A repaired track streams its remuxed copy from the data dir (§38);
-    # the library path keeps pointing at the untouched original.
+    # A repaired track streams its remuxed copy from the data dir; the
+    # library path keeps pointing at the untouched original.
     file_path = (
         Path(track["media_path"]) if track["media_path"] else config.MUSIC_DIR / track["path"]
     )
     if not file_path.is_file():
-        # The index is ahead of the disk (deleted/moved before a rescan,
-        # or a repair copy vanished out-of-band — the next scan re-derives
-        # it). Never stream a wrong file — surface the mismatch.
+        # The index is ahead of the disk (deleted/moved before a rescan; the
+        # next scan re-derives it). Never stream a wrong file.
         log.warning("Stream requested for missing file: %s", file_path)
         raise HTTPException(status_code=404, detail="Audio file not found on disk")
 
@@ -71,8 +59,8 @@ def get_artwork(request: Request, artwork_id: int) -> Response:
     if row is None:
         raise HTTPException(status_code=404, detail="Artwork not found")
 
-    # Artwork ids are content-addressed (sha1 dedup), so the bytes for a given
-    # id can never change — cache aggressively (DESIGN.md §6).
+    # Artwork ids are content-addressed (sha1 dedup), so the bytes for a
+    # given id can never change — cache aggressively.
     return Response(
         content=row["blob"],
         media_type=row["mime"],

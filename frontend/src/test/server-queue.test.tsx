@@ -1,17 +1,10 @@
-/* Server-truth queue restore (§32 + §2.7): the store restores the §29
-   localStorage snapshot synchronously, then adopts the server's session
-   over it when it arrives while the local one is still untouched. The
-   server is the truth; the local layer is the offline fallback; a session
-   already begun here is never clobbered. And since §2.7, a REACHABLE
-   server's empty answer is authoritative for CLEARING (a stale snapshot
-   from another library must not resurrect), while an unreachable one
-   degrades to §29 with its rows marked unverified — restored rows render
-   text, not links, until the server vouches for them.
-
-   The restore runs at module load, so each case re-imports the player store
-   (vi.resetModules + dynamic import) with the queue API mocked — the
-   transport can't run under jsdom (relative-URL Request), and the behavior
-   under test is the store's precedence, not the transport. */
+/* Server-truth queue restore: the store restores the localStorage snapshot
+   synchronously, then adopts the server's session over it when it arrives
+   while the local one is still untouched. A reachable server's empty answer
+   is authoritative for CLEARING (a stale snapshot from another library must
+   not resurrect); an unreachable one degrades to the local snapshot with
+   its rows marked unverified — restored rows render text, not links, until
+   the server vouches for them. */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -73,14 +66,16 @@ afterEach(() => {
 async function importPlayerStore() {
   vi.resetModules();
   const mod = await import("../stores/player");
-  // Let the async server adoption (fired at module load, after the persist
-  // middleware's rehydration) settle.
+  // The restore runs at module load, so each case re-imports the store with
+  // the queue API mocked (the transport can't run under jsdom) — the
+  // behavior under test is the store's precedence, not the transport. Let
+  // the async server adoption settle.
   await new Promise((r) => setTimeout(r, 0));
   await new Promise((r) => setTimeout(r, 0));
   return mod;
 }
 
-describe("server-queue restore (§32)", () => {
+describe("server-queue restore", () => {
   it("adopts the server session when this browser has none", async () => {
     queueApi.fetchServerQueue.mockResolvedValue(session(1));
     const { usePlayerStore } = await importPlayerStore();
@@ -92,7 +87,7 @@ describe("server-queue restore (§32)", () => {
     ]);
     expect(s.orderPos).toBe(1);
     expect(s.position).toBe(12);
-    // Restores are always paused (§29): the bar is that state loss is never
+    // Restores are always paused: the bar is that state loss is never
     // total, never that sound starts uninvited.
     expect(s.isPlaying).toBe(false);
   });
@@ -134,8 +129,7 @@ describe("server-queue restore (§32)", () => {
     expect(usePlayerStore.getState().queue[0]?.title).toBe("Local Track");
 
     // The user acts before the server answers — pressing play makes this
-    // session owned (an identity change, not a preference) — so the
-    // adoption must not clobber it.
+    // session owned, so the adoption must not clobber it.
     usePlayerStore.setState({ isPlaying: true });
     release(session(1));
     await new Promise((r) => setTimeout(r, 0));
@@ -143,7 +137,7 @@ describe("server-queue restore (§32)", () => {
     expect(usePlayerStore.getState().queue[0]?.title).toBe("Local Track");
   });
 
-  it("an unreachable server degrades to the localStorage snapshot (§29), rows unverified", async () => {
+  it("an unreachable server degrades to the localStorage snapshot, rows unverified", async () => {
     const local = [{ ...TRACKS[0], id: 7, title: "Local Track" }];
     localStorage.setItem(
       "flow.player.queue",
@@ -160,12 +154,12 @@ describe("server-queue restore (§32)", () => {
     const s = usePlayerStore.getState();
     expect(s.queue[0]?.title).toBe("Local Track");
     expect(s.position).toBe(3);
-    // §2.7: no answer means nothing is vouched for — surfaces must render
-    // the restored row's names as text, not links.
+    // No answer means nothing is vouched for — surfaces must render the
+    // restored row's names as text, not links.
     expect(trackIsUnverified(s.queue[0])).toBe(true);
   });
 
-  it("an empty session from a reachable server CLEARS a stale local snapshot (§2.7)", async () => {
+  it("an empty session from a reachable server CLEARS a stale local snapshot", async () => {
     // The observed failure: a snapshot from a previous, different library
     // resurrected rows whose ids no longer exist. The server answered —
     // its truth is "nothing is playing" — so the stale copy goes, keys

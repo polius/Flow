@@ -1,8 +1,5 @@
-/* Modal focus regression (§3.4): the review found every aria-modal surface
-   leaving focus outside on open, Tab escaping to live background content,
-   and focus stranded on close. These tests pin the fix on Now Playing: the
-   takeover takes focus on open, Tab cycles within it, and closing restores
-   focus to whatever opened it. */
+/* Modal focus: the takeover takes focus on open, Tab cycles within it, and
+   closing restores focus to whatever opened it. */
 
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
@@ -88,7 +85,7 @@ beforeEach(() => {
 
 afterEach(cleanup);
 
-describe("Now Playing modal focus (§3.4)", () => {
+describe("Now Playing modal focus", () => {
   it("moves focus into the takeover on open", () => {
     useUiStore.setState({ nowPlayingOpen: true });
     const { container } = render(

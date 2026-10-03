@@ -1,4 +1,4 @@
-"""Library settings + scan state (DESIGN.md §6, §9.6)."""
+"""Library settings + scan state."""
 
 from __future__ import annotations
 

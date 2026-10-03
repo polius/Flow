@@ -1,18 +1,4 @@
-"""Shared track-edit application (DESIGN.md §15.2, §22).
-
-One implementation serves PATCH /api/tracks/{id} and the Organize view's
-bulk apply + undo, so overlay semantics can never diverge between editors.
-
-The contract is a plain `fields` dict: a key's PRESENCE means "apply this
-field", its absence means "leave the column untouched". Callers translate
-their wire semantics into the dict (PATCH: only non-null patch fields; the
-track number additionally honours explicit null via model_fields_set).
-Values follow §15.2: empty artist/album strings clear the reference,
-an explicit-null track_no clears the number, 0 normalizes to null, and a
-title must be non-empty. `favorite` is a plain flag outside the overlay;
-loving a track also appends it to the Favorites manual order
-(favorite_position — 2026-10-03) and unloving releases the slot.
-"""
+"""Shared track-edit application: one code path for PATCH /api/tracks/{id} and the Organize bulk apply + undo."""
 
 from __future__ import annotations
 
@@ -51,9 +37,10 @@ class FieldError(ValueError):
 def apply_field_changes(conn, track, fields: dict) -> dict:
     """Resolve `fields` against one track row into UPDATE columns.
 
-    `track` needs title, artist_id, album_id, album_artist_id, track_no,
-    year, artwork_id, user_edited. Returns the column dict — empty when
-    nothing would change. Raises FieldError on invalid values.
+    A key's presence in `fields` means "apply it"; absence leaves the column
+    untouched. `track` needs title, artist_id, album_id, album_artist_id,
+    track_no, year, artwork_id, user_edited. Empty result = nothing would
+    change; raises FieldError on invalid values.
     """
     edited = Edited(track["user_edited"])
     columns: dict = {}
@@ -68,9 +55,8 @@ def apply_field_changes(conn, track, fields: dict) -> dict:
     if "artist" in fields:
         columns["artist_id"] = find_or_create_artist(conn, fields["artist"])
         edited |= Edited.ARTIST
-        # Credit rows follow the primary (§2.2): the old primary's main
-        # credit is replaced by the new artist, and that artist can't
-        # double up as featured/composer on the same track.
+        # The old primary's main credit is replaced by the new artist, and
+        # that artist can't double up as featured/composer on the same track.
         conn.execute(
             "DELETE FROM track_artists WHERE track_id = ? AND role = 'main'",
             (track["id"],),
@@ -95,8 +81,8 @@ def apply_field_changes(conn, track, fields: dict) -> dict:
         edited |= Edited.TRACK_NO
 
     if "album" in fields:
-        # §13.2: re-groups this track only. The album keeps the track's
-        # album artist (that follows tags); a fresh album inherits facts.
+        # Re-groups this track only. The album keeps the track's album
+        # artist (that follows tags); a fresh album inherits facts.
         columns["album_id"] = find_or_create_album(
             conn, fields["album"], track["album_artist_id"], track["year"]
         )
@@ -109,11 +95,9 @@ def apply_field_changes(conn, track, fields: dict) -> dict:
         edited |= Edited.ALBUM
 
     if "album_artist" in fields:
-        # Compilation resolution (UX review §2.2): the album artist is the
-        # album's identity. Setting it pins the track's overlay value AND
-        # moves the album row, so every view that reads the album reads the
-        # same answer — an empty value clears both (an album with no album
-        # artist displays "Unknown artist" until tags or edits fill it).
+        # The album artist is the album's identity: setting it pins the
+        # track's overlay value AND moves the album row, so every view that
+        # reads the album reads the same answer. An empty value clears both.
         artist_id = find_or_create_artist(conn, fields["album_artist"])
         columns["album_artist_id"] = artist_id
         if track["album_id"] is not None:
@@ -130,10 +114,9 @@ def apply_field_changes(conn, track, fields: dict) -> dict:
         # caller nothing changed).
         if favorite != (track["favorite"] or 0):
             columns["favorite"] = favorite
-        # The Favorites manual order (2026-10-03): loving a track appends it
-        # after the last placed favorite (and heals legacy unplaced rows);
-        # unloving releases the slot. Like `favorite`, the position lives
-        # outside the overlay — the scanner never touches it.
+        # Favorites manual order: loving a track appends it after the last
+        # placed favorite; unloving releases the slot. Like `favorite`, the
+        # position lives outside the overlay — the scanner never touches it.
         if favorite and track["favorite_position"] is None:
             last = conn.execute(
                 "SELECT MAX(favorite_position) AS m FROM tracks "
@@ -143,9 +126,8 @@ def apply_field_changes(conn, track, fields: dict) -> dict:
         elif not favorite:
             columns["favorite_position"] = None
 
-    # Genre (§2.2): replace the track's tag genres with the one named —
-    # the primary genre the Tracks filter groups by. An empty string clears.
-    # This is row work in track_genres, not a tracks column: the flag rides
+    # Replace the track's tag genres with the one named (empty clears). This
+    # is row work in track_genres, not a tracks column: the flag rides
     # user_edited below so the caller's UPDATE still runs and the scanner
     # preserves the choice.
     genre_touched = False
@@ -168,14 +150,10 @@ def apply_field_changes(conn, track, fields: dict) -> dict:
     return columns
 
 
-# ---- one-generation undo (§22) ----------------------------------------------
-#
-# The last bulk apply stores each touched track's PREVIOUS values, in the
-# same wire vocabulary the apply accepts, so undo is "re-apply the old
-# values" through the exact same code path. artist/album store NAMES (an
-# emptied entity's row is pruned; find-or-create recreates it on undo).
-# Undo re-sets the overlay bits for the restored fields — the result is a
-# value the user chose, which is what the bit means.
+# One-generation undo: the last bulk apply stores each touched track's
+# PREVIOUS values in the same wire vocabulary, so undo re-applies them
+# through the exact same code path (re-setting the overlay bits — the
+# result is a value the user chose, which is what the bit means).
 
 
 def store_undo(conn, entries: list[dict]) -> None:

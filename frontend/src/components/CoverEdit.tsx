@@ -1,9 +1,8 @@
-/* The header cover cell (2026-10-03, extracted from the playlist detail):
-   the artwork is its own edit affordance — click changes the image (the
-   scrim reveals on hover/focus), the corner × removes a user-set cover
-   and the derived art takes back over. Shared by the playlist, album,
-   and artist headers so the grammar cannot fork (§2.1); the artist's
-   cell masks to the circle its grid reads as a face. */
+/* The header cover cell: the artwork is its own edit affordance — click
+   changes the image (the scrim reveals on hover/focus), the corner ×
+   removes a user-set cover and the derived art takes back over. Shared by
+   the playlist, album, and artist headers so the behavior cannot fork; the
+   artist's cell masks to the circle its grid reads as a face. */
 
 import { useRef, useState, type ReactNode } from "react";
 

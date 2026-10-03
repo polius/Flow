@@ -1,5 +1,3 @@
-/* Small formatting helpers shared across views. */
-
 const numberFormat = new Intl.NumberFormat();
 
 export function fmtCount(n: number): string {
@@ -27,12 +25,9 @@ export function fmtMinutes(seconds: number): string {
   return m > 0 ? `${h} hr ${m} min` : `${h} hr`;
 }
 
-/* Scan status (§2.8): every phase speaks its own verb — the loudness pass
-   (§2.3) reads differently from the index scan because it changes what the
-   app *knows*, not what it *has* — and every phase speaks its live counts
-   (2026-10-03: "Analyzing audio…" alone was a blind spinner; the backend
-   was reporting current/total all along). Counts are omitted while the
-   total isn't known yet — one honest dash beats a wrong number. */
+/* Scan status: every phase speaks its own verb and live counts. Counts
+   are omitted while the total isn't known yet — one honest dash beats
+   a wrong number. */
 export interface ScanStatusLike {
   phase: string | null;
   current: number;
@@ -81,8 +76,8 @@ export function fmtDateTime(iso: string | null): string | null {
   });
 }
 
-/** A compact date for dense tables (Organize's Added column, §22):
-    "Oct 3" this year, the year appended once it isn't. */
+/** A compact date for dense tables: "Oct 3" this year, the year
+    appended once it isn't. */
 export function fmtDateShort(iso: string | null | undefined): string | null {
   if (!iso) return null;
   const date = new Date(iso);

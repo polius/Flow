@@ -1,4 +1,4 @@
-"""Track editing: PATCH /api/tracks/{id} — overlay semantics (§5, §13.2)."""
+"""Track editing: PATCH /api/tracks/{id} overlay semantics."""
 
 from __future__ import annotations
 
@@ -46,8 +46,8 @@ def test_title_edit_sets_overlay_and_survives_rescan(client, library):
     out = client.patch(f"/api/tracks/{track['id']}", json={"title": "Renamed"}).json()
     assert out["title"] == "Renamed"
 
-    # Scanner must preserve the overlay (§5): mtime unchanged → row untouched;
-    # mtime changed → user_edited bits re-apply. Touch the file to force re-read.
+    # The scanner preserves the overlay: mtime changed → user_edited bits
+    # re-apply. Touch the file to force re-read.
     conn = client.app.state.scanner._db.connect()
     row = conn.execute("SELECT path, mtime FROM tracks WHERE id = ?", (track["id"],)).fetchone()
     target = library / row["path"]
@@ -67,7 +67,7 @@ def test_artist_edit_regroups_single_track_and_prunes(client, library):
     out = client.patch(f"/api/tracks/{first['id']}", json={"artist": "Steven T."}).json()
     assert out["artist"] == "Steven T."
 
-    # Only the edited track moved (§13.2).
+    # Only the edited track moved.
     assert client.get(f"/api/tracks/{second['id']}").json()["artist"] == "Aerosmith"
 
     artists = {a["name"]: a["track_count"] for a in client.get("/api/artists").json()["items"]}
@@ -77,7 +77,7 @@ def test_artist_edit_regroups_single_track_and_prunes(client, library):
 
 def test_artist_edit_clearing_leaves_album_artist_reference(client, library):
     """Clearing the track artist nulls artist_id. The album-artist reference
-    follows tags (§5) and is not user-editable at MVP, so an artist still
+    follows tags and is not user-editable at MVP, so an artist still
     referenced as album artist survives the prune."""
     loose = _track(client, "Loose")  # Beta Band is both artist and album artist
 
@@ -207,8 +207,8 @@ def test_full_overlay_survives_rescan(client, library):
 
 
 def test_genre_edit_sets_and_clears(client, library):
-    """§22: the Organize genre cell replaces the track's tag genres with the
-    one named; the scanner preserves the choice (the GENRE overlay bit)."""
+    """The genre cell replaces the track's tag genres with the one named; the
+    scanner preserves the choice (the GENRE overlay bit)."""
     track = _track(client, "Loose")
     assert track["genre"] is None  # fixture has no genre tag
 
@@ -279,7 +279,7 @@ def test_reorder_renumbers_and_sets_overlay(client, library):
     assert client.get(f"/api/tracks/{loose['id']}").json()["track_no"] == 1
 
 
-# ---- Favorites manual order (drag & drop, 2026-10-03) -------------------------
+# ---- Favorites manual order ----
 
 
 def _favorites_in_order(client) -> list[int]:

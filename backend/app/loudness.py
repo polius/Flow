@@ -1,14 +1,4 @@
-"""Track loudness analysis for Sound Check (UX review §2.3).
-
-Reference: EBU R128 / ReplayGain-style level matching. Each track gets a
-`gain_db` = (reference loudness − track integrated loudness), applied
-client-side so album-to-album volume whiplash stops. Two sources, in order:
-
-1. The file's own ReplayGain tag (parsed by app.tags — free, exact).
-2. Analysis with ffmpeg's `ebur128` filter (integrated LUFS), when ffmpeg
-   is on PATH. Without ffmpeg the gain simply stays NULL and playback is
-   untouched — the feature degrades, it never blocks a scan.
-"""
+"""Track loudness analysis for Sound Check: ReplayGain tag first, ffmpeg ebur128 second (missing ffmpeg = NULL gain, never a failed scan)."""
 
 from __future__ import annotations
 

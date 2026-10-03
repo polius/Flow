@@ -1,10 +1,8 @@
-/* The listening selection bar (§4.1, Review 2): the Organize BulkBar's
-   grammar (§22) repurposed for curation-on-listening — Add to Playlist /
-   Add to Queue / Favorite. It exists only while a selection does (no chrome
-   until then, §8.0.3), floats above the player bar like its Organize
-   sibling, and its verbs reuse the app's own paths rather than inventing:
-   the §30.2 destination dialog, the §1.2 queue append (whose arrival toast
-   the store fires), and the §26 favorite undo grammar. */
+/* The listening selection bar: the Organize BulkBar's grammar repurposed
+   for curation-on-listening — Add to Playlist / Add to Queue / Favorite.
+   It exists only while a selection does, floats above the player bar, and
+   its verbs reuse the app's own paths (the destination dialog, the store's
+   queue append and its arrival toast, the favorite undo). */
 
 import { IconClose } from "./icons";
 import "../styles/organize.css";

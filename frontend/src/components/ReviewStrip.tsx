@@ -1,7 +1,7 @@
-/* "Needs attention" (§22): the Organize view's opinion about where the
-   library needs grouping work. Deterministic counts only; each item is a
-   filter for the grid below. Text-first and quiet — a checklist, not a
-   widget dashboard (§2). A healthy library collapses to one calm line. */
+/* "Needs attention": the Organize view's opinion about where the library
+   needs grouping work. Deterministic counts only; each item is a filter
+   for the grid below. Text-first and quiet — a healthy library collapses
+   to one calm line. */
 
 import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -103,7 +103,7 @@ export function ReviewStrip({ summary, activeReview, onPick, onPickAlbum }: Revi
             onClick={(e) => {
               const rect = e.currentTarget.getBoundingClientRect();
               // Fixed anchor taken at open time: the strip scrolls away under
-              // the grid, the popover must not follow it into clipping (§22).
+              // the grid, the popover must not follow it into clipping.
               setAnchorRect({
                 left: Math.min(rect.left, window.innerWidth - 436),
                 top: Math.min(rect.bottom + 8, window.innerHeight - 340),
@@ -159,7 +159,7 @@ export function ReviewStrip({ summary, activeReview, onPick, onPickAlbum }: Revi
 }
 
 /** Hook for the Organize view: the review summary is the strip's data and
-    the undo affordance's source of truth (§22 — undo state lives server-side). */
+    the undo affordance's source of truth (undo state lives server-side). */
 export function useReviewSummary() {
   return useQuery({
     queryKey: ["review", "summary"],

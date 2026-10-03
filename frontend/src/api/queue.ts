@@ -1,19 +1,6 @@
-/* Server-truth queue sync (UX review Part 4.0, DESIGN.md §32).
-   The store remains the source of UI truth; these helpers are its mirror
-   and its restore path:
-
-   - fetchServerQueue  GET on load — the session, a verdict that the server
-     HAS none (§2.7: authoritative for clearing), or a verdict that it
-     can't be reached (the local layer stays in charge). The distinction
-     matters: an empty answer from a reachable server is the truth
-     "nothing is playing"; silence is not.
-   - playByFilter      POST — "play this view" resolves the WHOLE filter
-     server-side (§1.2 for good: there is no page to truncate to).
-   - saveServerQueue   PUT — the plan mirror, debounced by the store at the
-     §29 cadence. Fire-and-forget: a LAN blip must never cost the UI
-     anything, and the localStorage layer still has the session.
-   - saveServerPlayhead PATCH — the tiny playhead write; `keepalive` lets
-     the pagehide flush survive tab close. */
+/* Server-truth queue sync. The store remains the source of UI truth;
+   these helpers are its mirror and its restore path. An empty answer from
+   a reachable server is the truth "nothing is playing"; silence is not. */
 
 import { api } from "./client";
 import type { QueueOrigin, QueueSnapshot, Track } from "./types";
@@ -26,9 +13,9 @@ export type ServerQueueState =
   | { status: "empty" } // reachable; no stored session (first run, or reset)
   | { status: "unreachable" }; // no answer — the server cannot vouch either way
 
-/** GET /api/queue — the stored session, healed and canonical. A 200 with
-    no items is a real answer ("empty"); anything else the server fails to
-    answer with is "unreachable" (§2.7): only a real answer may clear. */
+/** GET /api/queue — the stored session. A 200 with no items is a real
+    answer ("empty"); anything else the server fails to answer with is
+    "unreachable": only a real answer may clear. */
 export async function fetchServerQueue(): Promise<ServerQueueState> {
   try {
     const { data, response } = await api.GET("/api/queue");
@@ -42,12 +29,11 @@ export async function fetchServerQueue(): Promise<ServerQueueState> {
   }
 }
 
-/** POST /api/queue — "play this view" (§32): the server resolves the whole
+/** POST /api/queue — "play this view": the server resolves the whole
     filter (or track list), builds the play order — shuffled when asked —
-    and starts at `start`. `origin` is the caller's declaration of what the
-    view is (§1.1: the client knows; the server records, and every surface
-    gets to say "Playing from …"). Returns the snapshot to adopt, or null
-    when the server couldn't serve it (the caller falls back to §29's
+    and starts at `start`. `origin` records what the view is, so every
+    surface can say "Playing from …". Returns the snapshot to adopt, or
+    null when the server couldn't serve it (the caller falls back to a
     client-side whole-view fetch). */
 export async function playByFilter(params: {
   q?: string;
@@ -81,11 +67,10 @@ export async function playByFilter(params: {
   }
 }
 
-/** PUT /api/queue — mirror the client's plan. Never throws: persistence is
-    best-effort by contract (§29's quota story, one layer further out).
-    The origin rides along (§1.1): the server's canonical copy keeps saying
-    "Playing from …" after every plan change. `keepalive` lets the pagehide
-    flush survive tab close. */
+/** PUT /api/queue — mirror the client's plan. Never throws: persistence
+    is best-effort by contract. The origin rides along so the server's
+    copy keeps saying "Playing from …" after every plan change.
+    `keepalive` lets the pagehide flush survive tab close. */
 export function saveServerQueue(
   snapshot: {
     tracks: Track[];
@@ -114,7 +99,7 @@ export function saveServerQueue(
 }
 
 /** PATCH /api/queue — the playhead. `playedTrackId` rides the immediate
-    start-of-play sync so the server can stamp played_at (§4.1) on the track
+    start-of-play sync so the server can stamp played_at on the track
     that actually started — carried, never derived from stored state. */
 export function saveServerPlayhead(
   patch: {
@@ -142,7 +127,7 @@ export function saveServerPlayhead(
         // only this sync carries one.
       });
   void send(keepalive);
-  // A lost start-of-play stamp would silently thin §4.1's record (the
+  // A lost start-of-play stamp would silently thin the played record (the
   // position ticks that follow never carry a track id). One quiet retry —
   // past a scanner's commit window, which can hold the write lock for
   // seconds — keeps the record honest. Re-stamping is idempotent: recency

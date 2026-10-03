@@ -1,6 +1,5 @@
-/* Transport controls shared by the player bar and Now Playing (§9.1, §9.2).
-   Moved out of PlayerBar in M5 so the full-screen view drives the same
-   engine with the same scrub behavior. */
+/* Transport controls shared by the player bar and Now Playing so scrub
+   behavior can't drift between them. */
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
 
@@ -15,10 +14,10 @@ export function Scrubber() {
   const seek = usePlayerStore((s) => s.seek);
   const [scrub, setScrub] = useState<number | null>(null);
   const [dragging, setDragging] = useState(false);
-  // Live seek (§3.4): Music seeks under the thumb, not on release. Input
-  // events coalesce through one rAF so a drag issues at most one seek per
-  // frame — with Range streaming that is cheap; uncoalesced keyboard repeat
-  // or a burst of pointer events would stack seeks the element must cancel.
+  // Live seek: Music seeks under the thumb, not on release. Input events
+  // coalesce through one rAF so a drag issues at most one seek per frame —
+  // uncoalesced keyboard repeat or a burst of pointer events would stack
+  // seeks the element must cancel.
   const pendingSeek = useRef<number | null>(null);
   const seekRaf = useRef<number | null>(null);
 
@@ -47,10 +46,9 @@ export function Scrubber() {
   const trackStyle = {
     // Longhand on purpose: the element's background *image* is the progress
     // fill; CSS is free to size that layer (the phone bar paints it as a
-    // 3px hairline inside a taller touch target — §20) without the shorthand
-    // resetting background-size. The empty rest track reads in both themes
-    // via --scrubber-rest (§3.4: the nothing-playing bar was invisible in
-    // dark mode).
+    // 3px hairline inside a taller touch target) without the shorthand
+    // resetting background-size. --scrubber-rest keeps the empty rest track
+    // visible in dark mode.
     backgroundImage: `linear-gradient(to right,
       var(--text-tertiary) 0% ${pct(value)}%,
       var(--control-border) ${pct(value)}% ${pct(buffered)}%,
@@ -101,10 +99,8 @@ export function Scrubber() {
   );
 }
 
-/* Volume with click-to-mute (§3.4): the icon was decoration; now it is the
-   expected muscle memory. Muted (or at zero) shows the muted glyph; moving
-   the slider unmutes. Shared by the player bar and Now Playing so the
-   grammar can't drift. */
+/* Volume with click-to-mute: muted (or at zero) shows the muted glyph;
+   moving the slider unmutes. */
 export function VolumeControl({ size = 16 }: { size?: number }) {
   const volume = usePlayerStore((s) => s.volume);
   const muted = usePlayerStore((s) => s.muted);
@@ -155,8 +151,8 @@ export function TransportButton({
   disabled?: boolean;
   badge?: string;
   primary?: boolean;
-  /** Mode switches (shuffle/repeat): outside the phone mini bar's one job —
-      hidden there, still first-class in Now Playing (§20). */
+  /** Mode switches (shuffle/repeat): hidden on the phone mini bar, still
+      first-class in Now Playing. */
   secondary?: boolean;
 }) {
   return (
@@ -178,7 +174,7 @@ export function TransportButton({
 }
 
 /* Play/pause with a short glyph crossfade — the one motion that carries the
-   play state (§8.4). Both bars render this so the state reads identically. */
+   play state. Both bars render this so it reads identically. */
 export function PlayPauseButton({
   isPlaying,
   disabled,

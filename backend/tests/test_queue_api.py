@@ -1,5 +1,4 @@
-"""The server-truth play queue (UX review Part 4.0) and played_at
-(UX review Part 4.1) — DESIGN.md §32."""
+"""The server-truth play queue and played_at stamping."""
 
 from __future__ import annotations
 
@@ -62,8 +61,7 @@ def test_post_track_ids_then_get_roundtrip(client, library):
 
 def test_post_filter_resolves_whole_view_in_listing_order(client, library):
     # The queue POST has no pagination of its own: the resolved list must
-    # equal the full filtered listing, in its order (§1.2 has no page to
-    # truncate to — structurally, not by fetched-in-time).
+    # equal the full filtered listing, in its order.
     listed = [
         t["id"]
         for t in client.get(
@@ -138,8 +136,8 @@ def test_patch_ignores_out_of_range_playhead(client, library):
     r = client.patch("/api/queue", json={"order_pos": 99, "position": 1.0})
     assert r.status_code == 200
     # An out-of-range playhead belongs to a plan that isn't mirrored yet —
-    # it must not clamp into "the last track" (a pointer the writer never
-    # meant); the stored value stands until the PUT brings them together.
+    # it must not clamp into "the last track"; the stored value stands
+    # until the PUT brings them together.
     assert r.json()["order_pos"] == 0
     assert client.get("/api/queue").json()["order_pos"] == 0
 
@@ -147,7 +145,7 @@ def test_patch_ignores_out_of_range_playhead(client, library):
     client.patch("/api/queue", json={"order_pos": 2})
     assert client.get("/api/queue").json()["order_pos"] == 2
 
-    # An empty plan accepts only the idle convention (§23.6).
+    # An empty plan accepts only the idle convention.
     client.put("/api/queue", json={"track_ids": [], "order": [], "order_pos": -1})
     r = client.patch("/api/queue", json={"order_pos": 5})
     assert r.json()["order_pos"] == -1
@@ -175,7 +173,7 @@ def test_played_at_survives_a_rescan(client, library):
 
     # Re-tag that file underneath (same path, forced-new mtime): the scanner
     # takes its UPDATE path with a fixed column list — played_at must
-    # survive it exactly like `favorite` (§15.2's rule, one more column).
+    # survive it exactly like `favorite`.
     target_path = library / "Album B" / "01 - Other 01.mp3"
     make_mp3(
         target_path,
@@ -215,7 +213,7 @@ def test_get_heals_after_library_removal(client, library):
     assert again["order"] == got["order"]
 
 
-# ---- Origin (UX review 2, Part 1.1 / DESIGN.md §33) -------------------------
+# ---- Origin ----
 
 
 def test_post_records_origin_and_get_returns_it(client, library):
@@ -301,7 +299,7 @@ def test_get_degrades_corrupt_origin_to_none(client, library):
     assert len(got["items"]) > 0  # the session itself is untouched
 
 
-# ---- write-lock resilience (§lock) ---------------------------------------------
+# ---- write-lock resilience ----
 
 
 def test_write_transaction_retries_then_succeeds(db):

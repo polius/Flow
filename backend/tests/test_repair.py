@@ -1,7 +1,6 @@
-"""Self-healing scan (DESIGN.md §38): files mutagen cannot parse get one
-lossless repair attempt — remux the audio inside into a canonical container
-under DATA_DIR/repaired/, map the original's ID3 tags onto it, verify by
-re-parsing, and only then index it. Originals are never modified."""
+"""Self-healing scan: unparseable files get one lossless repair attempt —
+remux into a canonical container under DATA_DIR/repaired/ with the original's
+ID3 tags mapped on, verify, then index. Originals are never modified."""
 
 from __future__ import annotations
 
@@ -74,7 +73,7 @@ def track_row(conn, rel: str):
     return conn.execute("SELECT * FROM tracks WHERE path = ?", (rel,)).fetchone()
 
 
-# ---- the headline case: DASH-as-mp3 ------------------------------------------
+# ---- DASH-as-mp3 ----
 
 
 @requires_ffmpeg
@@ -103,11 +102,11 @@ def test_dash_file_is_repaired_and_indexed(conn, music, scanner):
     assert tags["\xa9alb"] == ["Onze"]
     assert tags["trkn"] == [(7, 12)]
 
-    # §5 stands: the original is byte-identical after the repair.
+    # The original is byte-identical after the repair.
     assert src.read_bytes() == before
 
 
-# ---- repair is lossless remux, and idempotent ---------------------------------
+# ---- repair is lossless remux, and idempotent ----
 
 
 @requires_ffmpeg
@@ -141,7 +140,7 @@ def test_deleted_repaired_copy_is_re_derived(conn, music, scanner):
     assert row["media_path"] == str(copy)  # same key → same name, rebuilt
 
 
-# ---- invalidation: original replaced or removed --------------------------------
+# ---- invalidation: original replaced or removed ----
 
 
 @requires_ffmpeg
@@ -177,7 +176,7 @@ def test_removed_original_cleans_up_repaired_copy(conn, music, scanner):
     assert not copy.exists()
 
 
-# ---- opt-out and hopeless files -------------------------------------------------
+# ---- opt-out and hopeless files ----
 
 
 @requires_ffmpeg
@@ -228,7 +227,7 @@ def test_wav_content_in_mp3_name_indexes_directly(conn, music, scanner):
     assert row["sample_rate"] == 44100
 
 
-# ---- artwork ---------------------------------------------------------------------
+# ---- artwork ----
 
 
 @requires_ffmpeg
@@ -236,8 +235,8 @@ def test_repaired_track_falls_back_to_folder_cover_silently(
     conn, music, scanner, caplog
 ):
     """The repaired track's ORIGINAL is unparseable by mutagen — artwork
-    resolution must not try to extract embedded art from it (that was the
-    startup traceback noise this test pins). Folder covers still apply."""
+    resolution must not try to extract embedded art from it. Folder covers
+    still apply."""
     make_dash_as_mp3(music / "song.mp3", seconds=1.0, title="T", artist="A")
     (music / "cover.jpg").write_bytes(jpeg_bytes())
     with caplog.at_level(logging.WARNING, logger="flow.artwork"):
@@ -267,7 +266,7 @@ def test_embedded_cover_from_broken_original_rides_along(conn, music, scanner):
     assert row["artwork_id"] is not None
 
 
-# ---- streaming -------------------------------------------------------------------
+# ---- streaming ----
 
 
 @requires_ffmpeg

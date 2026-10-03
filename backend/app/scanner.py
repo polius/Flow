@@ -1,15 +1,4 @@
-"""Library scanner: walk, parse, overlay-safe upserts, moves, removals.
-
-Semantics per DESIGN.md §5 and §13:
-- `tracks.mtime` is the contract. Unchanged file → row untouched (user edits
-  survive by not being touched at all).
-- Changed file → tag-derived columns refreshed, except columns flagged in
-  `user_edited` (the overlay): the current value IS the overlay.
-- Disappeared file + new file with same size+mtime (duration as tiebreaker)
-  → move: `path` updated in place. A move must never look like delete+add.
-- Removed files → rows deleted; playlist entries cascade; empty albums,
-  artists, and unreferenced artwork are pruned.
-"""
+"""Library scanner: walk, parse, overlay-safe upserts, moves, removals (`tracks.mtime` is the change contract)."""
 
 from __future__ import annotations
 
@@ -41,18 +30,18 @@ log = logging.getLogger("flow.scanner")
 
 MTIME_EPS = 1e-6
 DURATION_EPS = 0.05
-# Lock hygiene (§lock): the scanner commits PER FILE (and the analysis pass
-# per track) so its WAL write-lock windows stay milliseconds wide — a busy
-# scan must never starve the queue mirror's 3 s playhead writes into 500s.
-# `synchronous=NORMAL` (db.py) keeps those commits cheap.
-# The per-file error log persisted with the scan result (§2.8): enough rows
-# to see the shape of a bad rip batch, few enough to stay a settings row.
+# Lock hygiene: the scanner commits PER FILE (and the analysis pass per
+# track) so its WAL write-lock windows stay milliseconds wide — a busy scan
+# must never starve the queue mirror's 3 s playhead writes into 500s.
+
+# Per-file error log persisted with the scan result: enough rows to see the
+# shape of a bad rip batch, few enough to stay a settings row.
 ERROR_LOG_LIMIT = 500
 
 
 class Edited(IntFlag):
-    """Bitmask of user-overridden fields (DESIGN.md §5). The scanner only
-    ever preserves these bits; the Get Info editor (M4) sets them."""
+    """Bitmask of user-overridden fields: the scanner only ever preserves
+    these bits; the editors set them."""
 
     TITLE = 1
     ARTIST = 2
@@ -97,7 +86,7 @@ class LibraryScanner:
             "errors": 0,
         }
         # Per-file failures of the last scan (path + reason), persisted at
-        # finish and served by GET /api/scan/errors (§2.8).
+        # finish and served by GET /api/scan/errors.
         self._error_log: list[dict] = []
 
     # ---- public API ------------------------------------------------------
@@ -124,7 +113,7 @@ class LibraryScanner:
         }
 
     def scan_error_log(self) -> dict:
-        """The persisted error log of the last scan (§2.8)."""
+        """The persisted error log of the last scan."""
         conn = self._db.connect()
         row = conn.execute(
             "SELECT value FROM settings WHERE key = 'scan_error_log'"
@@ -164,8 +153,8 @@ class LibraryScanner:
     def _scan_thread(self, trigger: str) -> None:
         try:
             self._reconcile(trigger)
-            # Sound Check pass (§2.3) — after the index is correct, before
-            # the scan reports done. Skips itself when ffmpeg is absent.
+            # Sound Check pass — after the index is correct, before the scan
+            # reports done. Skips itself when ffmpeg is absent.
             self._analyze_gains()
         except Exception:  # noqa: BLE001 - a scan must never take the app down
             log.exception("Scan crashed")
@@ -205,8 +194,8 @@ class LibraryScanner:
 
         # Safety guard: a non-empty index against an empty walk is almost
         # always a broken or missing bind mount, not a user action. Removals
-        # are irreversible (§5), so refuse to mass-delete and surface it.
-        # Resetting a library deliberately = remove the data volume.
+        # are irreversible, so refuse to mass-delete and surface it;
+        # resetting a library deliberately = remove the data volume.
         if not files and db_rows:
             log.warning(
                 "Library walk found 0 files but the index holds %d tracks — "
@@ -276,8 +265,8 @@ class LibraryScanner:
                 "UPDATE tracks SET path = ? WHERE id = ?", (rel, moves[rel]["id"])
             )
             tick()
-            # Lock hygiene (§lock): one tiny transaction per row — the queue
-            # mirror's writes land in the gaps instead of piling into 500s.
+            # Lock hygiene: one tiny transaction per row — the queue mirror's
+            # writes land in the gaps instead of piling into 500s.
             conn.commit()
 
         # Files matched as moves are already handled above — skip them here.
@@ -363,12 +352,11 @@ class LibraryScanner:
     def _upsert_file(
         self, conn, artstore: ArtworkStore, f: WalkedFile, existing: dict | None
     ) -> bool:
-        """Parse and write one file. Returns False on parse failure. A file
-        mutagen cannot read gets one repair attempt (§38): a lossless remux
-        of the audio inside, verified before it may enter the index. The
-        original is never modified — the row points at the copy via
-        media_path, and the copy is re-derived whenever the original
-        changes or the copy itself disappears."""
+        """Parse and write one file. Returns False on parse failure. An
+        unparseable file gets one repair attempt: a lossless remux verified
+        before it may enter the index. The original is never modified — the
+        row points at the copy via media_path, and the copy is re-derived
+        whenever the original changes or the copy itself disappears."""
         parsed = parse_audio(f.abs)
         media_path: str | None = None
         detail: str | None = None
@@ -380,7 +368,7 @@ class LibraryScanner:
                     media_path = str(repaired)
         if parsed is None:
             # One user-facing line per file already went out from tags.py;
-            # the persisted scan error log (§2.8) is the durable record.
+            # the persisted scan error log is the durable record.
             log.debug("Skipping unparseable file: %s", f.rel)
             reason = "Unreadable or unrecognized audio file"
             if detail:
@@ -414,8 +402,8 @@ class LibraryScanner:
             artist_id = find_or_create_artist(conn, parsed.artist)
 
         if Edited.ALBUM_ARTIST in edited and existing:
-            # The user pinned this album's compilation semantics (§2.2);
-            # their choice outranks the tag on every rescan.
+            # The user pinned this album's compilation semantics; their
+            # choice outranks the tag on every rescan.
             album_artist_id = existing["album_artist_id"]
         else:
             album_artist_id = find_or_create_artist(
@@ -429,14 +417,14 @@ class LibraryScanner:
             )
 
         # Embedded art must be probed from a file mutagen can parse: a
-        # repaired track's original never will (that is why it was repaired),
-        # while the remuxed copy may carry mapped cover art (§38). The folder
-        # fallback still reads the library folder.
+        # repaired track's original never will; the remuxed copy may carry
+        # mapped cover art. The folder fallback still reads the library
+        # folder.
         art_file = Path(media_path) if media_path else f.abs
         artwork_id = artstore.resolve(f.abs, art_file.suffix.lower(), embedded_from=art_file)
 
-        # Album-level facts follow the first track seen (DESIGN.md §5):
-        # artwork backfills only when the album has none yet.
+        # Album-level facts follow the first track seen: artwork backfills
+        # only when the album has none yet.
         if album_id is not None and artwork_id is not None:
             conn.execute(
                 "UPDATE albums SET artwork_id = ? WHERE id = ? AND artwork_id IS NULL",
@@ -456,8 +444,8 @@ class LibraryScanner:
             "format": suffix,
             "bitrate": parsed.bitrate,
             "sample_rate": parsed.sample_rate,
-            # A tag-provided ReplayGain is the free, exact loudness value
-            # (§2.3); otherwise it stays NULL for the analysis phase.
+            # A tag-provided ReplayGain is the free, exact loudness value;
+            # otherwise it stays NULL for the analysis phase.
             "gain_db": parsed.replaygain_db,
             "mtime": f.mtime,
             "size": f.size,
@@ -493,8 +481,8 @@ class LibraryScanner:
 
         # Credited artists always follow the tags; the primary display
         # credit follows the (overlay-aware) artist column. Genres follow
-        # the tags too — unless the user set one in Organize (§22): their
-        # choice is the overlay, so the tag genre never overwrites it.
+        # the tags too — unless the user set one: their choice is the
+        # overlay, so the tag genre never overwrites it.
         set_track_credits(
             conn,
             track_id,
@@ -535,7 +523,7 @@ class LibraryScanner:
                 )
         return out
 
-    # -- loudness analysis (§2.3) -------------------------------------------
+    # -- loudness analysis -------------------------------------------------
 
     def _analyze_gains(self) -> None:
         """Sound Check pass: fill `gain_db` for every track still missing a
@@ -561,17 +549,17 @@ class LibraryScanner:
         analyzed = 0
         for row in rows:
             # Repaired tracks analyze their remuxed copy — the original's
-            # bytes are what mutagen refused in the first place (§38).
+            # bytes are what mutagen refused in the first place.
             source = (
                 Path(row["media_path"])
                 if row["media_path"]
                 else self._music / row["path"]
             )
             gain = analyze_file(source)
-            # Lock hygiene (§lock): the write transaction opens at the UPDATE
-            # below and ends at the commit — ffmpeg NEVER runs inside one.
-            # A transaction held across ~25 analyses (the old batching) kept
-            # the WAL write lock for minutes and 500'd the queue mirror.
+            # The write transaction opens at the UPDATE below and ends at
+            # the commit — ffmpeg NEVER runs inside one. A transaction held
+            # across ~25 analyses (the old batching) kept the WAL write lock
+            # for minutes and 500'd the queue mirror.
             if gain is not None:
                 conn.execute(
                     "UPDATE tracks SET gain_db = ? WHERE id = ?", (gain, row["id"])
@@ -590,7 +578,7 @@ class LibraryScanner:
         conn.commit()
         self._set_state(state="idle", phase=None, current=total, total=total, errors=errors)
 
-    # -- settings persistence (reload shows scan state, DESIGN.md §6) ------
+    # -- settings persistence (reload shows scan state) ---------------------
 
     def _persist_start(self, conn, total: int) -> None:
         _settings_upsert(conn, "scan_state", "scanning")
@@ -607,9 +595,9 @@ class LibraryScanner:
         _settings_upsert(conn, "scan_state", "idle")
         _settings_upsert(conn, "scan_finished_at", _utcnow())
         _settings_upsert(conn, "scan_errors", str(errors))
-        # The error disclosure (§2.8): path + reason for every skipped file,
-        # capped so a catastrophically bad mount can't grow a settings row
-        # without bound. `total` keeps the honest count either way.
+        # Path + reason for every skipped file, capped so a catastrophically
+        # bad mount can't grow a settings row without bound. `total` keeps
+        # the honest count either way.
         logged = len(self._error_log)
         payload = {
             "total": logged,

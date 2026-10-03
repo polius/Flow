@@ -44,8 +44,6 @@ export function SettingsView() {
       <h1 className="view__title">Settings</h1>
       <p className="view__subtitle">Appearance, library status, and playback.</p>
 
-      {/* The mount guard (§2.8) gets its own calm state, not a bare count:
-          what happened, what was (and wasn't) touched, what to do. */}
       {scan?.mountGuard && (
         <div className="settings-guard" role="status">
           <h2>Your music folder wasn’t reachable</h2>
@@ -63,10 +61,8 @@ export function SettingsView() {
         </div>
       )}
 
-      {/* One left-pinned column (owner, 2026-10-02): the Keyboard section's
-          removal left nothing for the second column (§37's two-column grid),
-          so every group lives in the first — Appearance leading, then
-          Library and Playback in the old reading order. */}
+      {/* One left-pinned column: with the Keyboard section removed, nothing
+          was left for a second column — every group lives in the first. */}
       <div className="settings-grid">
         <div className="settings-col">
           <div className="settings-group">

@@ -1,12 +1,7 @@
-# Flow — single container, single port (DESIGN.md §10).
+# Flow — single container, single port.
 #
-#   Stage 1  node:22-alpine    → npm ci && vite build
-#   Stage 2  python:3.13-alpine → venv + dependency cleanup
-#   Stage 3  python:3.13-alpine → runtime: uvicorn + nginx + static, non-root
-#
-# Alpine base (owner decision, 2026-09-29 — supersedes the earlier §10.4
-# Debian-slim choice): all runtime deps ship musl wheels, and the measured
-# slim premium was ~135MB, not the ~40MB the original estimate assumed.
+# Alpine base: all runtime deps ship musl wheels, and the measured Debian-slim
+# premium was ~135MB, not the ~40MB the original estimate assumed.
 
 # ---- Stage 1: frontend build ------------------------------------------------
 FROM node:22-alpine AS frontend
@@ -30,10 +25,10 @@ RUN pip install --no-cache-dir -r requirements.txt \
 
 # ---- Stage 3: runtime --------------------------------------------------------
 FROM python:3.13-alpine AS runtime
-# tini: PID 1 signal handling (§10.1). bash: the start script uses `wait -n`
+# tini: PID 1 signal handling. bash: the start script uses `wait -n`
 # and pipefail — kept on real bash for predictability, not busybox ash.
-# ffmpeg: scan-time loudness analysis (UX review §2.3 / DESIGN.md §30.3);
-# its absence degrades gracefully — tracks just play at unity gain.
+# ffmpeg: scan-time loudness analysis; its absence degrades gracefully —
+# tracks just play at unity gain.
 RUN apk add --no-cache nginx tini bash ffmpeg \
  && adduser -D -u 1000 flow
 

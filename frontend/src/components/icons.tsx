@@ -62,7 +62,6 @@ export function IconPlaylists(props: IconProps) {
   );
 }
 
-/* Organize (§22): a list with a check — putting the library in order. */
 export function IconOrganize(props: IconProps) {
   return (
     <Icon {...props}>
@@ -161,7 +160,6 @@ export function IconClose(props: IconProps) {
   );
 }
 
-/* The queue's Add affordance (§23): a bulleted list — line up what plays. */
 export function IconQueue(props: IconProps) {
   return (
     <Icon {...props}>
@@ -173,7 +171,6 @@ export function IconQueue(props: IconProps) {
   );
 }
 
-/* Get Info (Organize-only, §23): the classic ⓘ. */
 export function IconInfo(props: IconProps) {
   return (
     <Icon {...props}>

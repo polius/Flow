@@ -1,9 +1,7 @@
-/* The scan status line (§2.8, §40): every phase speaks its own verb and
-   its live counts. The analyze pass's blind "Analyzing audio…" label is
-   the regression pinned here — the backend always reported
-   current/total; the label now shows them (and omits them only while
-   the total isn't known, the scan's own rule). The TopBar's determinate
-   ring consumes scanProgressFraction; null keeps the spinner. */
+/* The scan status line: every phase speaks its own verb and its live counts
+   (the analyze pass's blind "Analyzing audio…" label is the regression
+   pinned here). scanProgressFraction feeds the TopBar's determinate ring;
+   null keeps the spinner. */
 
 import { describe, expect, it } from "vitest";
 
@@ -19,7 +17,7 @@ import {
 const n = (v: number) => new Intl.NumberFormat().format(v);
 
 describe("scanStatusLabel", () => {
-  it("counts the loudness pass (§2.3) like the index scan", () => {
+  it("counts the loudness pass like the index scan", () => {
     expect(scanStatusLabel({ phase: "analyze", current: 34, total: 1204 })).toBe(
       `Analyzing audio… ${n(34)}/${n(1204)}`,
     );

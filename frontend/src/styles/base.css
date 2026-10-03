@@ -102,7 +102,7 @@ a {
 .artwork--r-m { border-radius: var(--radius-m); }
 .artwork--r-l { border-radius: var(--radius-l); }
 
-/* Artwork ambience (§8.5, §13) — blurred cover wash behind a view. The flat
+/* Artwork ambience — blurred cover wash behind a view. The flat
    canvas-color wash on ::after keeps text legible; contrast comes from the
    token, never from a painted gradient. */
 .ambience {
@@ -140,7 +140,7 @@ a {
   opacity: var(--ambience-wash);
 }
 
-/* Motion restraint (§8.4): users who ask for less motion get the states
+/* Motion restraint: users who ask for less motion get the states
    without the transitions. */
 @media (prefers-reduced-motion: reduce) {
   *,

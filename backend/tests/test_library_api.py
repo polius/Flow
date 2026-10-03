@@ -1,4 +1,4 @@
-"""Library read endpoints and media streaming — DESIGN.md §6, §13.1."""
+"""Library read endpoints and media streaming."""
 
 from __future__ import annotations
 

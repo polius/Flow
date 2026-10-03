@@ -1,6 +1,5 @@
-/* Click-to-mute regression (§3.4): the volume icon was decoration; now it
-   toggles mute like every platform player — the slider keeps its level
-   underneath, and moving the slider unmutes. */
+/* The volume icon toggles mute; the slider keeps its level underneath and
+   moving it unmutes. */
 
 import { beforeEach, describe, expect, it } from "vitest";
 
@@ -11,7 +10,7 @@ beforeEach(() => {
   usePlayerStore.setState({ volume: 0.8, muted: false });
 });
 
-describe("mute (§3.4)", () => {
+describe("mute", () => {
   it("toggles without losing the slider level", () => {
     const { toggleMute } = usePlayerStore.getState();
     toggleMute();

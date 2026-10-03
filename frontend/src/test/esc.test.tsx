@@ -1,9 +1,4 @@
-/* Esc regression (§29): the old shortcut guard listed buttons and links as
-   "typing", so Esc failed app-wide whenever any control held focus — in a
-   pointer UI, almost always. The rule now: Esc always closes the topmost
-   surface; only TEXT mid-edit defers it. These tests pin both halves on the
-   surfaces the review actually hit (Now Playing, Organize sheet) plus the
-   Get Info draft fields. */
+/* Esc always closes the topmost surface; only text mid-edit defers it. */
 
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
@@ -91,7 +86,7 @@ beforeEach(() => {
 
 afterEach(cleanup);
 
-describe("Esc guard predicates (§29)", () => {
+describe("Esc guard predicates", () => {
   it("treats text fields — and only text fields — as text editing", () => {
     const input = document.createElement("input");
     input.type = "text";

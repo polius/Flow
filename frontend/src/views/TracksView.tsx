@@ -17,15 +17,8 @@ import { fmtCount } from "../lib/format";
 import { usePlayerStore } from "../stores/player";
 import { useUiStore } from "../stores/ui";
 
-/* Full-library view, windowed (§9.2, §11.6). Pages of 1000 stream in behind
-   the virtualizer as the user scrolls.
-
-   §23 revision: the header carries the Organize entry with the "needs
-   attention" count riding along — but Organize is a TASK, not a section,
-   so it now opens a full-screen sheet over the app (nothing is lost: the
-   user returns exactly here, mid-scroll). Sorting is URL state
-   (?sort=&dir=): clickable column headers in the sticky table head, plus a
-   compact Sort pill for Year / Recently added, both server-side. */
+/* Full-library view, windowed: pages of 1000 stream in behind the
+   virtualizer as the user scrolls. */
 const PAGE_SIZE = 1000;
 
 const SORT_OPTIONS: SortOption[] = [
@@ -45,7 +38,7 @@ export function TracksView() {
   const urlSort = searchParams.get("sort") ?? "title";
   const sort = (SORT_KEYS.has(urlSort) ? urlSort : "title") as TrackSortKey;
   const dir = searchParams.get("dir") === "desc" ? "desc" : "asc";
-  // Genre filter (§2.2): ?genre=<id>, validated against the genres query.
+  // Genre filter: ?genre=<id>, validated against the genres query.
   const urlGenre = searchParams.get("genre");
   const genreId = urlGenre != null && /^\d+$/.test(urlGenre) ? Number(urlGenre) : null;
 
@@ -115,8 +108,6 @@ export function TracksView() {
   const playTracks = usePlayerStore((s) => s.playTracks);
   const playSnapshot = usePlayerStore((s) => s.playSnapshot);
 
-  // The view's origin (§1.1): the genre, the query, or the plain library —
-  // the caller knows what it is, and the queue keeps knowing it.
   const viewOrigin: QueueOrigin = {
     kind: "filter",
     label: genreName
@@ -131,12 +122,11 @@ export function TracksView() {
         : "/tracks",
   };
 
-  // "Play from here" means the whole view (§29), now server-resolved (§32):
-  // when pages of this filter are still unloaded, POST /api/queue resolves
-  // the WHOLE filter in one query — there is no page for the queue to be
-  // truncated to, and the session exists on the server from birth. When
-  // everything is already local, play instantly; the §32 mirror keeps the
-  // server honest. A failed POST falls back to §29's client-side fetch.
+  // "Play from here" means the whole view: when pages of this filter are
+  // still unloaded, the server resolves the WHOLE filter in one query —
+  // there is no page for the queue to be truncated to. When everything is
+  // already local, play instantly; a failed POST falls back to the
+  // client-side whole-view fetch.
   const playFromHere = useCallback(
     (index: number) => {
       if (tracks.length >= total) {
@@ -170,7 +160,7 @@ export function TracksView() {
     [playTracks, playSnapshot, tracks, total, q, genreName, genreId, sort, dir],
   );
 
-  // The row menu's "Play" resolves the same whole view (§29).
+  // The row menu's "Play" resolves the same whole view.
   const contextLoader = useCallback(
     () => fetchAllTracks({ q: q || undefined, genreId: genreId ?? undefined, sort, dir }),
     [q, genreId, sort, dir],
@@ -212,9 +202,9 @@ export function TracksView() {
         <div>
           <h1 className="view__title">Tracks</h1>
           <p className="view__subtitle">
-            {/* §2.6: in flight, an empty fixed-height slot — never a
-                formatted zero. A fresh visit (or a genre/filter switch)
-                must not flash "0 songs" before the count is measured. */}
+            {/* In flight, an empty fixed-height slot — never a formatted
+                zero: a fresh visit (or a genre/filter switch) must not
+                flash "0 songs" before the count is measured. */}
             {query.isPending
               ? "\u00A0"
               : genreName

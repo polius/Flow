@@ -1,5 +1,3 @@
-/* Designed empty state (DESIGN.md §8.8) — shared by all views. */
-
 import type { ReactNode } from "react";
 
 interface EmptyStateProps {

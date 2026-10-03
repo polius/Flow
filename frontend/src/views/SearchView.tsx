@@ -1,6 +1,5 @@
-/* Search — grouped results over one debounced query (§6, §9.2).
-   The query lives in the URL so deep links work; the field lives in the
-   top bar (§9.1), which owns the typing → /search?q=… flow. */
+/* The query lives in the URL so deep links work; the top bar's field owns
+   the typing → /search?q=… flow. */
 
 import { useQuery } from "@tanstack/react-query";
 import { Link, useSearchParams } from "react-router";
@@ -65,9 +64,8 @@ export function SearchView() {
               <TrackTable
                 tracks={results.tracks}
                 variant="all"
-                // §2.5: results rows lead with the play affordance, not an
-                // ordinal — the numbers were the row's position in the match
-                // list, which is nothing.
+                // Results lead with the play affordance, not an ordinal — a
+                // match-list position means nothing.
                 hideIndex
                 origin={{
                   kind: "filter",

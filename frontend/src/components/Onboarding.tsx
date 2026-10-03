@@ -1,17 +1,14 @@
-/* First-run onboarding (DESIGN.md §8.8, §9.6): an empty library is the
-   FIRST thing a new owner sees — a blank grid reads as broken, a generic
-   "nothing here" reads as dead. This is the designed version: what Flow
-   is, where the music folder lives, and the three steps to a playing
-   library. Near-monochrome (§8.1), typography-carried, no wall of cards.
+/* First-run onboarding: an empty library is the FIRST thing a new owner
+   sees — a blank grid reads as broken. This is the designed version: what
+   Flow is, where the music folder lives, and the three steps to a playing
+   library. Typography-carried, no wall of cards.
 
    Two variants, told apart by the server's `library_exists`:
    - folder present but empty → the normal "add music" walk-through;
-   - folder missing → the calm broken-mount walk-through (the Settings
-     mount guard's sibling, written for people who haven't learned the
-     Settings page exists yet).
+   - folder missing → the calm broken-mount walk-through.
 
    FirstScan covers the third first-run moment: the startup auto-scan
-   (main.py's lifespan) caught mid-flight — progress instead of emptiness. */
+   caught mid-flight — progress instead of emptiness. */
 
 import type { ReactNode } from "react";
 import { Link } from "react-router";
@@ -23,7 +20,7 @@ import { scanStatusLabel } from "../lib/format";
 import type { ScanStatus } from "../stores/scan";
 
 /* One copy-scan-play step. The hairline between steps (not cards) keeps
-   the page disciplined (§8.3); the numeral is the only ornament. */
+   the page disciplined; the numeral is the only ornament. */
 function Step({
   n,
   title,
@@ -128,7 +125,7 @@ export function FirstRun({ settings }: { settings: SettingsOut }) {
 
 /* The first scan caught mid-flight: the startup auto-scan is already doing
    exactly what the steps describe, so the page says so instead of showing
-   a blank canvas (§9.6: progress on Home). Live line under aria-live. */
+   a blank canvas. Live line under aria-live. */
 export function FirstScan({ scan }: { scan: ScanStatus | null }) {
   const progress = scan && scanStatusLabel(scan);
   return (

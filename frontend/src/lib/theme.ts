@@ -1,8 +1,6 @@
-/* Theme override (§8.6): the resolved theme lands in data-theme on <html>;
-   tokens.css owns what each value looks like. "system" tracks
-   prefers-color-scheme live; manual light/dark is persisted by the ui store
-   (localStorage). index.html carries a matching inline boot snippet so the
-   first paint already has the right ramp. */
+/* The resolved theme lands in data-theme on <html>; tokens.css owns what
+   each value looks like. index.html carries a matching inline boot snippet
+   so the first paint already has the right theme. */
 
 import { useUiStore, type ThemeMode } from "../stores/ui";
 

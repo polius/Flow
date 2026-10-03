@@ -1,14 +1,7 @@
-/* Organize (§22): mass curation of the library's SQLite metadata. The view
-   has opinions (the "Needs attention" strip) and two gestures (inline cell
-   edits; select + bulk set). Files are never touched — every edit is an
-   overlay through the same path as Get Info (§15.2), so rescans preserve
-   it. Grid keys: arrows move the cursor, Space selects, Enter edits,
-   ⌘A selects all matching, ⌘Z undoes the last bulk apply.
-
-   §23 revision: Organize is a task, not a destination — it renders inside
-   the full-screen OrganizeSheet (opened from Tracks) instead of living as
-   its own route, so the user launches it from where the mess is visible
-   and returns exactly where they were. */
+/* Organize: mass curation of the library's SQLite metadata — never the
+   files; every edit is an overlay through the same path as Get Info, so
+   rescans preserve it. Keys: arrows move the cursor, Space selects, Enter
+   edits, ⌘A selects all matching, ⌘Z undoes the last bulk apply. */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
@@ -35,7 +28,7 @@ import "../styles/organize.css";
 
 const PAGE_SIZE = 1000;
 
-/** Phones get the review strip and Get Info, not the grid (§22). */
+/** Phones get the review strip and Get Info, not the grid. */
 function useCompactMode(): boolean {
   const [compact, setCompact] = useState(
     () => window.matchMedia("(max-width: 640px)").matches,
@@ -69,9 +62,8 @@ export function OrganizeView() {
   const artistParam = searchParams.get("artist_id");
   const albumId = albumParam != null ? Number(albumParam) : null;
   const artistId = artistParam != null ? Number(artistParam) : null;
-  // Latest-added-first is the default read (§22): finding and fixing what
-  // just landed is the job. In album mode (2026-10-03) the sort stands
-  // down — see effSort below.
+  // Latest-added-first is the default read: finding and fixing what just
+  // landed is the job. In album mode the sort stands down — see effSort below.
   const hasSort = searchParams.get("sort") != null;
   const urlSort = searchParams.get("sort") ?? "added_at";
   const sort = urlSort; // whitelisted server-side; unknown → server default
@@ -79,11 +71,11 @@ export function OrganizeView() {
   const dir =
     dirParam === "desc" ? "desc" : dirParam === "asc" ? "asc" : hasSort ? "asc" : "desc";
 
-  // Album mode (2026-10-03): filtering to one album IS the organizing read —
-  // the grid shows that album's curated order (album block, track order
-  // within) and the drag writes exactly what's on screen. Column sorting
-  // stands down while the filter holds: sorting by, say, title and then
-  // dragging would write an order the screen never showed.
+  // Album mode: filtering to one album IS the organizing read — the grid
+  // shows that album's curated order (album block, track order within) and
+  // the drag writes exactly what's on screen. Column sorting stands down
+  // while the filter holds: sorting by, say, title and then dragging would
+  // write an order the screen never showed.
   const effSort = albumId != null ? "curate" : sort;
   const effDir: "asc" | "desc" = albumId != null ? "asc" : dir;
 
@@ -160,7 +152,7 @@ export function OrganizeView() {
     },
     // A filter change or a header click must not tear the grid down to a
     // skeleton while it fetches — the rows stay mounted and the new order
-    // swaps in in one paint. This is the typing-glitch fix (§22).
+    // swaps in in one paint.
     placeholderData: (prev) => prev,
   });
 
@@ -174,8 +166,8 @@ export function OrganizeView() {
     if (query.hasNextPage && !query.isFetchingNextPage) void query.fetchNextPage();
   }, [query.hasNextPage, query.isFetchingNextPage, query.fetchNextPage]);
 
-  // Column sorting (Finder grammar): click a header to sort by it, click
-  // again to flip. Offered only outside album mode (see effSort).
+  // Click a header to sort, click again to flip. Offered only outside
+  // album mode (see effSort).
   const onSort = useCallback(
     (key: string, nextDir: "asc" | "desc") => {
       if (albumId != null) return;
@@ -220,10 +212,10 @@ export function OrganizeView() {
         ? "all"
         : "some";
 
-  /** Row toggle (§22) with §4.1's modifier grammar (§40): Shift ranges from
-      the anchor; Cmd/Ctrl/Alt toggle one row (plain clicks toggle too —
-      the checkbox grammar stands). The modifier flags arrive from the row
-      (mods()) or all-false from the keyboard paths. */
+  /** Shift ranges from the anchor; Cmd/Ctrl/Alt toggle one row (plain
+      clicks toggle too — the checkbox grammar stands). The modifier flags
+      arrive from the row's event (mods()) or all-false from the keyboard
+      paths. */
   const toggleRow = useCallback(
     (
       track: Track,
@@ -232,8 +224,8 @@ export function OrganizeView() {
     ) => {
       setEditTrackId(null);
       if (mods.shiftKey && anchor != null && !allMatching) {
-        // Range over the loaded rows between anchor and here (§22: the rest
-        // of the library resolves server-side via select-all + except).
+        // Range over the loaded rows between anchor and here; the rest of
+        // the library resolves server-side via select-all + except.
         const from = Math.min(anchor, index);
         const to = Math.max(anchor, index);
         setSelected((prev) => {
@@ -299,11 +291,11 @@ export function OrganizeView() {
     if (!t) return;
     setEditTrackId(t.id);
     // startInEdit initializes the editor on mount; clear promptly so a
-    // virtualizer remount never re-opens it (§22).
+    // virtualizer remount never re-opens it.
     window.setTimeout(() => setEditTrackId((cur) => (cur === t.id ? null : cur)), 400);
   }, [tracks]);
 
-  // ⌘Z — undo the last bulk apply (§22, one generation, server-side).
+  // ⌘Z — undo the last bulk apply (one generation, server-side).
   const undo = useCallback(async () => {
     setApplying(true);
     const n = await undoBulk();
@@ -367,10 +359,10 @@ export function OrganizeView() {
     [patchTrack],
   );
 
-  // Drag-reorder within an album (§22): the grid resolves one album's block
-  // into its new order; the server renumbers 1..n as overlay edits.
-  // (2026-10-03: the track-number cell is gone — the drag is the only way
-  // order is written, so the numbers can never disagree with the rows.)
+  // Drag-reorder within an album: the grid resolves one album's block into
+  // its new order; the server renumbers 1..n as overlay edits. The drag is
+  // the only way order is written, so the numbers can never disagree with
+  // the rows.
   const onReorderBlock = useCallback(
     async (orderedIds: number[]) => {
       await reorderTracks(orderedIds);
@@ -378,8 +370,8 @@ export function OrganizeView() {
     [reorderTracks],
   );
   // Dragging needs the album grouping to be the truth on screen — the
-  // curated order (album blocks, track order within) or a single album's
-  // filter. Any other sort would reorder against a different reading.
+  // curated order or a single album's filter. Any other sort would reorder
+  // against a different reading.
   const reorderable = effSort === "curate" || albumId != null;
 
   // ---- chip labels for entity filters ---------------------------------------
@@ -444,7 +436,7 @@ export function OrganizeView() {
             onChange={(e) => setFilterText(e.target.value)}
             onKeyDown={(e) => {
               // The field's own Esc: clear first, blur — the sheet closes on
-              // a second, now-unfocused Esc (the topbar search's grammar).
+              // a second, now-unfocused Esc.
               if (e.key === "Escape" && filterText) {
                 e.stopPropagation();
                 setFilterText("");
@@ -463,10 +455,6 @@ export function OrganizeView() {
             </button>
           )}
         </div>
-        {/* The album filter (2026-10-03): pin the grid to one album — the
-            organizing unit. Album mode shows the album's curated order and
-            arms the drag, so organizing within an album is the filter plus
-            the gesture. */}
         <AlbumFilterMenu
           albumId={albumId}
           onChange={(id) => setParam("album_id", id != null ? String(id) : null)}

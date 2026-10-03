@@ -78,12 +78,9 @@ export function AlbumDetailView() {
     fmtMinutes(album.duration_total),
   ].filter(Boolean);
 
-  // Drag-to-reorder (2026-10-03): the album joins the playlist and
-  // Favorites — the §27 press-and-drag writes the running order. The
-  // server renumbers track_no 1..n as overlay edits (POST /api/tracks/
-  // reorder), so the guard mirrors that contract: one disc only — a
-  // multi-disc album orders by (disc, track) and a cross-disc drag would
-  // renumber across the seam the table can't show.
+  // Reorder only when every track is on one disc: a multi-disc album orders
+  // by (disc, track), and a cross-disc drag would renumber across a seam the
+  // table can't show.
   const discs = new Set(album.tracks.map((t) => t.disc_no ?? 1));
   const reorderable = album.tracks.length > 1 && discs.size === 1;
 
@@ -92,9 +89,9 @@ export function AlbumDetailView() {
     const ids = album.tracks.map((t) => t.id);
     const [moved] = ids.splice(fromIndex, 1);
     ids.splice(toIndex, 0, moved);
-    // Optimistic rewrite of the cached detail — the drag's settle shows the
-    // new running order at once, numbers included; the server confirms
-    // behind it and the invalidate re-syncs anything it disagrees with.
+    // Optimistic rewrite of the cached detail — the new running order shows
+    // at once; the server confirms behind it and the invalidate re-syncs
+    // anything it disagrees with.
     queryClient.setQueryData<AlbumDetail>(["album", albumId], {
       ...album,
       tracks: ids.map((id, i) => {
@@ -107,12 +104,9 @@ export function AlbumDetailView() {
     });
   };
 
-  // Cover editing (§25): the action lands, then the toast offers Undo —
-  // the same recovery grammar as every removal. The artwork table is
-  // content-addressed and unpruned, so undo re-points the cover's
-  // reference (to the previous upload, or to the artwork row a removal
-  // cleared); it never re-uploads. The toast rides only a landed action;
-  // a failure surfaces through the invalidate resync.
+  // Undo re-points the cover's reference (to the previous upload, or to the
+  // artwork row a removal cleared) — it never re-uploads: the artwork table
+  // is content-addressed and unpruned.
   const removeCoverWithUndo = () => {
     const removed = album.cover_artwork_id;
     void removeCover(album.id).then((ok) => {
@@ -141,13 +135,8 @@ export function AlbumDetailView() {
 
   return (
     <section className="view view--ambient">
-      {/* The ambience washes from the art the header shows — a user-set
-          cover (2026-10-03) recolors the room with it. */}
       <Ambience artworkId={album.cover_artwork_id ?? album.artwork_id} variant="banner" />
       <header className="detailhead">
-        {/* §9.2 joins the playlist's cover grammar (§13.10): the art is
-            click-to-edit with the hover scrim; the corner × removes a
-            user-set cover and the scan-derived artwork takes back over. */}
         <CoverEdit
           hasCover={album.cover_artwork_id != null}
           onFile={onCoverFile}
@@ -179,9 +168,8 @@ export function AlbumDetailView() {
               extraItems={
                 album.artist_id != null
                   ? [
-                      // §2.2: the menu answers "where can I go from here" —
-                      // the header's artist link is easy to miss; the menu
-                      // item is where menus carry it.
+                      // The header's artist link is easy to miss; the menu
+                      // carries it too.
                       {
                         label: "Go to Artist",
                         icon: <IconArtists size={15} />,

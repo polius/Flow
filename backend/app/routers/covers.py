@@ -1,15 +1,4 @@
-"""Cover editing for library entities (DESIGN.md §9.2, after §13.10).
-
-The playlist's cover contract — PUT stores an uploaded image, removal
-falls back to the derived artwork — extended to albums and artists. A
-user-set cover lives in the entity's `cover_artwork_id` and OVERRIDES the
-scan-derived `artwork_id` (the album's own cover, the artist's
-latest-album portrait) while set; DELETE clears it and the derived art
-takes back over. Bytes are stored as-is in the content-addressed
-`artwork` table (sha1 dedup), the same rules scan art follows, so every
-surface that shows the entity reads one column pair and the override
-holds everywhere at once.
-"""
+"""Album and artist cover upload/repoint/reset: a user-set cover overrides the scan-derived artwork."""
 
 from __future__ import annotations
 
@@ -27,8 +16,7 @@ MAX_COVER_BYTES = 10 * 1024 * 1024
 
 
 def store_artwork(conn, data: bytes, mime: str) -> int:
-    """Content-addressed artwork storage — shared with the playlist cover
-    endpoint and the scanner's extracted art (sha1 dedup)."""
+    """Content-addressed artwork storage (sha1 dedup), shared with playlists and the scanner."""
     digest = hashlib.sha1(data).hexdigest()
     row = conn.execute("SELECT id FROM artwork WHERE hash = ?", (digest,)).fetchone()
     if row is not None:
@@ -42,8 +30,7 @@ def store_artwork(conn, data: bytes, mime: str) -> int:
 
 
 def store_uploaded_artwork(conn, file: UploadFile) -> int:
-    """Validate one uploaded image and store it; the 4xx contract matches
-    the playlist cover endpoint's exactly (empty 422, size 413, type 415)."""
+    """Validate and store one uploaded image (empty 422, oversize 413, bad type 415)."""
     data = file.file.read(MAX_COVER_BYTES + 1)
     if not data:
         raise HTTPException(status_code=422, detail="Cover image is empty")
@@ -73,8 +60,7 @@ def _require_artist(conn, artist_id: int) -> None:
 def set_album_cover(
     request: Request, album_id: int, file: UploadFile
 ) -> AlbumDetail:
-    """Store an uploaded cover image and set it as the album's cover,
-    overriding the scan-derived artwork while set."""
+    """Store an uploaded cover image, overriding the scan-derived artwork."""
     conn = request.app.state.db.connect()
     _require_album(conn, album_id)
     artwork_id = store_uploaded_artwork(conn, file)
@@ -87,9 +73,7 @@ def set_album_cover(
 
 
 def _apply_cover(conn, table: str, entity_id: int, artwork_id: int | None) -> None:
-    """Write one `cover_artwork_id` (or clear it). A non-null id must exist
-    in the artwork table — the same 422 the playlist PATCH has always
-    answered an unknown id with."""
+    """Write or clear `cover_artwork_id`; a non-null id must exist in the artwork table."""
     if artwork_id is not None and conn.execute(
         "SELECT 1 FROM artwork WHERE id = ?", (artwork_id,)
     ).fetchone() is None:
@@ -104,10 +88,7 @@ def _apply_cover(conn, table: str, entity_id: int, artwork_id: int | None) -> No
 def update_album(
     request: Request, album_id: int, body: AlbumUpdate
 ) -> AlbumDetail:
-    """Re-point the album's cover at an existing artwork row, or clear it.
-    This is cover removal's undo path: the removed upload is still in the
-    content-addressed `artwork` table, so restoring it is a reference
-    write, not a re-upload (2026-10-03)."""
+    """Re-point the album's cover at an existing artwork row, or clear it."""
     conn = request.app.state.db.connect()
     _require_album(conn, album_id)
     _apply_cover(conn, "albums", album_id, body.cover_artwork_id)
@@ -129,8 +110,7 @@ def reset_album_cover(request: Request, album_id: int) -> AlbumDetail:
 def set_artist_cover(
     request: Request, artist_id: int, file: UploadFile
 ) -> ArtistDetail:
-    """Store an uploaded image and set it as the artist's portrait,
-    overriding the latest-album cover while set."""
+    """Store an uploaded image as the artist's portrait, overriding the derived cover."""
     conn = request.app.state.db.connect()
     _require_artist(conn, artist_id)
     artwork_id = store_uploaded_artwork(conn, file)
@@ -146,8 +126,7 @@ def set_artist_cover(
 def update_artist(
     request: Request, artist_id: int, body: ArtistUpdate
 ) -> ArtistDetail:
-    """Re-point the artist's portrait at an existing artwork row, or clear
-    it — cover removal's undo path, same as the album's."""
+    """Re-point the artist's portrait at an existing artwork row, or clear it."""
     conn = request.app.state.db.connect()
     _require_artist(conn, artist_id)
     _apply_cover(conn, "artists", artist_id, body.cover_artwork_id)
@@ -157,8 +136,7 @@ def update_artist(
 
 @router.delete("/api/artists/{artist_id}/cover", response_model=ArtistDetail)
 def reset_artist_cover(request: Request, artist_id: int) -> ArtistDetail:
-    """Clear the user-set portrait — the derived artwork takes back over
-    (latest album's cover, or the client's monogram when there is none)."""
+    """Clear the user-set portrait — the derived artwork takes back over."""
     conn = request.app.state.db.connect()
     _require_artist(conn, artist_id)
     _apply_cover(conn, "artists", artist_id, None)

@@ -1,23 +1,4 @@
-"""The server-truth play queue (UX review Part 4.0, DESIGN.md §32).
-
-The client store remains the source of *UI* truth — every click still lands
-instantly in local state — and this router is the source of *truth* truth:
-
-- POST /api/queue  "play this view": the whole filter resolves server-side,
-  in one query. There is no page for the queue to be silently truncated to
-  (§1.2, for good), and the session exists on the server from birth.
-- PUT /api/queue   the client's plan mirror, debounced like the §29
-  localStorage writer — so reloads and second browsers see the same queue.
-- PATCH /api/queue the playhead, at the §29 cadence (3 s throttle + a
-  pagehide flush), stamping played_at (§4.1) on real playback starts.
-- GET /api/queue   the restore. Self-heals: queue entries whose track has
-  been removed from the library cascade away (like playlists), stale
-  play-order entries are dropped, and the snapshot is rewritten canonically.
-
-Storage is two tiny tables (migration 006): queue_items (dense positions)
-and the queue_state singleton (play order as JSON + playhead). The queue is
-whole-snapshot state, not a log — replaces are one transaction.
-"""
+"""The server-truth play queue: whole-snapshot state over queue_items + queue_state."""
 
 from __future__ import annotations
 
@@ -67,13 +48,9 @@ def _now() -> str:
 def _write_transaction(conn: sqlite3.Connection, fn):
     """Run a queue write, retrying with backoff while the database is busy.
 
-    The queue's writes are tiny and routine (the §32 mirror's 3 s playhead
-    cadence) — but the scanner's transactions hold the WAL write lock while
-    they run, and a fire-and-forget mirror that 500s through every scan
-    would be noise, not resilience. The deadline (~20 s) out-waits any lock
-    window the scanner can produce (it commits per file, and its analysis
-    pass never holds a transaction across an ffmpeg run); exhaustion keeps
-    the error (honest) instead of writing partial state."""
+    The ~20 s deadline out-waits any scanner lock window (it commits per
+    file and never holds a transaction across an ffmpeg run); exhaustion
+    keeps the error instead of writing partial state."""
     return retry_locked(conn, fn, deadline=20.0)
 
 
@@ -92,9 +69,8 @@ def _load_state(conn: sqlite3.Connection) -> sqlite3.Row:
 
 
 def _read_origin(state: sqlite3.Row) -> QueueOrigin | None:
-    """The stored origin, defensively parsed (§1.1). A corrupt or
-    unparseable value costs the label, never the session — it degrades to
-    the pre-origin rendering (no "Playing from" line)."""
+    """The stored origin, defensively parsed: a corrupt value costs the
+    label, never the session (degrades to no "Playing from" line)."""
     raw = state["origin"] if "origin" in state.keys() else None
     if not raw:
         return None
@@ -113,10 +89,9 @@ def _read_origin(state: sqlite3.Row) -> QueueOrigin | None:
 
 
 def _read_snapshot(conn: sqlite3.Connection) -> QueueSnapshot:
-    """Read the stored session, healing it if the library moved underneath
-    (removed tracks cascade out of queue_items; play_order entries and the
-    playhead are renumbered to match). The healed form is written back so
-    storage stays canonical."""
+    """Read the stored session, healing entries whose tracks were removed
+    from the library; the healed form is written back so storage stays
+    canonical."""
     state = _load_state(conn)
     rows = conn.execute(
         f"{_QUEUE_SELECT} ORDER BY qi.position"
@@ -141,10 +116,10 @@ def _read_snapshot(conn: sqlite3.Connection) -> QueueSnapshot:
         # The same track, at its new index in the healed play order.
         healed_pos = healed_order.index(live[current])
     elif order_pos == -1 or not healed_order:
-        healed_pos = -1  # idle queue (§23.6), or nothing left to point at
+        healed_pos = -1  # idle queue, or nothing left to point at
     else:
-        # The playhead's own entry died: clamp the index like the client's
-        # §29 restore clamps, so the pointer stays inside the plan.
+        # The playhead's own entry died: clamp the index so the pointer
+        # stays inside the plan.
         healed_pos = min(order_pos, len(healed_order) - 1)
 
     position = float(state["position"] or 0.0)
@@ -213,8 +188,8 @@ def _write_snapshot(
 
 
 def _build_order(count: int, shuffle: bool, start: int) -> tuple[list[int], int]:
-    """The play order for a fresh queue — the client's buildOrder (§29),
-    server-side: identity honoring `start`, or a shuffle anchored there."""
+    """The play order for a fresh queue: identity honoring `start`, or a
+    shuffle anchored there."""
     if count == 0:
         return [], -1
     start = min(max(start, 0), count - 1)
@@ -227,18 +202,14 @@ def _build_order(count: int, shuffle: bool, start: int) -> tuple[list[int], int]
 
 @router.get("/api/queue", response_model=QueueSnapshot)
 def get_queue(request: Request) -> QueueSnapshot:
-    """The stored session, or an empty one when none exists (first run).
-    The client falls back to its localStorage snapshot when this is empty
-    or unreachable — the server is the truth, not a single point of failure."""
+    """The stored session, or an empty one when none exists (first run)."""
     conn = request.app.state.db.connect()
     return _read_snapshot(conn)
 
 
 @router.post("/api/queue", response_model=QueueSnapshot)
 def play_queue(request: Request, body: QueuePlayIn) -> QueueSnapshot:
-    """"Play this view" (§4.0): replace the queue with the WHOLE filter —
-    resolved and ordered server-side — and start at `start`. The response is
-    the canonical snapshot; the client adopts it wholesale."""
+    """Play this view: replace the queue with the whole filter and start at `start`."""
     conn = request.app.state.db.connect()
 
     has_filter = any(
@@ -301,8 +272,8 @@ def play_queue(request: Request, body: QueuePlayIn) -> QueueSnapshot:
             order=play_order,
             order_pos=order_pos,
             position=0.0,
-            # §1.1: the caller declares what this queue IS; the server
-            # records it so every surface can say "Playing from …".
+            # The caller declares what this queue IS; recorded so every
+            # surface can say "Playing from …".
             origin=body.origin,
         ),
     )
@@ -311,10 +282,8 @@ def play_queue(request: Request, body: QueuePlayIn) -> QueueSnapshot:
 
 @router.put("/api/queue", response_model=QueueSnapshot)
 def put_queue(request: Request, body: QueuePutIn) -> QueueSnapshot:
-    """The plan mirror (§32). Whole-snapshot replace, same as POST but with a
-    client-built play order. Validation is honest, not defensive theater: a
-    malformed order is a 422 the client answers by falling back to its
-    localStorage-only persistence, never by corrupting the server's copy."""
+    """The client's plan mirror: whole-snapshot replace with a client-built
+    play order. A malformed order is a 422, never a corrupted server copy."""
     conn = request.app.state.db.connect()
     n = len(body.track_ids)
     if sorted(body.order) != list(range(n)):
@@ -333,7 +302,7 @@ def put_queue(request: Request, body: QueuePutIn) -> QueueSnapshot:
             order_pos=order_pos,
             position=max(0.0, body.position),
             # The origin rides the mirror unchanged: queue edits never
-            # rewrite where the queue came from (§1.1).
+            # rewrite where the queue came from.
             origin=body.origin,
         ),
     )
@@ -342,10 +311,9 @@ def put_queue(request: Request, body: QueuePutIn) -> QueueSnapshot:
 
 @router.patch("/api/queue", response_model=QueuePlayheadOut)
 def patch_queue(request: Request, body: QueuePatchIn) -> QueuePlayheadOut:
-    """The playhead (§29 cadence), plus §4.1's played_at stamp: a real
-    playback start reports its track id and the server records it — carried
-    explicitly, never derived from stored state, so a mirror PUT still in
-    flight cannot mis-stamp. One transaction under the busy-retry."""
+    """The playhead update, plus a played_at stamp when a real playback
+    start reports its track id — carried explicitly so an in-flight mirror
+    PUT cannot mis-stamp."""
     conn = request.app.state.db.connect()
     state = _load_state(conn)
 
@@ -380,7 +348,7 @@ def patch_queue(request: Request, body: QueuePatchIn) -> QueuePlayheadOut:
         )
         conn.commit()
 
-    # A scan's write transaction must not thin the §4.1 record either —
-    # stamp and playhead share one retry window.
+    # Stamp and playhead share one retry window — a scan's write transaction
+    # must not thin the played_at record either.
     _write_transaction(conn, _apply)
     return QueuePlayheadOut(order_pos=order_pos, position=position, updated_at=updated_at)

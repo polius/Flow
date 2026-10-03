@@ -1,18 +1,8 @@
-/* Modal focus management (§3.4): the review found every declared
-   aria-modal surface — Now Playing, Organize, Get Info, the dialogs —
-   leaving background content live to Tab and focus stranded on close.
-   One hook fixes the class of defect everywhere:
-
-   - on open: focus moves into the surface (the container itself, unless a
-     caller nominates a better first target — the picker's search field);
-   - Tab / Shift+Tab cycle within the surface (the focusable set is
-     recomputed per press, so virtualized lists and conditional buttons
-     stay honest);
-   - on close: focus returns to the element that had it before.
-
-   The container gets tabIndex={-1} if it lacks one, so it can receive
-   focus without joining the Tab order; focusing it shows no ring
-   (:focus-visible is keyboard-only). */
+/* Modal focus management: on open, focus moves into the surface; Tab
+   cycles within it (the focusable set is recomputed per press, so
+   virtualized lists and conditional buttons stay honest); on close,
+   focus returns to the element that had it before. The container gets
+   tabIndex={-1} so it can receive focus without joining the Tab order. */
 
 import { useEffect, type RefObject } from "react";
 
@@ -52,9 +42,9 @@ export function useModalFocus(
     const previouslyFocused = document.activeElement as HTMLElement | null;
     if (surface.tabIndex === 0) surface.tabIndex = -1;
     if (!surface.contains(document.activeElement)) {
-      // The surface's first control takes focus (the picker's search-field
-      // precedent); the container itself is the fallback host. Neither is
-      // a text field, so the Esc grammar is untouched.
+      // The surface's first control takes focus; the container itself is
+      // the fallback host. Neither is a text field, so the Esc grammar
+      // is untouched.
       const initial = opts?.initial?.() ?? focusablesIn(surface)[0] ?? surface;
       initial.focus({ preventScroll: true });
     }

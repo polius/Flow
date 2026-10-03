@@ -1,6 +1,6 @@
-/* Views — large-title layout and designed empty states (DESIGN.md §8.8). */
+/* Views — large-title layout and designed empty states. */
 
-/* View entry (§8.4): a section change is otherwise a hard cut, which reads
+/* View entry: a section change is otherwise a hard cut, which reads
    as a glitch on a cold first visit (skeleton + content arriving in stages).
    A quiet fade on mount is the "view transition" the design allows — subtle,
    short, ease-out; no movement. Skipped under prefers-reduced-motion via the
@@ -16,7 +16,7 @@
   animation: view-in var(--dur-normal) var(--ease-out);
 }
 
-/* Phones (§21): 40px side padding is desktop chrome; iOS-scale insets give
+/* Phones: 40px side padding is desktop chrome; iOS-scale insets give
    the content back 48px of width. The ambience banner offsets by the same
    padding so it stays anchored to the canvas edges. */
 @media (max-width: 640px) {
@@ -28,13 +28,12 @@
     inset: -24px -16px auto -16px;
   }
 
-  /* The P0 regression (§3.3): the header's action pills cannot shrink
-     (flex: none) and carry live labels, so at 375px the Organize pill
-     slid off-canvas. The head wraps: the actions drop under the title,
-     trailing right, and the pills wrap within the row when the labels
-     are wide. Wrap is inert wherever the row already fits, so wide
-     windows are unchanged; every control stays visible and reachable —
-     the exit checklist's first standing item holds again. */
+  /* The header's action pills cannot shrink (flex: none) and carry live
+     labels, so at 375px the Organize pill slid off-canvas. The head wraps:
+     the actions drop under the title, trailing right, and the pills wrap
+     within the row when the labels are wide. Wrap is inert wherever the
+     row already fits, so wide windows are unchanged; every control stays
+     visible and reachable. */
   .view__head {
     flex-wrap: wrap;
   }
@@ -45,12 +44,12 @@
     justify-content: flex-end;
     /* The row must be bounded for its own wrap to engage: a content-sized
        flex item (min-width: auto) just overflows the head, and the pills
-       never drop (Favorites' third pill bled off-canvas at 375px, §37). */
+       never drop (Favorites' third pill bled off-canvas at 375px). */
     max-width: 100%;
   }
 }
 
-/* Album detail ambience (§8.5, §13): the blurred cover sits behind the
+/* Album detail ambience: the blurred cover sits behind the
    header and dissolves before the track table. isolation keeps the negative
    z-index local; the mask lives on the artwork layer, not painted chrome.
    Two masks split the work: the container's linear gradient owns the vertical
@@ -141,11 +140,11 @@
   text-decoration-thickness: 2px;
 }
 
-/* ---- first-run onboarding (§8.8, §9.6) ------------------------------------
+/* ---- first-run onboarding --------------------------------------------------
    An empty library is the first thing a new owner sees. The centered hero +
    numbered steps below carry the setup story; 560px is the app's content
    width (the continuecard's, the Settings column's) so the page reads as
-   composed, not stranded. Monochrome throughout (§8.1) — the only color on
+   composed, not stranded. Monochrome throughout — the only color on
    this page will be the user's own artwork, once there is any.
 
    .view--fill (Home sets it whenever the library is empty): the view becomes
@@ -184,7 +183,7 @@
   color: var(--text-tertiary);
 }
 
-/* The one moving thing (§8.4): a quiet monochrome arc while the first scan
+/* The one moving thing: a quiet monochrome arc while the first scan
    walks the folder — same ring language as the topbar's scan indicator. */
 .onboard__spin {
   width: 18px;
@@ -211,10 +210,10 @@
   color: var(--text-secondary);
 }
 
-/* The spacing is the hierarchy (§8.3): a tight hero (glyph→title→lede reads
+/* The spacing is the hierarchy: a tight hero (glyph→title→lede reads
    as one thought), then the largest break before the steps — the page's
-   subject changes from what Flow IS to what YOU do — then a calmer list
-   rhythm inside the hairlines, and a clear break before the actions. */
+   subject changes — then a calmer list rhythm inside the hairlines, and a
+   clear break before the actions. */
 .onboard__steps {
   margin: 36px 0 0;
   width: 100%;
@@ -296,10 +295,10 @@
   font-size: var(--text-body);
 }
 
-/* Settings rows (grows in Milestone 2 with the live scan API).
-   One left-pinned column (owner, 2026-10-02): removing the Keyboard section
-   left §37's second column empty, so the wide-window two-column grid went
-   with it — everything shares the first column, flush left, max 560px. */
+/* Settings rows.
+   One left-pinned column: removing the Keyboard section left nothing for
+   a second column — everything shares the first column, flush left, max
+   560px. */
 .settings-grid {
   margin-top: 28px;
   display: grid;
@@ -354,7 +353,7 @@
   align-items: center;
   gap: 10px;
   /* Long values (a library path) must wrap inside the row, not bleed past
-     the card — shrink-to-fit plus anywhere breaks keeps it honest (§21). */
+     the card — shrink-to-fit plus anywhere breaks keeps it honest. */
   min-width: 0;
   overflow-wrap: anywhere;
 }
@@ -384,7 +383,7 @@
   opacity: 0.4;
 }
 
-/* Theme override — three-way segmented control (§8.6). */
+/* Theme override — three-way segmented control. */
 .segmented {
   display: inline-flex;
   gap: 2px;
@@ -414,7 +413,7 @@
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
 }
 
-/* Loading placeholders (§8.8) — quiet inset blocks, slow pulse (§8.4). */
+/* Loading placeholders — quiet inset blocks, slow pulse. */
 .skeleton {
   background: var(--bg-inset);
   border-radius: var(--radius-s);
@@ -470,9 +469,9 @@
   margin-top: 18px;
 }
 
-/* ---- Settings: mount guard (§2.8) -----------------------------------------
+/* ---- Settings: mount guard -------------------------------------------------
    The broken-mount trip is its own calm state — what happened, what was
-   protected, what to do. Not an error banner; a status card. §37: it pins
+   protected, what to do. Not an error banner; a status card. It pins
    left with the settings grid (same 560px width as the first column). */
 .settings-guard {
   margin-top: 20px;
@@ -504,7 +503,7 @@
   margin-top: 6px;
 }
 
-/* ---- Settings: scan-error disclosure (§2.8) ------------------------------- */
+/* ---- Settings: scan-error disclosure --------------------------------------- */
 
 /* The Skipped row is stacked: the label (with its explanation) leads, the
    full list follows at full width — no View ceremony. */
@@ -730,7 +729,7 @@
   min-height: 120px;
 }
 
-/* ---- Settings: Sound Check toggle (§2.3) ---------------------------------- */
+/* ---- Settings: Sound Check toggle ------------------------------------------ */
 
 .settings-row__hint {
   display: block;

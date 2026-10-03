@@ -1,7 +1,7 @@
-/* The Organize album filter (2026-10-03): a searchable dropdown that pins
+/* The Organize album filter: a searchable dropdown that pins
    the grid to one album — the organizing unit. Picking an album turns the
    view into "album mode": the rows show that album's curated order, the
-   drag-reorder is armed, and a chip (with the review-strip's chips) carries
+   drag-reorder is armed, and a chip (with the ReviewStrip's chips) carries
    the removable filter. The list is server-filtered (`q` on the albums
    endpoint), so a 10k-album library stays instant.
 

@@ -1,29 +1,4 @@
-"""Self-healing scan: rescue playable audio out of mislabeled containers
-(DESIGN.md §38).
-
-Real libraries contain files that are perfectly good audio wearing the
-wrong clothes — stream-ripped files arrive as fragmented-MP4 (DASH) data
-with an .mp3 name and an ID3v2 tag glued on the front, WAVs mislabeled as
-.mp3, and so on. Mutagen refuses them (correctly), but ffmpeg can see
-through, so a failed parse triggers a repair attempt:
-
-1. Probe with ffprobe — the decoder's opinion of the bytes, extension
-   notwithstanding. An ISO-BMFF payload behind a junk prefix is detected
-   by scanning for `ftyp`; the prefix is skipped on a temp copy, never
-   rewritten.
-2. REMUX the audio stream (`ffmpeg -c copy`) into a canonical container
-   for the codec found inside. Never a re-encode: a lossy transcode of a
-   file that cannot be re-downloaded is silent quality loss.
-3. Map the original's ID3 tags onto the copy (the ID3 area parses even
-   when the audio it prefixes does not), so libraries keep real titles.
-4. Verify the copy by re-parsing it before it may enter the index.
-
-Originals are NEVER modified (§5): copies live under DATA_DIR/repaired/,
-named by sha1(rel path, size, mtime) — an unchanged original reuses its
-copy across rescans, a changed or deleted original invalidates it. Files
-below MIN_REPAIR_BYTES are never attempted (nothing to rescue; keeps a
-library full of junk off the ffmpeg path).
-"""
+"""Self-healing scan: rescue playable audio out of mislabeled containers via a lossless remux (originals are never modified)."""
 
 from __future__ import annotations
 
@@ -45,6 +20,7 @@ from app.tags import parse_audio
 
 log = logging.getLogger("flow.repair")
 
+# Files below this are never attempted: nothing to rescue.
 MIN_REPAIR_BYTES = 1024
 
 # Probe is read-only and fast; remux is `-c copy` (stream copy), so even a
@@ -108,7 +84,7 @@ def repair_file(
     try:
         # An ISO-BMFF payload behind junk (typically the stream-rip's ID3
         # tag) must be probed from the payload start. The junk is skipped
-        # onto a temp copy — the original stays byte-identical (§5).
+        # onto a temp copy — the original stays byte-identical.
         offset = _iso_bmff_offset(src)
         probe_src = src
         if offset:
@@ -260,8 +236,8 @@ def _tags_to_mp4(tags: ID3, dst: Path) -> None:
     disk = _id3_pair(tags.get("TPOS"))
     if disk:
         audio["disk"] = [disk]
-    # Covers ride along too: the remux itself strips all metadata, so the
-    # APIC frames from the broken original are the only source (§38).
+    # Covers ride along too: the remux strips all metadata, so the APIC
+    # frames from the broken original are the only source.
     covers = []
     for apic in tags.getall("APIC"):
         mime = sniff_mime(apic.data)

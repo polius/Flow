@@ -1,7 +1,5 @@
-"""Media intelligence (UX review Part 2): credited artists + genres (§2.2),
-Sound Check gain (§2.3), and the scan error disclosure + mount-guard state
-(§2.8). The schema behind these is migration 005; overlay semantics are the
-same contract as every other scan column."""
+"""Media intelligence: credited artists + genres, Sound Check gain, and the
+scan error disclosure + mount-guard state."""
 
 from __future__ import annotations
 
@@ -39,7 +37,7 @@ def credited_track_counts(conn) -> dict[str, int]:
     }
 
 
-# ---- tag parsing: credits + genres ------------------------------------------
+# ---- tag parsing: credits + genres ----
 
 
 def test_split_featured():
@@ -68,7 +66,7 @@ def test_gain_db_parsing():
     assert _gain_db(None) is None
 
 
-# ---- scan: credits, genres, gain fast path -----------------------------------
+# ---- scan: credits, genres, gain fast path ----
 
 
 @pytest.fixture
@@ -156,7 +154,7 @@ def test_replaygain_tag_is_the_fast_path(conn, music, scanner, credit_library):
     assert track_row(conn, "lead.mp3")["gain_db"] is None
 
 
-# ---- scan: error log + mount guard (§2.8) ------------------------------------
+# ---- scan: error log + mount guard ----
 
 
 def test_error_log_lists_path_and_reason(conn, music, scanner):
@@ -193,7 +191,7 @@ def test_mount_guard_flag_persists_and_clears(conn, music, scanner):
     assert scanner.current_state_event()["mount_guard"] is False
 
 
-# ---- API: genres endpoint + genre filter + credited artist detail -------------
+# ---- API: genres endpoint + genre filter + credited artist detail ----
 
 
 @pytest.fixture
@@ -245,7 +243,7 @@ def test_track_out_carries_gain(api_client):
     assert by_path["lead.mp3"]["gain_db"] is None
 
 
-# ---- API: album/artist sort directions (§2.4) ---------------------------------
+# ---- API: album/artist sort directions ----
 
 
 @pytest.fixture
@@ -286,7 +284,7 @@ def test_artist_sort_by_songs_desc(client, library, sort_library, monkeypatch):
     assert names == ["Zeta", "Alpha"]
 
 
-# ---- compilation resolution: bulk album_artist (§2.2) -------------------------
+# ---- compilation resolution: bulk album_artist ----
 
 
 @pytest.fixture
@@ -345,7 +343,7 @@ def test_bulk_album_artist_clear(client, library, compilation, monkeypatch):
     assert {a["artist"] for a in albums} == {None}
 
 
-# ---- loudness analysis parsing -------------------------------------------------
+# ---- loudness analysis parsing ----
 
 
 FFMPEG_SUMMARY = """

@@ -1,6 +1,6 @@
 /* Library UI: cover grids, cards, track tables, detail headers.
-   Rules in play (DESIGN.md §8): near-monochrome chrome, artwork is the only
-   color, hover-revealed actions, disciplined density. */
+   Near-monochrome chrome, artwork is the only color, hover-revealed
+   actions, disciplined density. */
 
 /* ---- cover grid + cards ------------------------------------------------- */
 
@@ -40,10 +40,8 @@
    180×180: PlaylistArt's mosaic wrapper and Artwork's no-artwork
    placeholder div (the <img> path never hits this — its width attribute
    loses to CSS). Inline style beats this rule's width:100%, so on the
-   auto-fill grid (168–188px columns) the art froze while the card moved:
-   wide columns left an 8px sliver at the card's right edge and the
-   corner-anchored play/"…" buttons — 10px from the CARD — ended ~2px
-   from the art, glued right while padded bottom (§37 follow-up).
+   auto-fill grid (168–188px columns) the art froze while the card moved,
+   leaving the corner-anchored play/"…" buttons misaligned.
    Scoped !important is the one way a stylesheet beats an inline style;
    the mosaic cells inside are 100%/100% and simply follow the wrapper. */
 .album-card__art.playlistart,
@@ -52,7 +50,7 @@
   height: auto !important;
 }
 
-/* §2.1: the per-album action pair — play + "…" — revealed on hover, in one
+/* The per-album action pair — play + "…" — revealed on hover, in one
    anchored container so the menu can hang outside the art's clip. */
 .album-card__hoveractions {
   position: absolute;
@@ -146,9 +144,9 @@
   margin-top: 36px;
 }
 
-/* Continue listening (§13.9, §29): the restored session as one quiet row —
+/* Continue listening: the restored session as one quiet row —
    monochrome, inset like the app's other resting surfaces; the artwork is
-   the only color it needs. §3.1: the row is content-bounded at the app's
+   the only color it needs. The row is content-bounded at the app's
    560px content width (the Settings group's) — stretching 56px of content
    across a 1,300px canvas read as vacancy, not generosity. */
 .continuecard {
@@ -192,7 +190,7 @@
   white-space: nowrap;
 }
 
-/* §1.4: the artist name inside the card is a link (the card keeps
+/* The artist name inside the card is a link (the card keeps
    play/pause) — the link's activation stops before it reaches the row. */
 .continuecard__sub a:hover {
   text-decoration: underline;
@@ -254,7 +252,7 @@
   line-height: var(--leading-tight);
 }
 
-/* The playlist name is click-to-edit (2026-10-03): the InlineEdit span
+/* The playlist name is click-to-edit: the InlineEdit span
    wears the title styles; hover reveals the quiet edit field the Organize
    grid's cells use, and the editing input inherits the display type. */
 .detailhead__titlerow {
@@ -292,7 +290,7 @@
   border-bottom: 2px solid color-mix(in srgb, var(--text-primary) 40%, transparent);
 }
 
-/* The playlist cover is its own edit affordance (2026-10-03): click to
+/* The playlist cover is its own edit affordance: click to
    change the image, the corner × removes a custom one. Hover or focus
    reveals the scrim; the mosaic/cover art itself stays exactly the
    album/artist header's. */
@@ -367,7 +365,7 @@
   background: rgba(0, 0, 0, 0.75);
 }
 
-/* The artist header's portrait joins the same grammar (2026-10-03),
+/* The artist header's portrait joins the same grammar,
    masked to the circle the Artists grid reads as a face: same 220px
    column, same scrim, same corner × — only the silhouette differs. */
 .detailhead__artbutton--round,
@@ -447,7 +445,7 @@
   transform: scale(0.97);
 }
 
-/* ---- collection header actions (§2.1): Play · Shuffle · … ---------------- */
+/* ---- collection header actions: Play · Shuffle · … ---------------- */
 
 .collactions {
   display: flex;
@@ -464,7 +462,7 @@
    position:fixed for the row menu — this pop anchors to its button. Wide
    enough for its longest line ("Add to Queue (end)") on one line — the
    nowrap on .trackmenu__item makes max-content honest, but the floor keeps
-   the menu from hugging the short lines (2026-10-03). */
+   the menu from hugging the short lines. */
 .trackmenu.collactions__pop {
   position: absolute;
   left: 0;
@@ -472,9 +470,9 @@
   min-width: 200px;
 }
 
-/* ---- Home: shuffle-all card (§2.5) --------------------------------------- */
+/* ---- Home: shuffle-all card --------------------------------------- */
 
-/* §3.1: content-bounded like the Continue card — same 560px row grammar. */
+/* Content-bounded like the Continue card — same 560px row grammar. */
 .shufflecard {
   width: 100%;
   max-width: 560px;
@@ -560,8 +558,8 @@
   grid-template-columns: 32px minmax(0, 2fr) minmax(0, 1.3fr) minmax(0, 1.3fr) minmax(0, 60px) 30px 30px;
 }
 
-/* Rows are one click-to-play target (§23). Playlist rows stay grabbable
-   anywhere (§9.3 drag-reorder). */
+/* Rows are one click-to-play target. Playlist rows stay grabbable
+   anywhere (drag-reorder). */
 .trackrow {
   cursor: pointer;
 }
@@ -606,7 +604,7 @@
   opacity: 0;
 }
 
-/* Search results (§2.5): an ordinal over a match list means nothing — the
+/* Search results: an ordinal over a match list means nothing — the
    index slot carries the play affordance instead (the number never
    renders), the same reveal the playing row uses, but permanent. The
    playing row keeps its swap grammar (bars at rest, glyph on hover). */
@@ -642,10 +640,10 @@
   color: var(--text-secondary);
 }
 
-/* Current track — the queue drawer's quiet grammar (§17.7): a soft
+/* Current track — the queue drawer's quiet grammar: a soft
    --bg-active fill (both themes) plus the accent bars in the index slot,
-   not the old full-inversion "dark pill" (§24): near-black on the light
-   canvas was far too much contrast for an airy UI. The :hover restatement
+   not a full inversion: near-black on the light canvas was far too much
+   contrast for an airy UI. The :hover restatement
    matters: .trackrow:hover out-specifies this rule, and without it the
    fill would drop back to --bg-hover while hovered. */
 .trackrow--playing,
@@ -653,8 +651,8 @@
   background: var(--bg-active);
 }
 
-/* Marquee selection (§4.1): the same quiet fill the playing row wears —
-   §24.2's "selection shares it", inherited from the Organize grid —
+/* Marquee selection: the same quiet fill the playing row wears —
+   "selection shares it", inherited from the Organize grid —
    disambiguated by the index slot: the playing row carries the bars, a
    selected row keeps its number. The :hover mirror keeps a selected row
    selected while the pointer is on it (the playing rule's reasoning). */
@@ -663,7 +661,7 @@
   background: var(--bg-active);
 }
 
-/* The keyboard cursor (§3.4): the Organize grid's exact outline grammar,
+/* The keyboard cursor: the Organize grid's exact outline grammar,
    inherited — one visual language for "the row the keyboard is on". */
 .trackrow--cursor {
   outline: 1.5px solid color-mix(in srgb, var(--text-primary) 35%, transparent);
@@ -671,7 +669,7 @@
 }
 
 /* The bars replace the row number; hovering swaps them for the play/pause
-   glyph (same reveal grammar as every row, §8.7). */
+   glyph (same reveal grammar as every row). */
 .trackrow--playing .trackrow__num {
   opacity: 0;
 }
@@ -680,9 +678,9 @@
   opacity: 0;
 }
 
-/* Windowed rows (§9.2, §11.6): the virtual table owns the full scroll height
+/* Windowed rows: the virtual table owns the full scroll height
    and positions each row absolutely; the canvas stays the scroller, so rows
-   still glide beneath the translucent player bar (§8.5). */
+   still glide beneath the translucent player bar. */
 .tracktable--virtual {
   position: relative;
 }
@@ -710,7 +708,7 @@
 /* ---- sticky sortable table head (Tracks / Favorites + detail views) --------
    The base template mirrors `.trackrow--all`; the variant classes mirror the
    album/artist/playlist row grids exactly so columns sit over their rows.
-   Click a column to sort; click again to flip (Finder). */
+   Click a column to sort; click again to flip. */
 
 .trackhead {
   position: sticky;
@@ -795,8 +793,8 @@ button.trackhead__sort:hover {
   transform: rotate(-180deg);
 }
 
-/* ---- phones (§21) --------------------------------------------------------- */
-/* Two adjustments, both measured at 375px: the cover grid collapses to one
+/* ---- phones ----------------------------------------------------------------
+   Two adjustments, both measured at 375px: the cover grid collapses to one
    full-bleed album per row, and track rows shed the artist/album columns
    that truncate to one or two characters. */
 
@@ -855,8 +853,7 @@ button.trackhead__sort:hover {
 }
 
 /* Touch devices have no hover — without this the row's play affordance is
-   unreachable (§8.0: a11y semantics are part of every change). The play
-   glyph takes the number's slot, as it does on hover. */
+   unreachable. The play glyph takes the number's slot, as it does on hover. */
 @media (hover: none) {
   .trackrow__play {
     opacity: 1;
@@ -882,7 +879,7 @@ button.trackhead__sort:hover {
     transform: none;
   }
 
-  /* Swipe owns removal on touch (§25): the inline minus folds away, and
+  /* Swipe owns removal on touch: the inline minus folds away, and
      with it the trailing slot — the row and its head both lose the column
      so nothing misaligns. (At tablet widths the now-empty last column
      stays: the desktop template just ends one column early.) */
@@ -892,7 +889,7 @@ button.trackhead__sort:hover {
   }
 }
 
-/* Touch phones (§25): the playlist row is a four-column row — the 30px the
+/* Touch phones: the playlist row is a four-column row — the 30px the
    remove slot held goes to the title. A combined query so tablets, whose
    rows still carry artist/album, keep the wide template. */
 @media (hover: none) and (max-width: 640px) {
@@ -1075,7 +1072,7 @@ button.trackhead__sort:hover {
   }
 }
 
-/* §1.3: the artist Songs table's "Show all" — quiet, full-width, under the
+/* The artist Songs table's "Show all" — quiet, full-width, under the
    collapsed table; the fold above it belongs to the covers. */
 .artist__showall {
   display: flex;

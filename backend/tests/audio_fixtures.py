@@ -1,7 +1,6 @@
 """Hermetic audio fixtures: minimal-but-valid MP3 and FLAC files that mutagen
-fully parses. MP3 = raw MPEG-1 Layer III frames (128 kbps, 44.1 kHz) with an
-ID3v2 tag prepended by mutagen. FLAC = handcrafted STREAMINFO block; mutagen
-writes the Vorbis comments and pictures on save."""
+fully parses. MP3 tags are prepended by mutagen; FLAC tags and pictures are
+written on save."""
 
 from __future__ import annotations
 

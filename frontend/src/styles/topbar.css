@@ -1,10 +1,10 @@
-/* Top bar — the full-width chrome bar (§9.1, §18). Brand and scan status sit
-   left, the search field floats centered in the free space, and the section
-   nav sits right in three forms (§28): icon + text on wide windows, the
-   icon-only row below that (§18), and an overflow pull-down sheet on phones
-   (§19). Chrome stays near-monochrome (§8): the accent appears only as the
-   active section's icon and label on a quiet pill — the same active-nav
-   language the sidebar used. */
+/* Top bar — the full-width chrome bar. Brand and scan status sit left, the
+   search field floats centered in the free space, and the section nav sits
+   right in three forms: icon + text on wide windows, the icon-only row
+   below that, and an overflow pull-down sheet on phones. Chrome stays
+   near-monochrome: the accent appears only as the active section's icon
+   and label on a quiet pill — the same active-nav language the sidebar
+   used. */
 
 .topbar {
   position: relative;
@@ -17,7 +17,7 @@
 }
 
 /* ---- brand ----
-   The lockup is the Home affordance (§18). It deliberately wears no hover
+   The lockup is the Home affordance. It deliberately wears no hover
    fill: a rounded pill behind the app's own wordmark reads as chrome applied
    to chrome. Instead the mark answers like a physical object — the dock-icon
    grammar: a quiet spring scale with a whisper of shadow on hover, a compress
@@ -36,8 +36,8 @@
   letter-spacing: var(--tracking-tight);
 }
 
-/* §37 (owner): the lockup carries the app's identity alone in this bar, so
-   it steps up — 32px mark, 18px wordmark — without leaving the monochrome
+/* The lockup carries the app's identity alone in this bar, so it
+   steps up — 32px mark, 18px wordmark — without leaving the monochrome
    grammar. Still dock-icon quiet on hover; just a bigger object to answer. */
 .topbar__brand-mark {
   display: flex;
@@ -64,7 +64,7 @@
   transition-duration: var(--dur-fast);
 }
 
-/* ---- scan status (§9.6) — the retired sidebar's global indicator ---- */
+/* ---- scan status — the retired sidebar's global indicator ---- */
 
 .topbar__scan {
   display: flex;
@@ -94,7 +94,7 @@
   text-overflow: ellipsis;
 }
 
-/* The error count inside the pill is a control (§2.8): it opens the
+/* The error count inside the pill is a control: it opens the
    skipped-files dialog. Quietly underlined — a link's honesty — never
    louder than the pill it lives in. */
 .topbar__scanerrors {
@@ -130,9 +130,9 @@
   }
 }
 
-/* The determinate ring (§40): same 11px slot as the spinner, an arc that
-   fills clockwise with progress. SVG stroke — no gradients on UI surfaces
-   (§8); the transition smooths the per-file jumps. */
+/* The determinate ring: same 11px slot as the spinner, an arc that
+   fills clockwise with progress. SVG stroke — no gradients on UI surfaces;
+   the transition smooths the per-file jumps. */
 .topbar__scan-ring {
   flex: none;
   width: 11px;
@@ -158,7 +158,7 @@
 /* ---- search ---- */
 
 /* The zone owns the flex sizing and anchors the spotlight panel; the pill
-   inside is the visible field. The pill is a <label> (§28): its entire
+   inside is the visible field. The pill is a <label>: its entire
    surface — padding strips included — focuses the input, so the soft edges
    of the target are live, not dead. */
 .topbar__searchzone {
@@ -185,7 +185,7 @@
 }
 
 /* The pill carries the focus state — a quiet darkening plus a hairline ring,
-   never the accent (§8: chrome is near-monochrome). */
+   never the accent (chrome is near-monochrome). */
 .topbar__search:focus-within {
   background: var(--bg-active);
   box-shadow: inset 0 0 0 1px var(--control-border);
@@ -216,7 +216,7 @@
   -webkit-appearance: none;
 }
 
-/* ---- spotlight results (§9.2 revision) ----
+/* ---- spotlight results ----
    The panel drops from the field: results appear in place while the page
    behind never changes. The surface is the shared menu language — elevated
    panel, hairline border, short scale-in from the field. */
@@ -355,7 +355,7 @@
   background: var(--bg-hover);
 }
 
-/* ---- section nav (§18, §28) ---- */
+/* ---- section nav ---- */
 
 .topbar__nav {
   display: flex;
@@ -376,9 +376,9 @@
     background-color var(--dur-fast) var(--ease-out);
 }
 
-/* The text half of a section item (§28): hidden at the compact tiers, shown
+/* The text half of a section item: hidden at the compact tiers, shown
    beside the icon from the labeled breakpoint up. It rides the item's
-   color — secondary at rest, primary on hover, accent when active — and
+   color — secondary at rest, primary on hover, primary when active — and
    never wraps: the breakpoint guarantees the row fits whole. */
 .topbar__nav-label {
   display: none;
@@ -399,7 +399,7 @@
 
 .topbar__nav-item--active,
 .topbar__nav-item--active:hover {
-  color: var(--text-primary); /* §31: active state carried by ink weight */
+  color: var(--text-primary); /* active state carried by ink weight */
   font-weight: 600;
   background: var(--bg-active);
 }
@@ -414,15 +414,13 @@
   background: var(--separator);
 }
 
-/* ---- labeled nav (wide windows, §28) ----
+/* ---- labeled nav (wide windows) ----
    HIG: show a label whenever space allows — icons earn text before the
    layout starts spending it. From the labeled breakpoint up every item,
    Settings included, wears its text beside the icon. The breakpoint is
-   measured, not chosen (owner moved Settings into the labeled set,
-   2026-10-02): the narrowest window where the labeled row — six items —
-   fits whole with the search field at its natural 240px flex basis
-   (1015.5px measured; 1020 chosen). Below it the search would be the first
-   thing squeezed, and it never is. */
+   measured, not chosen: the narrowest window where the labeled row — six
+   items — fits whole with the search field at its natural 240px flex basis.
+   Below it the search would be the first thing squeezed, and it never is. */
 @media (min-width: 1020px) {
   .topbar__nav-item--labeled {
     width: auto;
@@ -435,12 +433,12 @@
   }
 }
 
-/* ---- touch (§28) ----
+/* ---- touch ----
    HIG floors touch targets at 44×44pt. The rows keep their 32px visual
    geometry for the mouse; on coarse pointers each control instead extends
    its hit area with a 6px slop — 44px overall, zero layout change. Where
    neighbours' slops overlap, the painted-on-top item wins, matching the
-   visual order. The compact sheet rows are now 44px too (§28). */
+   visual order. */
 @media (hover: none) and (pointer: coarse) {
   .topbar__nav-item,
   .topbar__brand {
@@ -455,12 +453,12 @@
   }
 }
 
-/* ---- overflow nav (phones, §19) ----
+/* ---- overflow nav (phones) ----
    Below the phone breakpoint the icon row is replaced by one 32px toolbar
    button (the nav items' grammar) that opens a pull-down sheet anchored to
    the bar's right edge. The sheet reuses the context menu's surface
-   language (§15.6): elevated panel, hairline border, short scale-in from
-   the button — motion that communicates where it came from (§8.4). */
+   language: elevated panel, hairline border, short scale-in from
+   the button. */
 
 .topbar__navmenu-btn {
   flex: none;
@@ -499,7 +497,7 @@
   align-items: center;
   gap: 10px;
   width: 100%;
-  height: 44px; /* the HIG touch-target floor (§28) */
+  height: 44px; /* the HIG touch-target floor */
   padding: 0 12px;
   border-radius: var(--radius-s);
   font-size: var(--text-regular);
@@ -516,8 +514,8 @@
   background: var(--bg-active);
 }
 
-/* The established active-nav language (§8.1, §18.1): the active section's
-   icon at full ink on a quiet pill (§31 — the accent left the chrome). */
+/* The established active-nav language: the active section's
+   icon at full ink on a quiet pill. */
 .topbar__sheet-item--active,
 .topbar__sheet-item--active:hover {
   background: var(--bg-active);
@@ -543,7 +541,7 @@
 }
 
 @media (max-width: 640px) {
-  /* The icon row gives way to the overflow sheet (§19): six 32px targets
+  /* The icon row gives way to the overflow sheet: six 32px targets
      plus separator leave the search field ~140px at iPhone widths. */
   .topbar__nav {
     display: none;

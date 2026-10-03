@@ -1,15 +1,4 @@
-"""Playlist CRUD, membership, and ordering (DESIGN.md §6, §9.2, §13.10).
-
-Lists return the mosaic payload (up to four artwork ids in playlist order);
-detail returns tracks with their positions. Add is set-like: a track that is
-already in the playlist is skipped (once, in the request, is the same as
-twice) — the same track may live in many playlists, but never twice in one.
-Reorder is a full-replace PUT: the client sends the complete membership in
-its new order (a multiset match is required — historical duplicates, from
-before the set-like rule, may still be reordered without loss).
-Positions may carry gaps after a track's row is deleted from the library
-(FK cascade) — ordering stays stable and removal/reorder recompact them.
-"""
+"""Playlist CRUD, membership, and ordering (set-like add, full-replace reorder)."""
 
 from __future__ import annotations
 
@@ -187,9 +176,7 @@ def update_playlist(
 def set_playlist_cover(
     request: Request, playlist_id: int, file: UploadFile
 ) -> PlaylistDetail:
-    """Store an uploaded cover image and set it as the playlist's cover,
-    overriding the 2×2 track mosaic. Bytes are stored as-is in the
-    content-addressed `artwork` table (sha1 dedup), like scan-derived art."""
+    """Store an uploaded cover image, overriding the 2×2 track mosaic."""
     conn = request.app.state.db.connect()
     _require_playlist(conn, playlist_id)
     artwork_id = store_uploaded_artwork(conn, file)
@@ -218,10 +205,7 @@ def delete_playlist(request: Request, playlist_id: int) -> Response:
 def add_tracks(
     request: Request, playlist_id: int, body: PlaylistTracksIn, response: Response
 ) -> PlaylistDetail:
-    """Append tracks to the playlist, skipping ones already in it (§2.1):
-    the same track lives in many playlists but never twice in one. The
-    `X-Tracks-Added` / `X-Tracks-Skipped` headers carry the honest counts
-    for the client's confirmation toast."""
+    """Append tracks, skipping ones already in it; counts go in X-Tracks-Added/Skipped headers."""
     conn = request.app.state.db.connect()
     _require_playlist(conn, playlist_id)
     if not body.track_ids:

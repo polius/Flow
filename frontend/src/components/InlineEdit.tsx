@@ -1,4 +1,4 @@
-/* Click-to-edit text field used for inline rename (§9.3) and the playlist
+/* Click-to-edit text field used for inline rename and the playlist
    header. Renders as plain text until activated; Enter commits, Esc cancels. */
 
 import { useEffect, useRef, useState } from "react";
@@ -11,7 +11,7 @@ interface InlineEditProps {
   ariaLabel: string;
   /** Rendered text may span lines (playlist description). */
   multiline?: boolean;
-  /** Empty commits are allowed (clearing artist/album in Organize, §22);
+  /** Empty commits are allowed (clearing artist/album in Organize);
       default refuses them — a title can never be empty. */
   allowEmpty?: boolean;
   /** Render straight into the editor (grid keyboard: Enter to edit). */
@@ -62,9 +62,9 @@ export function InlineEdit({
       <Text
         className={`${className ?? ""} inlineedit__text`}
         onClick={(e) => {
-          // A modifier-click is a selection gesture, not a rename (§4.1's
-          // grammar, adopted by the Organize grid in §40): Cmd/Ctrl/Alt/
-          // Shift never open the editor — the plain click alone does.
+          // A modifier-click is a selection gesture, not a rename:
+          // Cmd/Ctrl/Alt/Shift never open the editor — the plain click
+          // alone does.
           if (e.shiftKey || e.metaKey || e.ctrlKey || e.altKey) return;
           setEditing(true);
         }}

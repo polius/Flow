@@ -1,8 +1,4 @@
-"""In-process event bus for scan progress (SSE, DESIGN.md §6).
-
-Single-worker deployment: the scanner thread publishes state events,
-the SSE endpoint subscribes per client. No cross-process fan-out needed.
-"""
+"""In-process event bus for scan progress (single worker; no cross-process fan-out)."""
 
 from __future__ import annotations
 

@@ -23,7 +23,7 @@
   min-width: 0;
 }
 
-/* Artwork thumb doubles as the Now Playing entry point (§9.2). */
+/* Artwork thumb doubles as the Now Playing entry point. */
 .player__art {
   flex: none;
   display: flex;
@@ -79,7 +79,7 @@
   text-decoration: underline;
 }
 
-/* §1.4: the title links to the album when one is known — text at rest,
+/* The title links to the album when one is known — text at rest,
    underline on hover, nothing louder than the artist link beside it. */
 .player__title a:hover {
   text-decoration: underline;
@@ -182,7 +182,7 @@
   max-width: 110px;
 }
 
-/* ---- nothing playing (§3.4) ----
+/* ---- nothing playing ----
    The empty bar used to be ambiguous in dark mode: the play circle kept its
    full-ink fill while disabled, and the empty scrubber track sat on
    --bg-active, one shade above the canvas — nearly invisible. The empty bar
@@ -198,12 +198,12 @@
   --scrubber-rest: var(--control-border);
 }
 
-/* ---- phone mini bar (§20) ----
+/* ---- phone mini bar ----
    Below the phone breakpoint the bar becomes the iOS mini-player: one row —
    artwork · title/artist · prev/play/next — with the scrubber as a
    full-width hairline straddling the bar's top edge. Everything that has a
    first-class home in Now Playing (shuffle, repeat, volume, time labels)
-   leaves the mini bar; the artwork thumb opens that view (§9.2). */
+   leaves the mini bar; the artwork thumb opens that view. */
 
 @media (max-width: 640px) {
   .player {
@@ -265,7 +265,7 @@
   }
 }
 
-/* Play/pause glyph crossfade — play-state motion (§8.4), 150ms ease-out. */
+/* Play/pause glyph crossfade — 150ms ease-out. */
 .transport-glyph {
   position: relative;
   display: flex;

@@ -1,10 +1,7 @@
-/* Cover undo notices (2026-10-03): the §25 toast composition shared by
-   the album, artist, and playlist headers, so the three surfaces word
-   the recovery identically and the undo logic lives in one place. The
-   `artwork` table is content-addressed and never pruned, so every undo
-   is a reference write — re-point the cover at an artwork row (a change
-   reverts to the previous upload, a removal restores the one it
-   cleared, an add clears back to the derived art). Never a re-upload. */
+/* Cover undo notices shared by the album, artist, and playlist headers,
+   so the three surfaces word the recovery identically and the undo logic
+   lives in one place. The `artwork` table is content-addressed and never
+   pruned, so every undo is a reference write — never a re-upload. */
 
 import type { UndoNotice } from "../stores/ui";
 

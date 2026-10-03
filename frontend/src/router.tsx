@@ -15,9 +15,8 @@ import { TracksView } from "./views/TracksView";
 import { useEffect } from "react";
 import { useUiStore } from "./stores/ui";
 
-/* Old deep links to /organize (pre-sheet) land here: the task opens over
-   Tracks, where it belongs — the URL stops advertising a section that
-   doesn't exist. */
+/* Old deep links to /organize land here: the task opens over Tracks and
+   the URL stops advertising a section that doesn't exist. */
 function OrganizeRedirect() {
   const openOrganize = useUiStore((s) => s.openOrganize);
   const navigate = useNavigate();
@@ -38,8 +37,8 @@ export const router = createBrowserRouter([
       { path: "/artists", element: <ArtistsView /> },
       { path: "/artists/:artistId", element: <ArtistDetailView /> },
       { path: "/tracks", element: <TracksView /> },
-      // Organize is a task, not a section: it lives in a full-screen sheet
-      // opened from the Tracks view (§23) — no route, no nav slot.
+      // Organize is a task, not a section: a full-screen sheet opened from
+      // the Tracks view — no route, no nav slot.
       { path: "/organize", element: <OrganizeRedirect /> },
       { path: "/favorites", element: <FavoritesView /> },
       { path: "/playlists", element: <PlaylistsView /> },

@@ -1,32 +1,11 @@
-/* Marquee multi-select for the listening tables (§4.1, Review 2): the one
-   §23 decision the review re-litigated, decided with the owner (2026-10-01)
-   as option (b) — Cmd/Shift-click selects rows and a floating quiet bar
-   offers Add to Playlist / Add to Queue / Favorite (the Organize BulkBar's
-   §22 grammar, minus the editing).
-
-   2026-10-03, the review's follow-up — the grammar moves to the standard
-   select-on-click model the review's report asked for: a plain click now
-   SELECTS the row (replacing any live selection), and playback leaves the
-   click entirely — the row's Play button (and the keyboard cursor's Enter)
-   are the only ways to start a track from a table. Modifier-clicks select
-   more:
-
-   The contract is "transient and listening-safe":
-   - a plain click selects just that row — Finder/Explorer's single-select;
-   - Cmd/Ctrl/Alt-click toggles one row into/out of the selection (2026-10-03:
-     Alt joins the set — the same grammar, one more key people already reach
-     for); Shift-click selects the contiguous range from the anchor (the
-     last selection click), Finder-style;
-   - selection is identified by TRACK ID, so a playlist reorder or removal
-     under a live selection moves with the rows instead of silently
-     re-pointing at different ones (duplicates select together — it reads
-     as "this track", which is what the verbs act on);
-   - Enter on a selection plays the last-selected row (in the table's whole
-     context, §29); Esc clears it; no other behavior changes.
-
-   No chrome exists until a selection does (§8.0.3). Touch now selects too —
-   a tap is the plain click (single-select); the long-press menu stays the
-   touch path for playback and the other verbs. */
+/* Multi-select for the listening tables: a plain click selects the row,
+   modifier-click toggles rows in/out, Shift-click takes the contiguous
+   range from the anchor. Playback never fires from a click — the Play
+   button and the keyboard cursor own it. Selection is identified by TRACK
+   ID, so a reorder or removal under a live selection moves with the rows
+   instead of re-pointing at different ones. No chrome exists until a
+   selection does; a tap selects on touch too (the long-press menu stays
+   the touch path for playback and the other verbs). */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -53,9 +32,8 @@ export function useTrackSelection(tracks: Track[]) {
   }, []);
 
   /** Handles a row click. Always consumes it — the row never plays from a
-      click (the Play button and the keyboard own playback now); a plain
-      click selects just that row, a modifier-click grows or shrinks the
-      selection around it. */
+      click; a plain click selects just that row, a modifier-click grows
+      or shrinks the selection around it. */
   const onRowClick = useCallback(
     (track: Track, index: number, e: SelectClick): boolean => {
       const mod = e.metaKey || e.ctrlKey || e.altKey;
@@ -82,9 +60,9 @@ export function useTrackSelection(tracks: Track[]) {
         for (let i = lo; i <= hi; i++) next.add(tracks[i].id);
         lastIdRef.current = track.id;
       } else {
-        // Plain click: single-select, replaced whole (the standard grammar
-        // the click-to-play rows superseded). Re-clicking the lone selected
-        // row keeps it — clearing is Esc and the bar's ×, not a click trap.
+        // Plain click: single-select, replaced whole. Re-clicking the lone
+        // selected row keeps it — clearing is Esc and the bar's ×, not a
+        // click trap.
         next.clear();
         next.add(track.id);
         anchorIdRef.current = track.id;
@@ -111,9 +89,9 @@ export function useTrackSelection(tracks: Track[]) {
     [tracks, ids],
   );
 
-  // Esc clears the selection — but only when no surface owns the keyboard
-  // (the §16.4/§29 precedence, applied locally): a context menu, the picker,
-  // Get Info, or either takeover clears nothing and closes itself first.
+  // Esc clears the selection — but only when no surface owns the
+  // keyboard: a context menu, the picker, Get Info, or either takeover
+  // clears nothing and closes itself first.
   const count = ids.size;
   useEffect(() => {
     if (count === 0) return;

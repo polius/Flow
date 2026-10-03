@@ -1,26 +1,8 @@
-/* Player state + audio engine — one module, deliberately.
-   The <audio> elements live outside React's lifecycle so playback continues
-   across navigation (DESIGN.md §9.4). Store holds state; the thin engine
-   layer below the store binds element events back into it. M5 adds queue
-   removal (§9.4) and Media Session integration (§13.11).
-
-   §29: the queue is durable session state. Queue + play order + playhead
-   position restore silently on load — paused, player bar populated — so a
-   reload (Cmd+R, OS update, sleep) never costs the listening session
-   (§13.9's "Continue listening"). The first press of play resumes the saved
-   track at the saved position; nothing autoplays.
-
-   §32 (UX review Part 4): the queue becomes a server-truth object. The
-   store stays the source of UI truth; the same two writes that keep
-   localStorage warm now mirror to PUT/PATCH /api/queue, restore prefers the
-   server when this session is untouched, and "play this view" can resolve
-   the whole filter server-side (POST). localStorage remains the offline
-   fallback, exactly the §29 behavior when the server can't answer.
-
-   UX review Part 2 (§30 addenda): dual-element pre-roll closes most of the
-   track-change gap (§2.6); an optional Sound Check gain node matches
-   loudness across albums (§2.3 — the one deliberate Web Audio exception);
-   the window title follows the playing track (§2.7). */
+/* Player state + audio engine — one module, deliberately. The <audio>
+   elements live outside React's lifecycle so playback continues across
+   navigation; the store holds state and a thin engine layer binds element
+   events back into it. Restored sessions always come back paused — a
+   reload never costs the listening session, and nothing autoplays. */
 
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
@@ -36,15 +18,15 @@ import { useUiStore } from "./ui";
 
 export type RepeatMode = "off" | "all" | "one";
 
-/** A hand-built queue has no origin to name (§1.1): nothing renders in the
-    "Playing from" surfaces — honest, exactly the pre-origin behavior. */
+/** A hand-built queue has no origin to name: nothing renders in the
+    "Playing from" surfaces. */
 const MANUAL_ORIGIN: QueueOrigin = { kind: "manual", label: null, href: null };
 
-/** The §26 undo-toast grammar, applied to queue additions (§1.2): quiet,
-    one line, honest about where the tracks landed — and undoable, since
-    the exact instances inserted are the exact instances removed. The one
-    exception is "now": tracks that STARTED playing can't be un-added
-    without stopping the music — a gain stays quiet (§26.3's rule). */
+/** Queue additions confirm their arrival: quiet, one line, honest about
+    where the tracks landed — and undoable, since the exact instances
+    inserted are the exact instances removed. The exception is "now":
+    tracks that STARTED playing can't be un-added without stopping the
+    music, so that gain stays quiet. */
 function confirmArrival(
   n: number,
   destination: "next" | "end" | "now",
@@ -77,26 +59,25 @@ interface PlayerState {
   duration: number; // seconds (from the audio element once known)
   buffered: number; // seconds buffered ahead
   volume: number; // 0..1
-  /** Click-to-mute (§3.4): transient, not persisted — a fresh session is
+  /** Click-to-mute: transient, not persisted — a fresh session is
       unmuted, like every platform player. The slider keeps its level. */
   muted: boolean;
   shuffle: boolean;
   repeat: RepeatMode;
-  /** Sound Check (§2.3): apply the scan's loudness analysis so albums
-      play at a matched level. Off → unity gain, exactly as before. */
+  /** Sound Check: apply the scan's loudness analysis so albums play at a
+      matched level. Off → unity gain, exactly as before. */
   soundcheck: boolean;
-  /** Where the queue came from (§1.1): the "Playing from" sentence on the
-      queue drawer and Now Playing. Set only by queue REPLACEMENT (play
-      tracks / adopt a snapshot) and read-only for every queue edit —
-      appending to an album queue doesn't rewrite where it came from. */
+  /** Where the queue came from: the "Playing from" sentence on the queue
+      drawer and Now Playing. Set only by queue REPLACEMENT (play tracks /
+      adopt a snapshot), read-only for every queue edit — appending to an
+      album queue doesn't rewrite where it came from. */
   origin: QueueOrigin | null;
 
   playTracks: (tracks: Track[], startIndex: number, origin?: QueueOrigin | null) => void;
-  /** Adopts a server-built queue (§32): the POST /api/queue snapshot, with
-      the play order and playhead already resolved whole-filter server-side.
-      The store takes it wholesale and plays it — the mirror PUT that the
-      persistence layer schedules afterwards is a formality. `origin` rides
-      the snapshot (§1.1). */
+  /** Adopts a server-built queue: the POST /api/queue snapshot, with the
+      play order and playhead already resolved whole-filter server-side.
+      The store takes it wholesale and plays it; `origin` rides the
+      snapshot. */
   playSnapshot: (snapshot: {
     items: Track[];
     order: number[];
@@ -104,31 +85,31 @@ interface PlayerState {
     origin?: QueueOrigin | null;
   }) => void;
   playNext: (track: Track) => void;
-  /** Play Next for a whole collection (§2.1 header menus): the tracks
-      insert, in order, directly after the playing one. */
+  /** Play Next for a whole collection (header menus): the tracks insert,
+      in order, directly after the playing one. */
   playNextMany: (tracks: Track[]) => void;
-  /** Appends tracks to the END of the play order (§23 — the queue's Add
-      button, and "Add to Queue (end)" §1.2). Plays nothing: the queue can
-      be built before playback starts, in which case `orderPos` sits at -1
-      until a row is clicked. On an empty queue the session's origin
-      becomes `manual` (§1.1) — a hand-built queue came from nowhere else. */
+  /** Appends tracks to the END of the play order (the queue's Add button,
+      and "Add to Queue (end)"). Plays nothing: the queue can be built
+      before playback starts, in which case `orderPos` sits at -1 until a
+      row is clicked. On an empty queue the session's origin becomes
+      `manual` — a hand-built queue came from nowhere else. */
   addToQueue: (tracks: Track[]) => void;
   /** Removes exactly the given track instances from the queue — the undo
-      for "Play Next" / "Add to Queue" (§1.2). Matches by REFERENCE, so a
+      for "Play Next" / "Add to Queue". Matches by REFERENCE, so a
       duplicated id elsewhere in the queue keeps its place; the playing
       row's pointer follows the recompact like every other mutation. */
   removeQueued: (tracks: Track[]) => void;
-  /** Removes an upcoming track from the queue (§9.4). No-op for the current one. */
+  /** Removes an upcoming track from the queue. No-op for the current one. */
   removeFromQueue: (queueIndex: number) => void;
-  /** Undoes a queue removal (§26): re-inserts the track at its former
-      queue index and play-order slot. The playing row's pointer follows
-      the world shift, as in every other queue mutation. */
+  /** Undoes a queue removal: re-inserts the track at its former queue
+      index and play-order slot. The playing row's pointer follows the
+      world shift, as in every other queue mutation. */
   restoreToQueue: (orderSlot: number, queueIndex: number, track: Track) => void;
   /** Drag-to-reorder in the queue drawer: moves one entry of the PLAY ORDER
       (order indexes, not queue indexes — shuffle is respected). The playing
       row stays put; everything else reorders around it. */
   moveInQueue: (fromOrder: number, toOrder: number) => void;
-  /** Click-to-jump (§17.7): start playback at any position in the play order. */
+  /** Click-to-jump: start playback at any position in the play order. */
   playAt: (orderIndex: number) => void;
   togglePlay: () => void;
   next: () => void;
@@ -190,7 +171,7 @@ export const usePlayerStore = create<PlayerState>()(
         const { order, pos } = buildOrder(tracks.length, get().shuffle, clamped);
         // A queue replacement is a new context: the origin is REPLACED with
         // whatever the caller declared — or `manual` when it didn't say
-        // (a single-track play has no better name, and names nothing, §1.1).
+        // (a single-track play has no better name, and names nothing).
         set({
           queue: tracks,
           order,
@@ -227,7 +208,7 @@ export const usePlayerStore = create<PlayerState>()(
         remapped.splice(orderPos + 1, 0, currentQueueIndex + 1);
         // Seamless: the audio element keeps playing; only the plan changes.
         set({ queue: newQueue, order: remapped, orderPos });
-        // §1.2: an addition confirms its arrival — one quiet line, undoable.
+        // An addition confirms its arrival — one quiet line, undoable.
         confirmArrival(1, "next", [track]);
       },
 
@@ -265,7 +246,7 @@ export const usePlayerStore = create<PlayerState>()(
           // current track" (useCurrentTrack reads order[-1] → undefined).
           orderPos: queue.length === 0 ? -1 : orderPos,
           // Building a queue by hand on an empty session is the one queue
-          // EDIT that names an origin: manual (§1.1).
+          // EDIT that names an origin: manual.
           ...(queue.length === 0 ? { origin: MANUAL_ORIGIN } : {}),
         });
         confirmArrival(tracks.length, "end", tracks);
@@ -294,7 +275,7 @@ export const usePlayerStore = create<PlayerState>()(
         set({
           queue: kept,
           order: newOrder,
-          // The playing row's pointer follows the recompact (§26's rule) —
+          // The playing row's pointer follows the recompact —
           // or the queue is idle again.
           orderPos: newCurrent != null ? newOrder.indexOf(newCurrent) : -1,
         });
@@ -327,8 +308,8 @@ export const usePlayerStore = create<PlayerState>()(
       restoreToQueue: (orderSlot, queueIndex, track) => {
         const { queue, order, orderPos } = get();
         // Clamp into whatever the list looks like now — reorders or adds
-        // between removal and undo may have shifted things (§26: the
-        // restore is best-effort at the former slot).
+        // between removal and undo may have shifted things; the restore
+        // is best-effort at the former slot.
         const idx = Math.max(0, Math.min(queueIndex, queue.length));
         const slot = Math.max(0, Math.min(order.length, orderSlot));
         const currentQueueIndex = order[orderPos];
@@ -386,7 +367,7 @@ export const usePlayerStore = create<PlayerState>()(
         const track = queue[order[orderPos]];
         if (!track) return;
         // A restored session has never loaded the current track into the
-        // element: the first play resumes at the saved position (§29).
+        // element: the first play resumes at the saved position.
         if (loadedSrc == null) {
           ensureGraph();
           resumeGraph();
@@ -455,11 +436,11 @@ export const usePlayerStore = create<PlayerState>()(
     }),
     {
       name: "flow.player",
-      // Durable preferences ride the persist middleware. The queue and the
-      // playhead are durable SESSION state (§29) — persisted below by the
-      // hand-rolled writer, not here: the middleware re-serializes on every
-      // store update, and position changes 4×/s while playing, which would
-      // stringify a full-library queue at that cadence.
+      // Preferences ride the persist middleware. The queue and the
+      // playhead are durable SESSION state — persisted below by the
+      // hand-rolled writer, not here: the middleware re-serializes on
+      // every store update, and position changes 4×/s while playing,
+      // which would stringify a full-library queue at that cadence.
       partialize: (s) => ({
         volume: s.volume,
         shuffle: s.shuffle,
@@ -483,7 +464,7 @@ function elements(): HTMLAudioElement[] {
 
 /** The element playing right now. Gapless swaps this binding instead of
     replacing `src` on a playing element — the switch happens at the ended
-    boundary, so the old element never re-buffers (§2.6). */
+    boundary, so the old element never re-buffers. */
 let audio: HTMLAudioElement | null = audioA;
 
 /** The standby element and what it holds: the next track, preloaded and
@@ -493,11 +474,11 @@ let standbyTrack: Track | null = null;
 
 /** The stream URL the active element currently holds — null until the first
     real load. A restored session plays from a populated store with a virgin
-    element; the first play loads at the saved position (§29). */
+    element; the first play loads at the saved position. */
 let loadedSrc: string | null = null;
 
 /** Consecutive auto-skips on stream errors without a successful start
-    between them (§29). Bounded so a dead stretch of library can't
+    between them. Bounded so a dead stretch of library can't
     machine-gun through the whole queue; any manual interaction resets it. */
 let errorSkipStreak = 0;
 const MAX_ERROR_SKIPS = 5;
@@ -508,7 +489,7 @@ const PRELOAD_AHEAD_SECONDS = 10;
 const trackSrc = (track: Track): string => `/api/stream/${track.id}`;
 
 /** The volume the elements should actually carry — mute wins over the
-    slider level, which keeps its value underneath (§3.4 click-to-mute). */
+    slider level, which keeps its value underneath. */
 function effectiveVolume(): number {
   const { volume, muted } = usePlayerStore.getState();
   return muted ? 0 : volume;
@@ -536,12 +517,10 @@ function peekNext(): { pos: number; track: Track } | null {
   return { pos, track: state.queue[state.order[pos]] };
 }
 
-/* -- Sound Check (§2.3): one Web Audio graph, two gain nodes -------------- */
-/* The deliberate, documented exception to §3's "no Web Audio" decision:
-   a MediaElementSource → GainNode → destination chain per element. Created
-   lazily inside the first user-gesture play (autoplay policies); a context
-   that can't start just leaves unity gain — the feature degrades, playback
-   doesn't. */
+/* -- Sound Check: one Web Audio graph, two gain nodes --------------------- */
+/* Created lazily inside the first user-gesture play (autoplay policies);
+   a context that can't start just leaves unity gain — the feature
+   degrades, playback doesn't. */
 
 let audioCtx: AudioContext | null = null;
 const gainNodes = new Map<HTMLAudioElement, GainNode>();
@@ -583,7 +562,7 @@ function applyGain(el: HTMLAudioElement | null, track: Track | null): void {
   gain.gain.value = db != null ? Math.pow(10, db / 20) : 1;
 }
 
-/* -- window title (§2.7) --------------------------------------------------- */
+/* -- window title ----------------------------------------------------------- */
 
 let lastTitleKey = "";
 function syncWindowTitle(): void {
@@ -679,7 +658,7 @@ function swapToStandby(): boolean {
   return true;
 }
 
-/* ---- Media Session (approved nicety, §13.11) — OS media keys + lock screen */
+/* ---- Media Session — OS media keys + lock screen -------------------------- */
 
 function syncMediaSessionMetadata(track: Track): void {
   if (typeof navigator === "undefined" || !("mediaSession" in navigator)) return;
@@ -732,13 +711,13 @@ function advance(step: number, auto: boolean): void {
   load(track, true);
 }
 
-/* -- position glide (§3.4) -------------------------------------------------
+/* -- position glide ---------------------------------------------------------
    `timeupdate` fires ~4Hz: the scrubber and time label stepped rather than
-   glided. While playing, a rAF loop publishes `currentTime` every frame —
-   the professional version. The persistence layer already coalesces
-   position writes (§29), so the 60×/s store updates cost one throttled
-   localStorage write per 3s, and rAF suspends itself when the tab hides
-   (timeupdate keeps the state honest at 4Hz in the background). */
+   glided. While playing, a rAF loop publishes `currentTime` every frame
+   instead. The persistence layer already coalesces position writes, so the
+   60×/s store updates cost one throttled write per 3s, and rAF suspends
+   itself when the tab hides (timeupdate keeps the state honest at 4Hz in
+   the background). */
 
 let positionRaf: number | null = null;
 
@@ -774,7 +753,7 @@ for (const el of elements()) {
     errorSkipStreak = 0; // a real start — the library is alive again
     setPlaybackState("playing");
     startPositionLoop();
-    // A real start is what played_at means (§4.1): sync the playhead now,
+    // A real start is what played_at means: sync the playhead now,
     // not on the 3 s cadence, carrying the track id so the server stamps
     // the right row even while the plan mirror is still in flight.
     writePlayhead(true);
@@ -817,13 +796,13 @@ for (const el of elements()) {
       return;
     }
     // The pre-rolled next track starts at the boundary — no src swap on a
-    // dying element, no 100–200ms re-buffer gap (§2.6). Anything not ready
+    // dying element, no 100–200ms re-buffer gap. Anything not ready
     // falls back to the classic advance, which still never skips a beat.
     if (!swapToStandby()) advance(1, true);
   });
   el.addEventListener("error", () => {
     // Missing file / flaky mount / half-written file — routine in a
-    // self-hosted library (§29). Skip to the next track and say so, like
+    // self-hosted library. Skip to the next track and say so, like
     // Plex; only a bounded streak later, stop rather than machine-gun.
     if (el !== audio) {
       // The standby failed to load: drop it so `ended` uses the fallback.
@@ -858,21 +837,16 @@ for (const el of elements()) {
 setupMediaSession();
 syncWindowTitle();
 
-/* ---- session persistence (§13.9, §29, §32) -------------------------------
-   The queue survives a reload — and now it survives the browser, too. Two
-   layers, written at the same cadences:
-
-   - localStorage (§29): the offline fallback. Two keys — `flow.player.queue`
-     (queue + order, debounced 400 ms) and `flow.player.playhead` (orderPos +
-     position + timestamp, throttled to one write per 3 s while playing).
-   - the server (§32): the truth truth. The same two writes mirrored to
-     PUT /api/queue (the plan) and PATCH /api/queue (the playhead), so a
-     reload on another browser on the LAN continues the same session and a
-     container restart loses nothing. Fire-and-forget: a LAN blip costs the
-     mirror nothing, and the local layer above still holds the session.
-
-   Everything is best-effort by contract: a failed write — quota or network
-   — costs nothing but the convenience the layer exists for. */
+/* ---- session persistence --------------------------------------------------
+   The queue survives a reload — and the browser, too. Two layers, written
+   at the same cadences: localStorage (the offline fallback — two keys, a
+   debounced queue snapshot and a playhead throttled to one write per 3 s
+   while playing) and the server (the same two writes mirrored to
+   PUT /api/queue and PATCH /api/queue, so a reload on another LAN browser
+   continues the same session). Fire-and-forget: a LAN blip costs the
+   mirror nothing, and the local layer still holds the session. Every
+   write is best-effort by contract — a failure costs nothing but the
+   convenience the layer exists for. */
 
 const QUEUE_KEY = "flow.player.queue";
 const PLAYHEAD_KEY = "flow.player.playhead";
@@ -903,8 +877,8 @@ let playheadDirty = false;
 function writeQueueSnapshot(keepalive = false): void {
   const { queue, order, orderPos, position, origin } = usePlayerStore.getState();
   try {
-    // The origin rides the snapshot (§1.1): the offline fallback layer
-    // restores the same "Playing from" sentence the server's copy has.
+    // The origin rides the snapshot: the offline fallback layer restores
+    // the same "Playing from" sentence the server's copy has.
     localStorage.setItem(
       QUEUE_KEY,
       JSON.stringify({ queue, order, origin }),
@@ -932,7 +906,7 @@ function writePlayhead(started = false, keepalive = false): void {
     {
       orderPos,
       position,
-      // §4.1: the stamp rides the start-of-play sync, carrying the id —
+      // The stamp rides the start-of-play sync, carrying the id —
       // never derived from the server's stored plan (a mirror PUT may
       // still be in flight there).
       ...(started && current ? { playedTrackId: current.id } : {}),
@@ -1003,38 +977,23 @@ if (typeof window !== "undefined") {
   });
 }
 
-/* Restore precedence (§32): the localStorage snapshot applies synchronously
-   — instant UI, click-safe, exactly the §29 behavior — then the server's
-   session is adopted over it if it arrives while the local one is still
-   untouched. An untouched first paint should show the server's truth (the
-   desktop's queue, not this browser's stale copy); a session already begun
-   here is never clobbered.
+/* Restore precedence: the localStorage snapshot applies synchronously
+   (instant UI, click-safe), then the server's session is adopted over it
+   if the local one is still untouched — an untouched first paint should
+   show the server's truth, and a session already begun here is never
+   clobbered. A stale local snapshot from a DIFFERENT library once
+   resurrected a queue the server couldn't vouch for, so: a reachable
+   server answering "empty" is authoritative for CLEARING (its localStorage
+   keys go too, or the next reload resurrects the same ghosts), and rows
+   restored locally are tagged unverified — surfaces render TEXT, not
+   links, for them until the server replaces them wholesale. */
 
-   §2.7 — the stale-snapshot hole, closed in two moves. The observed
-   failure: a leftover snapshot from a DIFFERENT library restored a queue
-   whose artist link pointed at an id that doesn't exist; when the server
-   had no session (fresh container), the stale local state stayed in
-   charge and the player bar linked into "Artist not found".
-   1. An EMPTY session from a reachable server is now authoritative for
-      CLEARING, not for degrading to local: the server is the truth (§32),
-      and its truth here is "nothing is playing". A local snapshot that
-      survives such an answer is exactly the unvouchable state the review
-      caught. (The localStorage keys go with it — otherwise the next
-      reload would resurrect the same ghosts.)
-   2. Rows restored from the local snapshot are tagged (a WeakSet, by
-      identity — it never serializes) and surfaces render TEXT, not links,
-      for them until the server replaces them wholesale. Live-fetched rows
-      never enter the set, and an unreachable server leaves the session
-      playing but unvouchable: names read as text until the server is back
-      (adoption retries twice, covering a routine restart) — honest, per
-      the review's "render text, not a link". */
-
-/** Rows the server has not vouched for (§2.7). Tagged at local restore;
-    emptied only by wholesale replacement (server adoption, clearing, or
-    any live fetch the user makes). */
+/** Rows the server has not vouched for. Tagged at local restore; emptied
+    only by wholesale replacement (server adoption, clearing, or any live
+    fetch the user makes). */
 const unverifiedRows = new WeakSet<Track>();
 
-/** True when a track object came from an unvouchable local restore (§2.7):
+/** True when a track object came from an unvouchable local restore:
     surfaces render text instead of links for it. Membership is fixed at
     boot, so a plain read at render time is safe — there is nothing to
     subscribe to. */
@@ -1088,7 +1047,7 @@ function restoreLocalSession(): void {
   }
   const track = queue[order[orderPos]];
   if (!track) return;
-  // §2.7: none of these rows are vouched for yet — the server hasn't seen
+  // None of these rows are vouched for yet — the server hasn't seen
   // them. Identity tags, cleared only by wholesale replacement below.
   for (const t of queue) unverifiedRows.add(t);
   setStateRestoring({
@@ -1096,9 +1055,9 @@ function restoreLocalSession(): void {
     order,
     orderPos,
     origin,
-    // Restored sessions are always paused — autoplay policies aside, the
-    // review's bar is that state loss is never TOTAL, never that sound
-    // starts uninvited (§29). The element stays empty until the first play.
+    // Restored sessions are always paused — the point is that state loss
+    // is never TOTAL, never that sound starts uninvited. The element
+    // stays empty until the first play.
     isPlaying: false,
     position: Math.min(position, track.duration || position),
     duration: track.duration || 0,
@@ -1106,9 +1065,9 @@ function restoreLocalSession(): void {
   syncWindowTitle();
 }
 
-/** Defensive origin parse (§1.1): a snapshot from before this field
-    existed, or a hand-edited one, degrades to no origin — the queue
-    itself is still good. */
+/** Defensive origin parse: a snapshot from before this field existed, or
+    a hand-edited one, degrades to no origin — the queue itself is still
+    good. */
 const ORIGIN_KINDS = new Set([
   "album",
   "artist",
@@ -1129,8 +1088,8 @@ function parseOrigin(raw: unknown): QueueOrigin | null {
   };
 }
 
-/** A reachable-but-empty answer clears the session (§2.7) — including the
-    local snapshot keys, or the next reload resurrects the same ghosts. */
+/** A reachable-but-empty answer clears the session — including the local
+    snapshot keys, or the next reload resurrects the same ghosts. */
 function clearLocalSession(): void {
   try {
     localStorage.removeItem(QUEUE_KEY);
@@ -1154,10 +1113,9 @@ async function adoptServerSession(attempt = 0): Promise<void> {
   const result: ServerQueueState | undefined = await fetchServerQueue();
   if (result == null) return; // defensive: a broken transport layer
   if (result.status === "unreachable") {
-    // A restarting server (a routine §32-verified event) gets two quiet
-    // retries — 8 s and 24 s — before the local layer is left in charge
-    // for the outage. Rows stay unvouchable (§2.7: text, not links) until
-    // an answer arrives.
+    // A restarting server gets two quiet retries — 8 s and 24 s — before
+    // the local layer is left in charge for the outage. Rows stay
+    // unvouchable (text, not links) until an answer arrives.
     if (attempt < 2) {
       window.setTimeout(
         () => void adoptServerSession(attempt + 1),
@@ -1168,7 +1126,7 @@ async function adoptServerSession(attempt = 0): Promise<void> {
   }
   if (sessionTouched) return; // this browser's session already began
   if (result.status === "empty") {
-    // §2.7: the server answered and its truth is "nothing is playing" —
+    // The server answered and its truth is "nothing is playing" —
     // authoritative for clearing, never a reason to degrade to a local
     // snapshot it cannot vouch for.
     clearLocalSession();
@@ -1182,7 +1140,7 @@ async function adoptServerSession(attempt = 0): Promise<void> {
     playOrder.length !== items.length ||
     playOrder.some((i) => !Number.isInteger(i) || i < 0 || i >= items.length)
   ) {
-    playOrder = items.map((_, i) => i); // the §29 defensive shape
+    playOrder = items.map((_, i) => i); // defensive shape
   }
   const pos = Math.min(Math.max(order_pos, 0), items.length - 1);
   const track = items[playOrder[pos]];
@@ -1192,8 +1150,8 @@ async function adoptServerSession(attempt = 0): Promise<void> {
     order: playOrder,
     orderPos: pos,
     origin: parseOrigin(origin),
-    // Always paused, like every restore (§29): the bar is that state loss
-    // is never total, never that sound starts uninvited.
+    // Always paused, like every restore: state loss is never total,
+    // sound never starts uninvited.
     isPlaying: false,
     position: Math.max(0, Math.min(position, track.duration || position)),
     duration: track.duration || 0,

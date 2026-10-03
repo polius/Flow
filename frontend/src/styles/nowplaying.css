@@ -1,7 +1,7 @@
-/* Now Playing takeover (§9.2) + queue drawer (§9.4). The ambience supplies
-   the only color (§8.5, §13); every control here reuses the shared chrome
-   tokens. Motion: one entrance for the takeover, one slide for the queue —
-   both short and ease-out (§8.4). */
+/* Now Playing takeover + queue drawer. The ambience supplies the only
+   color; every control here reuses the shared chrome tokens. Motion: one
+   entrance for the takeover, one slide for the queue — both short and
+   ease-out. */
 
 .nowplaying {
   position: fixed;
@@ -20,7 +20,7 @@
   }
 }
 
-/* §3.4: on phones the ambience read as bleached — the fixed token values
+/* On phones the ambience read as bleached — the fixed token values
    were tuned on desktop, and the smaller art-to-canvas ratio dilutes the
    source. Below the phone breakpoint the artwork layer strengthens and
    the canvas veil lightens until the cover's hue reads at a glance
@@ -58,7 +58,7 @@
   left: 20px;
 }
 
-/* The queue entry on narrow windows (§23) — the drawer's side-by-side home
+/* The queue entry on narrow windows — the drawer's side-by-side home
    can't fit, so the queue sheet slides up behind this button. */
 .nowplaying__queuebtn {
   right: 20px;
@@ -93,12 +93,11 @@
 
 /* One square box whether or not a cover exists. The placeholder branch of
    Artwork carries its 400px size inline, and inline beats any class rule —
-   without the scoped !important the img rendered min(380px, 42vh) while the
-   placeholder stayed 400px, and the ~20px height change re-centered the
+   without the scoped !important the ~20px height change re-centered the
    stage: everything above the controls nudged up the moment a cover
-   appeared (2026-10-03). Scoped !important is the one way a stylesheet
-   beats an inline style (§37 follow-up); object-fit: cover crops any
-   non-square art rather than distorting it. */
+   appeared. Scoped !important is the one way a stylesheet beats an inline
+   style; object-fit: cover crops any non-square art rather than
+   distorting it. */
 .nowplaying__art {
   width: min(380px, 42vh) !important;
   height: min(380px, 42vh) !important;
@@ -130,13 +129,13 @@
   color: var(--text-tertiary);
 }
 
-/* §1.4: the artist and album names are doors, styled as today's text —
+/* The artist and album names are doors, styled as today's text —
    hover reveals the underline, nothing louder. */
 .nowplaying__link:hover {
   text-decoration: underline;
 }
 
-/* §1.1: the origin under the album line, small and secondary (§8.3). */
+/* The queue's origin, small and secondary. */
 .nowplaying__origin {
   margin: 10px 0 0;
   font-size: var(--text-caption);
@@ -178,7 +177,7 @@
   max-width: 200px;
 }
 
-/* ---- idle stage (§23): the queue is present before anything plays --------- */
+/* ---- idle stage: the queue is present before anything plays ---- */
 
 .nowplaying__idle {
   display: flex;
@@ -250,7 +249,7 @@
   letter-spacing: var(--tracking-tight);
 }
 
-/* Sheet mode's back chevron (§23): narrow windows only — the prop that
+/* Sheet mode's back chevron: narrow windows only — the prop that
    renders it is only passed there. */
 .queue__back {
   display: flex;
@@ -270,7 +269,7 @@
   background: var(--bg-hover);
 }
 
-/* The Add affordance (§23): the queue is where one is built. Quiet pill,
+/* The Add affordance: the queue is where one is built. Quiet pill,
    the .view__action grammar at drawer scale. */
 .queue__add {
   display: inline-flex;
@@ -297,7 +296,7 @@
   white-space: nowrap;
 }
 
-/* §1.1: "Playing from …" — the queue's origin, in the head next to the
+/* "Playing from …" — the queue's origin, in the head next to the
    count. Quiet caption; the label is a link when the origin has a route. */
 .queue__origin {
   margin: -4px 20px 8px;
@@ -312,7 +311,7 @@
   text-decoration: underline;
 }
 
-/* §1.1: the album-group divider — a caption naming (album · artist) with a
+/* The album-group divider — a caption naming (album · artist) with a
    hairline running out to the right edge. Appears only between runs of
    two or more of the same album; fades while a drag is live so the
    traveling rows never read against a stale group. */
@@ -343,7 +342,7 @@
   opacity: 0;
 }
 
-/* §1.4: the artist name in a queue row is a link — the title stays the
+/* The artist name in a queue row is a link — the title stays the
    click-to-jump target. Same text, underline on hover. */
 .queue__sub .queue__artistlink:hover {
   text-decoration: underline;
@@ -391,7 +390,7 @@
   background: var(--bg-active);
 }
 
-/* The row is one click target (click-to-jump, §17.7); the remove button
+/* The row is one click target (click-to-jump); the remove button
    floats above it as a sibling. */
 .queue__main {
   display: grid;
@@ -446,7 +445,7 @@
   transition: opacity var(--dur-fast) var(--ease-out);
 }
 
-/* ---- the playing marker's queue dressing (§17.7): the bars themselves
+/* ---- the playing marker's queue dressing: the bars themselves
    (.eq) are the shared playing-row grammar — see controls.css. Here only
    the scrim beneath them and the hover swap are drawer-specific. */
 .queue__scrim {
@@ -457,7 +456,7 @@
 }
 
 /* Hover/focus swaps the bars for a play/pause glyph — the row itself is
-   the toggle (same reveal grammar as the library rows, §8.7). */
+   the toggle (same reveal grammar as the library rows). */
 .queue__toggle {
   position: absolute;
   inset: 0;
@@ -480,7 +479,7 @@
 }
 
 /* Touch has no hover: the current row shows its play/pause glyph for good —
-   tap-to-toggle must be visible to be used (§21). The remove button is
+   tap-to-toggle must be visible to be used. The remove button is
    always visible too; the row reserves room so the ✕ never sits on top of
    the duration (a real overlap on phones before this fix). */
 @media (hover: none) {
@@ -515,12 +514,12 @@
   opacity: 1;
 }
 
-/* Press-and-drag reorder (§9.4 revision 2): a long-press (touch/pen) or
-   press-move (mouse) lifts the row into a floating ghost. The grabbed row
-   leaves a GAP that travels with the finger — the space itself is the
-   insertion indicator; neighbors slide via the transform transition above.
-   While a drag is live rows stop being hit targets: no hover, no stray
-   clicks, no ✕ firing under the ghost. */
+/* Press-and-drag reorder: a long-press (touch/pen) or press-move (mouse)
+   lifts the row into a floating ghost. The grabbed row leaves a GAP that
+   travels with the finger — the space itself is the insertion indicator;
+   neighbors slide via the transform transition above. While a drag is live
+   rows stop being hit targets: no hover, no stray clicks, no ✕ firing
+   under the ghost. */
 .queue__row--dragging {
   opacity: 0;
 }
@@ -588,8 +587,8 @@
    so the gesture's consequence is legible before it commits. (:has covers
    the mid-gesture state — the backdrop sits before the row content.)
    Decoration only — it must never be a hit target, or it eats the row's
-   clicks (it paints above the static row content). Monochrome per §31:
-   the consequence reads through contrast, not alarm color. */
+   clicks (it paints above the static row content). The consequence reads
+   through contrast, not alarm color. */
 .queue__swipebg {
   position: absolute;
   inset: 0;
@@ -609,7 +608,7 @@
   opacity: 1;
 }
 
-/* Hover-revealed removal (§8.7) — the one queue action besides jumping. */
+/* Hover-revealed removal — the one queue action besides jumping. */
 .queue__remove {
   position: absolute;
   top: 50%;
@@ -642,7 +641,7 @@
   opacity: 0;
 }
 
-/* Empty state (§23): the queue is now where a queue gets built — the empty
+/* Empty state: the queue is now where a queue gets built — the empty
    state invites the Add action instead of pointing at a removed menu. */
 .queue__empty {
   display: flex;
@@ -669,12 +668,11 @@
   margin-top: 16px;
 }
 
-/* ---- narrow windows: the queue becomes a slide-up sheet (§23) ---------------
+/* ---- narrow windows: the queue becomes a slide-up sheet ----
 
  Below 940px the side-by-side drawer can't fit; instead of disappearing, the
  queue now lives one tap away: the header's queue button slides it over the
- stage (motion that communicates where it came from, §8.4 — short, ease-out,
- and static under prefers-reduced-motion via the global override). */
+ stage. */
 
 @media (max-width: 940px) {
   .nowplaying__layout {

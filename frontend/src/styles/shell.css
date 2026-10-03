@@ -1,6 +1,6 @@
 /* App shell: one full-width column — top bar on top, the canvas below it
-   taking the whole window (§18), with the player bar overlaying the canvas
-   bottom (translucent, per DESIGN.md §8.5 — content scrolls beneath it). */
+   taking the whole window, with the translucent player bar overlaying the
+   canvas bottom (content scrolls beneath it). */
 
 .shell {
   display: flex;

@@ -1,12 +1,7 @@
-/* Organize sheet (§22, §23 revision): Organize is a task, not a section.
-   It slides up over the whole app — playback continues underneath, the
-   Tracks view stays put behind it — and Done/Esc hands control back exactly
-   where it was. The same full-screen-sheet grammar the Now Playing takeover
-   uses, applied to a working context.
-
-   The sheet owns the scroll container (class `shell__canvas` so the grid's
-   virtualizer binds to it via the same closest() lookup the main canvas
-   uses — one pattern, two surfaces). */
+/* Organize sheet: slides up over the whole app — playback continues
+   underneath. The sheet owns the scroll container (class `shell__canvas`
+   so the grid's virtualizer binds to it the same way it does the main
+   canvas). */
 
 import { useEffect, useRef } from "react";
 
@@ -22,13 +17,13 @@ export function OrganizeSheet() {
   const close = useUiStore((s) => s.closeOrganize);
   const surfaceRef = useRef<HTMLDivElement>(null);
 
-  // Modal focus (§3.4): focus enters the sheet on open, Tab cycles inside,
-  // Done returns focus to the control that opened Organize.
+  // Modal focus: focus enters the sheet on open, Tab cycles inside, Done
+  // returns focus to the control that opened Organize.
   useModalFocus(surfaceRef, open);
 
   // Esc closes — but yields to whatever sits above it: the library picker,
   // open menus, Get Info, queue drags, and the Now Playing takeover (the
-  // takeover mounts later in the DOM, so it is the topmost surface, §29).
+  // takeover mounts later in the DOM, so it is the topmost surface).
   // Focus in text mid-edit defers — the filter field's own Esc clears and
   // blurs first; the second, now-unfocused Esc closes the sheet.
   useEffect(() => {

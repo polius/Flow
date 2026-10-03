@@ -1,5 +1,4 @@
-"""Pydantic response models — the OpenAPI contract that generates the
-frontend TS client (DESIGN.md §6)."""
+"""Pydantic response models — the OpenAPI contract that generates the frontend TS client."""
 
 from __future__ import annotations
 
@@ -10,15 +9,14 @@ from pydantic import BaseModel
 
 class ScanStatus(BaseModel):
     state: Literal["idle", "scanning"]
-    # "analyze" = the post-scan loudness pass (§2.3); the index is already
-    # correct, gains are being filled in behind it.
+    # "analyze" = the post-scan loudness pass; the index is already correct,
+    # gains are being filled in behind it.
     phase: Literal["scan", "watch", "analyze"] | None
     current: int
     total: int
     errors: int
     finished_at: str | None
-    # True when the last scan hit the broken-mount guard (§2.8): the calm,
-    # explicit state Settings explains instead of a bare error count.
+    # True when the last scan hit the broken-mount guard.
     mount_guard: bool = False
 
 
@@ -46,14 +44,14 @@ class ScanErrorEntry(BaseModel):
 
 
 class ScanErrorLog(BaseModel):
-    """Skipped files of the last scan, for Settings' disclosure (§2.8)."""
+    """Skipped files of the last scan, for Settings' disclosure."""
 
     total: int
     truncated: bool
     items: list[ScanErrorEntry]
 
 
-# ---- Library (Milestone 3) ---------------------------------------------------
+# ---- Library -----------------------------------------------------------------
 
 
 class TrackOut(BaseModel):
@@ -63,8 +61,8 @@ class TrackOut(BaseModel):
     artist_id: int | None
     album: str | None
     album_id: int | None
-    # The track's own album-artist tag value (§2.2) — the compilation
-    # semantics Get Info and the bulk editor pin.
+    # The track's own album-artist tag value — the compilation semantics
+    # Get Info and the bulk editor pin.
     album_artist: str | None = None
     track_no: int | None
     disc_no: int | None
@@ -73,17 +71,17 @@ class TrackOut(BaseModel):
     format: str
     favorite: bool
     artwork_id: int | None
-    # File path relative to the library root (Organize view, §22).
+    # File path relative to the library root (Organize view).
     path: str
-    # Sound Check loudness offset in dB (§2.3) — NULL until measured.
+    # Sound Check loudness offset in dB — NULL until measured.
     gain_db: float | None = None
-    # Last real playback start (§4.1): private, count-free recency. NULL
-    # until the track has been played on this server; rescans never touch it.
+    # Last real playback start: private, count-free recency. NULL until the
+    # track has been played on this server; rescans never touch it.
     played_at: str | None = None
-    # The track's primary genre (§2.2): the first tag genre, the one the
-    # Tracks filter groups by. NULL = untagged. Editable in Organize.
+    # The track's primary genre: the first tag genre, the one the Tracks
+    # filter groups by. NULL = untagged. Editable in Organize.
     genre: str | None = None
-    # When the scanner first saw the file (§22) — the Organize view's
+    # When the scanner first saw the file — the Organize view's
     # "latest added first" ordering.
     added_at: str | None = None
 
@@ -103,11 +101,11 @@ class AlbumSummary(BaseModel):
     year: int | None
     artwork_id: int | None
     track_count: int
-    # The album's most recent play (§4.1) — recency sorts and the Home
+    # The album's most recent play — recency sorts and the Home
     # "Recently played" module. NULL = never played on this server.
     played_at: str | None = None
-    # User-set cover (2026-10-03): overrides the scan-derived `artwork_id`
-    # while set, exactly as a playlist's cover overrides its track mosaic.
+    # User-set cover: overrides the scan-derived `artwork_id` while set,
+    # exactly as a playlist's cover overrides its track mosaic.
     cover_artwork_id: int | None = None
 
 
@@ -137,8 +135,8 @@ class ArtistSummary(BaseModel):
     # grid reads as a wall of circular covers, Apple-Music style). None → the
     # client renders a monogram.
     artwork_id: int | None = None
-    # User-set portrait (2026-10-03): overrides `artwork_id` while set —
-    # the same override a playlist's cover applies to its track mosaic.
+    # User-set portrait: overrides `artwork_id` while set — the same
+    # override a playlist's cover applies to its track mosaic.
     cover_artwork_id: int | None = None
 
 
@@ -159,7 +157,7 @@ class ArtistUpdate(BaseModel):
     cover_artwork_id: int | None = None
 
 
-# ---- Genres (UX review §2.2) -------------------------------------------------
+# ---- Genres ------------------------------------------------------------------
 
 
 class GenreSummary(BaseModel):
@@ -168,7 +166,7 @@ class GenreSummary(BaseModel):
     track_count: int
     album_count: int
     # A representative cover from the genre's albums — the grid stays
-    # art-first, per §8.1.
+    # art-first.
     artwork_id: int | None = None
 
 
@@ -179,17 +177,17 @@ class GenreListOut(BaseModel):
     offset: int
 
 
-# ---- Track editing (Milestone 4) ---------------------------------------------
+# ---- Track editing -----------------------------------------------------------
 
 
 class TrackPatch(BaseModel):
-    """Get Info / inline-rename payload (DESIGN.md §6, §13.2).
+    """Get Info / inline-rename payload.
 
     artist/album are name strings — the editor find-or-creates rows. Only
     fields the client sends are applied; sent overlay fields set their
     `user_edited` bit so rescans preserve them. `album_artist` pins a
-    compilation's identity (§2.2); an empty string clears it. `genre`
-    replaces the track's tag genres with the one named (empty clears)."""
+    compilation's identity (empty string clears it); `genre` replaces the
+    track's tag genres with the one named (empty clears)."""
     title: str | None = None
     artist: str | None = None
     album_artist: str | None = None
@@ -199,16 +197,15 @@ class TrackPatch(BaseModel):
     genre: str | None = None
 
 
-# ---- Organize view: bulk apply + review (§22) --------------------------------
+# ---- Organize view: bulk apply + review --------------------------------------
 
 
 class BulkApplyIn(BaseModel):
-    """Mass edit from the Organize view (§22). Selection is either explicit
+    """Mass edit from the Organize view. Selection is either explicit
     `track_ids` or the same filter contract as GET /api/tracks minus
     pagination (`q` / `artist_id` / `album_id` / `review`, minus
     `except_ids`) — so a filter-wide apply touches exactly what the grid
-    showed. Change fields carry the §15.2 semantics via the shared apply
-    path: a field absent from the JSON never touches the column; an
+    showed. A field absent from the JSON never touches the column; an
     explicit null clears the track number; empty artist/album strings clear
     the reference; 0 normalizes to null. `favorite` is intentionally not a
     bulk field."""
@@ -231,8 +228,8 @@ class BulkApplyOut(BaseModel):
 
 
 class TrackReorderIn(BaseModel):
-    """Organize drag-reorder (§22): the album's tracks in their new order.
-    Each track's number is rewritten to its position in the list (1..n) and
+    """Organize drag-reorder: the album's tracks in their new order. Each
+    track's number is rewritten to its position in the list (1..n) and
     flagged user-edited, so a rescan preserves it."""
     track_ids: list[int]
 
@@ -244,16 +241,16 @@ class AlbumRef(BaseModel):
 
 
 class CollisionGroup(BaseModel):
-    """Albums whose titles collapse onto one normalized key (§22): the
-    scanner groups on exact strings, so suffix variants become siblings."""
+    """Albums whose titles collapse onto one normalized key: the scanner
+    groups on exact strings, so suffix variants become siblings."""
     key: str
     albums: list[AlbumRef]
 
 
 class ReviewSummary(BaseModel):
-    """The "Needs attention" strip (§22). Deterministic counts only — no
-    fuzzy matching. `undo_available` rides along: the view needs both on
-    load, and undo state lives server-side (one generation)."""
+    """The "Needs attention" strip. Deterministic counts only — no fuzzy
+    matching. `undo_available` rides along: the view needs both on load,
+    and undo state lives server-side (one generation)."""
     no_album: int
     single_track_albums: int
     mixed_album_artist_albums: int
@@ -263,7 +260,7 @@ class ReviewSummary(BaseModel):
     undo_available: bool
 
 
-# ---- Playlists (Milestone 4) ---------------------------------------------------
+# ---- Playlists -----------------------------------------------------------------
 
 
 class PlaylistSummary(BaseModel):
@@ -273,9 +270,9 @@ class PlaylistSummary(BaseModel):
     created_at: str
     track_count: int
     duration_total: float
-    # User-set cover; overrides the 2×2 card mosaic while set (§13.10).
+    # User-set cover; overrides the 2×2 card mosaic while set.
     cover_artwork_id: int | None
-    # Up to four artwork ids, in playlist order — the 2×2 card mosaic (§13.10).
+    # Up to four artwork ids, in playlist order — the 2×2 card mosaic.
     artwork_ids: list[int]
 
 
@@ -314,7 +311,7 @@ class PlaylistOrderIn(BaseModel):
     track_ids: list[int]
 
 
-# ---- Search (Milestone 4) ------------------------------------------------------
+# ---- Search --------------------------------------------------------------------
 
 
 class SearchOut(BaseModel):
@@ -325,14 +322,13 @@ class SearchOut(BaseModel):
     playlists: list[PlaylistSummary]
 
 
-# ---- The server-truth play queue (UX review Part 4.0) --------------------------
+# ---- The server-truth play queue -----------------------------------------------
 
 class QueueOrigin(BaseModel):
-    """Where the queue came from (UX review 2, Part 1.1): the "Playing from"
-    sentence. `label` is the human name ("Album 03", "Everything, shuffled");
-    `href` is the route that makes the label a link. `manual` (a hand-built
-    queue) carries no label — nothing renders, exactly as before this
-    column existed."""
+    """Where the queue came from — the "Playing from" sentence. `label` is
+    the human name ("Album 03", "Everything, shuffled"); `href` is the route
+    that makes the label a link. `manual` (a hand-built queue) carries no
+    label — nothing renders."""
 
     kind: Literal["album", "artist", "playlist", "filter", "shuffle-all", "manual"]
     label: str | None = None
@@ -345,8 +341,8 @@ class QueueSnapshot(BaseModel):
     order; `order` is the play order as indexes into `items` (identity, or
     the shuffle plan); `order_pos` indexes `order` (-1 = built, nothing
     loaded); `position` is seconds into the current track. `origin` names
-    what produced the queue (§1.1) — null for sessions that predate it. The
-    client store adopts this shape verbatim."""
+    what produced the queue — null for sessions that predate it. The client
+    store adopts this shape verbatim."""
 
     items: list[TrackOut]
     order: list[int]
@@ -357,13 +353,13 @@ class QueueSnapshot(BaseModel):
 
 
 class QueuePlayIn(BaseModel):
-    """POST /api/queue — "play this view" (§4.0). Exactly one of `track_ids`
-    or the GET /api/tracks filter contract (minus pagination). The server
+    """POST /api/queue — "play this view". Exactly one of `track_ids` or
+    the GET /api/tracks filter contract (minus pagination). The server
     resolves the WHOLE filter in one query — there is no page for the queue
-    to be silently truncated to (§1.2, for good). `start` is the index into
-    the resolved list that begins playback; `shuffle` builds the play order
-    starting there instead. `origin` is the caller's declaration of what
-    this view IS (the client knows; the server records, §1.1)."""
+    to be silently truncated to. `start` is the index into the resolved
+    list that begins playback; `shuffle` builds the play order starting
+    there instead. `origin` is the caller's declaration of what this view
+    IS (the client knows; the server records it)."""
 
     track_ids: list[int] | None = None
     q: str | None = None
@@ -380,11 +376,11 @@ class QueuePlayIn(BaseModel):
 
 
 class QueuePutIn(BaseModel):
-    """PUT /api/queue — the client's plan mirror (§32). The store remains the
-    source of UI truth and PUTs its whole queue when the plan changes (the
-    §29 cadence, server-destination instead of localStorage-only). `order`
-    must be a permutation of 0..n-1 into `track_ids`. `origin` rides along
-    unchanged — queue edits never rewrite where the queue came from."""
+    """PUT /api/queue — the client's plan mirror: the store remains the
+    source of UI truth and PUTs its whole queue when the plan changes.
+    `order` must be a permutation of 0..n-1 into `track_ids`. `origin`
+    rides along unchanged — queue edits never rewrite where the queue came
+    from."""
 
     track_ids: list[int]
     order: list[int]
@@ -394,11 +390,11 @@ class QueuePutIn(BaseModel):
 
 
 class QueuePatchIn(BaseModel):
-    """PATCH /api/queue — the playhead, at the §29 cadence (3 s throttle plus
-    a pagehide flush). `played_track_id` rides the immediate start-of-play
-    sync: when present, the server stamps tracks.played_at (§4.1) on THAT id
-    — carried explicitly, never derived from the stored plan, so a mirror
-    PUT still in flight cannot mis-stamp."""
+    """PATCH /api/queue — the playhead, on a 3 s throttle plus a pagehide
+    flush. `played_track_id` rides the immediate start-of-play sync: when
+    present, the server stamps tracks.played_at on THAT id — carried
+    explicitly, never derived from the stored plan, so a mirror PUT still
+    in flight cannot mis-stamp."""
 
     order_pos: int | None = None
     position: float | None = None

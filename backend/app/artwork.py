@@ -1,9 +1,4 @@
-"""Artwork handling: extraction from tags, folder fallback, sha1 dedup.
-
-Rules (DESIGN.md §13.3): embedded art first; fallback to cover/folder/front
-images in the track's directory; blobs stored as original bytes, never
-re-encoded.
-"""
+"""Artwork handling: tag-embedded art first, folder fallback, sha1 dedup; blobs are stored as original bytes, never re-encoded."""
 
 from __future__ import annotations
 
@@ -97,11 +92,10 @@ class ArtworkStore:
     ) -> int | None:
         """Artwork id for a track: embedded art first, folder image second.
 
-        `embedded_from` overrides the file probed for embedded art — repaired
-        tracks (§38) keep their library path (the broken original, which
-        mutagen can never parse), while the parseable remux lives in the
-        data dir. The folder fallback always reads `path.parent`: the
-        repaired folder holds only remuxes, never covers."""
+        `embedded_from` overrides the file probed for embedded art: a repaired
+        track's original is unparseable by mutagen, so the probe targets the
+        remux in the data dir, while the folder fallback still reads
+        `path.parent` (the library folder holds covers, never remuxes)."""
         embedded = None
         try:
             embedded = _extract_embedded(embedded_from or path, suffix)

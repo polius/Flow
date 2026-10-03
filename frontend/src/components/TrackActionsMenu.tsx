@@ -1,18 +1,8 @@
-/* The row action menu (§9.2 revision): one app-wide menu for any track row,
-   opened by right-click (desktop) or long-press (touch) and rendered by a
-   single host mounted in AppShell.
-
-   Why it exists: hover-revealed row buttons don't exist on touch. Apple's
-   answer — from iOS files to Music — is the long-press context menu, with
-   an action-sheet form factor on compact screens. The heart stays as a
-   STATE indicator; the ACTION lives here, where it's always reachable.
-
-   Items: Play (in the row's context), Play next, Add to queue, Add to
-   Playlist, Go to Album / Go to Artist (§2.2 — the menu navigates, each
-   item only when the track names that entity), Favorite, Get Info — and,
-   when the row came from a playlist, Remove from Playlist (§25). Surface
-   reuses the shared menu language (elevated panel, hairline border,
-   scale-in). */
+/* The row action menu: one app-wide menu for any track row, opened by
+   right-click (desktop) or long-press (touch) and rendered by a single
+   host mounted in AppShell. Why it exists: hover-revealed row buttons
+   don't exist on touch. The heart stays as a STATE indicator; the ACTION
+   lives here, where it's always reachable. */
 
 import { useEffect, useRef } from "react";
 import { useLocation, useNavigate } from "react-router";
@@ -96,7 +86,7 @@ export function TrackActionsMenu() {
   const { track, x, y, context, contextLoader, origin, removeFromPlaylist, selection } =
     request;
   // A right-click on a row inside a live selection acts on the WHOLE
-  // selection (§4.1): the verbs file, queue, and play every selected track,
+  // selection: the verbs file, queue, and play every selected track,
   // not just the row under the pointer. Otherwise the row stands alone.
   const targets = selection && selection.length > 0 ? selection : [track];
 
@@ -107,8 +97,8 @@ export function TrackActionsMenu() {
 
   // "Play" queues the row's whole context. Paged views hand over a loader
   // instead of their loaded pages: the menu must never play a queue
-  // truncated to the scroll depth (§29). If the loader fails, the loaded
-  // context still plays. The origin (§1.1) rides along when the invoking
+  // truncated to the scroll depth. If the loader fails, the loaded
+  // context still plays. The origin rides along when the invoking
   // surface knows what it is — a hand-built context just stays manual.
   const playInContext = () => {
     const base = context ?? [track];
@@ -165,10 +155,9 @@ export function TrackActionsMenu() {
           ? `Add ${targets.length} to Playlist`
           : "Add to Playlist"}
       </button>
-      {/* §2.2: the menu answers "where can I go from here" — the same two
-          destinations the row's link grammar carries (§1.4), each present
-          only when the track names that entity (null-ability respected).
-          Navigation closes the menu; the pathname effect would anyway. */}
+      {/* The menu navigates — each destination present only when the
+          track names that entity. Navigation closes the menu; the
+          pathname effect would anyway. */}
       {(track.album_id != null || track.artist_id != null) && (
         <div className="trackmenu__separator" role="separator" />
       )}
@@ -262,7 +251,7 @@ export function TrackActionsMenu() {
 
   // Desktop popover: clamp inside the viewport with the menu's shadow margin.
   const W = 224;
-  const H = 400; // identity + up to nine items and separators (§2.2's two added)
+  const H = 400; // identity + up to nine items and separators
   const left = Math.min(Math.max(8, x), window.innerWidth - W - 12);
   const top = Math.min(Math.max(8, y), window.innerHeight - H - 12);
   return (

@@ -1,19 +1,9 @@
-/* One track row, shared by the plain TrackTable and the windowed
-   VirtualTrackTable (§9.2/§11.6) so the markup can't drift. State comes in
-   as props — neither table owns per-row subscriptions.
-
-   Rows select on click (§4.1, 2026-10-03 follow-up): clicking a row — the
-   title included — SELECTS it, the Finder/Explorer grammar; it never plays.
-   Playback belongs to the row's Play button alone (the hover-revealed glyph
-   in the index slot), plus the keyboard cursor's Enter; activation through
-   the button is idempotent — clicking the current track's Play never
-   restarts, the glyph toggles play/pause instead (§23). Editing lives in
-   Organize.
-
-   Playlist rows (§25): the hover-revealed minus stays the desktop path; on
-   touch the row is swipeable — a leftward drag reveals the Remove action
-   behind the content (iOS Mail's partial-swipe grammar). The gesture never
-   deletes by itself: the drag opens the action, the tap commits it. */
+/* One track row, shared by TrackTable and VirtualTrackTable so the markup
+   can't drift. State comes in as props — neither table owns per-row
+   subscriptions. Rows select on click (title included); playback belongs
+   to the row's Play button alone, plus the keyboard cursor's Enter.
+   Playlist rows: hover-revealed minus on desktop, swipe-to-remove on
+   touch — the drag opens the action, the tap commits it. */
 import { useEffect, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import { Link } from "react-router";
@@ -33,7 +23,7 @@ export type TrackVariant = "album" | "all" | "artist" | "playlist";
 const LONG_PRESS_MS = 480;
 const LONG_PRESS_MOVE_PX = 10;
 
-/* Swipe-to-remove (§25): 84px of revealed action; a horizontal drag locks
+/* Swipe-to-remove: 84px of revealed action; a horizontal drag locks
    as a swipe past 8px (vertical scroll still owns its gestures via
    touch-action: pan-y); release opens at half-reveal or on a leftward
    flick; the pull resists 25% past both ends, hard-capped. */
@@ -47,9 +37,9 @@ interface TrackRowProps {
   track: Track;
   index: number;
   variant: TrackVariant;
-  /** §2.5: no ordinal — the index slot carries the play affordance
-      permanently (search results, where a number over a match list means
-      nothing). One prop; the CSS does the reveal. */
+  /** No ordinal — the index slot carries the play affordance permanently
+      (search results, where a number over a match list means nothing).
+      One prop; the CSS does the reveal. */
   hideIndex?: boolean;
   isCurrent: boolean;
   isPlaying: boolean;
@@ -63,24 +53,24 @@ interface TrackRowProps {
   onToggleFavorite: (track: Track) => void;
   /** Opens the row action menu (right-click / long-press, see TrackActionsMenu). */
   onTrackMenu?: (track: Track, x: number, y: number) => void;
-  /** Playlist variant: displacement while a drag is live — the parting-rows
-      grammar (§27) transforms the wrapper, never the row itself. */
+  /** Playlist variant: displacement while a drag is live — the transform
+      goes on the wrapper, never the row itself. */
   wrapStyle?: CSSProperties;
   /** Playlist variant: the row's order index, exposed as data-idx so the
       table's pointer gesture can find the pressed row. */
   dataIdx?: number;
   /** Playlist variant: one-click removal (hover-revealed on desktop,
-      swipe-revealed on touch — §25). */
+      swipe-revealed on touch). */
   onRemove?: (track: Track) => void;
   /** Whether this row's remove action is currently revealed (one open row
       per table, owned by the parent). */
   swipeOpen?: boolean;
   /** Reports open/close so the parent can close the previously open row. */
   onSwipeOpenChange?: (open: boolean) => void;
-  /** Marquee selection (§4.1): every row click is offered to the table's
+  /** Marquee selection: every row click is offered to the table's
       selection hook — plain click single-selects, Cmd/Ctrl/Alt toggles,
       Shift ranges. The row never plays from a click: playback is the Play
-      button's alone (2026-10-03 follow-up). */
+      button's alone. */
   onSelectClick?: (
     track: Track,
     index: number,
@@ -125,7 +115,7 @@ export function TrackRow({
     }
   };
 
-  // Swipe-to-remove (§25): the gesture tracks the finger by writing the
+  // Swipe-to-remove: the gesture tracks the finger by writing the
   // transform directly — state only marks the two phase edges (locked,
   // released), never the sixty frames between them.
   const swipeable = onRemove != null;
@@ -253,18 +243,17 @@ export function TrackRow({
       className={classes}
       style={style}
       role="row"
-      // Keyboard-cursor anchor (§3.4): the table scrolls the cursor row into
+      // Keyboard-cursor anchor: the table scrolls the cursor row into
       // view by this index; the playlist wrapper keeps its own data-idx for
-      // the pointer gestures. Wrapper-less reorderable rows (Favorites,
-      // 2026-10-03) carry data-idx on the row itself — same contract, no
-      // wrapper to hang it on.
+      // the pointer gestures. Wrapper-less reorderable rows (Favorites)
+      // carry data-idx on the row itself — same contract, no wrapper.
       data-rowindex={index}
       data-idx={dataIdx != null && !swipeable ? dataIdx : undefined}
       onClick={(e) => {
-        // Selection, never playback (2026-10-03 follow-up): the click a
-        // long-press or swipe leaves behind is swallowed, a tap on a
-        // revealed row closes it instead, and everything else selects.
-        // The Play button below is the only pointer path to playback.
+        // Selection, never playback: the click a long-press or swipe
+        // leaves behind is swallowed, a tap on a revealed row closes it
+        // instead, and everything else selects. The Play button below is
+        // the only pointer path to playback.
         if (pressRef.current.fired) {
           pressRef.current.fired = false;
           return;
@@ -293,10 +282,10 @@ export function TrackRow({
       onTouchCancel={onTouchEnd}
     >
       <span className="trackrow__index" aria-hidden="true">
-        {/* The playing marker (§17.7 grammar, shared with the queue drawer):
-            accent bars replace the number, frozen while paused; hover swaps
-            them for the play/pause glyph below. With hideIndex (§2.5) the
-            number never renders — the slot is the play affordance's. */}
+        {/* The playing marker (shared with the queue drawer): accent bars
+            replace the number, frozen while paused; hover swaps them for
+            the play/pause glyph below. With hideIndex the number never
+            renders — the slot is the play affordance's. */}
         {isCurrent && (
           <span className={`trackrow__eq eq${isPlaying ? "" : " eq--paused"}`}>
             <span />

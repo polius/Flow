@@ -1,14 +1,9 @@
-/* Add to Playlist — the destination picker (§2.1). The Add Tracks picker
-   (§23) serves "I'm inside a playlist, find me songs"; this is the reverse
-   gesture — "I'm looking at music, file it somewhere." One surface, both
-   directions, so curation never dead-ends at a single path.
-
-   Lists every playlist (mosaic art + honest count) plus "New Playlist",
-   which first asks for a NAME (an inline step over the list — the dialog
-   is already the modal, a second dialog inside it would be chrome for
-   chrome's sake) and then creates and immediately adds. Enter opens the
-   highlighted row, Esc closes; registered like every modal so Esc
-   precedence holds (§15.7). */
+/* Add to Playlist — the destination picker. The Add Tracks picker serves
+   "I'm inside a playlist, find me songs"; this is the reverse gesture —
+   "I'm looking at music, file it somewhere." Lists every playlist (mosaic
+   art + honest count) plus "New Playlist", which first asks for a NAME
+   (an inline step over the list) and then creates and immediately adds.
+   Enter opens the highlighted row, Esc closes. */
 
 import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -37,7 +32,7 @@ export function AddToPlaylistDialog() {
   const [newName, setNewName] = useState("");
   const nameInputRef = useRef<HTMLInputElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
-  // The created step (2026-10-03): a receipt, not an instant close — the
+  // The created step: a receipt, not an instant close — the
   // dialog says the playlist was created successfully and offers the direct
   // path to it, so a first playlist doesn't feel filed into the void.
   const [created, setCreated] = useState<{
@@ -48,11 +43,11 @@ export function AddToPlaylistDialog() {
 
   const open = tracks != null && tracks.length > 0;
 
-  // Modal focus (§3.4): focus in, Tab cycled, focus restored on close. The
+  // Modal focus: focus in, Tab cycled, focus restored on close. The
   // panel itself (tabIndex=-1) is the host — its list rows are the controls.
   useModalFocus(panelRef, open);
 
-  // Modal lifecycle (§15.7): Esc closes, the shortcut guard defers, and
+  // Modal lifecycle: Esc closes, the shortcut guard defers, and
   // the dialog owns its one moment of attention. Esc inside the naming
   // step unwinds the step first — the dialog closes on the second Esc.
   useEffect(() => {
@@ -113,8 +108,7 @@ export function AddToPlaylistDialog() {
   };
 
   /** Enters the naming step: the list gives way to the name field, and
-      nothing is created until the user names it (2026-10-03 — the old
-      direct path created "New Playlist" with no say in the name). */
+      nothing is created until the user names it. */
   const beginNaming = () => {
     setNewName("");
     setCreated(null);
@@ -122,11 +116,11 @@ export function AddToPlaylistDialog() {
   };
 
   /** Creates the playlist, files the tracks into it, and lands on the
-      created step — a receipt with the direct path to the new playlist
-      (2026-10-03), not an instant close. */
+      created step — a receipt with the direct path to the new playlist,
+      not an instant close. */
   const createAndAdd = async () => {
     const name = newName.trim();
-    if (busy || !name) return; // a nameless playlist is never created (2026-10-03)
+    if (busy || !name) return; // a nameless playlist is never created
     setBusy(true);
     const playlist = await createPlaylist(name);
     if (!playlist) {
@@ -202,7 +196,7 @@ export function AddToPlaylistDialog() {
   }
 
   // The created step: a receipt — the dialog confirms the playlist was
-  // created successfully and offers the direct path to it (2026-10-03).
+  // created successfully and offers the direct path to it.
   if (created) {
     return (
       <>

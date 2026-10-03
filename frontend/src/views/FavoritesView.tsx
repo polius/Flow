@@ -15,15 +15,9 @@ import { IconHeart, IconPlay, IconShuffle } from "../components/icons";
 import { fmtCount } from "../lib/format";
 import { usePlayerStore } from "../stores/player";
 
-/* Favorites — the library's loved songs, first-class (§9.1). The heart is a
-   state indicator on every row; this view is where the state lands.
-
-   Manual order (2026-10-03): Favorites is a curated list like a playlist —
-   the view has NO sort menu. The order is the drag-written one
-   (favorite_position 1..n, persisted server-side); press-and-drag reorders
-   it with the same §27 gesture the playlist table speaks. A freshly loved
-   track appends at the end; the search filter narrows the list but the
-   order never re-sorts behind the user's back. */
+/* Favorites is a curated list — no sort menu. The order is the drag-written
+   manual one (favorite_position 1..n, persisted server-side); a search
+   filter narrows the list but never re-sorts it behind the user's back. */
 
 const PAGE_SIZE = 1000;
 
@@ -40,7 +34,6 @@ export function FavoritesView() {
             limit: PAGE_SIZE,
             offset: pageParam,
             favorite: true,
-            // The drag-written manual order — the only order this view has.
             sort: "favorite",
             dir: "asc",
             ...(q ? { q } : {}),
@@ -50,8 +43,8 @@ export function FavoritesView() {
       return data;
     },
     initialPageParam: 0,
-    // Keep the previous order on the page while a refetch lands — the
-    // table must swap orders in one paint, not flash a skeleton (§2.6).
+    // Keep the previous order on screen while a refetch lands — the table
+    // swaps orders in one paint, not a skeleton.
     placeholderData: (prev) => prev,
     getNextPageParam: (lastPage, allPages) => {
       const loaded = allPages.reduce((n, p) => n + (p?.items.length ?? 0), 0);
@@ -68,19 +61,17 @@ export function FavoritesView() {
   const playTracks = usePlayerStore((s) => s.playTracks);
   const playSnapshot = usePlayerStore((s) => s.playSnapshot);
 
-  // §1.1: the queue's origin — this view, named.
   const viewOrigin: QueueOrigin = {
     kind: "filter",
     label: "Favorites",
     href: "/favorites",
   };
 
-  // "Play from here" means the whole view (§29), server-resolved when pages
-  // of the filter are still unloaded (§32): POST /api/queue resolves the
-  // WHOLE filter in one query — a 2,000-favorites queue is 2,000 tracks by
-  // construction, not by fetching. A failed POST falls back to §29's
-  // client-side whole-view fetch; a fully loaded view plays instantly and
-  // the §32 mirror keeps the server honest.
+  // "Play from here" means the whole view: when pages of the filter are
+  // still unloaded, the server resolves the WHOLE filter in one query (a
+  // 2,000-favorites queue is 2,000 tracks by construction, not by
+  // fetching); a failed POST falls back to the client-side whole-view
+  // fetch. A fully loaded view plays instantly.
   const playFromHere = useCallback(
     (index: number) => {
       if (tracks.length >= total) {
@@ -120,11 +111,9 @@ export function FavoritesView() {
     [q],
   );
 
-  // Shuffle (§2.5's escape hatch, scoped to the view): the whole filter,
-  // server-resolved and shuffled in one query (§32) — never a truncated
-  // queue. Shuffle flips on before the call so the player bar tells the
-  // truth about the plan (§30.1); the §29 client-side fetch is the
-  // fallback, started at a random track with the store's order shuffled.
+  // Shuffle the whole filter server-side — never a truncated queue. Shuffle
+  // flips on before the call so the player bar tells the truth about the
+  // plan; the client-side fetch is the fallback.
   const [shuffling, setShuffling] = useState(false);
   const shuffleAll = useCallback(() => {
     if (shuffling || total === 0) return;
@@ -164,15 +153,12 @@ export function FavoritesView() {
     if (query.hasNextPage && !query.isFetchingNextPage) void query.fetchNextPage();
   }, [query.hasNextPage, query.isFetchingNextPage, query.fetchNextPage]);
 
-  // ---- drag-to-reorder (the view's whole ordering story) -------------------
-
   const queryClient = useQueryClient();
   const reorderFavorites = useReorderFavorites();
 
-  // The drag writes the whole list — only offer it when every favorite is
-  // loaded and no search filter narrows the visible subset: reordering
-  // against a partial or filtered read would silently re-point the rows
-  // the screen can't show.
+  // Only offer the drag when every favorite is loaded and no search filter
+  // narrows the subset — reordering a partial or filtered read would
+  // silently re-point rows the screen can't show.
   const reorderable = !q && tracks.length > 1 && tracks.length >= total;
 
   const move = useCallback(
@@ -182,8 +168,8 @@ export function FavoritesView() {
       const [moved] = ids.splice(fromIndex, 1);
       ids.splice(toIndex, 0, moved);
       // Optimistic rewrite of the cached pages: one flat splice,
-      // redistributed by the same PAGE_SIZE the query fetched with — the
-      // server PUT confirms behind it (the playlist-detail pattern).
+      // redistributed by the same PAGE_SIZE the query fetched with; the
+      // server PUT confirms behind it.
       queryClient.setQueryData<{ pages: (TrackList | undefined)[]; pageParams: unknown[] }>(
         ["tracks", "favorites", q],
         (data) => {
@@ -219,10 +205,9 @@ export function FavoritesView() {
         <div>
           <h1 className="view__title">Favorites</h1>
           <p className="view__subtitle">
-            {/* §2.6: while the query is in flight the slot stays empty (the
-                nbsp holds the line box — no layout shift) rather than
-                formatting a zero. A computed "0" that isn't measured is a
-                lie §16.6 forbids. */}
+            {/* While the query is in flight the nbsp holds the line box — no
+                layout shift, and no "0 songs" flash before the count is
+                measured. */}
             {query.isPending
               ? "\u00A0"
               : q
@@ -267,11 +252,7 @@ export function FavoritesView() {
           hint={
             q
               ? "Try a different word."
-              : // §2.3: the copy names the actual grammar — the heart is a
-                // hover button on the row (always revealed on touch), and
-                // the long-press menu is the touch path. The old sentence
-                // sent users hunting for a row menu that no longer exists.
-                "Touch the heart on any row — or press and hold a row (right-click on desktop) for more."
+              : "Touch the heart on any row — or press and hold a row (right-click on desktop) for more."
           }
         />
       ) : (

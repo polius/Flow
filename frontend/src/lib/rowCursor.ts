@@ -1,18 +1,9 @@
-/* Finder-style keyboard cursor for the listening tables (§3.4): the review
-   found track rows unreachable as a table — inner buttons tabbable, but no
-   arrow-key cursor and no Enter-to-play, while the Organize grid implements
-   exactly that grammar. The listening tables inherit it:
-
-   - the table container is ONE Tab stop; arrows move the cursor,
-     Home/End jump, PageUp/PageDown page, Enter plays the cursor row;
-   - keys never fire while focus sits on an inner control (button, link,
-     slider) — the same guard the Organize grid uses (§16.3), so nothing
-     double-fires;
-   - Space stays with the global transport shortcut (play/pause), which is
-     the app-wide grammar.
-
-   The cursor is visual + keyboard state; the row buttons remain the
-   pointer and screen-reader path. */
+/* Finder-style keyboard cursor for the listening tables: the container is
+   ONE Tab stop — arrows move the cursor, Home/End jump, PageUp/PageDown
+   page, Enter plays. Keys never fire while focus sits on an inner control
+   (the shared guard below), so nothing double-fires; Space stays with the
+   global transport shortcut. The cursor is visual + keyboard state; the
+   row buttons remain the pointer and screen-reader path. */
 
 import { useEffect, useState, type KeyboardEvent } from "react";
 

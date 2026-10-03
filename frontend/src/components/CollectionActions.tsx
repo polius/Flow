@@ -1,15 +1,8 @@
-/* CollectionActions (§2.1): the Apple header trio — Play · Shuffle · … —
-   for any body of music a detail page presents — albums, artists, and, since
-   the review's §2.1, playlists (the trio is a parameter here, never a fork).
-   The "…" menu carries the shared curation verbs (Play Next into the live
-   queue in order, Add to Queue (end), Add to Playlist) plus whatever the
-   calling surface owes it: navigation ("Go to Artist", §2.2) and the
-   editing verbs that used to sit as header furniture on the playlist
-   ("Add Tracks", "Manage" — §2.1). One component for every detail view so
-   the grammar can never drift between them. One exception, also §2.1:
+/* The Apple header trio — Play · Shuffle · … — for any body of music a
+   detail page presents: albums, artists, playlists. One component for every
+   detail view so the verbs can never drift between them. One exception:
    "Add to Playlist" lives everywhere except inside a playlist — filing a
-   playlist into a playlist has no destination, so the playlist surface
-   opts out. */
+   playlist into a playlist has no destination, so that surface opts out. */
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
 
@@ -24,9 +17,9 @@ export interface CollectionMenuItem {
   label: string;
   icon?: ReactNode;
   onSelect: () => void;
-  /** Two-step confirm (2026-10-03): the first click arms in place — the
-      item's label becomes `confirmLabel` — and only the second fires.
-      Arming expires after five seconds and disarms when the menu closes. */
+  /** Two-step confirm: the first click arms in place — the item's label
+      becomes `confirmLabel` — and only the second fires. Arming expires
+      after five seconds and disarms when the menu closes. */
   confirmLabel?: string;
   /** Destructive: wears the shared danger styling from the start. */
   danger?: boolean;
@@ -39,16 +32,15 @@ interface CollectionActionsProps {
   tracks: Track[];
   /** Screen-reader label context: "album Dark Side" / "artist's songs". */
   label: string;
-  /** What playing this collection means for the queue's origin (§1.1) —
+  /** What playing this collection means for the queue's origin —
       the caller knows what the view is; the store records it. */
   origin?: QueueOrigin | null;
-  /** The menu items this surface adds (§2.1/§2.2): the playlist's editing
-      verbs, the album's Go to Artist. Order follows the caller. */
+  /** The menu items this surface adds: the playlist's editing verbs, the
+      album's Go to Artist. Order follows the caller. */
   extraItems?: CollectionMenuItem[];
   /** Whether the "…" menu offers the shared "Add to Playlist" verb.
-      Defaults true; the playlist surface passes false — §2.1 keeps the
-      verb everywhere except inside a playlist, where it has no
-      destination. */
+      Defaults true; the playlist surface passes false — the verb belongs
+      everywhere except inside a playlist, where it has no destination. */
   addToPlaylist?: boolean;
 }
 
@@ -92,8 +84,7 @@ export function CollectionActions({
   }, [open]);
 
   // An armed confirm disarms itself: when the menu closes, and again five
-  // seconds after arming — a hesitate-means-no guard, the Manage dialog's
-  // two-step grammar (§9.2) living in a menu item.
+  // seconds after arming — a hesitate-means-no guard.
   useEffect(() => {
     if (!open) {
       setArmed(null);
@@ -160,10 +151,10 @@ export function CollectionActions({
               <IconNext size={15} />
               Play Next
             </button>
-            {/* §1.2: the menus carry both destinations — insert-after-
-                current is the menus' default (the verb above), append is
-                here under its own name. Arrival confirms via the §26
-                toast, from the store action either way. */}
+            {/* The menus carry both destinations — insert-after-current is
+                the default (the verb above), append is here under its own
+                name. Arrival confirms via the toast, from the store action
+                either way. */}
             <button
               type="button"
               role="menuitem"

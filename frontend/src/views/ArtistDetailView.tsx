@@ -23,8 +23,8 @@ import { TrackTable } from "../components/TrackTable";
 import { TrackTableHead } from "../components/TrackTableHead";
 import "../styles/library.css";
 
-/* §1.3's fold: a prolific artist's page keeps its covers in charge — the
-   song list starts at COLLAPSED_ROWS rows and only grows on request. */
+/* The song list starts collapsed so the covers stay in charge; it grows
+   only on request. */
 const COLLAPSED_ROWS = 20;
 const COLLAPSE_ABOVE = 30;
 
@@ -68,7 +68,6 @@ export function ArtistDetailView() {
     );
   }
 
-  // §1.1: the artist page is the queue's origin here.
   const origin: QueueOrigin = {
     kind: "artist",
     label: artist.name,
@@ -79,9 +78,6 @@ export function ArtistDetailView() {
     ? artist.tracks.slice(0, COLLAPSED_ROWS)
     : artist.tracks;
 
-  // Cover editing (§25): the action lands, then the toast offers Undo —
-  // see AlbumDetailView for the full note; this is the same grammar with
-  // the artist's hooks (§2.1: the sentence cannot fork).
   const removeCoverWithUndo = () => {
     const removed = artist.cover_artwork_id;
     void removeCover(artist.id).then((ok) => {
@@ -111,12 +107,6 @@ export function ArtistDetailView() {
   return (
     <section className="view">
       <header className="detailhead">
-        {/* The artist header joins the cover grammar (2026-10-03): the
-            portrait is click-to-edit, masked to the circle the Artists
-            grid reads as a face. The latest album's cover stands in
-            until the user sets one; the × restores it. No art at all →
-            the monogram, a designed state (§8.1), still invites the
-            first upload. */}
         <CoverEdit
           round
           hasCover={artist.cover_artwork_id != null}
@@ -162,9 +152,8 @@ export function ArtistDetailView() {
       {artist.tracks.length > 0 && (
         <div className="libsection">
           <h2>Songs</h2>
-          {/* The full credited catalog (§30.3) in the shared TrackRow
-              grammar — `context` stays the WHOLE list, so every visible row
-              plays in the artist's full context even while collapsed. */}
+          {/* context stays the WHOLE list, so every visible row plays in the
+              artist's full context even while collapsed. */}
           <TrackTableHead variant="artist" />
           <TrackTable
             tracks={visibleSongs}

@@ -1,7 +1,5 @@
-/* Loading placeholder (§8.8) — quiet inset blocks with a slow pulse.
-   Deliberately separate from EmptyState: "still loading" must never read
-   as "empty library". The pulse communicates waiting; nothing else moves
-   (§8.4), and it stops under prefers-reduced-motion. */
+/* Loading placeholder — deliberately separate from EmptyState: "still
+   loading" must never read as "empty library". */
 
 interface LoadingStateProps {
   /** "grid" for cover grids, "detail" for detail headers, "rows" otherwise. */

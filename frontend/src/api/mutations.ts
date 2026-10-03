@@ -1,7 +1,5 @@
-/* Server mutations shared by the M4 editing surfaces (§11.4).
-   Each hook keeps optimistic cache updates local and invalidates on settle —
-   list views re-render from server truth, the player queue is patched in
-   place so a playing track's heart stays live. */
+/* Shared server mutations: optimistic cache updates + invalidate on settle.
+   The player queue is patched in place so a playing track's heart stays live. */
 
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -96,10 +94,9 @@ export function useToggleFavorite() {
   return (track: Track) => {
     const favorite = !track.favorite;
     applyFavorite(queryClient, track.id, favorite);
-    // Un-favoriting is a removal (§26): it gets the same recovery grammar
-    // as every other removal — act at once, offer Undo. Favoriting is a
-    // gain; it needs no toast. The undo rides the same toggle path, so
-    // the optimistic patch and the server call can't diverge.
+    // Un-favoriting is a removal: offer Undo at once; favoriting is a
+    // gain and stays quiet. The undo rides the same toggle path, so the
+    // optimistic patch and the server call can't diverge.
     if (!favorite) {
       showUndoNotice({
         message: `Removed “${track.title}” from Favorites`,
@@ -111,12 +108,10 @@ export function useToggleFavorite() {
   };
 }
 
-/** Batch favorite from the listening selection bar (§4.1): one toggle for
-    every selected track. Un-favoriting is a removal (§26) — one undo toast
-    restores the whole batch; favoriting is a gain and stays quiet. Each
-    track rides the same applyFavorite the row heart uses, so the queue and
-    every cache stay in step. §22.4 stands — favorite is not a bulk field;
-    this is N single PATCHes at selection scale, not a new endpoint. */
+/** Batch favorite from the selection bar: one undo toast restores the
+    whole batch; favoriting stays quiet. Each track rides the same
+    applyFavorite the row heart uses, so queue and caches stay in step.
+    Deliberately N single PATCHes at selection scale, not a new endpoint. */
 export function useSetFavoriteMany() {
   const queryClient = useQueryClient();
   const showUndoNotice = useUiStore((s) => s.showUndoNotice);
@@ -151,7 +146,7 @@ export function usePatchTrack() {
       void queryClient.invalidateQueries({ queryKey: ["playlists"] });
       void queryClient.invalidateQueries({ queryKey: ["search"] });
       void queryClient.invalidateQueries({ queryKey: ["genres"] });
-      // Regrouping can change every review count (§22).
+      // Regrouping can change every review count.
       void queryClient.invalidateQueries({ queryKey: ["review"] });
       return true;
     }
@@ -159,8 +154,8 @@ export function usePatchTrack() {
   };
 }
 
-/** Organize view (§22): mass apply + one-generation undo. Both invalidate
-    broadly — albums, artists, and every review count can move at once. */
+/** Mass apply + one-generation undo. Both invalidate broadly — albums,
+    artists, and every review count can move at once. */
 export function useBulkApply() {
   const queryClient = useQueryClient();
   return async (body: BulkApplyIn): Promise<number | null> => {
@@ -195,8 +190,8 @@ export function useUndoBulkApply() {
   };
 }
 
-/** Organize drag-reorder (§22): one album's tracks in their new order —
-    the server renumbers 1..n and flags each overlay-edited. */
+/** Drag-reorder: one album's tracks in their new order — the server
+    renumbers 1..n and flags each overlay-edited. */
 export function useReorderTracks() {
   const queryClient = useQueryClient();
   return async (trackIds: number[]): Promise<boolean> => {
@@ -211,10 +206,10 @@ export function useReorderTracks() {
   };
 }
 
-/** Favorites drag-reorder (2026-10-03): the whole favorites list in its
-    new order — the server rewrites each favorite_position 1..n. The
-    caller applies the optimistic splice; the invalidate resyncs anything
-    the caller's cache couldn't know. */
+/** Favorites drag-reorder: the whole favorites list in its new order —
+    the server rewrites each favorite_position 1..n. The caller applies
+    the optimistic splice; the invalidate resyncs what the caller's cache
+    couldn't know. */
 export function useReorderFavorites() {
   const queryClient = useQueryClient();
   return async (trackIds: number[]): Promise<boolean> => {
@@ -250,9 +245,9 @@ export function useAddToPlaylist() {
       body: { track_ids: trackIds },
     });
     if (response.ok) {
-      // Set-like membership (§2.1): the server skips tracks the playlist
-      // already holds. The headers carry the honest split — say so, or a
-      // "0 added" add would look like a lie.
+      // The server skips tracks the playlist already holds; the headers
+      // carry the honest split — say so, or a "0 added" add would look
+      // like a lie.
       const added = Number(response.headers.get("x-tracks-added") ?? trackIds.length);
       const skipped = Number(response.headers.get("x-tracks-skipped") ?? 0);
       if (skipped > 0) {
@@ -286,7 +281,7 @@ export function useRemoveFromPlaylist() {
       "/api/playlists/{playlist_id}/tracks/{track_id}",
       { params: { path: { playlist_id: playlistId, track_id: trackId } } },
     );
-    // The caller offers Undo only when the removal landed (§25); a failure
+    // The caller offers Undo only when the removal landed; a failure
     // surfaces through this throw and the invalidate below resyncs the row.
     if (!response.ok) throw new Error("Failed to remove track from playlist");
     void queryClient.invalidateQueries({ queryKey: ["playlists"] });
@@ -364,12 +359,10 @@ export function useDeletePlaylist() {
   };
 }
 
-/** Album & artist covers (2026-10-03): the playlist cover contract over
-    the library entities — PUT stores an upload, DELETE restores the
-    derived art. Both endpoints echo the refreshed detail; invalidation
-    is the source of truth, the same cadence as the playlist cover. The
-    artist-page hooks also refresh ["albums"]: its grid embeds the
-    artist's album cards, which read the album's own override. */
+/** Album & artist covers mirror the playlist cover contract: PUT stores
+    an upload, DELETE restores the derived art. The artist-page hooks also
+    refresh ["albums"]: its grid embeds album cards that read the album's
+    own override. */
 function invalidateAlbumCovers(
   queryClient: ReturnType<typeof useQueryClient>,
   albumId: number,
@@ -445,11 +438,9 @@ export function useRemoveArtistCover() {
   };
 }
 
-/** Cover removal's undo path (2026-10-03): re-point the cover at the
-    artwork row the removal just cleared. The upload itself is never gone
-    — the `artwork` table is content-addressed and unpruned — so restoring
-    is one reference write, not a re-upload. Same shape as
-    useUpdatePlaylist, whose cover field this mirrors. */
+/** Cover removal's undo path: re-point the cover at the artwork row the
+    removal cleared. The `artwork` table is content-addressed and unpruned,
+    so restoring is one reference write, not a re-upload. */
 export function useUpdateAlbum() {
   const queryClient = useQueryClient();
   return async (

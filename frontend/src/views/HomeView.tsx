@@ -15,13 +15,7 @@ import { fmtCount, fmtDuration, scanStatusLabel } from "../lib/format";
 import { trackIsUnverified, usePlayerStore } from "../stores/player";
 import { useScanStore } from "../stores/scan";
 
-/* Continue listening (§13.9, §29): the session the app restored — current
-   track, where it paused, how much of the queue is still ahead. One quiet
-   row; activating it resumes at the saved position (the first play loads
-   the restored track into the element, paused up to now). Subscribed from
-   its own component so the 4Hz playhead doesn't re-render the whole Home.
-   §1.4: the artist name inside it is a link — composition, not a second
-   target on the same surface: the card keeps play/pause. */
+/* Its own component so the 4Hz playhead doesn't re-render the whole Home. */
 function ContinueListening() {
   const current = usePlayerStore((s) => s.queue[s.order[s.orderPos]] ?? null);
   const upNext = usePlayerStore((s) => s.order.length - s.orderPos - 1);
@@ -48,7 +42,7 @@ function ContinueListening() {
         tabIndex={0}
         onClick={togglePlay}
         onKeyDown={(e) => {
-          // The artist link owns the keyboard when focused (§1.4).
+          // The artist link owns the keyboard when focused.
           if (e.target instanceof Element && e.target.closest("a")) return;
           if (e.key === "Enter" || e.key === " ") {
             e.preventDefault();
@@ -67,10 +61,8 @@ function ContinueListening() {
           {(current.artist != null || stateBit != null || nextBit != null) && (
             <span className="continuecard__sub">
               {!trackIsUnverified(current) && current.artist_id != null && current.artist ? (
-                // §1.4: the artist name inside the card is a link —
-                // composition, not a second target (the card keeps
-                // play/pause). §2.7: text until the server has vouched
-                // for the restored session.
+                // Text, not a link, until the server has vouched for the
+                // restored session.
                 <Link
                   to={`/artists/${current.artist_id}`}
                   className="continuecard__artistlink"
@@ -94,10 +86,6 @@ function ContinueListening() {
   );
 }
 
-/* Recently played (§4.1, §32): the server's played_at record — private,
-   count-free recency ("albums you had on"). The durable, cross-browser
-   completion of the concept §13.9 conceded to localStorage. Absent until
-   something has actually played: no empty state, no noise. */
 function RecentlyPlayed() {
   const { data } = useQuery({
     queryKey: ["albums", "recently-played"],
@@ -124,12 +112,9 @@ function RecentlyPlayed() {
   );
 }
 
-/* Shuffle all (§2.5): the escape hatch. One card, whole library, shuffled —
-   "play something" answered without deciding anything. §32: the server
-   resolves and shuffles the WHOLE library in one query (never a truncated
-   queue, and the session is server-truth from birth); the §29 client-side
-   fetch remains the fallback. Shuffle flips on before the call so the
-   player bar tells the truth about the plan either way (§30.1). */
+/* The server resolves and shuffles the WHOLE library in one query (never a
+   truncated queue); the client-side fetch is the fallback. Shuffle flips on
+   before the call so the player bar tells the truth about the plan. */
 function ShuffleAll({ count }: { count: number }) {
   const playTracks = usePlayerStore((s) => s.playTracks);
   const playSnapshot = usePlayerStore((s) => s.playSnapshot);
@@ -139,7 +124,6 @@ function ShuffleAll({ count }: { count: number }) {
     if (busy || count === 0) return;
     setBusy(true);
     const start = Math.floor(Math.random() * count);
-    // §1.1: the queue's origin is born here — "Everything, shuffled".
     const origin: QueueOrigin = { kind: "shuffle-all", label: "Everything, shuffled" };
     usePlayerStore.getState().setShuffle(true);
     void playByFilter({ sort: "title", dir: "asc", shuffle: true, start, origin })
@@ -224,11 +208,8 @@ export function HomeView() {
 
   return (
     <section className={`view${hasLibrary ? "" : " view--fill"}`}>
-      {/* Onboarding owns the page when the library is empty: FirstRun /
-          FirstScan carry their own title ("Welcome to Flow", "Building your
-          library"), so the Home chrome — title and subtitle — steps aside.
-          The scan progress the subtitle duplicated is already spoken live in
-          FirstScan's lede. A rescan of a full library keeps the title. */}
+      {/* FirstRun / FirstScan carry their own title, so the Home chrome —
+          title and subtitle — steps aside when the library is empty. */}
       {hasLibrary && <h1 className="view__title">Home</h1>}
       {hasLibrary &&
         (scanning ? (
@@ -274,10 +255,8 @@ export function HomeView() {
           <div className="covergrid covergrid--home">
             {playlistsData!.items.map((playlist) => (
               <Link key={playlist.id} to={`/playlists/${playlist.id}`} className="album-card">
-                {/* The artwrap carries the art→title margin (10px) that every
-                    album-card grid relies on — without it the name sat glued
-                    to the mosaic. Same structure as the Playlists grid card,
-                    user-set cover included. */}
+                {/* The artwrap carries the art→title margin every album-card
+                    grid relies on. */}
                 <span className="album-card__artwrap">
                   <PlaylistArt
                     artworkIds={playlist.artwork_ids}
@@ -299,7 +278,6 @@ export function HomeView() {
 
       {!hasLibrary &&
         (scanning ? (
-          /* The startup auto-scan caught mid-flight — say so (§9.6). */
           <FirstScan scan={scan} />
         ) : settings === undefined ? (
           <LoadingState variant="rows" />

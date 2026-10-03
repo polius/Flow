@@ -1,11 +1,7 @@
-/* Marquee selection on the listening tables (UX review 2, §4.1, DESIGN.md
-   §36). 2026-10-03 follow-up: rows select on click — a plain click
-   single-selects the clicked row (and never plays; playback is the Play
-   button's), Cmd/Ctrl/Alt-click toggles, Shift-click ranges from the
-   anchor, Enter's last-selected row is exposed, and Esc clears — unless a
-   surface owns the keyboard (§16.4). Selection is id-keyed, so a reorder
-   under a live selection moves with the rows instead of re-pointing at
-   others. */
+/* Marquee selection on the listening tables: a plain click single-selects
+   (never plays), Cmd/Ctrl/Alt toggles, Shift ranges from the anchor, Esc
+   clears unless a surface owns the keyboard, and selection is id-keyed so a
+   reorder under a live selection moves with the rows. */
 
 import { act, fireEvent, renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "vitest";
@@ -71,7 +67,7 @@ beforeEach(() => {
   });
 });
 
-describe("marquee selection (§4.1)", () => {
+describe("marquee selection", () => {
   it("Cmd-click toggles one row and consumes the click (the row must not play)", () => {
     const { result } = renderHook(() => useTrackSelection(tracks));
     expect(click(result, 2, { metaKey: true })).toBe(true);
@@ -80,7 +76,7 @@ describe("marquee selection (§4.1)", () => {
     expect(result.current.count).toBe(0);
   });
 
-  it("Alt-click toggles one row too (2026-10-03: Alt joins the modifier set)", () => {
+  it("Alt-click toggles one row too", () => {
     const { result } = renderHook(() => useTrackSelection(tracks));
     expect(click(result, 1, { altKey: true })).toBe(true);
     expect(result.current.count).toBe(1);
@@ -123,7 +119,7 @@ describe("marquee selection (§4.1)", () => {
       useUiStore.setState({ nowPlayingOpen: true });
     });
     pressEscape();
-    expect(result.current.count).toBe(2); // the takeover is topmost (§16.4)
+    expect(result.current.count).toBe(2); // the takeover is topmost
 
     act(() => {
       useUiStore.setState({ nowPlayingOpen: false });

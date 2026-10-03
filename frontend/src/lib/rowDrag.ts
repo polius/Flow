@@ -1,19 +1,7 @@
-/* Press-and-drag row reorder (§27): the gesture the playlist table speaks,
-   extracted (2026-10-03) so every reorderable row list says the same thing
-   — the queue drawer's grammar, now shared by TrackTable (playlists) and
-   VirtualTrackTable (Favorites).
-
-   Press-and-move lifts a row into a floating ghost — the row itself,
-   elevated — and its origin opens into a gap that travels with the
-   pointer; the neighbors part around it, and the gap is the only placement
-   cue. Release settles the ghost onto the slot; Escape springs it home.
-   Mouse only: touch keeps the §25 grammar (a touch lift would starve the
-   long-press menu timer, and the design has no Edit-mode grip to
-   disambiguate).
-
-   The owning table finds the pressed row by `[data-idx]` (TrackRow's
-   wrapper or the row itself), finds the visual row inside it as
-   `.trackrow` for the ghost clone, and positions rows with `offsetFor`. */
+/* Press-and-drag row reorder shared by the reorderable row lists. Mouse
+   only — a touch lift would starve the long-press menu timer. The owning
+   table finds the pressed row by `[data-idx]` and clones the `.trackrow`
+   inside it as the ghost. */
 
 import { useEffect, useRef, useState } from "react";
 import type { PointerEvent as ReactPointerEvent, RefObject } from "react";

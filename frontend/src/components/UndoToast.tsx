@@ -1,13 +1,8 @@
-/* The undo toast (§25): the app's answer to destructive-but-recoverable
-   actions. Removing a track from a playlist is frequent and low-stakes, so
-   instead of a confirmation dialog — friction on every intended removal —
-   the action happens at once and a quiet pill above the player bar offers
-   Undo for a few seconds (iOS Mail's snackbar grammar).
-
-   One notice at a time: a new action replaces the old (the pill remounts
-   and its timer restarts), so undo is single-generation — the same
-   convention as Organize's bulk undo (§22.6). Hover or focus holds the
-   timer; a reader mid-decision must not watch the door close. */
+/* The undo toast: destructive-but-recoverable actions happen at once and a
+   quiet pill offers Undo for a few seconds instead of a confirmation
+   dialog. One notice at a time — a new action replaces the old, so undo is
+   single-generation. Hover or focus holds the timer; a reader mid-decision
+   must not watch the door close. */
 
 import { useEffect, useState } from "react";
 

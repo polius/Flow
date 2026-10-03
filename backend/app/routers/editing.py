@@ -1,16 +1,4 @@
-"""Track editing (DESIGN.md §6, §13.2, §22).
-
-PATCH /api/tracks/{id} — the Get Info editor. Bulk apply + undo + the
-review summary — the Organize view. Both editors resolve fields through
-app.apply's single implementation, so overlay semantics (§15.2) can never
-diverge: edited values land in SQLite flagged in `user_edited`, the scanner
-preserves them on rescans, and files are never touched.
-
-The Organize view's bulk endpoint is deliberately one transaction: a
-validation failure (an empty title among ten thousand rows) writes nothing.
-The last bulk apply is stored (one generation) so the view can offer Undo;
-undo re-applies the previous values through the same shared path.
-"""
+"""Track editing: single-track PATCH, bulk apply with undo, reorder, review summary."""
 
 from __future__ import annotations
 
@@ -43,8 +31,8 @@ from app.scanner import Edited
 
 router = APIRouter(tags=["editing"])
 
-# Rows needed to apply fields, plus the artist/album NAMES the undo entries
-# store (an emptied entity's row is pruned; undo recreates it by name).
+# Undo entries store artist/album NAMES: an emptied entity's row is pruned,
+# so undo recreates it by name.
 _CHUNK = 500
 
 
@@ -58,7 +46,7 @@ def _run_update(conn, row, columns: dict) -> None:
     conn.execute(f"UPDATE tracks SET {sets} WHERE id = ?", (*columns.values(), row["id"]))
 
 
-# ---- single-track editor (Get Info, §9.3) ------------------------------------
+# ---- single-track editor (Get Info) ------------------------------------------
 
 
 @router.patch("/api/tracks/{track_id}", response_model=TrackOut)
@@ -68,9 +56,8 @@ def patch_track(request: Request, track_id: int, patch: TrackPatch) -> TrackOut:
     if track is None:
         raise HTTPException(status_code=404, detail="Track not found")
 
-    # Wire semantics → fields dict (§15.2): a null title/artist/album is an
-    # absent field (no-op); the track number honours explicit null because
-    # the Get Info panel blanks it to clear.
+    # A null title/artist/album is an absent field (no-op); track_no honours
+    # explicit null because the Get Info panel blanks it to clear.
     fields: dict = {}
     if patch.title is not None:
         fields["title"] = patch.title
@@ -87,8 +74,8 @@ def patch_track(request: Request, track_id: int, patch: TrackPatch) -> TrackOut:
     if patch.genre is not None:
         fields["genre"] = patch.genre
 
-    # One retrying transaction (§lock): the apply's writes + the prune land
-    # together, and a busy scan's lock window is out-waited, not 500'd on.
+    # One retrying transaction: the apply's writes + the prune land together,
+    # and a busy scan's lock window is out-waited, not 500'd on.
     def _apply() -> dict:
         cols = apply_field_changes(conn, track, fields)
         if cols:
@@ -107,12 +94,12 @@ def patch_track(request: Request, track_id: int, patch: TrackPatch) -> TrackOut:
     return track_out(row)
 
 
-# ---- bulk apply (Organize view, §22) ------------------------------------------
+# ---- bulk apply (Organize view) ------------------------------------------
 
 
 def _old_value(key: str, row) -> object:
-    """The wire-vocabulary previous value for an undo entry: empty strings
-    mean "was unset" for artist/album, explicit null for the track number."""
+    """Previous value for an undo entry, in wire vocabulary: empty string
+    means "was unset" for artist/album, explicit null for the track number."""
     if key == "title":
         return row["title"]
     if key == "artist":
@@ -129,9 +116,8 @@ def _old_value(key: str, row) -> object:
 
 
 def _resolve_ids(conn, body: BulkApplyIn) -> list[int]:
-    """Explicit ids, or the filter contract of GET /api/tracks (minus
-    pagination) minus except_ids — a filter-wide apply must touch exactly
-    what the grid showed."""
+    """Explicit ids, or the GET /api/tracks filter (minus pagination) minus
+    except_ids — a filter-wide apply must match exactly what the grid showed."""
     if body.track_ids is not None:
         return sorted(set(body.track_ids) - set(body.except_ids))
     clause, params = track_filter_where(
@@ -151,7 +137,7 @@ def _resolve_ids(conn, body: BulkApplyIn) -> list[int]:
 def bulk_apply_tracks(request: Request, body: BulkApplyIn) -> BulkApplyOut:
     conn = request.app.state.db.connect()
 
-    # Wire semantics → fields dict, exactly as the PATCH handler does.
+    # Same fields mapping as the PATCH handler — keep in sync.
     fields: dict = {}
     if body.title is not None:
         fields["title"] = body.title
@@ -246,16 +232,12 @@ def bulk_undo(request: Request) -> BulkApplyOut:
     return BulkApplyOut(applied=applied)
 
 
-# ---- drag-reorder within an album (Organize view, §22) -------------------------
+# ---- drag-reorder within an album -----------------------------------------
 
 
 @router.post("/api/tracks/reorder", response_model=BulkApplyOut)
 def reorder_tracks(request: Request, body: TrackReorderIn) -> BulkApplyOut:
-    """Renumber the given tracks 1..n in the order listed (§22's drag
-    gesture): the client sends one album's tracks in their new sequence and
-    each track's number is rewritten to its position. Every rewritten number
-    is flagged user-edited, so a rescan preserves it — the same overlay the
-    № cell's manual edit sets."""
+    """Renumber the given tracks 1..n in the order listed (flagged user-edited, preserved on rescan)."""
     conn = request.app.state.db.connect()
     if not body.track_ids:
         raise HTTPException(status_code=422, detail="track_ids must not be empty")
@@ -287,17 +269,12 @@ def reorder_tracks(request: Request, body: TrackReorderIn) -> BulkApplyOut:
     return BulkApplyOut(applied=applied)
 
 
-# ---- Favorites manual order (drag & drop in Favorites, 2026-10-03) -------------
+# ---- Favorites manual order (drag & drop) ---------------------------------------
 
 
 @router.post("/api/favorites/reorder", response_model=BulkApplyOut)
 def reorder_favorites(request: Request, body: TrackReorderIn) -> BulkApplyOut:
-    """Write the Favorites view's manual order: the client sends the whole
-    favorites list in its new sequence and each track's favorite_position
-    is rewritten to that slot (1..n) — the same contract as the playlist
-    order PUT, expressed over the favorites filter. Only currently loved
-    tracks are placed: one un-favorited mid-gesture is skipped, not an
-    error (the client's refetch resyncs the row)."""
+    """Write the Favorites manual order; only currently loved tracks are placed."""
     conn = request.app.state.db.connect()
     if not body.track_ids:
         raise HTTPException(status_code=422, detail="track_ids must not be empty")
@@ -327,7 +304,7 @@ def reorder_favorites(request: Request, body: TrackReorderIn) -> BulkApplyOut:
     return BulkApplyOut(applied=applied)
 
 
-# ---- review summary ("Needs attention", §22) -----------------------------------
+# ---- review summary ("Needs attention") -----------------------------------
 
 _COLLISION_SUFFIX = re.compile(
     r"\s*[\(\[][^\)\]]*?(?:deluxe|remast|expand|anniversar|edition|bonus"
@@ -337,7 +314,7 @@ _COLLISION_SUFFIX = re.compile(
 
 
 def _normalize_album_title(title: str) -> str:
-    """Deterministic collapse for near-duplicate album titles: strip
+    """Deterministic collapse of near-duplicate album titles: strip
     bracketed variant segments ("(Deluxe Edition)", "[Remastered]"), then
     punctuation and case. No fuzzy matching."""
     t = _COLLISION_SUFFIX.sub(" ", title)
@@ -364,9 +341,9 @@ def review_summary(request: Request) -> ReviewSummary:
         "HAVING COUNT(DISTINCT COALESCE(album_artist_id, -1)) > 1)"
     )
 
-    # Suffix variants: group all albums by normalized title. Same-titled
-    # albums by DIFFERENT artists are legitimate (two "Greatest Hits" rows),
-    # so a group only counts as a collision when members share an artist.
+    # Same-titled albums by DIFFERENT artists are legitimate (two "Greatest
+    # Hits" rows), so a group only counts as a collision when members share
+    # an artist.
     rows = conn.execute(
         "SELECT al.id, al.title, al.artist_id, COUNT(t.id) AS track_count "
         "FROM albums al LEFT JOIN tracks t ON t.album_id = al.id "

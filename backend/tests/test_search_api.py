@@ -1,4 +1,4 @@
-"""Cross-entity search — DESIGN.md §6."""
+"""Cross-entity search."""
 
 from __future__ import annotations
 

@@ -4,16 +4,15 @@ import type { Track } from "./types";
 import type { paths } from "./schema";
 
 // Same-origin by default: the Vite dev proxy (dev) or nginx (prod) fronts
-// the API. No CORS anywhere (DESIGN.md §7).
+// the API. No CORS anywhere.
 export const api = createClient<paths>();
 
-/** Page size for whole-view fetches — matches the paged views (§11.6). */
+/** Page size for whole-view fetches — matches the paged views. */
 const PAGE_SIZE = 1000;
 
-/** Every track matching a library filter, across all pages (§29). "Play
-    from here" means the WHOLE view — a paged table must never queue only
-    the pages the window happened to have loaded. Local server, few round
-    trips: the await is imperceptible at library scale. */
+/** Every track matching a library filter, across all pages. "Play from
+    here" means the WHOLE view — a paged table must never queue only the
+    pages the window happened to have loaded. */
 export async function fetchAllTracks(params: {
   q?: string;
   favorite?: boolean;

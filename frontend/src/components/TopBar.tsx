@@ -1,15 +1,13 @@
-/* TopBar — the full-width chrome bar (§9.1). The sidebar was retired with
-   the owner's approval: with a fixed, small set of sections, nav lives here
-   and the canvas gets the whole window (§18).
-   Zones: brand · scan status · search · section nav. The nav has three
-   forms (§28): icon + text labels on wide windows, the icon-only row below
-   that, and — on phones (§19) — an overflow button + pull-down sheet.
+/* TopBar — the full-width chrome bar. Zones: brand · scan status ·
+   search · section nav. The nav has three forms: icon + text labels on
+   wide windows, the icon-only row below that, and — on phones — an
+   overflow button + pull-down sheet.
 
-   Search (§9.2 revision): typing NEVER navigates. Results drop from the
-   field as a Spotlight-style panel, in place — the user keeps their
-   context; their eyes stay where their hands are. The /search route
-   survives as the explicit "See all results" destination (the panel's
-   footer), not as a redirect. */
+   Search: typing NEVER navigates. Results drop from the field as a
+   Spotlight-style panel, in place — the user keeps their context; their
+   eyes stay where their hands are. The /search route survives as the
+   explicit "See all results" destination (the panel's footer), not as a
+   redirect. */
 
 import {
   useEffect,
@@ -54,12 +52,10 @@ interface NavEntry {
   Icon: (props: IconProps) => ReturnType<typeof IconMusicNote>;
 }
 
-/* Section nav — the brand lockup is the Home affordance (§18), so "/" is
-   not repeated here. Listening sections only, ordered by the owner's
-   frequency of use (§23): Tracks, Albums, Artists, Favorites, Playlists.
-   Organize lives behind Tracks' header button (a task, not a section).
-   Settings is kept apart from the library sections, mirroring the hairline
-   break in both nav forms. */
+/* Section nav — the brand lockup is the Home affordance, so "/" is
+   not repeated here. Organize lives behind Tracks' header button (a task,
+   not a section). Settings is kept apart from the library sections,
+   mirroring the hairline break in both nav forms. */
 const NAV: NavEntry[] = [
   { to: "/tracks", label: "Tracks", Icon: IconTracks },
   { to: "/albums", label: "Albums", Icon: IconAlbums },
@@ -68,12 +64,9 @@ const NAV: NavEntry[] = [
   { to: "/playlists", label: "Playlists", Icon: IconPlaylists },
 ];
 
-/* Below the phone breakpoint the icon row collapses into an overflow
-   button + pull-down sheet (§19); at and above the labeled breakpoint the
-   row shows text beside each icon — Settings included (§28, 2026-10-02).
-   The numbers mirror topbar.css — CSS media queries cannot read JS
-   constants, so the two must be kept in step (tokens.css documents the
-   canonical set). */
+/* The breakpoint numbers mirror topbar.css — CSS media queries cannot
+   read JS constants, so the two must be kept in step (tokens.css documents
+   the canonical set). */
 const PHONE_BP = "(min-width: 641px)";
 const LABELED_BP = "(min-width: 1020px)";
 
@@ -87,12 +80,12 @@ export function TopBar() {
   const focusSignal = useUiStore((s) => s.searchFocusSignal);
   const scan = useScanStore((s) => s.status);
   const scanning = scan?.state === "scanning";
-  // Wide windows: the section nav wears visible labels (§28). The only JS
+  // Wide windows: the section nav wears visible labels. The only JS
   // consumer is the tooltip — a labeled control needs no "Tracks" tooltip
-  // hovering beside the word "Tracks" (HIG: don't restate the obvious).
+  // hovering beside the word "Tracks".
   const labeledNav = useMediaQuery(LABELED_BP);
   const [navOpen, setNavOpen] = useState(false);
-  // The scan pill's error count opens the skipped-files dialog (§2.8) —
+  // The scan pill's error count opens the skipped-files dialog —
   // the count without the list behind it was a dead end.
   const [scanErrorsOpen, setScanErrorsOpen] = useState(false);
   const navBtnRef = useRef<HTMLButtonElement>(null);
@@ -101,7 +94,7 @@ export function TopBar() {
   // focus on page load.
   const initialSignal = useRef(focusSignal);
 
-  // ⌘F / Ctrl+F from anywhere focuses this field (§9.5).
+  // ⌘F / Ctrl+F from anywhere focuses this field.
   useEffect(() => {
     if (focusSignal === initialSignal.current) return;
     inputRef.current?.focus();
@@ -126,7 +119,7 @@ export function TopBar() {
     return () => clearTimeout(handle);
   }, [text, urlQuery, pathname, setSearchParams]);
 
-  // The overflow sheet (§19) closes with its context: navigation, outside
+  // The overflow sheet closes with its context: navigation, outside
   // tap, Esc, or growing back past the phone breakpoint.
   useEffect(() => {
     setNavOpen(false);
@@ -134,8 +127,8 @@ export function TopBar() {
 
   useEffect(() => {
     if (!navOpen) return;
-    // Registered like any menu: Esc precedence (§15.7, §16.4) and the
-    // shortcut guard (§16.3) defer to it while it is up.
+    // Registered like any menu: Esc precedence and the
+    // shortcut guard defer to it while it is up.
     useUiStore.getState().setContextMenuOpen(true);
     const onPointerDown = (e: PointerEvent) => {
       const t = e.target as Node;
@@ -171,7 +164,7 @@ export function TopBar() {
   };
 
   const scanLabel = scan ? scanStatusLabel(scan) : null;
-  // Determinate when the phase counts files (§40): the ring replaces the
+  // Determinate when the phase counts files: the ring replaces the
   // spinner the moment a total exists, and stays for the loudness pass —
   // "Analyzing audio… 34/1,204" with the arc filling behind the number.
   const scanFraction = scan ? scanProgressFraction(scan) : null;
@@ -185,10 +178,9 @@ export function TopBar() {
         <span className="topbar__brand-name">Flow</span>
       </NavLink>
 
-      {/* Global scan indicator — inherited from the retired sidebar (§9.6).
-          Quiet, tabular, honest; gone the moment the scan settles. The
-          error count is a real control: it opens the skipped-files list
-          (§2.8) — a count nobody can inspect is a dead end. */}
+      {/* Global scan indicator. Quiet, tabular, honest; gone the moment
+          the scan settles. The error count is a real control: it opens the
+          skipped-files list — a count nobody can inspect is a dead end. */}
       {scanning && scan && scanLabel && (
         <div className="topbar__scan" role="status" aria-live="polite">
           {scanFraction == null ? (
@@ -231,10 +223,9 @@ export function TopBar() {
         navigate={navigate}
       />
 
-      {/* Section nav in three forms (§28): labeled on wide windows, the
-          icon-only row below that (§18), and the overflow sheet on phones
-          (§19) — the CSS swaps the forms at the breakpoints. Settings keeps
-          the same icon + label grammar as the sections, after the hairline. */}
+      {/* Section nav in three forms: labeled on wide windows, the
+          icon-only row below that, and the overflow sheet on phones —
+          the CSS swaps the forms at the breakpoints. */}
       <nav className="topbar__nav" aria-label="Library">
         {NAV.map(({ to, label, Icon }) => (
           <NavLink
@@ -325,7 +316,7 @@ export function TopBar() {
 }
 
 /* ---- scan status ring -------------------------------------------------------
-   The determinate arc (§40): once a phase knows its total, the spinner gives
+   The determinate arc: once a phase knows its total, the spinner gives
    way to a ring that fills clockwise — the same quiet monochrome, progress
    instead of motion. The numbers live in the label beside it; the ring is
    decoration with a duty, aria-hidden like the spinner it replaces. */
@@ -416,7 +407,7 @@ function SearchZone({
         activate: () => {
           setOpen(false);
           inputRef.current?.blur();
-          // §1.1: playing from the search suggestions names the query.
+          // Playing from the search suggestions names the query.
           playTracks(results.tracks, i, {
             kind: "filter",
             label: `“${q}”`,
@@ -550,9 +541,8 @@ function SearchZone({
   return (
     <div className="topbar__searchzone" ref={zoneRef}>
       {/* A <label>, not a div: the pill's whole surface — padding strips
-          included — focuses the field. The strips used to be dead zones
-          (§28). The input keeps its aria-label; a wrapping label without
-          text adds nothing, overrides nothing. */}
+          included — focuses the field. The input keeps its aria-label; a
+          wrapping label without text adds nothing, overrides nothing. */}
       <label className="topbar__search">
         <IconSearch size={15} />
         <input

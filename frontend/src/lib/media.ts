@@ -1,6 +1,3 @@
-/* Reactive matchMedia — one subscriber per hook instance, cleaned up on
-   unmount. Used for the narrow-window layouts (queue sheet, action sheets). */
-
 import { useEffect, useState } from "react";
 
 export function useMediaQuery(query: string): boolean {

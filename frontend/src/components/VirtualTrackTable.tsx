@@ -1,17 +1,10 @@
-/* Windowed track table for the full-library Tracks view (§9.2, §11.6).
-   At 10k+ rows the DOM holds only the visible window (~30 rows). Rows come
-   from an infinite query — pagination happens honestly behind the window
-   (no client-side cap, no cap-less mega-payload).
-
-   Virtualization choice: @tanstack/react-virtual — named by §9.2, headless
-   (no wrapper DOM to fight the token system, §8), ~3kB, and the same
-   TanStack family the project already runs for server state.
-
-   Scroller (§22 revision): since §18 made .shell__canvas the scroll
-   container, the virtualizer binds to that element (the pattern the queue
-   drawer and the Organize grid use) — a window virtualizer never sees the
-   canvas scroll and would render a frozen first window with blank space
-   below it. */
+/* Windowed track table for the full-library Tracks view. At 10k+ rows the
+   DOM holds only the visible window (~30 rows). Rows come from an infinite
+   query — pagination happens honestly behind the window. The virtualizer
+   binds to the shell's .shell__canvas scroll container (the pattern the
+   queue drawer and the Organize grid use) — a window virtualizer never
+   sees the canvas scroll and would render a frozen first window with blank
+   space below it. */
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { KeyboardEvent as ReactKeyboardEvent } from "react";
@@ -42,13 +35,13 @@ interface VirtualTrackTableProps {
   onNearEnd: () => void;
   /** Row activation: plays `index` within the WHOLE view — paged views
       resolve the full filter first, so the queue never stops at the loaded
-      pages (§29). */
+      pages. */
   onPlay: (index: number) => void;
-  /** Resolves the whole view for the row menu's Play item (§29). */
+  /** Resolves the whole view for the row menu's Play item. */
   contextLoader?: () => Promise<Track[]>;
-  /** Drag-to-reorder (2026-10-03, Favorites): commit a dragged row's move.
-      The gesture is the shared §27 hook — the same one the playlist table
-      speaks. */
+  /** Drag-to-reorder (Favorites): commit a dragged row's move.
+      The gesture is the shared rowDrag hook — the same one the playlist
+      table speaks. */
   onMove?: (fromIndex: number, toIndex: number) => void;
   /** True only when the gesture can write the whole list: every row is
       loaded and the view isn't narrowed by a search filter — a drag
@@ -71,7 +64,7 @@ export function VirtualTrackTable({
   const togglePlay = usePlayerStore((s) => s.togglePlay);
   const toggleFavorite = useToggleFavorite();
 
-  // The grid never scrolls itself — the shell canvas does (§18). Binding the
+  // The grid never scrolls itself — the shell canvas does. Binding the
   // virtualizer to the canvas keeps windowing honest inside the shared
   // scroll container.
   useLayoutEffect(() => {
@@ -93,11 +86,10 @@ export function VirtualTrackTable({
 
   const play = onPlay;
 
-  // Keyboard cursor (§3.4): the Organize grid's Finder grammar, inherited —
-  // arrows move, Enter plays, the window follows the cursor. Idempotent like
-  // the row click: the current track's row never restarts. `onPlay` plays
-  // the WHOLE view (§29), so the cursor can jump into unloaded pages and
-  // still queue correctly.
+  // Keyboard cursor: arrows move, Enter plays, the window follows the
+  // cursor. Idempotent like the row click: the current track's row never
+  // restarts. `onPlay` plays the WHOLE view, so the cursor can jump into
+  // unloaded pages and still queue correctly.
   const activateAt = (index: number) => {
     const track = tracks[index];
     if (track != null && track.id === current?.id) return;
@@ -112,7 +104,7 @@ export function VirtualTrackTable({
     virtualizer.scrollToIndex(cursor, { align: "auto" });
   }, [cursor, virtualizer, tracks.length]);
 
-  /* Marquee selection (§4.1, Review 2): Cmd/Shift-click selects over the
+  /* Marquee selection: Cmd/Shift-click selects over the
      loaded rows; the floating quiet bar files the selection. The loaded
      rows are exactly the rows that can be clicked, so every selected id
      resolves to a real track here. */
@@ -127,7 +119,7 @@ export function VirtualTrackTable({
       allFavorite={allFavorite}
       onAddToPlaylist={() => openAddToPlaylist(selection.selectedTracks)}
       onAddToQueue={() => {
-        // The store confirms arrival (§1.2's toast); the gesture is done.
+        // The store confirms arrival with a toast; the gesture is done.
         addToQueue(selection.selectedTracks);
         selection.clear();
       }}
@@ -138,9 +130,8 @@ export function VirtualTrackTable({
       onClear={selection.clear}
     />
   );
-  /* §4.1: while a selection is live, Enter plays the last-selected row —
-     the one keyboard change the review allows; everything else stays the
-     §3.4 cursor grammar. */
+  /* While a selection is live, Enter plays the last-selected row;
+     everything else stays the cursor grammar. */
   const onTableKeyDown = (e: ReactKeyboardEvent) => {
     if (e.key === "Enter" && selection.count > 0 && !isInteractiveControl(e.target as Element | null)) {
       const idx = selection.lastIndex();
@@ -155,7 +146,7 @@ export function VirtualTrackTable({
 
   // Row action menu (right-click / long-press) with the full loaded context.
   // A right-click on a row inside the live selection carries the whole
-  // selection — the menu files every selected track at once (§4.1).
+  // selection — the menu files every selected track at once.
   const openTrackMenu = useUiStore((s) => s.openTrackMenu);
   const trackMenu = useCallback(
     (track: Track, x: number, y: number) =>
@@ -174,7 +165,7 @@ export function VirtualTrackTable({
     [openTrackMenu, tracks, contextLoader, selection.ids, selection.selectedTracks],
   );
 
-  /* Drag-to-reorder (2026-10-03): the shared §27 gesture. The displacement
+  /* Drag-to-reorder: the shared rowDrag gesture. The displacement
      rides each row's translateY — the virtualizer's `item.start` plus the
      row's drag offset — so parting neighbors and the gap read exactly like
      the playlist table's. */

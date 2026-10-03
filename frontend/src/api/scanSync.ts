@@ -1,6 +1,6 @@
 /* Live scan-status sync: one EventSource per page, forever.
    EventSource reconnects on its own; nginx has proxy_buffering off for
-   /api/scan so events arrive unbuffered (DESIGN.md §10). */
+   /api/scan so events arrive unbuffered. */
 
 import { queryClient } from "./queryClient";
 import { api } from "./client";

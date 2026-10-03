@@ -1,8 +1,7 @@
-/* GenreMenu (§2.2): the genre filter pill for the Tracks view. Genres are
-   parsed from tags at scan time; browsing lives as a FILTER on the
-   everything-view — the nav's section set is settled (§18, §23), and a
-   genre's natural destination is "its songs", which this table already is.
-   Same grammar as the sort pill: URL state, shared menu surface, Esc/outside
+/* The genre filter pill for the Tracks view. Genres are parsed from tags at
+   scan time; browsing lives as a FILTER on the everything-view — a genre's
+   natural destination is "its songs", which this table already is. Same
+   grammar as the sort pill: URL state, shared menu surface, Esc/outside
    tap lifecycle. */
 
 import { useEffect, useRef, useState } from "react";

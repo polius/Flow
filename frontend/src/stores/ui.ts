@@ -1,24 +1,20 @@
-/* UI chrome state (Get Info panel, search focus, Now Playing takeover, theme
-   override). Persisted where chrome shouldn't reset; panel state stays
-   session-local. */
+/* UI chrome state. Persisted where chrome shouldn't reset; panel state
+   stays session-local. */
 
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
 import type { QueueOrigin, Track } from "../api/types";
 
-/** "system" follows prefers-color-scheme; light/dark are manual overrides (§8.6). */
+/** "system" follows prefers-color-scheme; light/dark are manual overrides. */
 export type ThemeMode = "system" | "light" | "dark";
 
-/** A track action menu request: the row's track, its open point (viewport
-    coords — the menu positions itself, or falls back to a bottom sheet on
-    phones), and the play context it was invoked from. `origin` is what the
-    queue's "Playing from" becomes if the menu's Play starts playback from
-    here (§1.1). `removeFromPlaylist` is set when the row came from a
-    playlist — it adds the menu's danger item (§25); the closure carries
-    the playlist context the menu can't know. Paged views also hand over a
-    `contextLoader`: "Play" in the menu must queue the whole view, never
-    just the pages the window loaded (§29). */
+/** A track action menu request. `origin` is what the queue's "Playing
+    from" becomes if the menu's Play starts playback from here.
+    `removeFromPlaylist` is set when the row came from a playlist; the
+    closure carries the playlist context the menu can't know. Paged views
+    also hand over a `contextLoader`: "Play" must queue the whole view,
+    never just the pages the window loaded. */
 export interface TrackMenuRequest {
   track: Track;
   x: number;
@@ -27,16 +23,16 @@ export interface TrackMenuRequest {
   contextLoader?: () => Promise<Track[]>;
   origin?: QueueOrigin | null;
   removeFromPlaylist?: () => void;
-  /** The invoking table's live selection (§4.1), when the right-clicked
-      row is part of it: the menu's file/queue verbs then act on the WHOLE
+  /** The invoking table's live selection, when the right-clicked row is
+      part of it: the menu's file/queue verbs then act on the WHOLE
       selection, not just the row under the pointer. */
   selection?: Track[];
 }
 
-/** A one-generation notice (§25): what happened, and the closure that
-    reverses it. The toast host renders it; a new notice replaces the old.
-    `undo` is optional: stream-error skips (§29) borrow the toast's quiet
-    pill to say what happened, but there is nothing to un-do. */
+/** A one-generation notice: what happened, and the closure that reverses
+    it. The toast host renders it; a new notice replaces the old. `undo`
+    is optional — stream-error skips borrow the toast's quiet pill to say
+    what happened, but there is nothing to un-do. */
 export interface UndoNotice {
   id: number;
   message: string;
@@ -46,11 +42,11 @@ export interface UndoNotice {
 let undoNonce = 0;
 
 interface UiState {
-  /** Track currently open in the Get Info panel, if any (§9.3). */
+  /** Track currently open in the Get Info panel, if any. */
   getInfoTrackId: number | null;
   openGetInfo: (trackId: number) => void;
   closeGetInfo: () => void;
-  /** Full-screen Now Playing takeover (§9.2); Esc closes. */
+  /** Full-screen Now Playing takeover; Esc closes. */
   nowPlayingOpen: boolean;
   openNowPlaying: () => void;
   closeNowPlaying: () => void;
@@ -68,30 +64,29 @@ interface UiState {
   contextMenuOpen: boolean;
   setContextMenuOpen: (open: boolean) => void;
   /** True while the library picker (Add to Playlist / Add to Queue) is up —
-      Esc precedence and the global shortcut guard defer to it (§23). */
+      Esc precedence and the global shortcut guard defer to it. */
   pickerOpen: boolean;
   setPickerOpen: (open: boolean) => void;
-  /** "Add to Playlist" from anywhere except inside a playlist (§2.1): the
-      tracks a header menu / row menu wants to file, and the destination
-      dialog that resolves where. Null = closed. */
+  /** "Add to Playlist" from anywhere: the tracks a header menu / row menu
+      wants to file, and the destination dialog that resolves where.
+      Null = closed. */
   addToPlaylistTarget: Track[] | null;
   openAddToPlaylist: (tracks: Track[]) => void;
   closeAddToPlaylist: () => void;
   /** True while a queue row is lifted mid-drag — the drag is a layer above
-      the Now Playing takeover, so Esc cancels the drag first (§9.4 rev 2). */
+      the Now Playing takeover, so Esc cancels the drag first. */
   queueDragOpen: boolean;
   setQueueDragOpen: (open: boolean) => void;
-  /** Theme override; default follows the OS (§8.6). */
+  /** Theme override; default follows the OS. */
   themeMode: ThemeMode;
   setThemeMode: (mode: ThemeMode) => void;
-  /** The undo toast (§25): destructive-but-recoverable actions land here —
-      one notice at a time, single-generation like Organize's bulk undo.
-      Recoverable notices carry `undo`; stream-error skips (§29) use the
-      same quiet pill without it. */
+  /** The undo toast: destructive-but-recoverable actions land here — one
+      notice at a time, single-generation. Recoverable notices carry
+      `undo`; stream-error skips use the same quiet pill without it. */
   undoNotice: UndoNotice | null;
   showUndoNotice: (notice: Omit<UndoNotice, "id">) => void;
   clearUndoNotice: () => void;
-  /** Bumped to focus the top-bar search field from anywhere (Cmd/Ctrl+F, §9.5). */
+  /** Bumped to focus the top-bar search field from anywhere (Cmd/Ctrl+F). */
   searchFocusSignal: number;
   focusSearch: () => void;
 }

@@ -5,7 +5,7 @@ export default defineConfig({
   plugins: [react()],
   server: {
     proxy: {
-      // Dev only — nginx fronts the API in production (DESIGN.md §10).
+      // Dev only — nginx fronts the API in production.
       "/api": "http://127.0.0.1:8000",
     },
   },

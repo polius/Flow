@@ -1,7 +1,4 @@
-"""Flow — FastAPI application factory (DESIGN.md §6, §7).
-
-Routers: scan/settings (M2), library/media (M3), editing/playlists/search (M4).
-"""
+"""Flow — FastAPI application factory."""
 
 from __future__ import annotations
 
@@ -110,9 +107,8 @@ def create_app() -> FastAPI:
 def _mount_spa(app: FastAPI, dist: Path) -> None:
     """Serve the built frontend with SPA fallback.
 
-    nginx does this in production (with gzip and sendfile); this keeps
-    `uvicorn` alone usable for quick checks. Unknown /api/* paths must stay
-    JSON 404s, not fall through to index.html.
+    nginx does this in production; this keeps bare `uvicorn` usable. Unknown
+    /api/* paths must stay JSON 404s, never fall through to index.html.
     """
     assets = dist / "assets"
     if assets.is_dir():

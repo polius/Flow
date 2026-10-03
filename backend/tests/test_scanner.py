@@ -1,4 +1,4 @@
-"""Scanner semantics: parsing, overlays, moves, removals — DESIGN.md §5, §13."""
+"""Scanner semantics: parsing, overlays, moves, removals."""
 
 from __future__ import annotations
 
@@ -100,7 +100,7 @@ def test_artwork_dedup_across_tracks(conn, music, scanner):
 
 
 def test_folder_artwork_fallback(conn, music, scanner):
-    # No embedded art; cover.jpg sits next to the track (DESIGN.md §13.3).
+    # No embedded art; cover.jpg sits next to the track.
     make_mp3(music / "b" / "01.mp3", title="Bare", artist="B", album="Y")
     (music / "b" / "cover.jpg").write_bytes(jpeg_bytes())
     scanner.run_scan("test")
@@ -116,7 +116,7 @@ def test_untouched_file_not_reparsed_and_edits_survive(conn, music, scanner):
     scanner.run_scan("test")
     row = track_row(conn, "01.mp3")
 
-    # Simulate the Get Info editor (M4): user renames the title.
+    # Simulate the Get Info editor: user renames the title.
     conn.execute(
         "UPDATE tracks SET title = 'User Title', user_edited = ? WHERE path = '01.mp3'",
         (int(Edited.TITLE),),

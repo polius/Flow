@@ -1,7 +1,7 @@
-/* Album cover card for grids (§9.2): art-forward, hover reveals play.
-   §2.1 adds the "…" beside it: the per-album slice of the header trio, so
-   curation works from any grid (Home, Albums, an artist's page, Search) —
-   the actions resolve the album's full track list on demand. */
+/* Album cover card for grids: art-forward, hover reveals play. The "…"
+   beside it is the per-album slice of the header trio, so curation works
+   from any grid — the actions resolve the album's full track list on
+   demand. */
 
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
@@ -23,7 +23,7 @@ export function AlbumCard({ album }: { album: AlbumSummary }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
-  // The album IS the origin (§1.1): playing or shuffling the card names
+  // The album IS the origin: playing or shuffling the card names
   // it, so the queue's "Playing from" sentence is born telling the truth.
   const origin: QueueOrigin = {
     kind: "album",

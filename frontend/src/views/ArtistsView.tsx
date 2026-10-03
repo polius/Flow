@@ -10,15 +10,6 @@ import { SortMenu, type SortOption } from "../components/SortMenu";
 import { IconArtists } from "../components/icons";
 import { fmtCount } from "../lib/format";
 
-/* Artists (§9.1 revision): a wall of circular portraits — the Apple-Music
-   artist tab grammar. The latest album's cover stands in for the portrait
-   (that's the artwork the library has); the absence of one is a quiet
-   monogram, not a broken image. Rows became cards because artists are
-   browsed by face here, not scanned by name — the detail view is one tap
-   away either way. Sort by name, albums, or songs — URL state (?sort=&dir=),
-   shared SortMenu grammar: picking the active option flips the direction,
-   count sorts read most-first (§2.4). */
-
 const SORT_OPTIONS: SortOption[] = [
   { key: "name", label: "Name" },
   { key: "albums", label: "Albums", defaultDir: "desc" },
@@ -57,7 +48,7 @@ export function ArtistsView() {
     [searchParams, setSearchParams],
   );
 
-  // A re-sort is a new wall: land at its top (same grammar as Tracks).
+  // A re-sort is a new wall: land at its top.
   useEffect(() => {
     document.querySelector<HTMLElement>(".shell__canvas")?.scrollTo(0, 0);
   }, [sort, dir]);
@@ -100,8 +91,6 @@ export function ArtistsView() {
           {artists.map((artist) => (
             <Link key={artist.id} to={`/artists/${artist.id}`} className="artistcard">
               <span className="artistcard__portrait">
-                {/* A user-set portrait (2026-10-03) stands in for the
-                    latest album's cover everywhere the artist appears. */}
                 <ArtistPortrait
                   artworkId={artist.cover_artwork_id ?? artist.artwork_id}
                   name={artist.name}

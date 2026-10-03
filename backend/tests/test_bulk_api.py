@@ -1,6 +1,6 @@
-"""Organize view backend (§22): POST /api/tracks/bulk, undo, review summary,
-and the `review` filters on GET /api/tracks. All edits are SQLite overlays
-through the same apply path as PATCH /api/tracks/{id} — files untouched."""
+"""Bulk organize API: POST /api/tracks/bulk, undo, review summary, and the
+`review` filters on GET /api/tracks. All edits are SQLite overlays through
+the same apply path as PATCH /api/tracks/{id} — files untouched."""
 
 from __future__ import annotations
 
@@ -47,7 +47,7 @@ def _ids(client, *titles: str) -> list[int]:
     return [_track(client, t)["id"] for t in titles]
 
 
-# ---- bulk apply: field semantics (§15.2 via the shared path) ------------------
+# ---- bulk apply: field semantics ----
 
 
 def test_bulk_set_album_moves_tracks_and_prunes(client, library):
@@ -129,8 +129,7 @@ def test_bulk_unknown_review_filter_is_422(client, library):
 
 
 def test_bulk_filter_selection_with_except_ids(client, library):
-    # "The Wall" matches both Wall albums and the Beta Band? No — only the
-    # two Wall tracks and nothing else; exclude one, apply to the rest.
+    # Only the two Wall tracks match; exclude one, apply to the rest.
     wall_one, wall_two = _ids(client, "Wall One", "Wall Two")
     out = client.post(
         "/api/tracks/bulk",
@@ -169,7 +168,7 @@ def test_bulk_overlay_survives_rescan(client, library):
     assert after["track_no"] == 7
 
 
-# ---- undo (one generation, §22) ------------------------------------------------
+# ---- undo: one generation ----
 
 
 def test_undo_restores_previous_values(client, library):
@@ -219,7 +218,7 @@ def test_undo_clears_and_recreates_entities(client, library):
     assert restored["artist"] == "Aerosmith"
 
 
-# ---- GET /api/tracks review filters --------------------------------------------
+# ---- GET /api/tracks review filters ----
 
 
 def test_review_filters_on_track_list(client, library):
@@ -250,7 +249,7 @@ def test_curate_sort_groups_albums_then_track_order(client, library):
 
 def test_curate_sort_keeps_same_titled_albums_contiguous(client, library):
     """Two artists can each own a same-titled album (grouping keys on album
-    artist, §13.2) — the sort must not interleave their tracks."""
+    artist) — the sort must not interleave their tracks."""
     conn = client.app.state.scanner._db.connect()
     conn.execute(
         "UPDATE albums SET title = 'Pump' WHERE title IN "
@@ -258,13 +257,12 @@ def test_curate_sort_keeps_same_titled_albums_contiguous(client, library):
     )
     conn.commit()
     items = client.get("/api/tracks", params={"sort": "curate"}).json()["items"]
-    # Aerosmith's Pump and the Beta Band's renamed Pump must each sit as one
-    # block, not interleaved.
+    # Each artist's Pump must sit as one block, not interleaved.
     pump_titles = [t["title"] for t in items if t["album"] == "Pump"]
     assert pump_titles == ["First", "Second", "Wall One", "Wall Two"]
 
 
-# ---- review summary -------------------------------------------------------------
+# ---- review summary ----
 
 
 def test_review_summary_counts(client, library):
@@ -301,7 +299,7 @@ def test_review_summary_same_title_different_artists_is_not_a_collision(
 def test_review_summary_mixed_album_artist(client, library):
     """Album grouping keys on (title, album artist), so mixed state only
     arises when an album overlay pins tracks to one album row while a
-    re-tagged file re-derives its album artist on rescan (§22)."""
+    re-tagged file re-derives its album artist on rescan."""
     wall_one, wall_two = _ids(client, "Wall One", "Wall Two")
     client.post(
         "/api/tracks/bulk",

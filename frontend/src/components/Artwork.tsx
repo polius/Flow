@@ -1,5 +1,5 @@
-/* Artwork with a designed monochrome placeholder (DESIGN.md §8.1 — the
-   artwork is the only color; absence of artwork stays monochrome). */
+/* The monochrome placeholder is deliberate: absence of artwork stays
+   colorless — the artwork is the only color. */
 
 import { useState } from "react";
 

@@ -1,17 +1,14 @@
 /* ============================================================
    Flow design tokens — the single source for all chrome styling.
 
-   Rules (DESIGN.md §8, §31): near-monochrome greys; exactly one
-   accent, reserved for the playing-row equalizer bars; artwork is
-   the only color in the UI. No gradients on UI surfaces.
-   The dark ramp below is tuned for dark surfaces, not an inversion
-   of the light values.
+   Near-monochrome greys; exactly one accent, reserved for the
+   playing-row equalizer bars; artwork is the only color in the UI.
+   No gradients on UI surfaces.
    ============================================================ */
 
-/* The resolved theme is set as data-theme on <html> by lib/theme.ts (§8.6):
+/* The resolved theme is set as data-theme on <html> by lib/theme.ts:
    "light" or "dark" always present, with "dark" either chosen manually or
-   following prefers-color-scheme. The dark ramp below is tuned for dark
-   surfaces, not an inversion of the light values. */
+   following prefers-color-scheme. */
 
 :root {
   color-scheme: light;
@@ -33,28 +30,25 @@
   --control-border: rgba(0, 0, 0, 0.14);
 
   /* ---- the one accent ----
-     §31 (Part 3.1, decided with the owner 2026-10-01): the accent is
-     RESERVED for the playing-row equalizer bars (.eq in controls.css) — the
-     one moment of true state. Every former consumer (nav pills, links,
+     RESERVED for the playing-row equalizer bars (.eq in controls.css) —
+     the one moment of true state. Every other consumer (nav pills, links,
      hearts, sort checks, danger actions, focus ring, selection tint) is
-     monochrome now, carried by inversion, fills, and weight. Monochrome
-     chrome + colored art is the design language; a permanent red was a
-     watermark on it. */
+     monochrome, carried by inversion, fills, and weight. */
   --accent: #d64541;
 
-  /* ---- player translucency (DESIGN.md §8.5) ---- */
+  /* ---- player translucency ---- */
   --bg-player: rgba(245, 245, 247, 0.72);
   --player-blur: 24px;
 
-  /* ---- artwork ambience (§8.5, §13) — blurred cover wash behind a view ---- */
+  /* ---- artwork ambience — blurred cover wash behind a view ---- */
   --ambience-blur: 90px;
   --ambience-opacity: 0.5;
   --ambience-wash: 0.62;
 
   /* ---- type ----
-     §31 (Part 3.2): body is one step larger — 13px for primary text read
-     dense in the airy canvas; secondary metadata (--text-small/-caption)
-     carries the hierarchy. Ladder: 11 / 12 / 14 / 15 / 16 / 18 / 22 / 30. */
+     Body is one step larger for primary text; secondary metadata
+     (--text-small/-caption) carries the hierarchy.
+     Ladder: 11 / 12 / 14 / 15 / 16 / 18 / 22 / 30. */
   --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI",
     Roboto, "Helvetica Neue", Arial, sans-serif;
   --text-caption: 11px;
@@ -74,7 +68,7 @@
   --radius-l: 14px;
   --player-height: 76px;
 
-  /* ---- motion: short, ease-out, communicates only (§8.4) ---- */
+  /* ---- motion: short, ease-out, communicates only ---- */
   --dur-fast: 150ms;
   --dur-normal: 220ms;
   --ease-out: cubic-bezier(0.25, 0.8, 0.35, 1);
@@ -92,7 +86,7 @@
    CSS media queries cannot read custom properties, so this comment is the
    contract: every media query and every JS matchMedia constant mirrors
    these numbers (PHONE_BP/LABELED_BP in TopBar, NARROW_BP in NowPlaying,
-   SHEET_BP in TrackActionsMenu). §28 records the rationales.
+   SHEET_BP in TrackActionsMenu).
      640  phone — overflow nav sheet, mini player, compact insets
      760  the brand wordmark hides
      940  Now Playing queue → sheet
@@ -100,9 +94,9 @@
           included; measured for the search field's 240px basis)
    Independent of width, touch capability ((hover: none) +
    (pointer: coarse)) sizes the top bar's targets to the 44pt HIG floor
-   with invisible slop (§28). */
+   with invisible slop. */
 
-/* Phones (§20): the mini player bar is one row — 62px, iOS-like. The canvas
+/* Phones: the mini player bar is one row — 62px, iOS-like. The canvas
    and any other consumer of --player-height follow the bar automatically. */
 @media (max-width: 640px) {
   :root {

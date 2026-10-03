@@ -1,12 +1,3 @@
-/* Playlist detail — header, mosaic or custom cover, drag-to-reorder tracks
-   (§9.2, §9.3, §13.10). Adding tracks opens the in-place Add Tracks picker;
-   reorder is optimistic and the PUT is the source of truth.
-
-   Editing lives in the header (2026-10-03): the name and the cover are
-   click-to-edit in place — the Manage dialog is gone. The cover cell is
-   the shared CoverEdit grammar (now album/artist headers too); deletion
-   lives in the "…" menu behind a two-step confirm. */
-
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate, useParams } from "react-router";
@@ -38,10 +29,6 @@ import { useQueryClient } from "@tanstack/react-query";
 import "../styles/library.css";
 import "../styles/editing.css";
 
-/** The header cover is its own edit affordance (the shared CoverEdit):
-    click changes the image, the corner × removes a custom one (the
-    mosaic takes back over) — both offer the §25 undo toast, composed in
-    lib/coverUndo with the album and artist headers. */
 function PlaylistCoverCell({ playlist }: { playlist: PlaylistDetailT }) {
   const uploadCover = useUploadPlaylistCover();
   const updatePlaylist = useUpdatePlaylist();
@@ -125,8 +112,6 @@ export function PlaylistDetailView() {
     );
   }
 
-  // §1.1: the playlist is the queue's origin — playing it says so, and
-  // every row click here inherits the same sentence.
   const playlistOrigin: QueueOrigin = {
     kind: "playlist",
     label: playlist.name,
@@ -155,11 +140,11 @@ export function PlaylistDetailView() {
     fmtDateTime(playlist.created_at),
   ].filter(Boolean);
 
-  // Removal (§25): no confirmation — a frequent, low-stakes action recovers
-  // by undo, not by dialog. The position is snapshotted now; the undo
-  // closure re-adds the track and PUTs the order back, inserting at that
-  // slot of whatever the list looks like when Undo is pressed (so reorders
-  // made after the removal survive).
+  // Removal: no confirmation — a frequent, low-stakes action recovers by
+  // undo, not by dialog. The position is snapshotted now; the undo closure
+  // re-adds the track and PUTs the order back at that slot of whatever the
+  // list looks like when Undo is pressed (so reorders made after the
+  // removal survive).
   const removeTrack = async (track: Track) => {
     const index = playlist.tracks.findIndex((t) => t.id === track.id);
     try {
@@ -189,8 +174,6 @@ export function PlaylistDetailView() {
         <PlaylistCoverCell playlist={playlist} />
         <div className="detailhead__info">
           <p className="detailhead__kind">Playlist</p>
-          {/* The name is click-to-edit (2026-10-03): Enter commits, Esc
-              cancels — the Organize grid's inline grammar (§15.1). */}
           <h1 className="detailhead__titlerow">
             <InlineEdit
               value={playlist.name}
@@ -213,14 +196,8 @@ export function PlaylistDetailView() {
             ))}
           </p>
           <div className="detailhead__actions">
-            {/* §2.1: the playlist joins the §30.1 header trio — Play ·
-                Shuffle · … — shared with album/artist detail so the grammar
-                cannot fork. Add Tracks stays in the "…" menu; deletion is
-                there too now, behind the two-step confirm (2026-10-03) —
-                the editing dialog is gone, its verbs live in the page.
-                The shared "Add to Playlist" verb opts out here (§2.1): the
-                menu is on a playlist, and a playlist has no destination
-                inside a playlist. */}
+            {/* addToPlaylist is off here: the menu is on a playlist, and a
+                playlist has no destination inside a playlist. */}
             <CollectionActions
               tracks={playlist.tracks}
               label={playlist.name}

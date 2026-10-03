@@ -1,8 +1,6 @@
-/* Row cursor regression (§3.4): the listening tables had no arrow-key
-   cursor and no Enter-to-play — the Organize grid's Finder grammar now
-   applies to them. These tests pin the shared hook: arrows move, Home/End
-   and PageUp/PageDown jump, Enter activates the cursor row, and keys never
-   fire while focus sits on an inner control. */
+/* Row cursor: arrows move, Home/End and PageUp/PageDown jump, Enter
+   activates the cursor row, and keys never fire while focus sits on an
+   inner control. */
 
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -35,7 +33,7 @@ function Fixture({
 
 afterEach(cleanup);
 
-describe("row cursor (§3.4)", () => {
+describe("row cursor", () => {
   it("moves with the arrows, jumps with Home/End/PageUp/PageDown", () => {
     render(<Fixture count={60} onActivate={vi.fn()} />);
     const table = screen.getByRole("table");

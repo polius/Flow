@@ -1,23 +1,19 @@
-/* The Organize grid (§22): windowed rows over the full (filtered) library,
+/* The Organize grid: windowed rows over the full (filtered) library,
    a sticky column header, and a keyboard cursor. Columns: checkbox ·
    title · artist · album · genre · added · file — the fields curation
    edits, plus the two reference columns (genre feeds the Tracks filter;
-   added-at answers "what did I just drop in?"). The track-number column
-   is gone (2026-10-03): within an album, order is the drag gesture's to
-   write, not a cell's.
+   added-at answers "what did I just drop in?").
 
-   Scroller note (§17.2 revision): the shell canvas is the app's scroll
-   container (AppShell), so this uses an element virtualizer bound to
-   .shell__canvas — the pattern the queue drawer uses for its list — not a
-   window virtualizer.
+   The shell canvas is the app's scroll container (AppShell), so this uses
+   an element virtualizer bound to .shell__canvas — the pattern the queue
+   drawer uses — not a window virtualizer.
 
-   Drag-reorder (§22): press a row and move — inside its ALBUM block the
-   row lifts, neighbors part, and release renumbers the block 1..n through
+   Drag-reorder: press a row and move — inside its ALBUM block the row
+   lifts, neighbors part, and release renumbers the block 1..n through
    POST /api/tracks/reorder (overlay edits, rescan-safe). The gesture is
-   bounded by the album: an album is the unit the drag orders, so a drag
-   can never scatter tracks across albums. Only the curated order (in
-   practice: a single album's filter — 2026-10-03's album mode) allows it —
-   the screen must be showing the order the drag writes. */
+   bounded by the album: a drag can never scatter tracks across albums,
+   and only the curated order allows it — the screen must be showing the
+   order the drag writes. */
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
@@ -47,7 +43,7 @@ interface OrganizeGridProps {
   /** Current column sort (URL state owned by OrganizeView). */
   sort: string;
   dir: "asc" | "desc";
-  /** Absent → a static head (album mode, 2026-10-03: the filtered album's
+  /** Absent → a static head (album mode: the filtered album's
       curated order is the view, columns don't sort against it). */
   onSort?: (key: string, dir: "asc" | "desc") => void;
   onNearEnd: () => void;
@@ -75,7 +71,7 @@ interface OrganizeGridProps {
 
 const isInteractiveTarget = (el: EventTarget | null): boolean => {
   if (!(el instanceof HTMLElement)) return false;
-  // §16.3's guard: native activation and text editing come first.
+  // The shortcut guard: native activation and text editing come first.
   return (
     el.tagName === "INPUT" ||
     el.tagName === "TEXTAREA" ||
@@ -138,7 +134,7 @@ export function OrganizeGrid({
   const dragRef = useRef<DragState | null>(null);
   const gestureRef = useRef<DragGesture | null>(null);
 
-  // The grid itself never scrolls — the shell canvas does (§18). Binding the
+  // The grid itself never scrolls — the shell canvas does. Binding the
   // virtualizer to the canvas keeps windowing honest inside the shared
   // scroll container.
   useLayoutEffect(() => {
@@ -215,7 +211,7 @@ export function OrganizeGrid({
     [tracks.length, cursorIndex, onCursorMove, onCursorToggle, onCursorEdit, onToggleAll],
   );
 
-  // ---- drag-reorder within an album block (§22) ----------------------------
+  // ---- drag-reorder within an album block ---------------------------------
 
   const applyDrag = (next: DragState | null) => {
     dragRef.current = next;

@@ -1,4 +1,4 @@
-"""Scan endpoints: SSE progress stream + manual trigger (DESIGN.md §6, §9.6)."""
+"""Scan endpoints: SSE progress stream + manual trigger."""
 
 from __future__ import annotations
 
@@ -51,8 +51,7 @@ def scan_events(request: Request) -> StreamingResponse:
 
 @router.get("/api/scan/errors", response_model=ScanErrorLog, tags=["scan"])
 def scan_error_log(request: Request) -> ScanErrorLog:
-    """Skipped files from the last scan — path + reason (§2.8). Settings
-    fetches this lazily when its disclosure opens."""
+    """Skipped files from the last scan — path + reason."""
     scanner: LibraryScanner = request.app.state.scanner
     log_dict = scanner.scan_error_log()
     return ScanErrorLog(

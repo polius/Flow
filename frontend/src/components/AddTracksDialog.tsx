@@ -1,7 +1,7 @@
-/* Add Tracks — the one library picker (§23): search the whole library —
-   title, artist, or album, so typing an album name surfaces its songs —
-   select any number of tracks, and add them in one commit. Two targets:
-   a playlist (its detail view owns membership) and the QUEUE (the queue
+/* Add Tracks — the one library picker: search the whole library (title,
+   artist, or album, so typing an album name surfaces its songs), select
+   any number of tracks, and add them in one commit. Two targets: a
+   playlist (its detail view owns membership) and the QUEUE (the queue
    panel's Add button; tracks land at the end of the play order). Enter
    toggles the highlighted row, Esc closes. */
 
@@ -25,9 +25,8 @@ type AddTracksDialogProps =
   | { kind: "playlist"; playlist: PlaylistDetail; onClose: () => void }
   | { kind: "queue"; onClose: () => void };
 
-/** One page of results; "Load more" (§3.4) appends the next page, and
-    Select all fetches every remaining page before selecting — the 200-row
-    silent cap is gone. */
+/** One page of results; "Load more" appends the next page, and
+    Select all fetches every remaining page before selecting. */
 const PAGE_SIZE = 200;
 /** Row height of .addtracks__row: 7px padding × 2 + 34px artwork. */
 const ROW_HEIGHT = 48;
@@ -49,7 +48,7 @@ export function AddTracksDialog(props: AddTracksDialogProps) {
   const surfaceRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
-  // Registered like any modal (§15.7): Now Playing's Esc and the global
+  // Registered like any modal: Now Playing's Esc and the global
   // shortcut guard defer while the picker is up.
   useEffect(() => {
     useUiStore.getState().setPickerOpen(true);
@@ -65,7 +64,7 @@ export function AddTracksDialog(props: AddTracksDialogProps) {
     return () => window.clearTimeout(timer);
   }, [input]);
 
-  // Autofocus the search field; Esc closes (§15.7 — dialogs above views).
+  // Autofocus the search field; Esc closes.
   useEffect(() => {
     searchRef.current?.focus();
     const onKeyDown = (e: KeyboardEvent) => {
@@ -75,7 +74,7 @@ export function AddTracksDialog(props: AddTracksDialogProps) {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [onClose]);
 
-  // Modal focus (§3.4): the search field stays the first target (its own
+  // Modal focus: the search field stays the first target (its own
   // autofocus runs first), Tab cycles inside the dialog, closing restores.
   useModalFocus(surfaceRef, true, { initial: () => searchRef.current });
 
@@ -105,7 +104,7 @@ export function AddTracksDialog(props: AddTracksDialogProps) {
   const total = data?.pages[0]?.total ?? 0;
 
   // Keep the keyboard cursor visible as the window scrolls (the picker list
-  // is windowed now — select-all can load thousands of rows, §3.4).
+  // is windowed — select-all can load thousands of rows).
   const virtualizer = useVirtualizer({
     count: results.length,
     getScrollElement: () => listRef.current,
@@ -140,9 +139,8 @@ export function AddTracksDialog(props: AddTracksDialogProps) {
     });
   };
 
-  // "Select all" means ALL matches, not the loaded page (§3.4 — the old
-  // picker silently capped at 200 while the header advertised the library).
-  // Any unloaded pages are fetched first, then everything selects. The
+  // "Select all" means ALL matches, not the loaded page. Any unloaded
+  // pages are fetched first, then everything selects. The
   // loop reads the accumulated pages off each fetchNextPage result, so it
   // can't act on stale state.
   const selectAll = async () => {
@@ -186,7 +184,7 @@ export function AddTracksDialog(props: AddTracksDialogProps) {
       setAdding(false);
       if (ok) onClose();
     } else {
-      // §1.2: both destinations, append still the picker's default —
+      // Both destinations, append still the picker's default —
       // "Play Next" inserts after the playing row (playNextMany), "Add to
       // Queue" lands at the end. The store's arrival toast confirms either
       // way, with Undo.
@@ -360,7 +358,7 @@ export function AddTracksDialog(props: AddTracksDialogProps) {
             </div>
           ) : (
             <>
-              {/* Windowed (§3.4): select-all can load the whole library, and
+              {/* Windowed: select-all can load the whole library, and
                   thousands of live rows would starve the dialog. Same element
                   virtualizer the queue drawer uses. */}
               <div
@@ -447,7 +445,7 @@ export function AddTracksDialog(props: AddTracksDialogProps) {
             <button type="button" className="addtracks__cancel" onClick={onClose}>
               Cancel
             </button>
-            {/* §1.2: the picker keeps append as its default verb, but
+            {/* The picker keeps append as its default verb, but
                 "Play Next" sits beside it — the same two destinations the
                 menus offer, one quiet secondary. */}
             {props.kind === "queue" && (

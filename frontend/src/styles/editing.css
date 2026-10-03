@@ -1,7 +1,6 @@
-/* Milestone 4 editing surfaces: row actions, inline rename, playlist mosaic
-   + cards, search bar, Get Info panel, and the shared library picker (§23)
-   (DESIGN.md §8, §9.2–§9.3). Chrome stays near-monochrome; artwork remains
-   the only color. */
+/* Row actions, inline rename, playlist mosaic + cards, search bar, Get
+   Info panel, and the shared library picker. Chrome stays near-monochrome;
+   artwork remains the only color. */
 
 /* ---- track row extras: heart ---------------------------------------------- */
 
@@ -22,7 +21,7 @@
     color var(--dur-fast) var(--ease-out);
 }
 
-/* Hover-revealed (§8.7): only a favorited heart stays visible. */
+/* Hover-revealed: only a favorited heart stays visible. */
 .trackrow__heartbtn {
   opacity: 0;
 }
@@ -37,7 +36,7 @@
   color: var(--text-primary);
 }
 
-/* Playlist rows: a third hover slot removes the track in one click (§9.2). */
+/* Playlist rows: a third hover slot removes the track in one click. */
 .trackrow__remove {
   display: flex;
   justify-content: center;
@@ -84,12 +83,12 @@
   user-select: none;
 }
 
-/* Touch devices have no hover — but a row of hearts is noise, not function
-   (§21 revision). The ACTION lives in the row's long-press menu
-   (TrackActionsMenu), always reachable; the heart here is a STATE marker:
-   loved songs stay visibly loved, un-loved rows stay quiet. The inline
-   remove button is desktop's hover path (§25): on touch, removal is the
-   swipe gesture — the slot folds away entirely (library.css). */
+/* Touch devices have no hover — but a row of hearts is noise, not function.
+   The ACTION lives in the row's long-press menu (TrackActionsMenu), always
+   reachable; the heart here is a STATE marker: loved songs stay visibly
+   loved, un-loved rows stay quiet. The inline remove button is desktop's
+   hover path: on touch, removal is the swipe gesture — the slot folds away
+   entirely (library.css). */
 @media (hover: none) {
   .trackrow__heartbtn {
     opacity: 0.4;
@@ -100,7 +99,7 @@
   }
 }
 
-/* ---- swipe-to-remove (playlist rows on touch, §25) -------------------------
+/* ---- swipe-to-remove (playlist rows on touch) ------------------------------
    iOS Mail grammar: the leftward drag reveals the action behind the content;
    the tap on it commits — the gesture states intent, the tap confirms it.
    The action sits under the row's right edge and only exists (visibility)
@@ -145,17 +144,17 @@
   justify-content: center;
   width: 84px;
   height: 100%;
-  background: var(--text-primary); /* §31: inversion, not alarm color */
+  background: var(--text-primary); /* inversion, not alarm color */
   color: var(--bg-canvas);
   font-size: var(--text-body);
   font-weight: 600;
 }
 
-/* Playlist drag-reorder (§27): the queue's press-and-drag grammar. The
-   grabbed row is IN the ghost — its origin slot reads as empty (opacity 0)
+/* Playlist drag-reorder (the queue's press-and-drag grammar): the grabbed
+   row is IN the ghost — its origin slot reads as empty (opacity 0)
    while the wrapper's transform slides it to the tentative slot, so the gap
    travels with the pointer and the neighbors part around it. The gap is the
-   only placement cue; the 2px insertion line is gone. While a drag is live
+   only placement cue. While a drag is live
    rows stop being hit targets: no hover fills, no stray clicks under the
    ghost, no text selection. */
 .trackrow--dragging {
@@ -172,10 +171,9 @@
   pointer-events: none;
 }
 
-/* Reorderable rows announce the gesture (2026-10-03, Favorites): a grab
-   cursor anywhere on the row, the playlist table's cue — the pointer
-   handlers refuse presses that start on buttons/links, so their own
-   cursors still win. */
+/* Reorderable rows announce the gesture: a grab cursor anywhere on the
+   row, the playlist table's cue — the pointer handlers refuse presses that
+   start on buttons/links, so their own cursors still win. */
 .tracktable--reorderable .trackrow {
   cursor: grab;
 }
@@ -185,9 +183,9 @@
 }
 
 /* The parting motion: the wrapper slides one row height with the same fast
-   ease the queue rows use — the list reads as yielding to the hand, not
-   rows teleporting. Unconditional (like .queue__row) so the release/cancel
-   spring animates too: the --dragging class is already gone by then. */
+   ease the queue rows use. Unconditional (like .queue__row) so the
+   release/cancel spring animates too: the --dragging class is already gone
+   by then. */
 .trackrowwrap {
   transition: transform var(--dur-fast) var(--ease-out);
 }
@@ -205,7 +203,7 @@
    shadow, hairline edge, 1.02 scale (the scale rides the transform the
    gesture writes each frame). Settling shrinks the shadow and glides the
    last few pixels onto the slot. Lives on <body>: fixed positioning means
-   the viewport, and no .tracktable ancestor can clip or stack below it. */
+   the viewport, and no .tracktable ancestor can clip it. */
 .trackrowghost {
   position: fixed;
   left: 0;
@@ -227,7 +225,7 @@
     0 1px 3px rgba(0, 0, 0, 0.12);
 }
 
-/* ---- inline edit (double-click rename, §9.3) ------------------------------ */
+/* ---- inline edit (double-click rename) ------------------------------ */
 
 .inlineedit__text {
   cursor: text;
@@ -280,7 +278,7 @@ textarea.inlineedit__input {
 
 /* ---- context menu (row ··· and playlist cards) ---------------------------- */
 
-/* Above every surface, the Organize sheet included (§22): the menu is opened
+/* Above every surface, the Organize sheet included: the menu is opened
    FROM those surfaces — right-click an Organize row — so it can't share the
    sheet's layer, where DOM order would bury it underneath. */
 .trackmenu {
@@ -353,9 +351,8 @@ textarea.inlineedit__input {
   font-size: var(--text-body);
   font-weight: 500;
   color: var(--text-primary);
-  /* Menu items are one line by contract (2026-10-03: "Add to Queue (end)"
-     wrapped onto two on the header's narrow pop — a menu item's label is
-     never prose). The panel's max-content grows to carry the line. */
+  /* Menu items are one line by contract — a menu item's label is
+     never prose. The panel's max-content grows to carry the line. */
   white-space: nowrap;
   text-align: left;
 }
@@ -365,13 +362,12 @@ textarea.inlineedit__input {
 }
 
 .trackmenu__item--danger {
-  /* §31: the consequence reads through weight, not alarm color. */
+  /* The consequence reads through weight, not alarm color. */
   font-weight: 650;
 }
 
-/* The armed two-step confirm (2026-10-03): the delete item inverts — the
-   Manage dialog's confirm grammar (§9.2) living in a menu item. §31 again:
-   inversion carries the step, no alarm color. */
+/* The armed two-step confirm: the delete item inverts — inversion
+   carries the step, no alarm color. */
 .collactions__item--armed {
   background: var(--text-primary);
   color: var(--bg-canvas);
@@ -502,7 +498,7 @@ textarea.inlineedit__input {
   transform: rotate(-180deg);
 }
 
-/* ---- playlist mosaic (§13.10) --------------------------------------------- */
+/* ---- playlist mosaic ------------------------------------------------------- */
 
 .playlistart {
   display: grid;
@@ -574,7 +570,7 @@ textarea.inlineedit__input {
   background: var(--bg-hover);
 }
 
-/* The filled Play variant (Favorites, §29's header trio). Lives HERE, after
+/* The filled Play variant (Favorites). Lives HERE, after
    the base rules, not beside `.view__actions` in library.css: both files
    land in one bundle in module-import order, and there the base rule came
    LATER — same specificity, so its `color: var(--text-primary)` painted the
@@ -592,7 +588,7 @@ textarea.inlineedit__input {
   opacity: 0.85;
 }
 
-/* The "needs attention" count on the Tracks header's Organize entry (§23). */
+/* The "needs attention" count on the Tracks header's Organize entry. */
 .view__actioncount {
   font-variant-numeric: tabular-nums;
   color: var(--text-secondary);
@@ -601,7 +597,7 @@ textarea.inlineedit__input {
 /* The search field lives in the top bar (styles/topbar.css). */
 
 /* Search results — one group per entity type, stacked with clear air so the
-   sections scan as separate blocks instead of one dense wall (§9.2). */
+   sections scan as separate blocks instead of one dense wall. */
 .searchgroup + .searchgroup {
   margin-top: 48px;
 }
@@ -640,9 +636,9 @@ textarea.inlineedit__input {
   font-variant-numeric: tabular-nums;
 }
 
-/* ---- Get Info panel (§9.3) -------------------------------------------------- */
+/* ---- Get Info panel -------------------------------------------------- */
 
-/* One layer above the Organize sheet (§22): Get Info opens FROM it — the
+/* One layer above the Organize sheet: Get Info opens FROM it — the
    ⓘ replacement's right-click menu, phone rows — and both surfaces sit at
    --z-modal, where DOM order would bury the panel (it mounts earlier in
    AppShell). The scrim covers the sheet; the panel slides over it. */
@@ -895,7 +891,7 @@ textarea.inlineedit__input {
   color: var(--text-primary);
 }
 
-/* Queue mode (§23): the identity slot carries the queue glyph instead of a
+/* Queue mode: the identity slot carries the queue glyph instead of a
    playlist's mosaic — same 52px tile, same grammar. */
 .addtracks__queuetile {
   display: flex;
@@ -943,7 +939,7 @@ textarea.inlineedit__input {
   color: var(--text-tertiary);
 }
 
-/* Focus is carried by the wrapper's border (§8 chrome) — never the global
+/* Focus is carried by the wrapper's border — never the global
    accent ring, which reads as an error state on a search field. */
 .addtracks__searchinput:focus,
 .addtracks__searchinput:focus-visible {
@@ -991,7 +987,7 @@ textarea.inlineedit__input {
   padding: 0 10px;
 }
 
-/* Windowed rows (§3.4): the virtualizer owns the full height and positions
+/* Windowed rows: the virtualizer owns the full height and positions
    each row — the same element-virtualizer pattern as the queue drawer. */
 .addtracks__window {
   position: relative;
@@ -1004,8 +1000,8 @@ textarea.inlineedit__input {
   right: 0;
 }
 
-/* The honest tail of a long list: one quiet row that appends the next page
-   (§3.4 — the old 200-row cap hid tracks 201+ behind guesswork). */
+/* The honest tail of a long list: one quiet row that appends the next
+   page. */
 .addtracks__more {
   display: block;
   width: 100%;
@@ -1180,7 +1176,7 @@ textarea.inlineedit__input {
   justify-content: center;
 }
 
-/* Phones (§21/§23): the centered floating card is desktop chrome — the
+/* Phones: the centered floating card is desktop chrome — the
    picker becomes a full-screen sheet. This dialog is now the only way
    tracks enter playlists, so it must be first-class at 375px. */
 @media (max-width: 640px) {
@@ -1217,7 +1213,7 @@ textarea.inlineedit__input {
   }
 }
 
-/* ---- tag chips (detail header + Manage dialog) ----------------------------- */
+/* ---- tag chips ------------------------------------------------------------ */
 
 .chip {
   display: inline-flex;
@@ -1247,12 +1243,12 @@ textarea.inlineedit__input {
   background: var(--bg-hover);
 }
 
-/* ---- undo toast (§25) -------------------------------------------------------
+/* ---- undo toast -------------------------------------------------------
    The recovery affordance for destructive-but-recoverable actions: a quiet
    pill above the player bar — message + Undo, five seconds, held on hover
    or focus. It must float above the Now Playing takeover too: the queue
    lives inside that fullscreen overlay, and queue removal is exactly the
-   case the toast exists for (§26) — a toast buried under the takeover is
+   case the toast exists for — a toast buried under the takeover is
    no toast at all. Only the drag ghost (modal + 10) rides higher. */
 
 .undotoast {
@@ -1302,7 +1298,7 @@ textarea.inlineedit__input {
   background: var(--bg-hover);
 }
 
-/* ---- Add to Playlist destination picker (§2.1) ----------------------------
+/* ---- Add to Playlist destination picker -----------------------------------
    The reverse of the Add Tracks picker: music first, destination second.
    Shares the picker's scrim + surface language; rows read like menu items
    with art. */
@@ -1415,7 +1411,7 @@ textarea.inlineedit__input {
 
 /* The New Playlist naming step: the list gives way to one field and its
    action pair — the dialog is already the modal, no second one needed.
-   2026-10-03: the step wears the --naming modifier, which breathes — the
+   The step wears the --naming modifier, which breathes — the
    field-only body read cramped against the 16px list padding, so the
    receipt (the created step) inherits the same room. */
 .addto--naming .addto__head {
@@ -1441,9 +1437,9 @@ textarea.inlineedit__input {
 }
 
 /* Focus reads as the field's border darkening — the GetInfo input's
-   grammar (§31: the accent is the equalizer bars' alone; the old
-   accent ring made this field glow red the moment it appeared,
-   which read as an error state on the first thing the user touches). */
+   grammar: the old accent ring made this field glow red the moment it
+   appeared, which read as an error state on the first thing the user
+   touches. */
 .addto__nameinput:focus,
 .addto__nameinput:focus-visible {
   border-color: color-mix(in srgb, var(--text-primary) 40%, transparent);
@@ -1473,9 +1469,9 @@ textarea.inlineedit__input {
   background: var(--bg-hover);
 }
 
-/* The created receipt (2026-10-03): a check, the sentence that says the
+/* The created receipt: a check, the sentence that says the
    playlist was created successfully, and the direct path to it. The disc
-   is the monochrome inversion (§31) — a red check on a success receipt
+   is the monochrome inversion — a red check on a success receipt
    read as an error (the same accent leftover the name field had). */
 .addto__success {
   display: flex;
@@ -1517,7 +1513,7 @@ textarea.inlineedit__input {
   white-space: nowrap;
 }
 
-/* Menu extras shared by the genre + collection menus (§2.1, §2.2). */
+/* Menu extras shared by the genre + collection menus. */
 .trackmenu__count {
   margin-left: auto;
   padding-left: 14px;

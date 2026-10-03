@@ -1,4 +1,4 @@
-"""Playlist CRUD, membership, ordering, and covers — DESIGN.md §6, §11.4."""
+"""Playlist CRUD, membership, ordering, and covers."""
 
 from __future__ import annotations
 
@@ -40,7 +40,7 @@ def test_playlist_crud_roundtrip(client, library):
     assert body["duration_total"] == 0
     assert body["tracks"] == []
 
-    # Trimmed name is case-insensitively unique-ish? No constraint: names may repeat.
+    # No uniqueness constraint: names may repeat.
     renamed = client.patch(f"/api/playlists/{pid}", json={"name": "Night Drive"})
     assert renamed.status_code == 200
     assert renamed.json()["name"] == "Night Drive"
@@ -79,7 +79,7 @@ def test_add_remove_tracks_and_positions(client, library):
     )
 
     # Appends continue the position sequence. (Re-adding ids[0] would be a
-    # set-like no-op now — §2.1: never twice in one playlist.)
+    # set-like no-op — never twice in one playlist.)
     again = client.post(f"/api/playlists/{pid}/tracks", json={"track_ids": [ids[3]]})
     assert again.json()["tracks"][-1]["position"] == 4
 
@@ -116,10 +116,9 @@ def test_reorder_requires_permutation_of_membership(client, library):
 
 
 def test_duplicate_tracks_are_skipped_set_like_membership(client, library):
-    """§2.1: the same track may live in many playlists but never twice in
-    one — add is set-like, deduping the request and skipping what the
-    playlist already holds. The counts ride the response headers so the
-    client's confirmation stays honest."""
+    """The same track may live in many playlists but never twice in one —
+    add is set-like, deduping the request and skipping what the playlist
+    already holds."""
     pid = client.post("/api/playlists", json={"name": "Repeats"}).json()["id"]
     ids = [t["id"] for t in _tracks(client)]
     added = client.post(
@@ -155,7 +154,6 @@ def test_mosaic_artwork_ids_follow_playlist_order(client, library):
     listing = client.get("/api/playlists").json()["items"][0]
     assert listing["artwork_ids"] == []  # no embedded art in these fixtures
 
-    # A detail fetch works and counts match.
     detail = client.get(f"/api/playlists/{pid}").json()
     assert detail["track_count"] == len(tracks)
 

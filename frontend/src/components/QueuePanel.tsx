@@ -1,35 +1,26 @@
-/* Queue drawer (§9.2, §9.4): the full queue as one continuous list in play
-   order (identity or shuffled — the store's `order` is the truth). Played
-   tracks stay in place, dimmed; the playing row is marked with pulsing
-   accent bars over its artwork (§17.7) — nothing disappears as the queue
-   advances. Rows are click-to-jump: any row starts playback from there,
-   backwards included; the playing row toggles playback. The playing row is
-   anchored — it can't be dragged or removed (§9.4: playback is the thing
-   the user can't undo with one gesture).
+/* Queue drawer: the full queue as one continuous list in play order
+   (identity or shuffled — the store's `order` is the truth). Played tracks
+   stay in place, dimmed; the playing row is marked with pulsing accent
+   bars over its artwork. Rows are click-to-jump; the playing row toggles
+   playback and is anchored — it can't be dragged or removed (playback is
+   the thing the user can't undo with one gesture).
 
-   Reorder (§9.4 revision 2): one pointer grammar on every platform. On the
-   mouse, press-and-move lifts a row; on touch/pen, a long press lifts it
-   (the home-screen gesture). The lifted row follows the finger as a
-   floating ghost while its neighbors slide out of the way — the gap where
-   the row will land IS the insertion indicator. List edges auto-scroll,
-   release commits once (straight into the play order, shuffle-aware), and
-   Escape or a system cancel springs the row home. Before a touch lift the
-   list stays native: vertical movement scrolls, a leftward move is still
-   the swipe-to-remove gesture (the iOS Mail gesture), and the
-   always-visible ✕ remains the discoverable path. Option+↑/↓ on a focused
-   row reorders without a pointer at all. Queue manipulation only — no
-   ratings, no play counts.
+   Reorder: one pointer grammar on every platform. On the mouse,
+   press-and-move lifts a row; on touch/pen, a long press lifts it. The
+   lifted row follows the finger as a floating ghost while its neighbors
+   slide out of the way — the gap where the row will land IS the insertion
+   indicator. List edges auto-scroll, release commits once, and Escape or
+   a system cancel springs the row home. Before a touch lift the list
+   stays native: vertical movement scrolls, a leftward move is still the
+   swipe-to-remove gesture, and the always-visible ✕ remains the
+   discoverable path. Option+↑/↓ on a focused row reorders without a
+   pointer at all.
 
-   The queue is also where one is BUILT (§23): the header's Add button opens
-   the shared library picker and appends to the end of the play order.
-   The list is windowed — playing a full library queues 10k rows.
-
-   §1.1 (UX review 2): the queue knows where it came from. The head shows
-   "Playing from …" (the session's origin, linked), and the body groups
-   itself by album — a quiet divider above each run of the same album, in
-   play order, only when the queue actually spans more than one album and
-   the run is worth naming. Rows carry artist links: the title stays the
-   click-to-jump target; the artist name is a door (§1.4). */
+   The queue is also where one is BUILT: the header's Add button opens the
+   shared library picker and appends to the end of the play order. The
+   list is windowed — playing a full library queues 10k rows. The head
+   shows "Playing from …" (the session's origin, linked), and the body
+   groups itself by album when the queue spans more than one. */
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -127,7 +118,7 @@ const freshGesture = (): Gesture => ({
   rect: null,
 });
 
-/* ---- the §1.1 album-grouping layout -------------------------------------- */
+/* ---- album-grouping layout ----------------------------------------------- */
 
 type QueueEntry =
   | { kind: "row"; order: number; height: number }
@@ -145,13 +136,12 @@ interface QueueLayout {
   rowBottoms: number[];
 }
 
-/** One derived pass over the play order (§1.1: "no new components"): rows
+/** One derived pass over the play order: rows
     in play order, with a quiet divider above each run of the same album.
     Dividers appear only when the queue actually spans more than one album,
     and only above runs of two or more — a one-album queue is its own
     context (the "Playing from" line already says so), and a shuffled
-    library would otherwise sprout a header above every track. A run of
-    one is not a group worth naming; silence is the quiet choice. */
+    library would otherwise sprout a header above every track. */
 export function buildQueueLayout(order: number[], queue: Track[]): QueueLayout {
   const entries: QueueEntry[] = [];
   const rowEntry: number[] = [];
@@ -227,7 +217,7 @@ function slotAt(rowBottoms: number[], y: number): number {
 }
 
 interface QueuePanelProps {
-  /** Narrow-window sheet mode (§23): a chevron returns to the stage. */
+  /** Narrow-window sheet mode: a chevron returns to the stage. */
   onCollapse?: () => void;
 }
 
@@ -264,7 +254,7 @@ export function QueuePanel({ onCollapse }: QueuePanelProps) {
   const origin = usePlayerStore((s) => s.origin);
   const closeNowPlaying = useUiStore((s) => s.closeNowPlaying);
 
-  // The §1.1 layout: rows in play order plus album dividers, with the
+  // The layout: rows in play order plus album dividers, with the
   // offset arithmetic (centering, drag slots, settle flight) precomputed.
   const layout = useMemo(() => buildQueueLayout(order, queue), [order, queue]);
   const layoutRef = useRef(layout);
@@ -316,7 +306,7 @@ export function QueuePanel({ onCollapse }: QueuePanelProps) {
     if ("vibrate" in navigator) navigator.vibrate(ms);
   };
 
-  // Removal with recovery (§26): the queue is client state, so the undo is
+  // Removal with recovery: the queue is client state, so the undo is
   // exact — the track goes back to its former queue index and play-order
   // slot. Both removal paths (the ✕ and the swipe commit) go through here.
   const removeWithUndo = (orderIndex: number) => {
@@ -385,7 +375,7 @@ export function QueuePanel({ onCollapse }: QueuePanelProps) {
         ghost.style.transform = `translate(${x}px, ${g.clientY - g.grabDy}px) scale(1.03)`;
       }
       // The tentative slot: the row boundary nearest the pointer — bisected
-      // against the row bottoms, since the §1.1 dividers make row positions
+      // against the row bottoms, since the dividers make row positions
       // non-uniform.
       const len = usePlayerStore.getState().order.length;
       const contentY = g.clientY - g.rect.top + list.scrollTop;
@@ -423,7 +413,7 @@ export function QueuePanel({ onCollapse }: QueuePanelProps) {
     }
     buzz(10);
     applyDrag({ from: g.index, slot: g.index, width: rowRect.width });
-    // The lifted row is a layer above the Now Playing takeover (§15.7):
+    // The lifted row is a layer above the Now Playing takeover:
     // Esc now belongs to the drag until it ends.
     useUiStore.getState().setQueueDragOpen(true);
     g.esc = (e: KeyboardEvent) => {
@@ -481,7 +471,7 @@ export function QueuePanel({ onCollapse }: QueuePanelProps) {
     const rowEl = target.closest<HTMLElement>("[data-idx]");
     if (!rowEl) return;
     const index = Number(rowEl.dataset.idx);
-    if (index === orderPos) return; // the playing row is anchored (§9.4)
+    if (index === orderPos) return; // the playing row is anchored
     resetGesture();
     gestureRef.current = {
       ...freshGesture(),
@@ -656,10 +646,10 @@ export function QueuePanel({ onCollapse }: QueuePanelProps) {
             )}
           </div>
         </header>
-        {/* §1.1: the queue's origin, named next to the count. A hand-built
-            queue (label null) says nothing — the pre-origin behavior.
-            §2.7: the link renders only once the server has vouched for the
-            session (an unverified restore's href may name a dead entity). */}
+        {/* The queue's origin, named next to the count. A hand-built
+            queue (label null) says nothing. The link renders only once the
+            server has vouched for the session (an unverified restore's
+            href may name a dead entity). */}
         {order.length > 0 && origin?.label != null && (
           <p className="queue__origin">
             Playing from{" "}
@@ -709,7 +699,7 @@ export function QueuePanel({ onCollapse }: QueuePanelProps) {
               {virtualizer.getVirtualItems().map((item) => {
                 const entry = layout.entries[item.index];
                 if (!entry) return null;
-                // §1.1: the quiet album divider between runs — a plain
+                // The quiet album divider between runs — a plain
                 // caption row, skipped by every gesture (only rows carry
                 // data-idx, so it can't be dragged, swiped, or played).
                 if (entry.kind === "divider") {
@@ -762,7 +752,7 @@ export function QueuePanel({ onCollapse }: QueuePanelProps) {
                       aria-current={isCurrent ? "true" : undefined}
                       onClick={activate}
                       onKeyDown={(e) => {
-                        // A link inside the row (the artist, §1.4) owns the
+                        // A link inside the row (the artist) owns the
                         // keyboard: Enter activates the link, never the row.
                         if (e.target instanceof Element && e.target.closest("a"))
                           return;
@@ -822,10 +812,10 @@ export function QueuePanel({ onCollapse }: QueuePanelProps) {
                         <span className="queue__name">{t.title}</span>
                         <span className="queue__sub">
                           {!trackIsUnverified(t) && t.artist_id != null && t.artist ? (
-                            // §1.4: the artist name is a door. The title
+                            // The artist name is a link. The title
                             // keeps click-to-jump; navigation closes the
-                            // takeover — the queue is inside it. §2.7: a
-                            // row the server hasn't vouched for reads as
+                            // takeover — the queue is inside it. A row
+                            // the server hasn't vouched for reads as
                             // text, not a link into a dead entity.
                             <Link
                               to={`/artists/${t.artist_id}`}

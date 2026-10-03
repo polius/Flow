@@ -1,25 +1,14 @@
-/* One Organize row (§22): checkbox · title · artist · album · genre ·
-   added · file. The editing grammar matches the library's click-to-edit
-   (§15.1) — a focused click on the words opens the editor; row clicks
-   select. No playback here: this view organizes (§22), and row click must
-   stay unambiguous. The hover-revealed ⓘ is gone (§25): right-click opens
-   the app-wide track menu (Get Info included) — the same gesture as every
-   other row in the app — and on phones, where cells are not editable, a
-   tap on the re-templated row opens Get Info directly (§21's
-   designed-refusal pattern, §22). The Genre cell edits the track's primary
-   genre (§2.2 — the value the Tracks filter groups by). The Added column is
-   read-only reference: when the scanner first saw the file. The File column
-   is read-only reference data: the file name with its library-relative
-   path on hover.
+/* One Organize row: checkbox · title · artist · album · genre · added ·
+   file. A focused click on the words opens the editor; row clicks select —
+   no playback in this view, so row click must stay unambiguous. Right-click
+   opens the app-wide track menu (Get Info included); on phones, where cells
+   are not editable, a tap on the compact row opens Get Info directly. The
+   Added and File columns are read-only reference data.
 
-   The track-number cell is gone (2026-10-03): ordering within an album is
-   the drag gesture's job now — numbers are written by the reorder, never
-   typed by hand.
-
-   Drag-reorder (§22): a pressed row that moves past the slop lifts and
-   reorders within its album — the grid owns the gesture; the row only
-   wears the states (grab cursor when reorderable, dimmed while dragged,
-   displaced while neighbors part). */
+   Drag-reorder: a pressed row that moves past the slop lifts and reorders
+   within its album — the grid owns the gesture; the row only wears the
+   states (grab cursor when reorderable, dimmed while dragged, displaced
+   while neighbors part). */
 
 import type { CSSProperties } from "react";
 
@@ -34,7 +23,7 @@ const ROW_HEIGHT = 38;
 export interface RowMods {
   shiftKey: boolean;
   metaKey: boolean;
-  /** Alt joins the selection modifiers (§39.1, in the grid too — §40). */
+  /** Alt joins the selection modifiers. */
   altKey: boolean;
 }
 
@@ -48,7 +37,7 @@ interface OrganizeRowProps {
   compact: boolean;
   /** Grid keyboard: Enter opens this row's title editor once. */
   editTitle: boolean;
-  /** Drag-reorder (§22): this row is the one being dragged. */
+  /** Drag-reorder: this row is the one being dragged. */
   dragging?: boolean;
   /** Drag-reorder: the row may start a drag (mouse reorderable album block). */
   draggable?: boolean;
@@ -99,10 +88,10 @@ export function OrganizeRow({
     altKey: e.altKey,
   });
 
-  /* Plain clicks belong to the editable cell (they open its editor, §15.1);
-     modifier-clicks are the row's selection gesture (§4.1's grammar, grid
-     edition — §40) and must reach the row: they bubble. The guard sits on
-     the wrapper so it covers the editor text and the cell padding alike. */
+  /* Plain clicks belong to the editable cell (they open its editor);
+     modifier-clicks are the row's selection gesture and must reach the
+     row: they bubble. The guard sits on the wrapper so it covers the
+     editor text and the cell padding alike. */
   const gateCellClick = (e: React.MouseEvent) => {
     if (e.shiftKey || e.metaKey || e.ctrlKey || e.altKey) return;
     e.stopPropagation();
@@ -161,8 +150,8 @@ export function OrganizeRow({
         </button>
       </span>
       <span className="orgrow__titlecell" onClick={gateCellClick}>
-        {/* Text only (owner, 2026-10-02): the 24px artwork left the title
-            cell — one icon per row read as noise in a mass-editing grid. */}
+        {/* Text only: the 24px artwork left the title cell — one icon per
+            row read as noise in a mass-editing grid. */}
         <InlineEdit
           value={track.title}
           ariaLabel={`Rename ${track.title}`}

@@ -1,8 +1,7 @@
-/* The selection bar (§22): the Organize view's one persistent surface.
-   Appears with a selection; offers bulk set (album/artist) with suggestions
-   from the existing entities, a Clear, and — the view's single ceremony —
-   a confirm sheet with honest arithmetic (count + what gets removed).
-   The result banner doubles as the undo affordance for the last apply. */
+/* The Organize view's selection bar: bulk set (album/artist/genre) with
+   suggestions from the existing entities, and a confirm sheet with honest
+   arithmetic (count + what gets removed). The result banner doubles as the
+   undo affordance for the last apply. */
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -73,7 +72,7 @@ export function BulkBar({ count, filterMode, applying, selectedTracks, onClear, 
     };
   }, [popover, setContextMenuOpen]);
 
-  // Confirm sheet: registered like a menu so Esc unwinds it first (§16.4).
+  // Confirm sheet: registered like a menu so Esc unwinds it first.
   useEffect(() => {
     if (confirm == null) return;
     setContextMenuOpen(true);
@@ -101,8 +100,8 @@ export function BulkBar({ count, filterMode, applying, selectedTracks, onClear, 
           track_count: a.track_count,
         }));
       }
-      // Genres: one small list, filtered here — the vocabulary is the
-      // same one the Tracks filter menu reads (§2.2).
+      // Genres: one small list, filtered here — the same vocabulary the
+      // Tracks filter menu reads.
       if (popover === "genre") {
         const { data } = await api.GET("/api/genres", {
           params: { query: { limit: 1000 } },
@@ -358,8 +357,8 @@ function ConsequenceLine({
     const names: string[] = [];
     for (const d of details.data) {
       if (d.title.trim().toLowerCase() === target.toLowerCase()) continue;
-      // Albums are removed exactly when their last track moves (§13.2 prune).
-      // Artists can survive via album references even with no tracks, so the
+      // Albums are removed exactly when their last track moves. Artists
+      // can survive via album references even with no tracks, so the
       // claim is the one that is always true: left with no tracks.
       const fullyMoved = (counts.get(d.id) ?? 0) >= d.track_count;
       if (fullyMoved) names.push(d.title);
@@ -380,7 +379,7 @@ function ConsequenceLine({
   if (field === "genre") {
     return (
       <p className="orgsheet__note">
-        Genres are what the Tracks view's filter menu reads (§2.2). A new
+        Genres are what the Tracks view's filter menu reads. A new
         name appears there immediately; a rescan keeps your choice.
       </p>
     );

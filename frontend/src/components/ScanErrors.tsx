@@ -1,12 +1,7 @@
-/* Scan errors (§2.8): the skipped-files log, in two designed forms over one
-   query. The top-bar pill (while a scan runs) and the Settings "Skipped"
-   section both need the same truth — what failed, where, and why — so one
-   component renders the list and both surfaces host it.
-
-   The list is the point: a readable table (path + reason), a filter that
-   narrows it in place, and honest totals. No "View" ceremony — the errors
-   are right there, scrollable, at whatever size the library's failure
-   demands. */
+/* Scan errors: the skipped-files log, in two forms over one query. The
+   top-bar pill (while a scan runs) and the Settings "Skipped" section both
+   need the same truth — what failed, where, and why — so one component
+   renders the list and both surfaces host it. */
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -114,7 +109,7 @@ function ScanErrorList({ live }: { live?: boolean }) {
   );
 }
 
-/** The modal the top-bar error pill opens mid-scan (§2.8). */
+/** The modal the top-bar error pill opens mid-scan. */
 export function ScanErrorsDialog({
   onClose,
   live = false,
@@ -125,7 +120,7 @@ export function ScanErrorsDialog({
   const surfaceRef = useRef<HTMLDivElement>(null);
   useModalFocus(surfaceRef, true);
 
-  // Registered like every modal (§15.7): Esc precedence — the selection
+  // Registered like every modal: Esc precedence — the selection
   // hook and the shortcut guard defer while this is up.
   useEffect(() => {
     useUiStore.getState().setContextMenuOpen(true);

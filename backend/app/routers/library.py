@@ -1,9 +1,4 @@
-"""Library read endpoints: tracks, albums, artists (DESIGN.md §6).
-
-All list endpoints share the same contract: `limit`/`offset` pagination with
-a `total`, optional `q` filtering, and whitelisted `sort` values. Built for
-large libraries from day one; frontend virtualization lands in Milestone 6.
-"""
+"""Library read endpoints: tracks, albums, artists — shared pagination/filter/sort contract."""
 
 from __future__ import annotations
 
@@ -31,27 +26,26 @@ TRACK_SORTS = {
     "title": "t.title COLLATE NOCASE",
     "artist": "(ar.name IS NULL), ar.name COLLATE NOCASE",
     "album": "(al.title IS NULL), al.title COLLATE NOCASE",
-    # Organize view (§22): album blocks contiguous (same title, artist-ordered),
-    # track order within, loose tracks last — the ordering curation thinks in.
+    # Album blocks contiguous (same title, artist-ordered), track order
+    # within, loose tracks last — how curation thinks.
     "curate": "(al.title IS NULL), al.title COLLATE NOCASE, aar.name COLLATE NOCASE, "
     "t.disc_no, t.track_no, t.title COLLATE NOCASE",
     "track_no": "t.disc_no, t.track_no",
     "year": "t.year",
     "duration": "t.duration",
     "added_at": "t.added_at",
-    # Recently played (§4.1) — read path for the recency record; no counts.
+    # Read path for the recency record; no counts.
     "played": "t.played_at",
-    # Organize view (§22): the file column sorts by its library-relative path.
+    # The file column sorts by its library-relative path.
     "path": "t.path COLLATE NOCASE",
-    # Organize view (§22): the track's primary genre (first tag genre).
+    # The track's primary genre (first tag genre).
     "genre": (
         "(SELECT g2.name FROM track_genres tg2 "
         "JOIN genres g2 ON g2.id = tg2.genre_id "
         "WHERE tg2.track_id = t.id ORDER BY tg2.genre_id LIMIT 1) COLLATE NOCASE"
     ),
-    # Favorites' manual order (2026-10-03): the drag-written curation order.
-    # Unplaced favorites (loved before the order existed) trail the placed
-    # ones deterministically by title (the endpoint's tie-breaker).
+    # Favorites' manual order: unplaced favorites trail the placed ones
+    # by the endpoint's title tie-breaker.
     "favorite": "(t.favorite_position IS NULL), t.favorite_position",
 }
 
@@ -76,9 +70,9 @@ ALBUM_SORTS = {
     "artist": "(ar.name IS NULL), ar.name COLLATE NOCASE",
     "year": "al.year",
     "recent": "MAX(t.added_at)",
-    # Recently played (§4.1): the album's most recent real playback start.
-    # NULLs sort first ascending / last descending, so never-played albums
-    # sit at the honest end of either direction.
+    # The album's most recent real playback start. NULLs sort first
+    # ascending / last descending, so never-played albums sit at the end
+    # of either direction.
     "played": "MAX(t.played_at)",
 }
 
@@ -97,10 +91,8 @@ def _like(term: str) -> str:
 
 
 def _directed(order_sql: str, desc: bool) -> str:
-    """Apply one direction to every term of a whitelisted ORDER BY expression.
-    Sort expressions stay direction-neutral above; DESC here means a full
-    reverse of the chosen ordering (nulls-first clauses flip with it, which
-    reads as the honest inverse of the ascending view)."""
+    """Apply one direction to every term of a whitelisted ORDER BY expression
+    (nulls-first clauses flip with it: DESC is the full inverse of asc)."""
     terms = [t.strip() for t in order_sql.split(",")]
     return ", ".join(f"{t} DESC" for t in terms) if desc else ", ".join(terms)
 
@@ -125,8 +117,8 @@ LEFT JOIN artists aar ON aar.id = al.artist_id
 LEFT JOIN artists aar2 ON aar2.id = t.album_artist_id
 """
 
-# Curation predicates for the Organize view (§22) — album-level problems
-# expressed over track rows so the grid and the bulk apply select honestly.
+# Album-level problems expressed over track rows, so the grid and the bulk
+# apply select the same rows.
 REVIEW_FILTERS = {
     "no_album": "t.album_id IS NULL",
     "missing_track_no": "t.track_no IS NULL",
@@ -150,11 +142,9 @@ def track_filter_where(
     favorite: bool | None = None,
     genre_id: int | None = None,
 ) -> tuple[str, list]:
-    """Shared WHERE builder for GET /api/tracks and the bulk apply (§22):
-    a filter-based selection must resolve to exactly what the grid showed.
-    Raises 422 on an unknown review value. `artist_id` matches credited
-    tracks too (§2.2) — the filter means "this artist's music", not
-    "rows whose primary column says so".
+    """Shared WHERE builder for GET /api/tracks and the bulk apply — a
+    filter-based selection must resolve to exactly what the grid showed.
+    `artist_id` matches credited tracks too, not just lead-credit rows.
     """
     where, params = [], []
     if q:
@@ -331,8 +321,8 @@ def list_albums(
 
 
 def album_detail(conn, album_id: int) -> AlbumDetail:
-    """The album detail payload — shared by the read endpoint and the
-    cover router (a cover PUT/DELETE echoes the refreshed detail)."""
+    """The album detail payload — shared with the cover router (cover
+    writes echo the refreshed detail)."""
     album = conn.execute(
         "SELECT al.id, al.title, al.year, al.artwork_id, al.cover_artwork_id, "
         "ar.name AS artist, al.artist_id FROM albums al "
@@ -393,8 +383,8 @@ def list_artists(
     ).fetchone()["c"]
     order = ARTIST_SORTS.get(sort, ARTIST_SORTS["name"])
     directed = _directed(order, dir == "desc")
-    # track_count covers every credited appearance (§2.2): a featured
-    # artist with no lead credits is still browsable, with an honest count.
+    # track_count covers every credited appearance: a featured artist with
+    # no lead credits is still browsable, with an honest count.
     credited_count = (
         "(SELECT COUNT(*) FROM ("
         "  SELECT t.id FROM tracks t WHERE t.artist_id = ar.id"
@@ -429,8 +419,8 @@ def list_artists(
 
 
 def artist_detail(conn, artist_id: int) -> ArtistDetail:
-    """The artist detail payload — shared by the read endpoint and the
-    cover router (a cover PUT/DELETE echoes the refreshed detail)."""
+    """The artist detail payload — shared with the cover router (cover
+    writes echo the refreshed detail)."""
     artist = conn.execute(
         f"SELECT ar.id, ar.name, ar.cover_artwork_id, "
         f"{ARTIST_ARTWORK_SQL} AS artwork_id "
@@ -449,8 +439,8 @@ def artist_detail(conn, artist_id: int) -> ArtistDetail:
         "ORDER BY al.year, al.title COLLATE NOCASE",
         (artist_id,),
     ).fetchall()
-    # The artist's songs: lead credits, plus every credited appearance
-    # (featured / composer / additional main) from the join table (§2.2).
+    # Lead credits plus every credited appearance (featured / composer /
+    # additional main) from the join table.
     track_rows = conn.execute(
         f"{TRACK_SELECT} WHERE t.artist_id = ? "
         f"OR t.id IN (SELECT track_id FROM track_artists WHERE artist_id = ?) "
@@ -499,8 +489,7 @@ def list_genres(
     limit: int = Query(DEFAULT_LIMIT, ge=1),
     offset: int = Query(0, ge=0),
 ) -> GenreListOut:
-    """Genre browse list (§2.2): the track's tags, grouped. A representative
-    cover keeps the grid art-first; counts are honest (distinct tracks)."""
+    """Genre browse list: grouped track tags with representative cover art."""
     conn = request.app.state.db.connect()
     limit, offset = _clamp(limit, offset)
 

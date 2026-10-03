@@ -1,9 +1,6 @@
-/* Sort control for views without exposed column machinery on phones: a
-   quiet pill (IconSort + current option) opening the shared menu surface.
-   Picking the active option flips the direction — the Finder habit — and
-   each option carries its own natural direction (recency reads descending,
-   names read ascending). Desktop tables also get clickable column headers;
-   this pill is the discoverable entry point for both pointer kinds. */
+/* Sort pill for views without exposed column machinery on phones. Picking
+   the active option flips the direction; each option carries its own
+   natural direction (recency reads descending, names ascending). */
 
 import { useEffect, useRef, useState } from "react";
 

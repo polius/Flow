@@ -1,16 +1,4 @@
-"""Filesystem watcher: watchdog events → debounced reconcile scans.
-
-Observer backend (DESIGN.md §13.6): FLOW_WATCHER=auto picks the polling
-observer inside Docker (inotify does not propagate through bind mounts,
-especially from macOS hosts); native inotify/FSEvents elsewhere. Override
-with FLOW_WATCHER=native | polling.
-
-Strategy note: a debounce window ends in a full *reconcile* scan rather than
-a strictly targeted reindex. At the target scale (10k files) an mtime-skip
-reconcile is fast, and it reuses the exact overlay/move/removal semantics of
-the manual scan — one code path, no divergence. (Deviation from the §7
-"targeted reindex" sketch, made deliberately.)
-"""
+"""Filesystem watcher: watchdog events → debounced reconcile scans."""
 
 from __future__ import annotations
 
@@ -27,6 +15,10 @@ from app import config
 from app.scanner import LibraryScanner
 
 log = logging.getLogger("flow.watcher")
+
+# A debounce window ends in a full *reconcile* scan, not a targeted reindex:
+# at the target scale an mtime-skip reconcile is fast, and reusing the manual
+# scan's exact overlay/move/removal semantics keeps one code path.
 
 
 class _DebouncingHandler(FileSystemEventHandler):

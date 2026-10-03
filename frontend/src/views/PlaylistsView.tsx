@@ -1,7 +1,3 @@
-/* Playlists — card grid with 2×2 artwork mosaics (§9.2, §13.10).
-   Cards are entry points only; editing lives in the playlist's header
-   (name + cover, click-to-edit), deletion in the "…" menu (2026-10-03). */
-
 import { useQuery } from "@tanstack/react-query";
 import { Link, useNavigate } from "react-router";
 
@@ -98,10 +94,8 @@ function PlaylistCard({ playlist }: { playlist: PlaylistSummary }) {
             className="album-card__art"
           />
         </Link>
-        {/* Same anchored hoveractions container as AlbumCard: the button
-            itself is unpositioned — the corner placement lives on this
-            wrapper, so without it the play circle dropped into the flow
-            below the art. */}
+        {/* The corner placement lives on this wrapper — without it the play
+            circle drops into the flow below the art. */}
         <div className="album-card__hoveractions">
           <button
             type="button"

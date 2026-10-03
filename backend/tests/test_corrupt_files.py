@@ -1,7 +1,6 @@
-"""Edge-case tags and corrupt files (DESIGN.md §11.6): the scan must skip +
-log bad files and never crash. Also pins the §14.1 broken-mount guard: a
-library that contains corrupt files is NOT an empty walk, so removals and
-additions must proceed normally around them."""
+"""Edge-case tags and corrupt files: the scan must skip + log bad files and
+never crash. A library that contains corrupt files is NOT an empty walk, so
+removals and additions must proceed normally around them."""
 
 from __future__ import annotations
 
@@ -36,7 +35,7 @@ def set_mtime(path, epoch: float) -> None:
     os.utime(path, (epoch, epoch))
 
 
-# ---- zero-byte / garbage / truncated files ---------------------------------
+# ---- zero-byte / garbage / truncated files ----
 
 
 def test_zero_byte_files_skipped(conn, music, scanner):
@@ -102,7 +101,7 @@ def test_wrong_extension_content_skipped(conn, music, scanner):
     assert scanner.current_state_event()["state"] == "idle"
 
 
-# ---- unreadable files --------------------------------------------------------
+# ---- unreadable files ----
 
 
 @pytest.mark.skipif(sys.platform == "win32", reason="POSIX permission model")
@@ -123,7 +122,7 @@ def test_unreadable_file_skipped(conn, music, scanner):
 @pytest.mark.skipif(sys.platform == "win32", reason="POSIX permission model")
 @pytest.mark.skipif(os.geteuid() == 0, reason="root reads anything")
 def test_unreadable_sidecar_cover_does_not_crash(conn, music, scanner):
-    # Parseable audio whose folder fallback cover cannot be read (§13.3).
+    # Parseable audio whose folder fallback cover cannot be read.
     make_mp3(music / "01.mp3", title="No Art Path", artist="N", album="Locked")
     (music / "cover.jpg").write_bytes(jpeg_bytes())
     os.chmod(music / "cover.jpg", 0)
@@ -145,13 +144,13 @@ def test_broken_symlink_skipped(conn, music, scanner):
     assert track_row(conn, "ghost.mp3") is None
 
 
-# ---- garbage tag values and encodings ---------------------------------------
+# ---- garbage tag values and encodings ----
 
 
 def test_garbage_tag_values_normalized(conn, music, scanner):
-    # Number-free filename: the §4 filename fallback must not mask the
-    # garbage TRCK/TYER frames under test. ("3/10" slash forms are legal
-    # and parse; pure garbage must yield nulls.)
+    # Number-free filename: the filename fallback must not mask the garbage
+    # TRCK/TYER frames under test. ("3/10" slash forms are legal and parse;
+    # pure garbage must yield nulls.)
     make_mp3(
         music / "Weird.mp3",
         title="🎵\u0000 日本語 \n\t rtl",
@@ -168,7 +167,7 @@ def test_garbage_tag_values_normalized(conn, music, scanner):
     assert row["track_no"] is None
     assert row["disc_no"] is None
     assert row["year"] is None
-    # Whitespace-only / empty tags fall back like missing tags (§4).
+    # Whitespace-only / empty tags fall back like missing tags.
     assert row["title"].startswith("🎵")
     assert row["artist_id"] is None or row["artist_id"] > 0  # no crash either way
 
@@ -219,14 +218,14 @@ def test_latin1_encoded_id3_frame(conn, music, scanner):
     assert "naïve café" in row["title"]
 
 
-# ---- scan bookkeeping around bad files --------------------------------------
+# ---- scan bookkeeping around bad files ----
 
 
 def test_all_files_corrupt_still_completes_and_does_not_trip_mount_guard(
     conn, music, scanner
 ):
     """Every file fails to parse: errors counted, idle state, empty index —
-    and crucially NOT the §14.1 broken-mount error state (files were seen)."""
+    and crucially NOT the broken-mount error state (files were seen)."""
     (music / "bad1.mp3").write_bytes(b"junk")
     (music / "bad2.flac").write_bytes(b"")
     scanner.run_scan("test")
@@ -243,8 +242,8 @@ def test_all_files_corrupt_still_completes_and_does_not_trip_mount_guard(
 
 
 def test_corrupt_files_do_not_block_removals(conn, music, scanner):
-    """§14.1 regression pin: with corrupt files present the walk is non-empty,
-    so the mount guard must stay silent and normal removals must proceed."""
+    """With corrupt files present the walk is non-empty, so the mount guard
+    must stay silent and normal removals must proceed."""
     make_mp3(music / "keep.mp3", title="Keep", artist="K")
     make_mp3(music / "gone.mp3", title="Gone", artist="G")
     (music / "junk.mp3").write_bytes(b"junk")
@@ -275,7 +274,7 @@ def test_fixed_corrupt_file_indexed_on_rescan(conn, music, scanner):
     assert row["title"] == "Recovered"
 
 
-# ---- end-to-end: the API survives a corrupt library --------------------------
+# ---- end-to-end: the API survives a corrupt library ----
 
 
 def test_api_serves_library_with_corrupt_files(client, library, conn):

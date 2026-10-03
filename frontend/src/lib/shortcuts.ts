@@ -1,25 +1,10 @@
-/* Global keyboard shortcuts (§9.5): Space play/pause, ←/→ seek ±10s,
-   ↑/↓ volume, ⌘/Ctrl+→/⌘/Ctrl+← next/previous track, M mute (§2.4).
-   ⌘/Ctrl+F and Esc already exist and stay where they are (§15.7): ⌘F in
-   AppShell, Esc in the individual surfaces.
-
-   Two guards, two jobs (§29 — the old single "typing target" guard also
-   listed buttons and links, which made Esc fail whenever any control held
-   focus — in a pointer UI that is almost always):
-   - Space/arrows yield to ANY focused interactive control — inputs,
-     textareas, selects, buttons, links, sliders — so native activation
-     (Space on a focused button, arrows on a slider) is preserved and
-     nothing double-fires. That is the "must not fire while typing" rule.
-   - Esc defers only while focus sits in TEXT mid-edit (input, textarea,
-     contenteditable), where Esc means "cancel the edit". A focused button
-     or link never defers: Esc always closes the topmost surface.
-
-   The transport chords (§2.4) live BEFORE the modifier early-return below —
-   that return exists to keep plain Space/arrows from firing under a
-   modifier; the chords are the modifier. They defer where the chord would
-   collide with a native meaning: in text fields ⌘→ is "end of line", and
-   open surfaces (the picker, a context menu) own the keyboard until
-   dismissed, as everywhere else. */
+/* Global transport shortcuts. Two guards: Space/arrows yield to ANY
+   focused interactive control (native activation preserved, nothing
+   double-fires); Esc defers only while focus sits in text mid-edit —
+   a focused button never defers. The transport chords run BEFORE the
+   modifier early-return, which guards plain Space/arrows from firing
+   under a modifier; in text fields ⌘→ means "end of line", and open
+   surfaces own the keyboard until dismissed. */
 
 import { useEffect } from "react";
 
@@ -54,14 +39,14 @@ export function isTextEditingTarget(el: Element | null): boolean {
   if (el.tagName === "INPUT") {
     const type = (el as HTMLInputElement).type;
     // Range/checkbox/button-ish inputs are controls, not text: Esc still
-    // belongs to the frontmost surface (§29).
+    // belongs to the frontmost surface.
     return type === "" || TEXT_INPUT_TYPES.has(type);
   }
   return false;
 }
 
 /** The broader guard for Space/arrows: any interactive control keeps its
-    native key behavior (§16.3, revised §29). */
+    native key behavior. */
 export function isInteractiveControl(el: Element | null): boolean {
   if (isTextEditingTarget(el)) return true;
   if (!(el instanceof HTMLElement)) return false;
@@ -72,11 +57,11 @@ export function isInteractiveControl(el: Element | null): boolean {
 export function useGlobalShortcuts(): void {
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      // §2.4: the transport chords — ⌘/Ctrl+→ next, ⌘/Ctrl+← previous —
+      // The transport chords — ⌘/Ctrl+→ next, ⌘/Ctrl+← previous — are
       // tested BEFORE the modifier early-return, which would otherwise
       // swallow them (it guards plain Space/arrows from firing under a
-      // modifier; the chords ARE the modifier). Deferrals that matter:
-      // text keeps ⌘→ as "end of line"; open surfaces keep the keyboard.
+      // modifier; the chords ARE the modifier). Text keeps ⌘→ as "end of
+      // line"; open surfaces keep the keyboard.
       if ((e.metaKey || e.ctrlKey) && !e.altKey && !e.shiftKey) {
         if (isTextEditingTarget(document.activeElement)) return;
         const ui = useUiStore.getState();
@@ -95,7 +80,7 @@ export function useGlobalShortcuts(): void {
       }
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       if (isInteractiveControl(document.activeElement)) return;
-      // The library picker is a modal (§23): Space/arrows belong to it.
+      // The library picker is a modal: Space/arrows belong to it.
       if (useUiStore.getState().pickerOpen) return;
 
       const player = usePlayerStore.getState();
@@ -135,8 +120,7 @@ export function useGlobalShortcuts(): void {
         }
         case "m":
         case "M": {
-          // §2.4: the mute toggle — the store action behind the volume
-          // icon (§3.4), now on the key every desktop player gives it.
+          // The mute toggle, on the key every desktop player gives it.
           e.preventDefault();
           player.toggleMute();
           break;

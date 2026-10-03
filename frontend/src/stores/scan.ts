@@ -1,6 +1,6 @@
 /* Scan progress state, mirrored from the server's SSE stream (/api/scan).
-   Seeded from GET /api/settings so a fresh page load is correct even
-   before the first event arrives (DESIGN.md §6, §9.6). */
+   Seeded from GET /api/settings so a fresh page load is correct before
+   the first event arrives. */
 
 import { create } from "zustand";
 
@@ -13,8 +13,8 @@ export interface ScanStatus {
   total: number;
   errors: number;
   finishedAt: string | null;
-  /** Broken-mount guard tripped on the last scan (§2.8) — Settings reads
-      this to show the calm explanation instead of a bare error count. */
+  /** Broken-mount guard tripped on the last scan — Settings shows the
+      calm explanation instead of a bare error count. */
   mountGuard: boolean;
 }
 

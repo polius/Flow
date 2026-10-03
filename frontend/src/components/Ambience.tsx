@@ -1,6 +1,6 @@
-/* Blurred-artwork ambience (§8.5, §13): a scaled, heavily blurred cover wash
-   behind album detail and Now Playing — one token system, one treatment.
-   Renders nothing without artwork: absence of art stays monochrome (§8.1). */
+/* Blurred-artwork ambience: a scaled, heavily blurred cover wash behind
+   album detail and Now Playing — one shared treatment. Renders nothing
+   without artwork: absence of art stays monochrome. */
 
 import { useState } from "react";
 

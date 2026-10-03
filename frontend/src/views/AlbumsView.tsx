@@ -10,17 +10,11 @@ import { SortMenu, type SortOption } from "../components/SortMenu";
 import { IconAlbums } from "../components/icons";
 import { fmtCount } from "../lib/format";
 
-/* Albums (§2.4): the same URL-state sort grammar as Tracks — Title /
-   Artist / Year / Recently added, server-side, shared SortMenu. Picking the
-   active option flips the direction; recency reads newest-first. */
-
 const SORT_OPTIONS: SortOption[] = [
   { key: "title", label: "Title" },
   { key: "artist", label: "Artist" },
   { key: "year", label: "Year" },
   { key: "recent", label: "Recently added", defaultDir: "desc" },
-  // §4.1: the played_at record gets a real read path — recency of actual
-  // listening, private and count-free, straight from the server record.
   { key: "played", label: "Recently played", defaultDir: "desc" },
 ];
 
@@ -55,7 +49,7 @@ export function AlbumsView() {
     [searchParams, setSearchParams],
   );
 
-  // A new ordering is a new wall: land at its top (same grammar as Tracks).
+  // A new ordering is a new wall: land at its top.
   useEffect(() => {
     document.querySelector<HTMLElement>(".shell__canvas")?.scrollTo(0, 0);
   }, [sort, dir]);

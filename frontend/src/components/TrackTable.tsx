@@ -1,14 +1,9 @@
-/* Track table shared by album detail, artist detail, playlists, and search
-   (§9.2). M6: row markup extracted into TrackRow so the windowed
-   VirtualTrackTable (Tracks view, §11.6) renders the exact same rows —
-   these variants render full detail payloads at curated scale, so they stay
-   plain. Rows select on click (§4.1); playback is the row's Play button.
-
-   Playlist + album reorder (§27, §9.2; albums 2026-10-03): the queue's
+/* Track table shared by album detail, artist detail, playlists, and
+   search. Row markup lives in TrackRow so the windowed VirtualTrackTable
+   renders the exact same rows. Rows select on click; playback is the
+   row's Play button. Playlist + album reorder is the queue's
    press-and-drag grammar, owned by the shared useRowDragReorder hook —
-   the same gesture the Favorites table speaks. Reorder is optimistic and
-   the server call is the source of truth. Touch keeps the §25 grammar
-   (swipe, long-press menu). */
+   optimistic, with the server call as the source of truth. */
 
 import { useEffect, useRef, useState } from "react";
 import type { KeyboardEvent as ReactKeyboardEvent } from "react";
@@ -31,15 +26,15 @@ interface TrackTableProps {
   variant?: TrackVariant;
   /** Context played when a row is activated — defaults to `tracks`. */
   context?: Track[];
-  /** What the queue's origin becomes when a row here starts playback
-      (§1.1): the view declares it once, every row inherits it. */
+  /** What the queue's origin becomes when a row here starts playback:
+      the view declares it once, every row inherits it. */
   origin?: QueueOrigin | null;
   /** Reorderable table (playlist + album variants): commit a dragged row's
       move — the view owns the optimistic splice and the server call. */
   onMove?: (fromIndex: number, toIndex: number) => void;
   /** Playlist variant: removes a track from the playlist (row button). */
   onRemoveTrack?: (track: Track) => void;
-  /** §2.5: suppress the index column — a result set (search) has no
+  /** Suppress the index column — a result set (search) has no
       meaningful ordinal, so the slot leads with the play affordance
       instead, the way the playing row already does. One prop, not a
       fork of the table. */
@@ -57,7 +52,7 @@ export function TrackTable({
 }: TrackTableProps) {
   const tableRef = useRef<HTMLDivElement>(null);
 
-  // Swipe-to-remove (§25): one revealed row at a time, per table.
+  // Swipe-to-remove: one revealed row at a time, per table.
   const [openSwipeId, setOpenSwipeId] = useState<number | null>(null);
   const current = useCurrentTrack();
   const isPlaying = usePlayerStore((s) => s.isPlaying);
@@ -67,9 +62,9 @@ export function TrackTable({
 
   const play = (index: number) => playTracks(context ?? tracks, index, origin);
 
-  /* Keyboard cursor (§3.4): the Organize grid's Finder grammar, inherited.
-     Enter plays the cursor row — idempotent like the row click: the
-     current track's row never restarts. Arrows keep the cursor visible. */
+  /* Keyboard cursor: Enter plays the cursor row — idempotent like the
+     row click: the current track's row never restarts. Arrows keep the
+     cursor visible. */
   const activateAt = (index: number) => {
     const track = tracks[index];
     if (track != null && track.id === current?.id) return;
@@ -79,9 +74,9 @@ export function TrackTable({
     tracks.length,
     activateAt,
   );
-  /* §4.1: while a selection is live, Enter plays the last-selected row (in
-     the table's whole context) — the one keyboard change the review allows.
-     Everything else, cursor included, belongs to the §3.4 grammar. */
+  /* While a selection is live, Enter plays the last-selected row (in
+     the table's whole context). Everything else, cursor included,
+     belongs to the cursor grammar. */
   const onTableKeyDown = (e: ReactKeyboardEvent) => {
     if (e.key === "Enter" && selection.count > 0 && !isInteractiveControl(e.target as Element | null)) {
       const idx = selection.lastIndex();
@@ -109,7 +104,7 @@ export function TrackTable({
       }
     : undefined;
 
-  /* Marquee selection (§4.1, Review 2): Cmd/Shift-click selects; the
+  /* Marquee selection: Cmd/Shift-click selects; the
      floating quiet bar files the selection. Transient by construction —
      this component's state — so navigation, a filter change, or a view
      remount clears it; Esc clears it in place (the hook's listener). */
@@ -124,7 +119,7 @@ export function TrackTable({
       allFavorite={allFavorite}
       onAddToPlaylist={() => openAddToPlaylist(selection.selectedTracks)}
       onAddToQueue={() => {
-        // The store confirms arrival (§1.2's toast); the gesture is done.
+        // The store confirms arrival with a toast; the gesture is done.
         addToQueue(selection.selectedTracks);
         selection.clear();
       }}
@@ -138,9 +133,9 @@ export function TrackTable({
 
   // Row action menu (right-click / long-press): carries the table's context
   // so "Play" from the menu plays in place, and — in a playlist — the remove
-  // closure the menu's danger item needs (§25). When the right-clicked row
+  // closure the menu's danger item needs. When the right-clicked row
   // is part of a live selection, the menu carries the whole selection so
-  // "Add to Playlist" files every selected track at once (§4.1).
+  // "Add to Playlist" files every selected track at once.
   const openTrackMenu = useUiStore((s) => s.openTrackMenu);
   const trackMenu = (track: Track, x: number, y: number) =>
     openTrackMenu({

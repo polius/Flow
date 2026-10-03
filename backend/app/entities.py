@@ -1,9 +1,4 @@
-"""Shared entity helpers: find-or-create artists/albums, orphan pruning.
-
-One implementation serves both callers that regroup tracks — the scanner's
-upsert path (DESIGN.md §5) and the Get Info editor (§13.2) — so grouping
-semantics can never diverge between a scan and a manual edit.
-"""
+"""Shared entity helpers: find-or-create artists/albums/genres, orphan pruning (one code path for scans and manual edits)."""
 
 from __future__ import annotations
 
@@ -68,12 +63,11 @@ def set_track_credits(
     featured: list[str],
     composers: list[str],
 ) -> None:
-    """Rebuild one track's credit rows from parsed tags (UX review §2.2).
+    """Rebuild one track's credit rows from parsed tags.
 
-    The primary display artist follows `tracks.artist_id` (overlay-aware —
-    the caller passes the post-overlay value); the remaining main credits
-    and the featured/composer roles always follow the tags, so a rescan
-    refreshes them like any other tag-derived column.
+    The primary display artist follows `tracks.artist_id` (the caller passes
+    the post-overlay value); remaining main credits and featured/composer
+    roles always follow the tags, so rescans refresh them.
     """
     conn.execute("DELETE FROM track_artists WHERE track_id = ?", (track_id,))
     position = 0
@@ -98,7 +92,7 @@ def set_track_credits(
 
 
 def set_track_genres(conn, track_id: int, names: list[str]) -> None:
-    """Rebuild one track's genre rows from parsed tags (UX review §2.2)."""
+    """Rebuild one track's genre rows from parsed tags."""
     conn.execute("DELETE FROM track_genres WHERE track_id = ?", (track_id,))
     for name in names:
         genre_id = find_or_create_genre(conn, name)
@@ -111,7 +105,7 @@ def set_track_genres(conn, track_id: int, names: list[str]) -> None:
 
 
 def prune_orphans(conn) -> None:
-    """Derived entities (§13.2): rows with no referencing track are removed."""
+    """Delete derived entity rows (albums, artists, genres, artwork) no longer referenced."""
     conn.execute(
         "DELETE FROM albums WHERE id NOT IN "
         "(SELECT album_id FROM tracks WHERE album_id IS NOT NULL)"

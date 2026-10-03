@@ -1,15 +1,4 @@
-"""Dev utility: generate a realistic scratch library for browser testing
-(DESIGN.md §15 dev notes, §11.6 virtualization checks).
-
-Structure: ~20 tracks per album, ~25 albums per artist; per-album artwork
-dedupes by sha1 as in production. Covers are REAL PNGs (stdlib zlib+struct —
-the audio_fixtures art bytes are sniffed fine by the backend but won't render
-in <img>), and every 7th album skips embedded art in favor of a sidecar
-cover.png to exercise the §13.3 folder fallback.
-
-Usage (from backend/):
-    .venv/bin/python scripts/dev_library.py --out /tmp/flow-music --tracks 10000
-"""
+"""Dev utility: generate a realistic scratch library for browser testing."""
 
 from __future__ import annotations
 
@@ -41,7 +30,8 @@ def _chunk(kind: bytes, data: bytes) -> bytes:
 
 
 def real_png(width: int, height: int, pixel) -> bytes:
-    """A renderable truecolor PNG. `pixel(x, y) -> (r, g, b)`."""
+    """A renderable truecolor PNG (fixture art bytes sniff fine but won't
+    render in <img>). `pixel(x, y) -> (r, g, b)`."""
     raw = bytearray()
     for y in range(height):
         raw.append(0)  # filter: none
@@ -56,7 +46,7 @@ def real_png(width: int, height: int, pixel) -> bytes:
 
 
 def album_cover(index: int) -> bytes:
-    """Distinct two-tone gradient per album — the only color in the UI (§8.1)."""
+    """Distinct two-tone gradient per album."""
     hue = (index * 0.618) % 1.0  # golden-ratio spread avoids near-duplicates
     top = tuple(round(c * 255) for c in colorsys.hls_to_rgb(hue, 0.42, 0.72))
     bottom = tuple(round(c * 255) for c in colorsys.hls_to_rgb(hue, 0.18, 0.55))
@@ -79,7 +69,7 @@ def generate(out: Path, tracks: int, seconds: float) -> None:
         album = f"Album {(a % ALBUMS_PER_ARTIST) + 1:02d}"
         album_dir = out / artist / album
         year = DECADES[a % len(DECADES)]
-        sidecar = a % 7 == 3  # every 7th album: folder-fallback artwork (§13.3)
+        sidecar = a % 7 == 3  # every 7th album: folder-fallback artwork
         art = None if sidecar else album_cover(a)
 
         for t in range(TRACKS_PER_ALBUM):

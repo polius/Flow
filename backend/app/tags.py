@@ -1,9 +1,4 @@
-"""Tag parsing via mutagen (DESIGN.md §3): one normalized shape out of
-ID3v2.2/2.3/2.4 (mp3), Vorbis comments (flac/ogg), and MP4 atoms (m4a).
-
-Corrupt or unreadable files yield None — the scanner skips and logs them,
-never crashes (DESIGN.md §11.6).
-"""
+"""Tag parsing via mutagen: one normalized shape out of ID3v2.2/2.3/2.4 (mp3), Vorbis comments (flac/ogg), and MP4 atoms (m4a)."""
 
 from __future__ import annotations
 
@@ -51,14 +46,12 @@ class ParsedTags:
     bitrate: int | None
     sample_rate: int | None
     picture: tuple[bytes, str] | None  # (bytes, mime) — sniffed later if needed
-    # ---- multi-value credits + genres (UX review §2.2) ----
     # `artists` is the full main-credit list (first entry mirrors `artist`);
     # taggers write collaboration as repeated tag values, not "&" strings.
     artists: list[str] = field(default_factory=list)
     featured: list[str] = field(default_factory=list)
     composers: list[str] = field(default_factory=list)
     genres: list[str] = field(default_factory=list)
-    # ---- loudness (UX review §2.3) ----
     # Pre-computed track gain in dB from ReplayGain tags, when the file
     # carries one — the fast path that spares the analysis pass.
     replaygain_db: float | None = None
@@ -68,8 +61,8 @@ def parse_audio(path: Path) -> ParsedTags | None:
     """Parse one file. The whole body runs inside the guarded call: mutagen
     can raise while *reading* (truncated/zero-byte, wrong container) or while
     *decoding frames* (malformed text encodings), and neither may crash the
-    scan (DESIGN.md §11.6). Each failure logs exactly one actionable line —
-    the full traceback stays at DEBUG so startup output stays readable."""
+    scan. Each failure logs exactly one actionable line — the full traceback
+    stays at DEBUG so startup output stays readable."""
     try:
         return _parse_audio(path)
     except Exception as exc:  # noqa: BLE001
@@ -221,8 +214,8 @@ def _parse_audio(path: Path) -> ParsedTags:
 
 
 def derive_from_filename(rel_path: str) -> tuple[int | None, str]:
-    """Fallback when tags are missing (DESIGN.md §4): "01 - Song.mp3" →
-    (1, "Song"). Everything else keeps the file stem as the title."""
+    """Fallback when tags are missing: "01 - Song.mp3" → (1, "Song").
+    Everything else keeps the file stem as the title."""
     stem = Path(rel_path).stem
     match = _FALLBACK_TRACK_RE.match(stem)
     if match and match.group(2):

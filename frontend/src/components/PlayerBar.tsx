@@ -1,7 +1,5 @@
-/* Bottom player bar — persistent, translucent (DESIGN.md §9.1, §8.5).
-   Working transport: queue-aware play/pause/next/prev, scrubbing with
-   buffered-range indication, shuffle/repeat, persisted volume.
-   M5: the artwork thumb opens the full-screen Now Playing view (§9.2). */
+/* Translucent bottom player bar, persistent across views. The artwork
+   thumb opens the full-screen Now Playing view. */
 
 import { Link } from "react-router";
 
@@ -20,7 +18,7 @@ import "../styles/player.css";
 
 function TrackLine({ track }: { track: Track | null }) {
   if (!track) return <span className="player__title">Nothing playing</span>;
-  // §2.7: the bar links from restored state alone — a row the server
+  // The bar links from restored state alone — a row the server
   // hasn't vouched for renders its names as text, not links into entities
   // that may not exist.
   const verified = !trackIsUnverified(track);
@@ -28,7 +26,7 @@ function TrackLine({ track }: { track: Track | null }) {
     <>
       <span className="player__title">
         {verified && track.album_id != null ? (
-          // §1.4: the title names the album it lives on when one exists —
+          // The title names the album it lives on when one exists —
           // text at rest, an underline on hover, nothing louder.
           <Link to={`/albums/${track.album_id}`}>{track.title}</Link>
         ) : (

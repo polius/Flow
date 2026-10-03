@@ -48,8 +48,7 @@ export interface paths {
         };
         /**
          * Scan Error Log
-         * @description Skipped files from the last scan — path + reason (§2.8). Settings
-         *     fetches this lazily when its disclosure opens.
+         * @description Skipped files from the last scan — path + reason.
          */
         get: operations["scan_error_log_api_scan_errors_get"];
         put?: never;
@@ -146,9 +145,6 @@ export interface paths {
         /**
          * Update Album
          * @description Re-point the album's cover at an existing artwork row, or clear it.
-         *     This is cover removal's undo path: the removed upload is still in the
-         *     content-addressed `artwork` table, so restoring it is a reference
-         *     write, not a re-upload (2026-10-03).
          */
         patch: operations["update_album_api_albums__album_id__patch"];
         trace?: never;
@@ -186,8 +182,7 @@ export interface paths {
         head?: never;
         /**
          * Update Artist
-         * @description Re-point the artist's portrait at an existing artwork row, or clear
-         *     it — cover removal's undo path, same as the album's.
+         * @description Re-point the artist's portrait at an existing artwork row, or clear it.
          */
         patch: operations["update_artist_api_artists__artist_id__patch"];
         trace?: never;
@@ -201,8 +196,7 @@ export interface paths {
         };
         /**
          * List Genres
-         * @description Genre browse list (§2.2): the track's tags, grouped. A representative
-         *     cover keeps the grid art-first; counts are honest (distinct tracks).
+         * @description Genre browse list: grouped track tags with representative cover art.
          */
         get: operations["list_genres_api_genres_get"];
         put?: never;
@@ -223,8 +217,7 @@ export interface paths {
         get?: never;
         /**
          * Set Album Cover
-         * @description Store an uploaded cover image and set it as the album's cover,
-         *     overriding the scan-derived artwork while set.
+         * @description Store an uploaded cover image, overriding the scan-derived artwork.
          */
         put: operations["set_album_cover_api_albums__album_id__cover_put"];
         post?: never;
@@ -248,15 +241,13 @@ export interface paths {
         get?: never;
         /**
          * Set Artist Cover
-         * @description Store an uploaded image and set it as the artist's portrait,
-         *     overriding the latest-album cover while set.
+         * @description Store an uploaded image as the artist's portrait, overriding the derived cover.
          */
         put: operations["set_artist_cover_api_artists__artist_id__cover_put"];
         post?: never;
         /**
          * Reset Artist Cover
-         * @description Clear the user-set portrait — the derived artwork takes back over
-         *     (latest album's cover, or the client's monogram when there is none).
+         * @description Clear the user-set portrait — the derived artwork takes back over.
          */
         delete: operations["reset_artist_cover_api_artists__artist_id__cover_delete"];
         options?: never;
@@ -309,11 +300,7 @@ export interface paths {
         put?: never;
         /**
          * Reorder Tracks
-         * @description Renumber the given tracks 1..n in the order listed (§22's drag
-         *     gesture): the client sends one album's tracks in their new sequence and
-         *     each track's number is rewritten to its position. Every rewritten number
-         *     is flagged user-edited, so a rescan preserves it — the same overlay the
-         *     № cell's manual edit sets.
+         * @description Renumber the given tracks 1..n in the order listed (flagged user-edited, preserved on rescan).
          */
         post: operations["reorder_tracks_api_tracks_reorder_post"];
         delete?: never;
@@ -333,12 +320,7 @@ export interface paths {
         put?: never;
         /**
          * Reorder Favorites
-         * @description Write the Favorites view's manual order: the client sends the whole
-         *     favorites list in its new sequence and each track's favorite_position
-         *     is rewritten to that slot (1..n) — the same contract as the playlist
-         *     order PUT, expressed over the favorites filter. Only currently loved
-         *     tracks are placed: one un-favorited mid-gesture is skipped, not an
-         *     error (the client's refetch resyncs the row).
+         * @description Write the Favorites manual order; only currently loved tracks are placed.
          */
         post: operations["reorder_favorites_api_favorites_reorder_post"];
         delete?: never;
@@ -411,9 +393,7 @@ export interface paths {
         get?: never;
         /**
          * Set Playlist Cover
-         * @description Store an uploaded cover image and set it as the playlist's cover,
-         *     overriding the 2×2 track mosaic. Bytes are stored as-is in the
-         *     content-addressed `artwork` table (sha1 dedup), like scan-derived art.
+         * @description Store an uploaded cover image, overriding the 2×2 track mosaic.
          */
         put: operations["set_playlist_cover_api_playlists__playlist_id__cover_put"];
         post?: never;
@@ -434,10 +414,7 @@ export interface paths {
         put?: never;
         /**
          * Add Tracks
-         * @description Append tracks to the playlist, skipping ones already in it (§2.1):
-         *     the same track lives in many playlists but never twice in one. The
-         *     `X-Tracks-Added` / `X-Tracks-Skipped` headers carry the honest counts
-         *     for the client's confirmation toast.
+         * @description Append tracks, skipping ones already in it; counts go in X-Tracks-Added/Skipped headers.
          */
         post: operations["add_tracks_api_playlists__playlist_id__tracks_post"];
         delete?: never;
@@ -541,23 +518,17 @@ export interface paths {
         /**
          * Get Queue
          * @description The stored session, or an empty one when none exists (first run).
-         *     The client falls back to its localStorage snapshot when this is empty
-         *     or unreachable — the server is the truth, not a single point of failure.
          */
         get: operations["get_queue_api_queue_get"];
         /**
          * Put Queue
-         * @description The plan mirror (§32). Whole-snapshot replace, same as POST but with a
-         *     client-built play order. Validation is honest, not defensive theater: a
-         *     malformed order is a 422 the client answers by falling back to its
-         *     localStorage-only persistence, never by corrupting the server's copy.
+         * @description The client's plan mirror: whole-snapshot replace with a client-built
+         *     play order. A malformed order is a 422, never a corrupted server copy.
          */
         put: operations["put_queue_api_queue_put"];
         /**
          * Play Queue
-         * @description "Play this view" (§4.0): replace the queue with the WHOLE filter —
-         *     resolved and ordered server-side — and start at `start`. The response is
-         *     the canonical snapshot; the client adopts it wholesale.
+         * @description Play this view: replace the queue with the whole filter and start at `start`.
          */
         post: operations["play_queue_api_queue_post"];
         delete?: never;
@@ -565,10 +536,9 @@ export interface paths {
         head?: never;
         /**
          * Patch Queue
-         * @description The playhead (§29 cadence), plus §4.1's played_at stamp: a real
-         *     playback start reports its track id and the server records it — carried
-         *     explicitly, never derived from stored state, so a mirror PUT still in
-         *     flight cannot mis-stamp. One transaction under the busy-retry.
+         * @description The playhead update, plus a played_at stamp when a real playback
+         *     start reports its track id — carried explicitly so an in-flight mirror
+         *     PUT cannot mis-stamp.
          */
         patch: operations["patch_queue_api_queue_patch"];
         trace?: never;
@@ -724,12 +694,11 @@ export interface components {
         };
         /**
          * BulkApplyIn
-         * @description Mass edit from the Organize view (§22). Selection is either explicit
+         * @description Mass edit from the Organize view. Selection is either explicit
          *     `track_ids` or the same filter contract as GET /api/tracks minus
          *     pagination (`q` / `artist_id` / `album_id` / `review`, minus
          *     `except_ids`) — so a filter-wide apply touches exactly what the grid
-         *     showed. Change fields carry the §15.2 semantics via the shared apply
-         *     path: a field absent from the JSON never touches the column; an
+         *     showed. A field absent from the JSON never touches the column; an
          *     explicit null clears the track number; empty artist/album strings clear
          *     the reference; 0 normalizes to null. `favorite` is intentionally not a
          *     bulk field.
@@ -770,8 +739,8 @@ export interface components {
         };
         /**
          * CollisionGroup
-         * @description Albums whose titles collapse onto one normalized key (§22): the
-         *     scanner groups on exact strings, so suffix variants become siblings.
+         * @description Albums whose titles collapse onto one normalized key: the scanner
+         *     groups on exact strings, so suffix variants become siblings.
          */
         CollisionGroup: {
             /** Key */
@@ -941,11 +910,10 @@ export interface components {
         };
         /**
          * QueueOrigin
-         * @description Where the queue came from (UX review 2, Part 1.1): the "Playing from"
-         *     sentence. `label` is the human name ("Album 03", "Everything, shuffled");
-         *     `href` is the route that makes the label a link. `manual` (a hand-built
-         *     queue) carries no label — nothing renders, exactly as before this
-         *     column existed.
+         * @description Where the queue came from — the "Playing from" sentence. `label` is
+         *     the human name ("Album 03", "Everything, shuffled"); `href` is the route
+         *     that makes the label a link. `manual` (a hand-built queue) carries no
+         *     label — nothing renders.
          */
         QueueOrigin: {
             /**
@@ -960,11 +928,11 @@ export interface components {
         };
         /**
          * QueuePatchIn
-         * @description PATCH /api/queue — the playhead, at the §29 cadence (3 s throttle plus
-         *     a pagehide flush). `played_track_id` rides the immediate start-of-play
-         *     sync: when present, the server stamps tracks.played_at (§4.1) on THAT id
-         *     — carried explicitly, never derived from the stored plan, so a mirror
-         *     PUT still in flight cannot mis-stamp.
+         * @description PATCH /api/queue — the playhead, on a 3 s throttle plus a pagehide
+         *     flush. `played_track_id` rides the immediate start-of-play sync: when
+         *     present, the server stamps tracks.played_at on THAT id — carried
+         *     explicitly, never derived from the stored plan, so a mirror PUT still
+         *     in flight cannot mis-stamp.
          */
         QueuePatchIn: {
             /** Order Pos */
@@ -976,13 +944,13 @@ export interface components {
         };
         /**
          * QueuePlayIn
-         * @description POST /api/queue — "play this view" (§4.0). Exactly one of `track_ids`
-         *     or the GET /api/tracks filter contract (minus pagination). The server
+         * @description POST /api/queue — "play this view". Exactly one of `track_ids` or
+         *     the GET /api/tracks filter contract (minus pagination). The server
          *     resolves the WHOLE filter in one query — there is no page for the queue
-         *     to be silently truncated to (§1.2, for good). `start` is the index into
-         *     the resolved list that begins playback; `shuffle` builds the play order
-         *     starting there instead. `origin` is the caller's declaration of what
-         *     this view IS (the client knows; the server records, §1.1).
+         *     to be silently truncated to. `start` is the index into the resolved
+         *     list that begins playback; `shuffle` builds the play order starting
+         *     there instead. `origin` is the caller's declaration of what this view
+         *     IS (the client knows; the server records it).
          */
         QueuePlayIn: {
             /** Track Ids */
@@ -1035,11 +1003,11 @@ export interface components {
         };
         /**
          * QueuePutIn
-         * @description PUT /api/queue — the client's plan mirror (§32). The store remains the
-         *     source of UI truth and PUTs its whole queue when the plan changes (the
-         *     §29 cadence, server-destination instead of localStorage-only). `order`
-         *     must be a permutation of 0..n-1 into `track_ids`. `origin` rides along
-         *     unchanged — queue edits never rewrite where the queue came from.
+         * @description PUT /api/queue — the client's plan mirror: the store remains the
+         *     source of UI truth and PUTs its whole queue when the plan changes.
+         *     `order` must be a permutation of 0..n-1 into `track_ids`. `origin`
+         *     rides along unchanged — queue edits never rewrite where the queue came
+         *     from.
          */
         QueuePutIn: {
             /** Track Ids */
@@ -1062,8 +1030,8 @@ export interface components {
          *     order; `order` is the play order as indexes into `items` (identity, or
          *     the shuffle plan); `order_pos` indexes `order` (-1 = built, nothing
          *     loaded); `position` is seconds into the current track. `origin` names
-         *     what produced the queue (§1.1) — null for sessions that predate it. The
-         *     client store adopts this shape verbatim.
+         *     what produced the queue — null for sessions that predate it. The client
+         *     store adopts this shape verbatim.
          */
         QueueSnapshot: {
             /** Items */
@@ -1080,9 +1048,9 @@ export interface components {
         };
         /**
          * ReviewSummary
-         * @description The "Needs attention" strip (§22). Deterministic counts only — no
-         *     fuzzy matching. `undo_available` rides along: the view needs both on
-         *     load, and undo state lives server-side (one generation).
+         * @description The "Needs attention" strip. Deterministic counts only — no fuzzy
+         *     matching. `undo_available` rides along: the view needs both on load,
+         *     and undo state lives server-side (one generation).
          */
         ReviewSummary: {
             /** No Album */
@@ -1109,7 +1077,7 @@ export interface components {
         };
         /**
          * ScanErrorLog
-         * @description Skipped files of the last scan, for Settings' disclosure (§2.8).
+         * @description Skipped files of the last scan, for Settings' disclosure.
          */
         ScanErrorLog: {
             /** Total */
@@ -1218,13 +1186,13 @@ export interface components {
         };
         /**
          * TrackPatch
-         * @description Get Info / inline-rename payload (DESIGN.md §6, §13.2).
+         * @description Get Info / inline-rename payload.
          *
          *     artist/album are name strings — the editor find-or-creates rows. Only
          *     fields the client sends are applied; sent overlay fields set their
          *     `user_edited` bit so rescans preserve them. `album_artist` pins a
-         *     compilation's identity (§2.2); an empty string clears it. `genre`
-         *     replaces the track's tag genres with the one named (empty clears).
+         *     compilation's identity (empty string clears it); `genre` replaces the
+         *     track's tag genres with the one named (empty clears).
          */
         TrackPatch: {
             /** Title */
@@ -1244,8 +1212,8 @@ export interface components {
         };
         /**
          * TrackReorderIn
-         * @description Organize drag-reorder (§22): the album's tracks in their new order.
-         *     Each track's number is rewritten to its position in the list (1..n) and
+         * @description Organize drag-reorder: the album's tracks in their new order. Each
+         *     track's number is rewritten to its position in the list (1..n) and
          *     flagged user-edited, so a rescan preserves it.
          */
         TrackReorderIn: {

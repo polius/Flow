@@ -1,12 +1,8 @@
-/* Sticky column header for the track tables (§9.2). It mirrors the grid of
-   the rows beneath it — same template, same gap, same breakpoints — so the
-   columns line up exactly. Click a column to sort; click it again to flip
-   (Finder) — that grammar is the Tracks/Favorites form, where sort state
-   lives in the owning view's URL params.
-
-   Detail views (Album / Artist / Playlist) render the same head statically:
-   their order is curated (track number, playlist position), so the header
-   aligns the columns into a table without promising a sort it can't do. */
+/* Sticky column header for the track tables. It mirrors the grid of the
+   rows beneath it — same template, same gap, same breakpoints — so the
+   columns line up exactly. Detail views render the same head statically:
+   their order is curated, so the header aligns the columns without
+   promising a sort it can't do. */
 
 import type { CSSProperties } from "react";
 
@@ -97,7 +93,7 @@ export function TrackTableHead({
       <span className="trackhead__heart" aria-hidden="true" />
       {/* Playlist rows carry a second hover slot (remove); the head keeps
           the column honest with an empty span of its own. Own class so the
-          touch sweep (§25) can fold it away with the row's slot. */}
+          touch sweep can fold it away with the row's slot. */}
       {variant === "playlist" && <span className="trackhead__remove" aria-hidden="true" />}
     </div>
   );

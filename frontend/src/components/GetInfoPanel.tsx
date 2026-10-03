@@ -1,5 +1,5 @@
-/* Get Info — right-side editing panel (§9.3, §13.2). Edits land as SQLite
-   overlays via PATCH /api/tracks/{id}; files are never touched. */
+/* Get Info — right-side editing panel. Edits land as SQLite overlays via
+   PATCH /api/tracks/{id}; files are never touched. */
 
 import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -20,7 +20,7 @@ export function GetInfoPanel() {
   const toggleFavorite = useToggleFavorite();
   const surfaceRef = useRef<HTMLElement>(null);
 
-  // Modal focus (§3.4). The panel itself takes focus — not a field: Esc
+  // Modal focus. The panel itself takes focus — not a field: Esc
   // defers inside text (the "cancel the edit" grammar), and an auto-focused
   // field would swallow the first Esc.
   useModalFocus(surfaceRef, trackId != null);
@@ -59,7 +59,7 @@ export function GetInfoPanel() {
 
   // Esc closes the panel — unless focus sits in one of the fields (Esc
   // mid-edit means "cancel the edit", and the draft must survive a stray
-  // dismissal, §29).
+  // dismissal).
   useEffect(() => {
     if (trackId == null) return;
     const onKeyDown = (e: KeyboardEvent) => {

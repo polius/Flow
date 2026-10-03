@@ -1,10 +1,8 @@
-/* Queue origin + arrival confirmation (UX review 2, Part 1.1 / 1.2,
-   DESIGN.md §33): a queue replacement records where it came from; queue
-   edits never rewrite it; a hand-built queue on an empty session is
-   `manual` (nothing renders); and every Play Next / Add to Queue lands a
-   §26 undo-toast whose Undo removes exactly the instances that were added
-   — reference identity, so a duplicate of the same track elsewhere in the
-   queue keeps its place. */
+/* Queue origin: a queue replacement records where it came from, queue edits
+   never rewrite it, a hand-built queue on an empty session is `manual`, and
+   every Play Next / Add to Queue lands an undo toast whose Undo removes
+   exactly the instances that were added (reference identity, so a duplicate
+   of the same track elsewhere keeps its place). */
 
 import { beforeEach, describe, expect, it } from "vitest";
 
@@ -55,7 +53,7 @@ beforeEach(() => {
   useUiStore.setState({ undoNotice: null });
 });
 
-describe("queue origin (§1.1)", () => {
+describe("queue origin", () => {
   it("records the origin on playTracks and defaults to manual without one", () => {
     usePlayerStore.getState().playTracks([track(1), track(2)], 0, ALBUM);
     expect(usePlayerStore.getState().origin).toEqual(ALBUM);
@@ -89,7 +87,7 @@ describe("queue origin (§1.1)", () => {
   });
 });
 
-describe("arrival toast + undo (§1.2)", () => {
+describe("arrival toast + undo", () => {
   it("Play Next lands 'play next' with an undo that removes exactly the insert", () => {
     usePlayerStore.getState().playTracks([track(1)], 0, ALBUM);
     const added = track(9);

@@ -1,7 +1,6 @@
-/* Organize view (§22): review strip, editing grid, selection bar, confirm
-   sheet. Chrome stays near-monochrome; the accent appears only where the
-   rest of the app allows it (§8.1). Rows reuse the library row's metrics
-   (38px, radius-m, hover fill, playing-pill inversion). */
+/* Organize view: review strip, editing grid, selection bar, confirm
+   sheet. Chrome stays near-monochrome. Rows reuse the library row's
+   metrics (38px, radius-m, hover fill, playing fill). */
 
 /* ---- view scaffold --------------------------------------------------------- */
 
@@ -20,7 +19,7 @@
   margin-top: 18px;
 }
 
-/* The filter speaks the app's search language (the topbar pill, §9.2):
+/* The filter speaks the app's search language (the topbar pill):
    an inset capsule, no border, darkening on focus with a hairline ring —
    not a boxed-in form field. */
 .orgfilter {
@@ -63,7 +62,7 @@
   color: var(--text-tertiary);
 }
 
-/* Focus is the capsule's fill, never the global accent ring (§8). */
+/* Focus is the capsule's fill, never the global accent ring. */
 .orgfilter__input:focus,
 .orgfilter__input:focus-visible {
   outline: none;
@@ -120,7 +119,7 @@
   color: var(--text-tertiary);
 }
 
-/* A healthy library is one calm line — the reward state (§22). */
+/* A healthy library is one calm line. */
 .orgstrip--clean {
   margin-top: 22px;
   font-size: var(--text-small);
@@ -152,7 +151,7 @@
   background: var(--bg-hover);
 }
 
-/* The active filter wears the established active-nav language (§8.1/§18.1). */
+/* The active filter wears the established active-nav language. */
 .orgstrip__pill--on,
 .orgstrip__pill--on:hover {
   background: var(--bg-active);
@@ -197,7 +196,7 @@
   gap: 4px;
 }
 
-/* ---- album filter (2026-10-03) --------------------------------------------
+/* ---- album filter ----------------------------------------------------------
    The pill is the undo pill's sibling; the popover speaks the filter
    panel's language (inset search, elevated list). Open it, type, click an
    album — the grid becomes that album, ordered for the drag. */
@@ -227,7 +226,7 @@
   border-color: transparent;
 }
 
-/* The active filter wears the active-filter language (§8.1). */
+/* The active filter wears the active-filter language. */
 .orgalbum__button--on,
 .orgalbum__button--on:hover {
   background: var(--bg-active);
@@ -355,7 +354,7 @@
   color: var(--text-tertiary);
 }
 
-/* ---- collision popover (surface language of the context menus, §15.6) --------- */
+/* ---- collision popover (surface language of the context menus) --------- */
 
 .orgpop {
   position: fixed;
@@ -423,9 +422,9 @@
 }
 
 /* ---- sortable column headers ------------------------------------------------
-   Finder grammar: click a column to sort, click again to flip. In album mode
-   (2026-10-03) the head renders static — the filtered album's curated order
-   is the view, and columns don't sort against the drag's truth. */
+   Click a column to sort, click again to flip. In album mode the head
+   renders static — the filtered album's curated order is the view, and
+   columns don't sort against the drag's truth. */
 
 .orghead__sort {
   display: inline-flex;
@@ -472,11 +471,10 @@
 }
 
 /* Sticky column header: pins below the top bar as rows scroll beneath.
-   Same metrics as the Tracks table's head (§9.2): 32px index column, 14px
+   Same metrics as the Tracks table's head: 32px index column, 14px
    gutters, uppercase caption labels, hairline underline — the Organize grid
    and the library table read as one design. Columns: check · title ·
-   artist · album · genre · added · file (the № column left with the
-   track-number cell it carried — 2026-10-03). */
+   artist · album · genre · added · file. */
 .orghead,
 .orgrow {
   display: grid;
@@ -533,7 +531,7 @@
   outline-offset: -1.5px;
 }
 
-/* The playing row uses the queue drawer's quiet grammar (§17.7, §24): a
+/* The playing row uses the queue drawer's quiet grammar: a
    soft --bg-active fill, no inversion. Selection shares the fill here —
    fine, the checkbox column carries selection unambiguously. */
 .orgrow--playing,
@@ -622,7 +620,7 @@
   color: var(--text-tertiary);
 }
 
-/* The Added column: when the scanner first saw the file (§22) — the
+/* The Added column: when the scanner first saw the file — the
    "latest added first" read. Read-only, quiet, tabular. */
 .orgrow__added {
   min-width: 0;
@@ -634,7 +632,7 @@
   color: var(--text-tertiary);
 }
 
-/* ---- drag-reorder within an album (§22) ------------------------------------
+/* ---- drag-reorder within an album ------------------------------------------
    The row is the affordance: reorderable rows show a grab cursor, the
    dragged row dims, and the body's rows are what shift. The gesture lives
    in the grid; these are only its states. */
@@ -657,7 +655,7 @@
   background: transparent;
 }
 
-/* Touch has no hover — but phones use the compact template (§22.9), where
+/* Touch has no hover — but phones use the compact template, where
    the whole row tap opens Get Info; the button never renders there. */
 
 /* ---- floating selection bar / banner ------------------------------------------- */
@@ -800,7 +798,7 @@
 }
 
 .orgbar__suggestrow--clear .orgbar__suggestname {
-  color: var(--text-primary); /* §31: full ink, not alarm color */
+  color: var(--text-primary); /* full ink, not alarm color */
 }
 
 .orgbar__suggestcount {
@@ -888,7 +886,7 @@
   background: var(--bg-hover);
 }
 
-/* ---- phones (§22: designed refusal with Get Info fallback) ------------------------ */
+/* ---- phones (designed refusal with Get Info fallback) ------------------------ */
 
 @media (max-width: 640px) {
   .orghead {
@@ -916,7 +914,7 @@
   }
 }
 
-/* ---- the sheet (§23 revision) -------------------------------------------------------
+/* ---- the sheet -----------------------------------------------------------------------
    Organize is a task, not a section: it slides up over the whole app —
    playback continues, Tracks stays put behind it — and Done/Esc returns
    exactly where the user was. Same full-screen grammar as Now Playing. */

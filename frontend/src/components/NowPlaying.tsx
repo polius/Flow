@@ -1,14 +1,9 @@
-/* Full-screen Now Playing (§9.2): large art, blurred-artwork ambience on the
-   same token system as album detail (§8.5, §13), full transport, and the
-   queue panel on the right (§9.4). A takeover overlay rather than a route —
+/* Full-screen Now Playing: large art, blurred-artwork ambience, full
+   transport, and the queue panel. A takeover overlay rather than a route —
    the audio element lives outside React's lifecycle, so playback simply
-   continues underneath. Esc closes (§9.5).
-
-   §23: the two-zone layout is permanent — the stage shows a quiet idle
-   state when nothing plays, and the queue (with its Add button) is present
-   from the start, so a queue can be built before anything plays. Below
-   940px, where the side-by-side drawer can't fit, the queue slides up over
-   the stage as a sheet behind the header's queue button. */
+   continues underneath. The two-zone layout is permanent: the stage shows
+   a quiet idle state when nothing plays, and the queue is present from the
+   start. Below 940px the queue slides up over the stage as a sheet. */
 
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
@@ -52,7 +47,7 @@ export function NowPlaying() {
   const [queueOpen, setQueueOpen] = useState(false);
   const surfaceRef = useRef<HTMLDivElement>(null);
 
-  // Modal focus (§3.4): focus moves into the takeover on open, Tab cycles
+  // Modal focus: focus moves into the takeover on open, Tab cycles
   // inside it, and closing restores focus to whatever opened it.
   useModalFocus(surfaceRef, open);
 
@@ -61,13 +56,13 @@ export function NowPlaying() {
     close();
   };
 
-  // Esc closes the takeover — but yields to whatever sits above it (§15.7):
+  // Esc closes the takeover — but yields to whatever sits above it:
   // the library picker, context menus, the Get Info panel, and queue drags
   // close first. Capture phase so this decision happens before the other
   // window listeners run. On narrow windows the queue sheet — the takeover's
   // own second layer — closes before the takeover itself. Focus in text
   // mid-edit defers (Esc cancels the edit there); a focused button or link
-  // never blocks the close (§29).
+  // never blocks the close.
   useEffect(() => {
     if (!open) return;
     const onKeyDown = (e: KeyboardEvent) => {
@@ -89,7 +84,7 @@ export function NowPlaying() {
 
   if (!open) return null;
 
-  // §2.7: the takeover renders names from restored state alone. Until the
+  // The takeover renders names from restored state alone. Until the
   // server has vouched for the session, they read as text — a stale
   // snapshot's ids may name entities that no longer exist.
   const verified = !trackIsUnverified(track);
@@ -148,7 +143,7 @@ export function NowPlaying() {
               <h1 className="nowplaying__title">{track.title}</h1>
               <p className="nowplaying__artist">
                 {verified && track.artist_id != null && track.artist ? (
-                  // §1.4: every name on a listening surface is a door —
+                  // Every name on a listening surface is a link —
                   // styled as today's text, an underline on hover only.
                   <Link
                     to={`/artists/${track.artist_id}`}
@@ -176,10 +171,10 @@ export function NowPlaying() {
                   )}
                 </p>
               )}
-              {/* §1.1: the origin rides under the album line, small and
-                  secondary (§8.3) — the queue's birth certificate. §2.7: a
-                  restored session's origin is linked only once the server
-                  has vouched for the session. */}
+              {/* The origin rides under the album line, small and
+                  secondary — the queue's birth certificate. A restored
+                  session's origin is linked only once the server has
+                  vouched for the session. */}
               {origin?.label != null && (
                 <p className="nowplaying__origin">
                   Playing from{" "}

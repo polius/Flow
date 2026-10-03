@@ -33,7 +33,7 @@ export function AppShell() {
     canvasRef.current?.scrollTo(0, 0);
   }, [location.pathname]);
 
-  // ⌘F / Ctrl+F focuses the top-bar search field from anywhere (§9.5).
+  // ⌘F / Ctrl+F focuses the top-bar search field from anywhere.
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "f") {

@@ -1,8 +1,4 @@
-"""Cross-entity search (DESIGN.md §6, §9.2).
-
-One endpoint, grouped results. Each group is capped — the UI links through
-to the full filtered views (`/tracks?q=…` etc.) for deep results.
-"""
+"""Cross-entity search: one endpoint, grouped results, each group capped."""
 
 from __future__ import annotations
 

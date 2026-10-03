@@ -1,6 +1,5 @@
-"""Album/artist cover upload + reset — the playlist cover contract (§13.10)
-extended to library entities (2026-10-03): a user-set `cover_artwork_id`
-overrides the scan-derived artwork while set, and DELETE restores it."""
+"""Album/artist cover upload + reset: a user-set `cover_artwork_id` overrides
+the scan-derived artwork while set, and DELETE restores it."""
 
 from __future__ import annotations
 
@@ -167,7 +166,7 @@ def test_artist_cover_upload_reset_and_validation(client, library):
 
 def test_rescan_preserves_user_covers(client, library, music, scanner):
     """A rescan rewrites albums' derived art but never the user's choice —
-    the cover is curation, like `favorite` and `played_at` (§5)."""
+    the cover is curation, like `favorite` and `played_at`."""
     album_id = client.get("/api/albums").json()["items"][0]["id"]
     artist_id = client.get("/api/artists").json()["items"][0]["id"]
     png = base64.b64decode(PNG_1X1)
