@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import json
 
-from app.entities import find_or_create_album, find_or_create_artist
+from app.entities import find_or_create_album, find_or_create_artist, find_or_create_genre
 from app.scanner import Edited
 
 UNDO_KEY = "bulk_undo"
@@ -24,12 +24,16 @@ UNDO_LIMIT = 20_000  # entries; a full-library apply fits with room to spare
 
 # The row an apply needs: the overlay-relevant columns plus the artist/album
 # NAMES (undo entries store names — an emptied entity's row gets pruned and
-# find-or-create recreates it on undo).
+# find-or-create recreates it on undo) and the track's primary genre name
+# (undo restores it the same way).
 APPLY_SELECT = """
 SELECT t.id, t.title, t.artist_id, t.album_id, t.album_artist_id, t.track_no,
        t.year, t.artwork_id, t.user_edited,
        ar.name AS artist, al.title AS album,
-       aar.name AS album_artist_name
+       aar.name AS album_artist_name,
+       (SELECT g.name FROM track_genres tg
+        JOIN genres g ON g.id = tg.genre_id
+        WHERE tg.track_id = t.id ORDER BY tg.genre_id LIMIT 1) AS genre
 FROM tracks t
 LEFT JOIN artists ar ON ar.id = t.artist_id
 LEFT JOIN albums al ON al.id = t.album_id
@@ -120,7 +124,27 @@ def apply_field_changes(conn, track, fields: dict) -> dict:
     if "favorite" in fields and fields["favorite"] is not None:
         columns["favorite"] = int(fields["favorite"])
 
-    if columns:
+    # Genre (§2.2): replace the track's tag genres with the one named —
+    # the primary genre the Tracks filter groups by. An empty string clears.
+    # This is row work in track_genres, not a tracks column: the flag rides
+    # user_edited below so the caller's UPDATE still runs and the scanner
+    # preserves the choice.
+    genre_touched = False
+    if "genre" in fields:
+        name = (fields["genre"] or "").strip()
+        conn.execute("DELETE FROM track_genres WHERE track_id = ?", (track["id"],))
+        if name:
+            genre_id = find_or_create_genre(conn, name)
+            if genre_id is not None:
+                conn.execute(
+                    "INSERT OR IGNORE INTO track_genres (track_id, genre_id) "
+                    "VALUES (?, ?)",
+                    (track["id"], genre_id),
+                )
+        edited |= Edited.GENRE
+        genre_touched = True
+
+    if columns or genre_touched:
         columns["user_edited"] = int(edited)
     return columns
 

@@ -35,8 +35,11 @@ from app.schemas import (
     ReviewSummary,
     TrackOut,
     TrackPatch,
+    TrackReorderIn,
 )
 from app.apply import UNDO_KEY
+from app.db import retry_locked
+from app.scanner import Edited
 
 router = APIRouter(tags=["editing"])
 
@@ -81,16 +84,24 @@ def patch_track(request: Request, track_id: int, patch: TrackPatch) -> TrackOut:
         fields["album"] = patch.album
     if patch.favorite is not None:
         fields["favorite"] = patch.favorite
+    if patch.genre is not None:
+        fields["genre"] = patch.genre
+
+    # One retrying transaction (§lock): the apply's writes + the prune land
+    # together, and a busy scan's lock window is out-waited, not 500'd on.
+    def _apply() -> dict:
+        cols = apply_field_changes(conn, track, fields)
+        if cols:
+            _run_update(conn, track, cols)
+            prune_orphans(conn)
+        conn.commit()
+        return cols
 
     try:
-        columns = apply_field_changes(conn, track, fields)
+        columns = retry_locked(conn, _apply)
     except FieldError as exc:
+        conn.rollback()
         raise HTTPException(status_code=422, detail=str(exc))
-
-    if columns:
-        _run_update(conn, track, columns)
-        prune_orphans(conn)
-        conn.commit()
 
     row = conn.execute(f"{TRACK_SELECT} WHERE t.id = ?", (track_id,)).fetchone()
     return track_out(row)
@@ -112,6 +123,8 @@ def _old_value(key: str, row) -> object:
         return row["album_artist_name"] or ""
     if key == "track_no":
         return row["track_no"]
+    if key == "genre":
+        return row["genre"] or ""
     return None
 
 
@@ -150,34 +163,45 @@ def bulk_apply_tracks(request: Request, body: BulkApplyIn) -> BulkApplyOut:
         fields["album"] = body.album
     if "track_no" in body.model_fields_set:
         fields["track_no"] = body.track_no
+    if body.genre is not None:
+        fields["genre"] = body.genre
     if not fields:
         raise HTTPException(status_code=422, detail="No changes provided")
 
     ids = _resolve_ids(conn, body)
 
-    applied = 0
-    undo_entries: list[dict] = []
+    # One retrying transaction: all-or-nothing on both a validation failure
+    # (nothing committed) and a lock window (rolled back, replayed whole).
+    def _apply() -> int:
+        applied = 0
+        undo_entries: list[dict] = []
+        try:
+            for chunk in _chunks(ids, _CHUNK):
+                placeholders = ", ".join("?" * len(chunk))
+                rows = conn.execute(
+                    f"{APPLY_SELECT} WHERE t.id IN ({placeholders})", chunk
+                ).fetchall()
+                for row in rows:
+                    undo_entries.append(
+                        {"id": row["id"], "fields": {k: _old_value(k, row) for k in fields}}
+                    )
+                    columns = apply_field_changes(conn, row, fields)
+                    if not columns:
+                        continue
+                    _run_update(conn, row, columns)
+                    applied += 1
+            if applied:
+                prune_orphans(conn)
+                store_undo(conn, undo_entries)
+            conn.commit()
+        except FieldError:
+            conn.rollback()
+            raise
+        return applied
+
     try:
-        for chunk in _chunks(ids, _CHUNK):
-            placeholders = ", ".join("?" * len(chunk))
-            rows = conn.execute(
-                f"{APPLY_SELECT} WHERE t.id IN ({placeholders})", chunk
-            ).fetchall()
-            for row in rows:
-                undo_entries.append(
-                    {"id": row["id"], "fields": {k: _old_value(k, row) for k in fields}}
-                )
-                columns = apply_field_changes(conn, row, fields)
-                if not columns:
-                    continue
-                _run_update(conn, row, columns)
-                applied += 1
-        if applied:
-            prune_orphans(conn)
-            store_undo(conn, undo_entries)
-        conn.commit()
+        applied = retry_locked(conn, _apply)
     except FieldError as exc:
-        conn.rollback()
         raise HTTPException(status_code=422, detail=str(exc))
 
     return BulkApplyOut(applied=applied)
@@ -191,31 +215,75 @@ def bulk_undo(request: Request) -> BulkApplyOut:
         conn.commit()
         raise HTTPException(status_code=404, detail="Nothing to undo")
 
-    applied = 0
-    for chunk in _chunks(entries, _CHUNK):
-        placeholders = ", ".join("?" * len(chunk))
-        rows = {
-            r["id"]: r
-            for r in conn.execute(
-                f"{APPLY_SELECT} WHERE t.id IN ({placeholders})",
-                [e["id"] for e in chunk],
-            )
-        }
-        for entry in chunk:
-            row = rows.get(entry["id"])
-            if row is None:
-                continue  # the track was removed since — skip, don't block
-            try:
-                columns = apply_field_changes(conn, row, entry["fields"])
-            except FieldError:
-                continue
-            if not columns:
-                continue
-            _run_update(conn, row, columns)
-            applied += 1
+    def _apply() -> int:
+        applied = 0
+        for chunk in _chunks(entries, _CHUNK):
+            placeholders = ", ".join("?" * len(chunk))
+            rows = {
+                r["id"]: r
+                for r in conn.execute(
+                    f"{APPLY_SELECT} WHERE t.id IN ({placeholders})",
+                    [e["id"] for e in chunk],
+                )
+            }
+            for entry in chunk:
+                row = rows.get(entry["id"])
+                if row is None:
+                    continue  # the track was removed since — skip, don't block
+                try:
+                    columns = apply_field_changes(conn, row, entry["fields"])
+                except FieldError:
+                    continue
+                if not columns:
+                    continue
+                _run_update(conn, row, columns)
+                applied += 1
+        prune_orphans(conn)
+        conn.commit()
+        return applied
 
-    prune_orphans(conn)
-    conn.commit()
+    applied = retry_locked(conn, _apply)
+    return BulkApplyOut(applied=applied)
+
+
+# ---- drag-reorder within an album (Organize view, §22) -------------------------
+
+
+@router.post("/api/tracks/reorder", response_model=BulkApplyOut)
+def reorder_tracks(request: Request, body: TrackReorderIn) -> BulkApplyOut:
+    """Renumber the given tracks 1..n in the order listed (§22's drag
+    gesture): the client sends one album's tracks in their new sequence and
+    each track's number is rewritten to its position. Every rewritten number
+    is flagged user-edited, so a rescan preserves it — the same overlay the
+    № cell's manual edit sets."""
+    conn = request.app.state.db.connect()
+    if not body.track_ids:
+        raise HTTPException(status_code=422, detail="track_ids must not be empty")
+
+    # Dedupe, keep order; unknown ids are skipped (a rescan may have removed
+    # one mid-gesture) rather than failing the whole block.
+    ids = list(dict.fromkeys(body.track_ids))
+    position_of = {tid: pos for pos, tid in enumerate(ids, start=1)}
+
+    def _apply() -> int:
+        applied = 0
+        for chunk in _chunks(ids, _CHUNK):
+            placeholders = ", ".join("?" * len(chunk))
+            rows = conn.execute(
+                f"SELECT id, user_edited FROM tracks t WHERE t.id IN ({placeholders})",
+                chunk,
+            ).fetchall()
+            for row in rows:
+                edited = Edited(row["user_edited"]) | Edited.TRACK_NO
+                conn.execute(
+                    "UPDATE tracks SET track_no = ?, user_edited = ? WHERE id = ?",
+                    (position_of[row["id"]], int(edited), row["id"]),
+                )
+                applied += 1
+        conn.commit()
+        return applied
+
+    applied = retry_locked(conn, _apply)
     return BulkApplyOut(applied=applied)
 
 

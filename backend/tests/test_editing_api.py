@@ -204,3 +204,76 @@ def test_full_overlay_survives_rescan(client, library):
     assert after["artist"] == "Edited Artist"
     assert after["album"] == "Edited Album"
     assert after["track_no"] == 9
+
+
+def test_genre_edit_sets_and_clears(client, library):
+    """§22: the Organize genre cell replaces the track's tag genres with the
+    one named; the scanner preserves the choice (the GENRE overlay bit)."""
+    track = _track(client, "Loose")
+    assert track["genre"] is None  # fixture has no genre tag
+
+    out = client.patch(f"/api/tracks/{track['id']}", json={"genre": "Space Rock"})
+    assert out.status_code == 200
+    assert out.json()["genre"] == "Space Rock"
+
+    # The genre filter vocabulary picks it up.
+    genres = client.get("/api/genres").json()["items"]
+    assert [g["name"] for g in genres] == ["Space Rock"]
+
+    # An empty string clears.
+    cleared = client.patch(f"/api/tracks/{track['id']}", json={"genre": ""})
+    assert cleared.json()["genre"] is None
+    assert client.get("/api/genres").json()["items"] == []
+
+
+def test_genre_edit_survives_rescan(client, library):
+    track = _track(client, "Loose")
+    client.patch(f"/api/tracks/{track['id']}", json={"genre": "Space Rock"})
+
+    import os
+    conn = client.app.state.scanner._db.connect()
+    row = conn.execute("SELECT path FROM tracks WHERE id = ?", (track["id"],)).fetchone()
+    target = library / row["path"]
+    st = target.stat()
+    os.utime(target, (st.st_atime, st.st_mtime + 5))
+    client.app.state.scanner.run_scan("test")
+
+    after = client.get(f"/api/tracks/{track['id']}").json()
+    assert after["genre"] == "Space Rock"
+
+
+def test_bulk_genre_apply(client, library):
+    first = _track(client, "First")
+    second = _track(client, "Second")
+    out = client.post(
+        "/api/tracks/bulk",
+        json={"track_ids": [first["id"], second["id"]], "genre": "Hard Rock"},
+    )
+    assert out.json()["applied"] == 2
+    genres = {t["id"]: t["genre"] for t in client.get("/api/tracks").json()["items"]}
+    assert genres[first["id"]] == "Hard Rock"
+    assert genres[second["id"]] == "Hard Rock"
+
+
+def test_reorder_renumbers_and_sets_overlay(client, library):
+    first = _track(client, "First")
+    second = _track(client, "Second")
+    loose = _track(client, "Loose")
+
+    out = client.post(
+        "/api/tracks/reorder",
+        json={"track_ids": [second["id"], first["id"], loose["id"]]},
+    )
+    assert out.status_code == 200
+    assert out.json()["applied"] == 3
+    numbers = {t["id"]: t["track_no"] for t in client.get("/api/tracks").json()["items"]}
+    assert numbers == {second["id"]: 1, first["id"]: 2, loose["id"]: 3}
+
+    # Unknown ids are skipped, not fatal; duplicates collapse to one slot.
+    again = client.post(
+        "/api/tracks/reorder",
+        json={"track_ids": [loose["id"], 99999, loose["id"]]},
+    )
+    assert again.status_code == 200
+    assert again.json()["applied"] == 1
+    assert client.get(f"/api/tracks/{loose['id']}").json()["track_no"] == 1

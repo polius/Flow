@@ -43,6 +43,12 @@ TRACK_SORTS = {
     "played": "t.played_at",
     # Organize view (§22): the file column sorts by its library-relative path.
     "path": "t.path COLLATE NOCASE",
+    # Organize view (§22): the track's primary genre (first tag genre).
+    "genre": (
+        "(SELECT g2.name FROM track_genres tg2 "
+        "JOIN genres g2 ON g2.id = tg2.genre_id "
+        "WHERE tg2.track_id = t.id ORDER BY tg2.genre_id LIMIT 1) COLLATE NOCASE"
+    ),
 }
 
 # Direction is applied per term by the endpoint (`dir` query param) so the
@@ -102,9 +108,12 @@ def _clamp(limit: int, offset: int) -> tuple[int, int]:
 TRACK_SELECT = """
 SELECT t.id, t.title, t.track_no, t.disc_no, t.year, t.duration, t.format,
        t.favorite, t.album_id, t.artist_id, t.artwork_id, t.path, t.gain_db,
-       t.played_at,
+       t.played_at, t.added_at,
        ar.name AS artist, al.title AS album,
-       t.album_artist_id, aar2.name AS album_artist
+       t.album_artist_id, aar2.name AS album_artist,
+       (SELECT g.name FROM track_genres tg
+        JOIN genres g ON g.id = tg.genre_id
+        WHERE tg.track_id = t.id ORDER BY tg.genre_id LIMIT 1) AS genre
 FROM tracks t
 LEFT JOIN artists ar ON ar.id = t.artist_id
 LEFT JOIN albums al ON al.id = t.album_id
@@ -199,6 +208,8 @@ def track_out(row) -> TrackOut:
         path=row["path"],
         gain_db=row["gain_db"],
         played_at=row["played_at"],
+        genre=row["genre"],
+        added_at=row["added_at"],
     )
 
 

@@ -80,6 +80,12 @@ class TrackOut(BaseModel):
     # Last real playback start (§4.1): private, count-free recency. NULL
     # until the track has been played on this server; rescans never touch it.
     played_at: str | None = None
+    # The track's primary genre (§2.2): the first tag genre, the one the
+    # Tracks filter groups by. NULL = untagged. Editable in Organize.
+    genre: str | None = None
+    # When the scanner first saw the file (§22) — the Organize view's
+    # "latest added first" ordering.
+    added_at: str | None = None
 
 
 class TrackListOut(BaseModel):
@@ -166,13 +172,15 @@ class TrackPatch(BaseModel):
     artist/album are name strings — the editor find-or-creates rows. Only
     fields the client sends are applied; sent overlay fields set their
     `user_edited` bit so rescans preserve them. `album_artist` pins a
-    compilation's identity (§2.2); an empty string clears it."""
+    compilation's identity (§2.2); an empty string clears it. `genre`
+    replaces the track's tag genres with the one named (empty clears)."""
     title: str | None = None
     artist: str | None = None
     album_artist: str | None = None
     album: str | None = None
     track_no: int | None = None
     favorite: bool | None = None
+    genre: str | None = None
 
 
 # ---- Organize view: bulk apply + review (§22) --------------------------------
@@ -199,10 +207,18 @@ class BulkApplyIn(BaseModel):
     album_artist: str | None = None
     album: str | None = None
     track_no: int | None = None
+    genre: str | None = None
 
 
 class BulkApplyOut(BaseModel):
     applied: int
+
+
+class TrackReorderIn(BaseModel):
+    """Organize drag-reorder (§22): the album's tracks in their new order.
+    Each track's number is rewritten to its position in the list (1..n) and
+    flagged user-edited, so a rescan preserves it."""
+    track_ids: list[int]
 
 
 class AlbumRef(BaseModel):
