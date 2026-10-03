@@ -11,7 +11,7 @@ import { LoadingState } from "../components/LoadingState";
 import { FirstRun, FirstScan } from "../components/Onboarding";
 import { IconPause, IconPlay, IconShuffle } from "../components/icons";
 import { PlaylistArt } from "../components/PlaylistArt";
-import { fmtCount, fmtDuration, scanPhaseLabel, scanProgressLabel } from "../lib/format";
+import { fmtCount, fmtDuration, scanStatusLabel } from "../lib/format";
 import { trackIsUnverified, usePlayerStore } from "../stores/player";
 import { useScanStore } from "../stores/scan";
 
@@ -233,8 +233,7 @@ export function HomeView() {
       {hasLibrary &&
         (scanning ? (
           <p className="view__subtitle" aria-live="polite">
-            {scan &&
-              (scanPhaseLabel(scan.phase) ?? scanProgressLabel(scan.current, scan.total))}
+            {scan && scanStatusLabel(scan)}
           </p>
         ) : (
           <p className="view__subtitle">{summary}</p>

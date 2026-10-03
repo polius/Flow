@@ -27,18 +27,40 @@ export function fmtMinutes(seconds: number): string {
   return m > 0 ? `${h} hr ${m} min` : `${h} hr`;
 }
 
-/* Scan-phase labels (§2.8): the loudness pass (§2.3) reads differently from
-   the index scan — it changes what the app *knows*, not what it *has*. */
-export function scanPhaseLabel(phase: string | null): string | null {
-  if (phase === "analyze") return "Analyzing audio…";
-  if (phase === "watch") return "Updating…";
-  return null;
+/* Scan status (§2.8): every phase speaks its own verb — the loudness pass
+   (§2.3) reads differently from the index scan because it changes what the
+   app *knows*, not what it *has* — and every phase speaks its live counts
+   (2026-10-03: "Analyzing audio…" alone was a blind spinner; the backend
+   was reporting current/total all along). Counts are omitted while the
+   total isn't known yet — one honest dash beats a wrong number. */
+export interface ScanStatusLike {
+  phase: string | null;
+  current: number;
+  total: number;
 }
 
-/** "Scanning… 342/1,204" body — omit counts when the total isn't known yet. */
+export function scanStatusLabel(scan: ScanStatusLike): string {
+  if (scan.phase === "analyze") {
+    return scan.total > 0
+      ? `Analyzing audio… ${fmtCount(scan.current)}/${fmtCount(scan.total)}`
+      : "Analyzing audio…";
+  }
+  if (scan.phase === "watch") return "Updating…";
+  return scanProgressLabel(scan.current, scan.total);
+}
+
+/** "Scanning… 342/1,204" — omit counts when the total isn't known yet. */
 export function scanProgressLabel(current: number, total: number): string {
   if (total === 0) return "Scanning…";
   return `Scanning… ${fmtCount(current)}/${fmtCount(total)}`;
+}
+
+/** The scan's progress fraction (0..1) — null while the total isn't known
+    or the phase doesn't count files (the watcher's quick updates). The
+    TopBar's determinate ring consumes it; null keeps the spinner. */
+export function scanProgressFraction(scan: ScanStatusLike): number | null {
+  if (scan.phase === "watch" || scan.total <= 0) return null;
+  return Math.max(0, Math.min(1, scan.current / scan.total));
 }
 
 /** Library-relative path → file name ("Artist/Album/01 Song.flac" → "01 Song.flac").

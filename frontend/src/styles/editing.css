@@ -1440,11 +1440,14 @@ textarea.inlineedit__input {
   outline: none;
 }
 
+/* Focus reads as the field's border darkening — the GetInfo input's
+   grammar (§31: the accent is the equalizer bars' alone; the old
+   accent ring made this field glow red the moment it appeared,
+   which read as an error state on the first thing the user touches). */
 .addto__nameinput:focus,
 .addto__nameinput:focus-visible {
-  border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+  border-color: color-mix(in srgb, var(--text-primary) 40%, transparent);
   outline: none;
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 16%, transparent);
 }
 
 .addto__namingactions {
@@ -1471,7 +1474,9 @@ textarea.inlineedit__input {
 }
 
 /* The created receipt (2026-10-03): a check, the sentence that says the
-   playlist was created successfully, and the direct path to it. */
+   playlist was created successfully, and the direct path to it. The disc
+   is the monochrome inversion (§31) — a red check on a success receipt
+   read as an error (the same accent leftover the name field had). */
 .addto__success {
   display: flex;
   align-items: center;
@@ -1487,8 +1492,8 @@ textarea.inlineedit__input {
   width: 34px;
   height: 34px;
   border-radius: 999px;
-  color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  color: var(--bg-canvas);
+  background: var(--text-primary);
 }
 
 .addto__successmeta {

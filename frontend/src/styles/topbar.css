@@ -130,6 +130,31 @@
   }
 }
 
+/* The determinate ring (§40): same 11px slot as the spinner, an arc that
+   fills clockwise with progress. SVG stroke — no gradients on UI surfaces
+   (§8); the transition smooths the per-file jumps. */
+.topbar__scan-ring {
+  flex: none;
+  width: 11px;
+  height: 11px;
+  transform: rotate(-90deg);
+}
+
+.topbar__scan-ring circle {
+  fill: none;
+  stroke-width: 2.75;
+}
+
+.topbar__scan-ring-track {
+  stroke: var(--control-border);
+}
+
+.topbar__scan-ring-fill {
+  stroke: var(--text-primary);
+  stroke-linecap: round;
+  transition: stroke-dashoffset 320ms var(--ease-out);
+}
+
 /* ---- search ---- */
 
 /* The zone owns the flex sizing and anchors the spotlight panel; the pill

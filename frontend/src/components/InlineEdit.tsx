@@ -61,7 +61,13 @@ export function InlineEdit({
     return (
       <Text
         className={`${className ?? ""} inlineedit__text`}
-        onClick={() => setEditing(true)}
+        onClick={(e) => {
+          // A modifier-click is a selection gesture, not a rename (§4.1's
+          // grammar, adopted by the Organize grid in §40): Cmd/Ctrl/Alt/
+          // Shift never open the editor — the plain click alone does.
+          if (e.shiftKey || e.metaKey || e.ctrlKey || e.altKey) return;
+          setEditing(true);
+        }}
         title="Click to edit"
         role="button"
         tabIndex={0}

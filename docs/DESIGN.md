@@ -2143,3 +2143,49 @@ grammar forked.
 Verification: `tsc --noEmit` clean, frontend suite green (31 tests),
 backend suite green (137 tests, including four new favorites-order
 tests).
+
+## 40. Addendum — the analyze pass speaks, the naming field stops glowing red, Alt-click reaches the Organize grid (2026-10-03)
+
+An owner three-item follow-up to the same day's UX pass (§39).
+
+1. **"Analyzing audio…" carries its counts (§2.3, §2.8).** The loudness
+   pass's label was a blind spinner while the backend reported
+   `current`/`total` on the same SSE stream the index scan's counts ride
+   — the omission was the frontend's, not the data's. `lib/format.ts`
+   collapses phase label + progress into one `scanStatusLabel(scan)`:
+   the analyze phase now reads "Analyzing audio… 34/1,204" (counts
+   omitted only while the total isn't known yet, the scan's own rule),
+   and Home, Settings, and FirstScan inherit the fix with the TopBar.
+   The TopBar pill's spinner gives way to a determinate ring the moment
+   a total exists — an SVG arc (§8: no gradients on UI surfaces) filling
+   clockwise in the same quiet monochrome, `aria-hidden` beside the
+   numbers it mirrors; the indeterminate spinner stays for total-less
+   phases (the watcher's quick updates). All four consumers were
+   verified against an injected live status in the running app.
+
+2. **The New Playlist naming field stops glowing red (§31).** The
+   `--naming` step's input still wore a pre-§31 accent focus ring — and
+   the accent is `#d64541` red now reserved to the equalizer bars, so
+   the field's first moment (it autofocuses) read as an error state on
+   the one control the user must touch. Focus now follows the GetInfo
+   input's grammar: the border darkens (`--text-primary` 40%), no glow.
+   The created receipt's check disc carried the same leftover — red on
+   a success message — and now wears the §31 inversion (dark disc, light
+   check; flipped by the dark ramp).
+
+3. **Alt-click selects in the Organize grid (§22, extending §39.1).**
+   §39.1 gave the listening tables Cmd/Ctrl/Alt-click-to-toggle, but the
+   grid's editable cells (title · artist · album · genre — most of the
+   row's width) swallowed every click into their own stopPropagation:
+   Alt-clicking there did nothing, which is where the gesture reads as
+   broken. The grammar now holds everywhere: modifier-clicks
+   (Cmd/Ctrl/Alt/Shift) are the row's selection gesture and bubble past
+   the cell wrappers — `InlineEdit` never opens its editor on one —
+   while the plain click keeps owning the cell (edit). `RowMods` gained
+   `altKey`; Shift-click still ranges from the anchor, the checkbox and
+   keyboard paths pass all-false mods.
+
+Verification: `tsc --noEmit` clean, frontend suite green (31 tests);
+the three fixes exercised in the running app (computed focus styles,
+modifier-click selection on editable cells, injected scan statuses for
+both pill forms).

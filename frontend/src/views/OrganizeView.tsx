@@ -220,8 +220,16 @@ export function OrganizeView() {
         ? "all"
         : "some";
 
+  /** Row toggle (§22) with §4.1's modifier grammar (§40): Shift ranges from
+      the anchor; Cmd/Ctrl/Alt toggle one row (plain clicks toggle too —
+      the checkbox grammar stands). The modifier flags arrive from the row
+      (mods()) or all-false from the keyboard paths. */
   const toggleRow = useCallback(
-    (track: Track, index: number, mods: { shiftKey: boolean; metaKey: boolean }) => {
+    (
+      track: Track,
+      index: number,
+      mods: { shiftKey: boolean; metaKey: boolean; altKey: boolean },
+    ) => {
       setEditTrackId(null);
       if (mods.shiftKey && anchor != null && !allMatching) {
         // Range over the loaded rows between anchor and here (§22: the rest
@@ -552,7 +560,7 @@ export function OrganizeView() {
           onCursorToggle={() => {
             if (cursorIndex == null) return;
             const t = tracks[cursorIndex];
-            if (t) toggleRow(t, cursorIndex, { shiftKey: false, metaKey: false });
+            if (t) toggleRow(t, cursorIndex, { shiftKey: false, metaKey: false, altKey: false });
           }}
           onCursorEdit={() => {
             if (cursorIndex != null) editAt(cursorIndex);

@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 
 import { api } from "../api/client";
-import { fmtCount, fmtDateTime, scanPhaseLabel, scanProgressLabel } from "../lib/format";
+import { fmtCount, fmtDateTime, scanStatusLabel } from "../lib/format";
 import { usePlayerStore } from "../stores/player";
 import { useScanStore } from "../stores/scan";
 import { useUiStore, type ThemeMode } from "../stores/ui";
@@ -106,10 +106,7 @@ export function SettingsView() {
               <span className="settings-row__label">
                 {scanning ? (
                   <span aria-live="polite">
-                    {scan
-                      ? (scanPhaseLabel(scan.phase) ??
-                        scanProgressLabel(scan.current, scan.total))
-                      : "Scanning…"}
+                    {scan ? scanStatusLabel(scan) : "Scanning…"}
                   </span>
                 ) : (
                   "Last scan"

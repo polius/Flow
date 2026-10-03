@@ -34,6 +34,8 @@ const ROW_HEIGHT = 38;
 export interface RowMods {
   shiftKey: boolean;
   metaKey: boolean;
+  /** Alt joins the selection modifiers (§39.1, in the grid too — §40). */
+  altKey: boolean;
 }
 
 interface OrganizeRowProps {
@@ -94,7 +96,17 @@ export function OrganizeRow({
   const mods = (e: React.MouseEvent): RowMods => ({
     shiftKey: e.shiftKey,
     metaKey: e.metaKey || e.ctrlKey,
+    altKey: e.altKey,
   });
+
+  /* Plain clicks belong to the editable cell (they open its editor, §15.1);
+     modifier-clicks are the row's selection gesture (§4.1's grammar, grid
+     edition — §40) and must reach the row: they bubble. The guard sits on
+     the wrapper so it covers the editor text and the cell padding alike. */
+  const gateCellClick = (e: React.MouseEvent) => {
+    if (e.shiftKey || e.metaKey || e.ctrlKey || e.altKey) return;
+    e.stopPropagation();
+  };
 
   const onContextMenu = onTrackMenu
     ? (e: React.MouseEvent) => {
@@ -141,12 +153,14 @@ export function OrganizeRow({
           aria-checked={checked}
           aria-label={checked ? `Deselect ${track.title}` : `Select ${track.title}`}
           className={`orgbox${checked ? " orgbox--on" : ""}`}
-          onClick={() => onToggle(track, index, { shiftKey: false, metaKey: false })}
+          onClick={() =>
+            onToggle(track, index, { shiftKey: false, metaKey: false, altKey: false })
+          }
         >
           {checked && <IconCheck size={11} />}
         </button>
       </span>
-      <span className="orgrow__titlecell" onClick={(e) => e.stopPropagation()}>
+      <span className="orgrow__titlecell" onClick={gateCellClick}>
         {/* Text only (owner, 2026-10-02): the 24px artwork left the title
             cell — one icon per row read as noise in a mass-editing grid. */}
         <InlineEdit
@@ -157,7 +171,7 @@ export function OrganizeRow({
           onCommit={(title) => onCommitTitle(track, title)}
         />
       </span>
-      <span className="orgrow__cell" onClick={(e) => e.stopPropagation()}>
+      <span className="orgrow__cell" onClick={gateCellClick}>
         <InlineEdit
           value={track.artist ?? ""}
           ariaLabel={`Artist for ${track.title}`}
@@ -167,7 +181,7 @@ export function OrganizeRow({
           onCommit={(artist) => onCommitArtist(track, artist)}
         />
       </span>
-      <span className="orgrow__cell" onClick={(e) => e.stopPropagation()}>
+      <span className="orgrow__cell" onClick={gateCellClick}>
         <InlineEdit
           value={track.album ?? ""}
           ariaLabel={`Album for ${track.title}`}
@@ -177,7 +191,7 @@ export function OrganizeRow({
           onCommit={(album) => onCommitAlbum(track, album)}
         />
       </span>
-      <span className="orgrow__cell" onClick={(e) => e.stopPropagation()}>
+      <span className="orgrow__cell" onClick={gateCellClick}>
         <InlineEdit
           value={track.genre ?? ""}
           ariaLabel={`Genre for ${track.title}`}

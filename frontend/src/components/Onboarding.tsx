@@ -19,7 +19,7 @@ import { Link } from "react-router";
 import { api } from "../api/client";
 import type { SettingsOut } from "../api/types";
 import { IconMusicNote } from "./icons";
-import { scanPhaseLabel, scanProgressLabel } from "../lib/format";
+import { scanStatusLabel } from "../lib/format";
 import type { ScanStatus } from "../stores/scan";
 
 /* One copy-scan-play step. The hairline between steps (not cards) keeps
@@ -130,8 +130,7 @@ export function FirstRun({ settings }: { settings: SettingsOut }) {
    exactly what the steps describe, so the page says so instead of showing
    a blank canvas (§9.6: progress on Home). Live line under aria-live. */
 export function FirstScan({ scan }: { scan: ScanStatus | null }) {
-  const progress =
-    scan && (scanPhaseLabel(scan.phase) ?? scanProgressLabel(scan.current, scan.total));
+  const progress = scan && scanStatusLabel(scan);
   return (
     <div className="onboard" role="status">
       <div className="onboard__glyph" aria-hidden="true">

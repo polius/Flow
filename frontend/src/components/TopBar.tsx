@@ -22,7 +22,7 @@ import { NavLink, useLocation, useNavigate, useSearchParams } from "react-router
 import { useQuery } from "@tanstack/react-query";
 
 import { api } from "../api/client";
-import { fmtCount, scanProgressLabel } from "../lib/format";
+import { fmtCount, scanProgressFraction, scanStatusLabel } from "../lib/format";
 import { useMediaQuery } from "../lib/media";
 import { useScanStore } from "../stores/scan";
 import { usePlayerStore } from "../stores/player";
@@ -170,13 +170,11 @@ export function TopBar() {
     }
   };
 
-  const scanLabel = scan
-    ? scan.phase === "analyze"
-      ? "Analyzing audio…"
-      : scan.phase === "watch"
-        ? "Updating…"
-        : scanProgressLabel(scan.current, scan.total)
-    : null;
+  const scanLabel = scan ? scanStatusLabel(scan) : null;
+  // Determinate when the phase counts files (§40): the ring replaces the
+  // spinner the moment a total exists, and stays for the loudness pass —
+  // "Analyzing audio… 34/1,204" with the arc filling behind the number.
+  const scanFraction = scan ? scanProgressFraction(scan) : null;
 
   return (
     <header className="topbar">
@@ -193,7 +191,11 @@ export function TopBar() {
           (§2.8) — a count nobody can inspect is a dead end. */}
       {scanning && scan && scanLabel && (
         <div className="topbar__scan" role="status" aria-live="polite">
-          <span className="topbar__scan-spin" aria-hidden="true" />
+          {scanFraction == null ? (
+            <span className="topbar__scan-spin" aria-hidden="true" />
+          ) : (
+            <ScanRing fraction={scanFraction} />
+          )}
           <span className="topbar__scan-text">
             {scanLabel}
             {scan.errors > 0 && (
@@ -319,6 +321,29 @@ export function TopBar() {
         </div>
       )}
     </header>
+  );
+}
+
+/* ---- scan status ring -------------------------------------------------------
+   The determinate arc (§40): once a phase knows its total, the spinner gives
+   way to a ring that fills clockwise — the same quiet monochrome, progress
+   instead of motion. The numbers live in the label beside it; the ring is
+   decoration with a duty, aria-hidden like the spinner it replaces. */
+function ScanRing({ fraction }: { fraction: number }) {
+  const r = 6.5;
+  const c = 2 * Math.PI * r;
+  return (
+    <svg className="topbar__scan-ring" viewBox="0 0 16 16" aria-hidden="true">
+      <circle className="topbar__scan-ring-track" cx="8" cy="8" r={r} />
+      <circle
+        className="topbar__scan-ring-fill"
+        cx="8"
+        cy="8"
+        r={r}
+        strokeDasharray={c}
+        strokeDashoffset={c * (1 - fraction)}
+      />
+    </svg>
   );
 }
 
