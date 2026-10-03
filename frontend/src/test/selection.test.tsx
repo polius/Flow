@@ -1,10 +1,11 @@
 /* Marquee selection on the listening tables (UX review 2, §4.1, DESIGN.md
-   §36): Cmd/Ctrl/Alt-click toggles and consumes the click (the row must not
-   play), Shift-click ranges from the anchor, a plain click clears any
-   selection and falls through to the row's §23.1 play, Enter's
-   last-selected row is exposed, and Esc clears — unless a surface owns the
-   keyboard (§16.4). Selection is id-keyed, so a reorder under a live
-   selection moves with the rows instead of re-pointing at others. */
+   §36). 2026-10-03 follow-up: rows select on click — a plain click
+   single-selects the clicked row (and never plays; playback is the Play
+   button's), Cmd/Ctrl/Alt-click toggles, Shift-click ranges from the
+   anchor, Enter's last-selected row is exposed, and Esc clears — unless a
+   surface owns the keyboard (§16.4). Selection is id-keyed, so a reorder
+   under a live selection moves with the rows instead of re-pointing at
+   others. */
 
 import { act, fireEvent, renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "vitest";
@@ -89,13 +90,18 @@ describe("marquee selection (§4.1)", () => {
     expect(result.current.count).toBe(1);
   });
 
-  it("a plain click clears any selection and falls through to play (§23.1)", () => {
+  it("a plain click single-selects the clicked row and consumes the click (never plays)", () => {
     const { result } = renderHook(() => useTrackSelection(tracks));
     click(result, 0, { metaKey: true });
     click(result, 1, { metaKey: true });
     expect(result.current.count).toBe(2);
-    expect(click(result, 3)).toBe(false);
-    expect(result.current.count).toBe(0);
+    expect(click(result, 3)).toBe(true);
+    expect(result.current.count).toBe(1);
+    expect([...result.current.ids]).toEqual([4]);
+    // Re-clicking the lone selected row keeps it — clearing is Esc/×, not
+    // a click trap.
+    expect(click(result, 3)).toBe(true);
+    expect(result.current.count).toBe(1);
   });
 
   it("Shift-click selects the contiguous range from the anchor", () => {

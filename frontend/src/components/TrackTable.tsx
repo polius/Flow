@@ -2,12 +2,13 @@
    (§9.2). M6: row markup extracted into TrackRow so the windowed
    VirtualTrackTable (Tracks view, §11.6) renders the exact same rows —
    these variants render full detail payloads at curated scale, so they stay
-   plain. Rows are playback-only (§23); editing lives in Organize.
+   plain. Rows select on click (§4.1); playback is the row's Play button.
 
-   Playlist reorder (§27, §9.2): the queue's press-and-drag grammar, owned
-   by the shared useRowDragReorder hook (2026-10-03) — the same gesture the
-   Favorites table speaks. Reorder is optimistic and the PUT is the source
-   of truth. Touch keeps the §25 grammar (swipe, long-press menu). */
+   Playlist + album reorder (§27, §9.2; albums 2026-10-03): the queue's
+   press-and-drag grammar, owned by the shared useRowDragReorder hook —
+   the same gesture the Favorites table speaks. Reorder is optimistic and
+   the server call is the source of truth. Touch keeps the §25 grammar
+   (swipe, long-press menu). */
 
 import { useEffect, useRef, useState } from "react";
 import type { KeyboardEvent as ReactKeyboardEvent } from "react";
@@ -33,7 +34,8 @@ interface TrackTableProps {
   /** What the queue's origin becomes when a row here starts playback
       (§1.1): the view declares it once, every row inherits it. */
   origin?: QueueOrigin | null;
-  /** Playlist variant: drop handler for drag-to-reorder. */
+  /** Reorderable table (playlist + album variants): commit a dragged row's
+      move — the view owns the optimistic splice and the server call. */
   onMove?: (fromIndex: number, toIndex: number) => void;
   /** Playlist variant: removes a track from the playlist (row button). */
   onRemoveTrack?: (track: Track) => void;
@@ -155,13 +157,16 @@ export function TrackTable({
         variant === "playlist" && removeTrack ? () => removeTrack(track) : undefined,
     });
 
-  /* ---- the drag gesture (playlist variant, mouse) ----
+  /* ---- the drag gesture (playlist + album variants, mouse) ----
      The shared hook (lib/rowDrag.ts) owns the whole press-lift-ghost-settle
-     arc; the table only wears its states. */
+     arc; the table only wears its states. Album rows have no swipe wrapper,
+     so their displacement rides the row itself via `style`. */
+
+  const reorderable = (variant === "playlist" || variant === "album") && onMove != null;
 
   const { drag, offsetFor, handlers } = useRowDragReorder({
     containerRef: tableRef,
-    enabled: variant === "playlist" && onMove != null,
+    enabled: reorderable,
     count: tracks.length,
     onMove: (from, to) => onMove?.(from, to),
     onLift: () => setOpenSwipeId(null), // dragging a revealed row closes it first
@@ -185,8 +190,15 @@ export function TrackTable({
           .filter(Boolean)
           .join(" ") || undefined
       }
+      // The playlist's displacement rides the swipe wrapper; the album's
+      // wrapper-less rows carry it on the row itself (the Favorites way).
       wrapStyle={drag ? { transform: `translateY(${offsetFor(index)}px)` } : undefined}
-      dataIdx={variant === "playlist" ? index : undefined}
+      style={
+        variant === "album" && drag
+          ? { transform: `translateY(${offsetFor(index)}px)` }
+          : undefined
+      }
+      dataIdx={reorderable ? index : undefined}
       onActivate={play}
       onTogglePlay={togglePlay}
       onToggleFavorite={toggleFavorite}
@@ -209,7 +221,7 @@ export function TrackTable({
     <>
       <div
         ref={tableRef}
-        className={`tracktable tracktable--${variant}${drag ? " tracktable--dragging" : ""}`}
+        className={`tracktable tracktable--${variant}${reorderable ? " tracktable--reorderable" : ""}${drag ? " tracktable--dragging" : ""}`}
         role="table"
         aria-label="Tracks"
         tabIndex={0}

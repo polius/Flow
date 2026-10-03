@@ -192,6 +192,15 @@
   transition: transform var(--dur-fast) var(--ease-out);
 }
 
+/* Album rows are their own wrapper (no swipe layer beneath them): the drag
+   displacement rides the row itself, so they get the same fast ease here —
+   scoped to the album table, whose rows never transform for any other
+   reason (the virtual table's rows reposition every frame and must not
+   tween behind the scroll). */
+.tracktable--album .trackrow {
+  transition: transform var(--dur-fast) var(--ease-out);
+}
+
 /* The lifted row in the hand: the row itself, elevated — soft double
    shadow, hairline edge, 1.02 scale (the scale rides the transform the
    gesture writes each frame). Settling shrinks the shadow and glides the
@@ -344,6 +353,10 @@ textarea.inlineedit__input {
   font-size: var(--text-body);
   font-weight: 500;
   color: var(--text-primary);
+  /* Menu items are one line by contract (2026-10-03: "Add to Queue (end)"
+     wrapped onto two on the header's narrow pop — a menu item's label is
+     never prose). The panel's max-content grows to carry the line. */
+  white-space: nowrap;
   text-align: left;
 }
 
@@ -1401,17 +1414,24 @@ textarea.inlineedit__input {
 }
 
 /* The New Playlist naming step: the list gives way to one field and its
-   action pair — the dialog is already the modal, no second one needed. */
+   action pair — the dialog is already the modal, no second one needed.
+   2026-10-03: the step wears the --naming modifier, which breathes — the
+   field-only body read cramped against the 16px list padding, so the
+   receipt (the created step) inherits the same room. */
+.addto--naming .addto__head {
+  padding: 22px 22px 8px;
+}
+
 .addto__naming {
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  padding: 6px 4px 4px;
+  gap: 16px;
+  padding: 12px 22px 22px;
 }
 
 .addto__nameinput {
   width: 100%;
-  padding: 10px 12px;
+  padding: 11px 14px;
   border: 1px solid var(--control-border);
   border-radius: var(--radius-s);
   background: var(--bg-canvas);
@@ -1422,8 +1442,9 @@ textarea.inlineedit__input {
 
 .addto__nameinput:focus,
 .addto__nameinput:focus-visible {
-  border-color: color-mix(in srgb, var(--text-primary) 40%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 55%, transparent);
   outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 16%, transparent);
 }
 
 .addto__namingactions {
@@ -1447,6 +1468,48 @@ textarea.inlineedit__input {
 .addto__cancel:hover {
   color: var(--text-primary);
   background: var(--bg-hover);
+}
+
+/* The created receipt (2026-10-03): a check, the sentence that says the
+   playlist was created successfully, and the direct path to it. */
+.addto__success {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 4px 0;
+}
+
+.addto__successicon {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+}
+
+.addto__successmeta {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.addto__successtitle {
+  font-size: var(--text-body);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.addto__successsub {
+  font-size: var(--text-small);
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* Menu extras shared by the genre + collection menus (§2.1, §2.2). */

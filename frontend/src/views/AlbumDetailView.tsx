@@ -1,7 +1,9 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useParams } from "react-router";
 
 import { api } from "../api/client";
+import type { AlbumDetail } from "../api/types";
+import { useReorderTracks } from "../api/mutations";
 import { Ambience } from "../components/Ambience";
 import { Artwork } from "../components/Artwork";
 import { CollectionActions } from "../components/CollectionActions";
@@ -16,6 +18,8 @@ import "../styles/library.css";
 export function AlbumDetailView() {
   const albumId = Number(useParams().albumId);
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const reorderTracks = useReorderTracks();
 
   const { data: album } = useQuery({
     queryKey: ["album", albumId],
@@ -62,6 +66,35 @@ export function AlbumDetailView() {
     fmtMinutes(album.duration_total),
   ].filter(Boolean);
 
+  // Drag-to-reorder (2026-10-03): the album joins the playlist and
+  // Favorites — the §27 press-and-drag writes the running order. The
+  // server renumbers track_no 1..n as overlay edits (POST /api/tracks/
+  // reorder), so the guard mirrors that contract: one disc only — a
+  // multi-disc album orders by (disc, track) and a cross-disc drag would
+  // renumber across the seam the table can't show.
+  const discs = new Set(album.tracks.map((t) => t.disc_no ?? 1));
+  const reorderable = album.tracks.length > 1 && discs.size === 1;
+
+  const move = (fromIndex: number, toIndex: number) => {
+    if (fromIndex === toIndex) return;
+    const ids = album.tracks.map((t) => t.id);
+    const [moved] = ids.splice(fromIndex, 1);
+    ids.splice(toIndex, 0, moved);
+    // Optimistic rewrite of the cached detail — the drag's settle shows the
+    // new running order at once, numbers included; the server confirms
+    // behind it and the invalidate re-syncs anything it disagrees with.
+    queryClient.setQueryData<AlbumDetail>(["album", albumId], {
+      ...album,
+      tracks: ids.map((id, i) => {
+        const row = album.tracks.find((t) => t.id === id)!;
+        return { ...row, track_no: i + 1 };
+      }),
+    });
+    void reorderTracks(ids).then((ok) => {
+      if (ok) void queryClient.invalidateQueries({ queryKey: ["album", albumId] });
+    });
+  };
+
   return (
     <section className="view view--ambient">
       <Ambience artworkId={album.artwork_id} variant="banner" />
@@ -107,6 +140,7 @@ export function AlbumDetailView() {
         tracks={album.tracks}
         variant="album"
         origin={{ kind: "album", label: album.title, href: `/albums/${album.id}` }}
+        onMove={reorderable ? move : undefined}
       />
     </section>
   );

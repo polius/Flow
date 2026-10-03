@@ -2,12 +2,13 @@
    VirtualTrackTable (§9.2/§11.6) so the markup can't drift. State comes in
    as props — neither table owns per-row subscriptions.
 
-   Rows are playback-only (§23): clicking a row — the title included — plays
-   that track, replacing the old select-on-click / double-click-to-play /
-   click-title-to-rename grammar (§15.1, superseded). The activation is
-   idempotent — clicking the current track's row does nothing — so a
-   habitual double-click can't flash play→pause; toggling stays with the
-   play glyph, Space, and the player bar. Editing lives in Organize.
+   Rows select on click (§4.1, 2026-10-03 follow-up): clicking a row — the
+   title included — SELECTS it, the Finder/Explorer grammar; it never plays.
+   Playback belongs to the row's Play button alone (the hover-revealed glyph
+   in the index slot), plus the keyboard cursor's Enter; activation through
+   the button is idempotent — clicking the current track's Play never
+   restarts, the glyph toggles play/pause instead (§23). Editing lives in
+   Organize.
 
    Playlist rows (§25): the hover-revealed minus stays the desktop path; on
    touch the row is swipeable — a leftward drag reveals the Remove action
@@ -76,11 +77,10 @@ interface TrackRowProps {
   swipeOpen?: boolean;
   /** Reports open/close so the parent can close the previously open row. */
   onSwipeOpenChange?: (open: boolean) => void;
-  /** Marquee selection (§4.1): modifier-clicks (Cmd/Ctrl/Alt toggle, Shift
-      range) are offered to the table's selection hook, which returns true
-      when it consumed the click — the row must not play. Plain clicks fall
-      through untouched: any live selection clears and the row keeps its
-      §23.1 play. */
+  /** Marquee selection (§4.1): every row click is offered to the table's
+      selection hook — plain click single-selects, Cmd/Ctrl/Alt toggles,
+      Shift ranges. The row never plays from a click: playback is the Play
+      button's alone (2026-10-03 follow-up). */
   onSelectClick?: (
     track: Track,
     index: number,
@@ -261,10 +261,10 @@ export function TrackRow({
       data-rowindex={index}
       data-idx={dataIdx != null && !swipeable ? dataIdx : undefined}
       onClick={(e) => {
-        // Idempotent play (§23): never toggles — a second click (the tail of
-        // a double-click, a restless re-click) must not pause. The click a
-        // long-press or swipe leaves behind is swallowed too, and a tap on
-        // a revealed row closes it instead of playing.
+        // Selection, never playback (2026-10-03 follow-up): the click a
+        // long-press or swipe leaves behind is swallowed, a tap on a
+        // revealed row closes it instead, and everything else selects.
+        // The Play button below is the only pointer path to playback.
         if (pressRef.current.fired) {
           pressRef.current.fired = false;
           return;
@@ -277,11 +277,7 @@ export function TrackRow({
           onSwipeOpenChange?.(false);
           return;
         }
-        // Marquee selection (§4.1): a modifier-click may select instead of
-        // play; a plain click falls through — the selection hook has
-        // already cleared itself, and the row keeps its playback-only click.
-        if (onSelectClick && onSelectClick(track, index, e)) return;
-        if (!isCurrent) onActivate(index);
+        onSelectClick?.(track, index, e);
       }}
       onContextMenu={
         onTrackMenu

@@ -4,13 +4,19 @@
    offers Add to Playlist / Add to Queue / Favorite (the Organize BulkBar's
    §22 grammar, minus the editing).
 
+   2026-10-03, the review's follow-up — the grammar moves to the standard
+   select-on-click model the review's report asked for: a plain click now
+   SELECTS the row (replacing any live selection), and playback leaves the
+   click entirely — the row's Play button (and the keyboard cursor's Enter)
+   are the only ways to start a track from a table. Modifier-clicks select
+   more:
+
    The contract is "transient and listening-safe":
-   - rows keep their §23.1 playback-only plain click — a plain click clears
-     any live selection and plays, exactly as before;
-   - Cmd/Ctrl/Alt-click toggles one row (2026-10-03: Alt joins the set —
-     the same grammar, one more key people already reach for); Shift-click
-     selects the contiguous range from the anchor (the last selection
-     click), Finder-style;
+   - a plain click selects just that row — Finder/Explorer's single-select;
+   - Cmd/Ctrl/Alt-click toggles one row into/out of the selection (2026-10-03:
+     Alt joins the set — the same grammar, one more key people already reach
+     for); Shift-click selects the contiguous range from the anchor (the
+     last selection click), Finder-style;
    - selection is identified by TRACK ID, so a playlist reorder or removal
      under a live selection moves with the rows instead of silently
      re-pointing at different ones (duplicates select together — it reads
@@ -18,8 +24,9 @@
    - Enter on a selection plays the last-selected row (in the table's whole
      context, §29); Esc clears it; no other behavior changes.
 
-   No chrome exists until a selection does (§8.0.3), and touch never sees
-   the gesture — it has no modifier keys (the §22.9 refusal, inherited). */
+   No chrome exists until a selection does (§8.0.3). Touch now selects too —
+   a tap is the plain click (single-select); the long-press menu stays the
+   touch path for playback and the other verbs. */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -45,16 +52,13 @@ export function useTrackSelection(tracks: Track[]) {
     lastIdRef.current = null;
   }, []);
 
-  /** Handles a row click. Returns true when the click was a selection
-      action (the row must not play); a plain click clears any live
-      selection and returns false — the row keeps its §23.1 play. */
+  /** Handles a row click. Always consumes it — the row never plays from a
+      click (the Play button and the keyboard own playback now); a plain
+      click selects just that row, a modifier-click grows or shrinks the
+      selection around it. */
   const onRowClick = useCallback(
     (track: Track, index: number, e: SelectClick): boolean => {
       const mod = e.metaKey || e.ctrlKey || e.altKey;
-      if (!mod && !e.shiftKey) {
-        if (ids.size > 0) clear();
-        return false;
-      }
       const next = new Set(ids);
       if (mod) {
         if (next.has(track.id)) {
@@ -65,7 +69,7 @@ export function useTrackSelection(tracks: Track[]) {
           lastIdRef.current = track.id;
         }
         anchorIdRef.current = track.id;
-      } else {
+      } else if (e.shiftKey) {
         // Shift: the contiguous range from the anchor — replaced whole,
         // the Finder default (a lone shift-click selects just that row).
         const anchorIndex =
@@ -76,6 +80,14 @@ export function useTrackSelection(tracks: Track[]) {
         const [lo, hi] = from <= index ? [from, index] : [index, from];
         next.clear();
         for (let i = lo; i <= hi; i++) next.add(tracks[i].id);
+        lastIdRef.current = track.id;
+      } else {
+        // Plain click: single-select, replaced whole (the standard grammar
+        // the click-to-play rows superseded). Re-clicking the lone selected
+        // row keeps it — clearing is Esc and the bar's ×, not a click trap.
+        next.clear();
+        next.add(track.id);
+        anchorIdRef.current = track.id;
         lastIdRef.current = track.id;
       }
       setIds(next);
