@@ -6,7 +6,10 @@
    calling surface owes it: navigation ("Go to Artist", §2.2) and the
    editing verbs that used to sit as header furniture on the playlist
    ("Add Tracks", "Manage" — §2.1). One component for every detail view so
-   the grammar can never drift between them. */
+   the grammar can never drift between them. One exception, also §2.1:
+   "Add to Playlist" lives everywhere except inside a playlist — filing a
+   playlist into a playlist has no destination, so the playlist surface
+   opts out. */
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
 
@@ -42,9 +45,20 @@ interface CollectionActionsProps {
   /** The menu items this surface adds (§2.1/§2.2): the playlist's editing
       verbs, the album's Go to Artist. Order follows the caller. */
   extraItems?: CollectionMenuItem[];
+  /** Whether the "…" menu offers the shared "Add to Playlist" verb.
+      Defaults true; the playlist surface passes false — §2.1 keeps the
+      verb everywhere except inside a playlist, where it has no
+      destination. */
+  addToPlaylist?: boolean;
 }
 
-export function CollectionActions({ tracks, label, origin, extraItems }: CollectionActionsProps) {
+export function CollectionActions({
+  tracks,
+  label,
+  origin,
+  extraItems,
+  addToPlaylist = true,
+}: CollectionActionsProps) {
   const playTracks = usePlayerStore((s) => s.playTracks);
   const playNextMany = usePlayerStore((s) => s.playNextMany);
   const addToQueue = usePlayerStore((s) => s.addToQueue);
@@ -163,19 +177,21 @@ export function CollectionActions({ tracks, label, origin, extraItems }: Collect
               <IconQueue size={15} />
               Add to Queue (end)
             </button>
-            <button
-              type="button"
-              role="menuitem"
-              className="trackmenu__item"
-              disabled={empty}
-              onClick={() => {
-                openAddToPlaylist(tracks);
-                setOpen(false);
-              }}
-            >
-              <IconPlus size={15} />
-              Add to Playlist
-            </button>
+            {addToPlaylist && (
+              <button
+                type="button"
+                role="menuitem"
+                className="trackmenu__item"
+                disabled={empty}
+                onClick={() => {
+                  openAddToPlaylist(tracks);
+                  setOpen(false);
+                }}
+              >
+                <IconPlus size={15} />
+                Add to Playlist
+              </button>
+            )}
             {extraItems && extraItems.length > 0 && (
               <>
                 <div className="trackmenu__separator" role="separator" />

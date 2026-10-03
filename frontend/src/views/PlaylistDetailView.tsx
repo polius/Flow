@@ -242,11 +242,15 @@ export function PlaylistDetailView() {
                 Shuffle · … — shared with album/artist detail so the grammar
                 cannot fork. Add Tracks stays in the "…" menu; deletion is
                 there too now, behind the two-step confirm (2026-10-03) —
-                the editing dialog is gone, its verbs live in the page. */}
+                the editing dialog is gone, its verbs live in the page.
+                The shared "Add to Playlist" verb opts out here (§2.1): the
+                menu is on a playlist, and a playlist has no destination
+                inside a playlist. */}
             <CollectionActions
               tracks={playlist.tracks}
               label={playlist.name}
               origin={playlistOrigin}
+              addToPlaylist={false}
               extraItems={[
                 {
                   label: "Add Tracks",

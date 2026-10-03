@@ -91,9 +91,17 @@
   overflow-y: auto;
 }
 
+/* One square box whether or not a cover exists. The placeholder branch of
+   Artwork carries its 400px size inline, and inline beats any class rule —
+   without the scoped !important the img rendered min(380px, 42vh) while the
+   placeholder stayed 400px, and the ~20px height change re-centered the
+   stage: everything above the controls nudged up the moment a cover
+   appeared (2026-10-03). Scoped !important is the one way a stylesheet
+   beats an inline style (§37 follow-up); object-fit: cover crops any
+   non-square art rather than distorting it. */
 .nowplaying__art {
-  width: min(380px, 42vh);
-  height: auto;
+  width: min(380px, 42vh) !important;
+  height: min(380px, 42vh) !important;
   box-shadow: 0 22px 60px rgba(0, 0, 0, 0.35);
 }
 
