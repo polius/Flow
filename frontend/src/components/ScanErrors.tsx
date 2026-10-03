@@ -18,12 +18,6 @@ import { useUiStore } from "../stores/ui";
 import { IconClose, IconSearch } from "./icons";
 import "../styles/views.css";
 
-type ScanErrorLog = {
-  total: number;
-  truncated: boolean;
-  items: { path: string; reason: string }[];
-};
-
 /** One shared query for the skip log. `live` (a scan in flight) polls —
     the log grows as the scanner walks the library. */
 export function useScanErrors(enabled: boolean, live = false) {
@@ -31,7 +25,7 @@ export function useScanErrors(enabled: boolean, live = false) {
     queryKey: ["scan", "errors"],
     queryFn: async () => {
       const { data } = await api.GET("/api/scan/errors");
-      return (data ?? null) as ScanErrorLog | null;
+      return (data ?? null);
     },
     enabled,
     refetchInterval: live ? 2000 : false,

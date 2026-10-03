@@ -206,7 +206,10 @@ describe("server-queue restore (§32)", () => {
     await new Promise((r) => setTimeout(r, 450));
 
     expect(queueApi.saveServerQueue).toHaveBeenCalled();
-    const arg = queueApi.saveServerQueue.mock.calls.at(-1)?.[0];
+    const arg = queueApi.saveServerQueue.mock.calls.at(-1)?.[0] as {
+      tracks: Track[];
+      order: number[];
+    };
     expect(arg.tracks.map((t: Track) => t.id)).toEqual([101, 102, 103]);
     expect(arg.order).toEqual([0, 1, 2]);
   });

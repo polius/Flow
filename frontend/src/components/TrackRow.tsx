@@ -228,7 +228,7 @@ export function TrackRow({
     clearPress();
     const s = swipeRef.current;
     swipeRef.current = null;
-    if (!s || !s.locked) return;
+    if (!s?.locked) return;
     setSwiping(false);
     const vel = (s.x - s.baseX) / Math.max(performance.now() - s.startedAt, 1);
     const open =

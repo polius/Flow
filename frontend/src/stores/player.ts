@@ -570,7 +570,7 @@ function ensureGraph(): void {
 }
 
 function resumeGraph(): void {
-  if (audioCtx != null && audioCtx.state === "suspended") {
+  if (audioCtx?.state === "suspended") {
     void audioCtx.resume().catch(() => {});
   }
 }
@@ -644,7 +644,7 @@ function prepareStandby(): void {
     if (standbyTrack != null) resetStandby();
     return;
   }
-  if (standbyTrack != null && standbyTrack.id === next.track.id) return;
+  if (standbyTrack?.id === next.track.id) return;
   standbyTrack = next.track;
   standby.src = trackSrc(next.track);
   standby.volume = effectiveVolume();
@@ -658,7 +658,7 @@ function swapToStandby(): boolean {
   if (audio == null || standby == null || standbyTrack == null) return false;
   if (standby.readyState < 2) return false; // nothing usable buffered
   const next = peekNext();
-  if (next == null || next.track.id !== standbyTrack.id) return false;
+  if (next?.track.id !== standbyTrack.id) return false;
   const finished = audio;
   const prepared = standby;
   audio = prepared;

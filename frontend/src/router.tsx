@@ -23,7 +23,7 @@ function OrganizeRedirect() {
   const navigate = useNavigate();
   useEffect(() => {
     openOrganize();
-    navigate("/tracks", { replace: true });
+    void navigate("/tracks", { replace: true });
   }, [openOrganize, navigate]);
   return null;
 }

@@ -101,8 +101,8 @@ export function AddToPlaylistDialog() {
 
   if (!open) return null;
   const playlists = data?.items ?? [];
-  const trackIds = tracks!.map((t) => t.id);
-  const totalSeconds = tracks!.reduce((sum, t) => sum + (t.duration ?? 0), 0);
+  const trackIds = tracks.map((t) => t.id);
+  const totalSeconds = tracks.reduce((sum, t) => sum + (t.duration ?? 0), 0);
 
   const commit = async (playlistId: number) => {
     if (busy) return;
@@ -134,7 +134,7 @@ export function AddToPlaylistDialog() {
       setNaming(false);
       return;
     }
-    const added = await addToPlaylist(playlist.id, tracks!.map((t) => t.id));
+    const added = await addToPlaylist(playlist.id, tracks.map((t) => t.id));
     setBusy(false);
     setNaming(false);
     setCreated({ id: playlist.id, name, added });
@@ -155,7 +155,7 @@ export function AddToPlaylistDialog() {
           <header className="addto__head">
             <h2 className="addto__title">New Playlist</h2>
             <p className="addto__sub">
-              {fmtCount(tracks!.length)} {tracks!.length === 1 ? "track" : "tracks"}
+              {fmtCount(tracks.length)} {tracks.length === 1 ? "track" : "tracks"}
               {totalSeconds > 0 && <> · {fmtMinutes(totalSeconds)}</>} will land in it
             </p>
           </header>
@@ -229,8 +229,8 @@ export function AddToPlaylistDialog() {
                 </span>
                 <span className="addto__successsub">
                   {created.added
-                    ? `“${created.name}” · ${fmtCount(tracks!.length)} ${
-                        tracks!.length === 1 ? "track" : "tracks"
+                    ? `“${created.name}” · ${fmtCount(tracks.length)} ${
+                        tracks.length === 1 ? "track" : "tracks"
                       } added`
                     : `“${created.name}” — but the tracks couldn't be added`}
                 </span>
@@ -244,7 +244,7 @@ export function AddToPlaylistDialog() {
                 type="button"
                 className="btn--primary"
                 onClick={() => {
-                  navigate(`/playlists/${created.id}`);
+                  void navigate(`/playlists/${created.id}`);
                   close();
                 }}
               >
@@ -287,7 +287,7 @@ export function AddToPlaylistDialog() {
         <header className="addto__head">
           <h2 className="addto__title">Add to Playlist</h2>
           <p className="addto__sub">
-            {fmtCount(tracks!.length)} {tracks!.length === 1 ? "track" : "tracks"}
+            {fmtCount(tracks.length)} {tracks.length === 1 ? "track" : "tracks"}
             {totalSeconds > 0 && <> · {fmtMinutes(totalSeconds)}</>}
           </p>
         </header>

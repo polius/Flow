@@ -404,7 +404,7 @@ export function QueuePanel({ onCollapse }: QueuePanelProps) {
     const g = gestureRef.current;
     const list = listRef.current;
     if (!g || g.decided === "swipe" || g.decided === "scroll" || g.lifted) return;
-    const rowRect = g.el && g.el.isConnected ? g.el.getBoundingClientRect() : null;
+    const rowRect = g.el?.isConnected ? g.el.getBoundingClientRect() : null;
     if (!list || !rowRect) {
       resetGesture();
       return;

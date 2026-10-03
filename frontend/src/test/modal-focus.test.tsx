@@ -41,7 +41,7 @@ Element.prototype.scrollTo ??= (() => {}) as typeof Element.prototype.scrollTo;
    getClientRects (returning empty), so this overrides deliberately. */
 Element.prototype.getClientRects = function () {
   return [{}] as unknown as DOMRectList;
-} as typeof Element.prototype.getClientRects;
+};
 
 const track = (id: number, title: string): Track => ({
   id,
@@ -96,7 +96,7 @@ describe("Now Playing modal focus (§3.4)", () => {
         <NowPlaying />
       </MemoryRouter>,
     );
-    const surface = container.querySelector(".nowplaying") as HTMLElement;
+    const surface = container.querySelector(".nowplaying")!;
     expect(surface.contains(document.activeElement)).toBe(true);
   });
 
@@ -107,9 +107,9 @@ describe("Now Playing modal focus (§3.4)", () => {
         <NowPlaying />
       </MemoryRouter>,
     );
-    const surface = document.querySelector(".nowplaying") as HTMLElement;
+    const surface = document.querySelector(".nowplaying")!;
     const inside = () =>
-      surface.contains(document.activeElement as HTMLElement | null);
+      surface.contains(document.activeElement);
 
     // Open landed focus on the surface's first control (the close button).
     expect(document.activeElement).toBe(

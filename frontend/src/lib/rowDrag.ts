@@ -156,7 +156,7 @@ export function useRowDragReorder({ containerRef, enabled, count, onMove, onLift
     const g = gestureRef.current;
     const table = containerRef.current;
     const rowEl = g.el;
-    if (!table || !rowEl || !rowEl.isConnected) {
+    if (!table || !rowEl?.isConnected) {
       resetGesture();
       return;
     }

@@ -45,7 +45,7 @@ export function PlaylistsView() {
           className="view__action"
           onClick={async () => {
             const created = await createPlaylist();
-            if (created) navigate(`/playlists/${created.id}`);
+            if (created) void navigate(`/playlists/${created.id}`);
           }}
         >
           New Playlist

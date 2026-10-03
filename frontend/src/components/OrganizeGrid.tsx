@@ -263,7 +263,7 @@ export function OrganizeGrid({
 
   const onPointerMove = (e: ReactPointerEvent) => {
     const g = gestureRef.current;
-    if (g == null || g.pointerId !== e.pointerId) return;
+    if (g?.pointerId !== e.pointerId) return;
     if (!g.lifted) {
       const dy = e.clientY - g.startY;
       const along = Math.abs(dy);
@@ -312,13 +312,13 @@ export function OrganizeGrid({
 
   const onPointerUp = (e: ReactPointerEvent) => {
     const g = gestureRef.current;
-    if (g == null || g.pointerId !== e.pointerId) return;
+    if (g?.pointerId !== e.pointerId) return;
     finish(g.lifted);
   };
 
   const onPointerCancel = (e: ReactPointerEvent) => {
     const g = gestureRef.current;
-    if (g == null || g.pointerId !== e.pointerId) return;
+    if (g?.pointerId !== e.pointerId) return;
     finish(false);
   };
 

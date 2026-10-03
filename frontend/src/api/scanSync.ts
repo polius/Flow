@@ -30,7 +30,7 @@ export function ensureScanSync(): void {
   const source = new EventSource("/api/scan");
   source.onmessage = (message) => {
     try {
-      const event = JSON.parse(message.data) as {
+      const event = JSON.parse(message.data as string) as {
         type: "state";
         state: "idle" | "scanning";
         phase: "scan" | "watch" | "analyze" | null;
