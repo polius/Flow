@@ -4,10 +4,16 @@
 -- that disappears and reappears with the same size + mtime is a move: the
 -- row (with user edits) is kept, not deleted + re-added. played_at,
 -- favorite, and favorite_position are user state the scanner never touches.
+-- Tracks rescued from mislabeled containers stream a remuxed copy under
+-- DATA_DIR/repaired/ — media_path points there while path still points at
+-- the untouched original. NULL = normal file, streamed from MUSIC_DIR/path.
+-- The scanner rewrites media_path on every reprocess, so a replaced original
+-- heals or unheals on its own and a vanished copy is re-derived.
 
 CREATE TABLE tracks (
   id              INTEGER PRIMARY KEY,
   path            TEXT NOT NULL UNIQUE,  -- relative to library root
+  media_path      TEXT,                  -- stream override; see note above
   title           TEXT NOT NULL,         -- overlay lives here
   artist_id       INTEGER REFERENCES artists(id),
   album_id        INTEGER REFERENCES albums(id),
