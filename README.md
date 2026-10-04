@@ -24,6 +24,11 @@
   <img src="assets/app-light.png" alt="Flow — the albums grid and an album playing, in light and dark" width="100%">
 </picture>
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/app-2-dark.png">
+  <img src="assets/app-2-light.png" alt="Flow — playlists and the play queue, in light and dark" width="100%">
+</picture>
+
 </div>
 
 ## What it does
@@ -39,8 +44,8 @@ Flow turns a folder of music files into a clean, fast web player — albums, art
 <summary>More screenshots</summary>
 
 <p>
-  <img src="assets/home-light.png" alt="Home — recently added albums" width="49%">
-  <img src="assets/playlists-light.png" alt="Playlists" width="49%">
+  <img src="assets/home-light.png" alt="Home — recently added albums and continue listening" width="49%">
+  <img src="assets/favorites-light.png" alt="Favorites" width="49%">
   <img src="assets/artist-light.png" alt="An artist page with albums and songs" width="49%">
   <img src="assets/search-light.png" alt="Instant search" width="49%">
 </p>
