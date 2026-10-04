@@ -7,6 +7,7 @@ import { usePlayerStore } from "../stores/player";
 import { useScanStore } from "../stores/scan";
 import { useUiStore, type ThemeMode } from "../stores/ui";
 import { AccessSettings } from "../components/AccessSettings";
+import { useReviewCount } from "../components/ReviewStrip";
 import { ScanErrorsPanel } from "../components/ScanErrors";
 
 const THEME_MODES: { mode: ThemeMode; label: string }[] = [
@@ -22,6 +23,8 @@ export function SettingsView() {
   const setThemeMode = useUiStore((s) => s.setThemeMode);
   const soundcheck = usePlayerStore((s) => s.soundcheck);
   const setSoundcheck = usePlayerStore((s) => s.setSoundcheck);
+  const openOrganize = useUiStore((s) => s.openOrganize);
+  const reviewCount = useReviewCount();
 
   const { data: settings } = useQuery({
     queryKey: ["settings"],
@@ -121,6 +124,39 @@ export function SettingsView() {
                   disabled={scanning}
                 >
                   Rescan
+                </button>
+              </span>
+            </div>
+
+            {/* Two doors, one room: the Tracks header serves the moment you
+                spot the mess; this row serves the maintenance mindset. Both
+                call openOrganize() and read the same review-summary cache —
+                never add state or copy that isn't shared. */}
+            <div className="settings-row">
+              <span className="settings-row__label">
+                Organize
+                <span className="settings-row__hint">
+                  Group tracks into albums and artists, fix metadata in bulk —
+                  edits stay in the database, your music folder is never
+                  touched.
+                </span>
+              </span>
+              <span className="settings-row__value">
+                {reviewCount > 0
+                  ? `${fmtCount(reviewCount)} ${reviewCount === 1 ? "item needs" : "items need"} review`
+                  : "Nothing needs review"}
+                <button
+                  type="button"
+                  className="btn settings-row__action"
+                  onClick={openOrganize}
+                  aria-label={
+                    reviewCount > 0
+                      ? `Organize — ${reviewCount} ${reviewCount === 1 ? "item needs" : "items need"} attention`
+                      : "Organize"
+                  }
+                  title="Organize — group tracks into albums and artists"
+                >
+                  Open
                 </button>
               </span>
             </div>

@@ -3,7 +3,7 @@
    for the grid below. Text-first and quiet — a healthy library collapses
    to one calm line. */
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 
 import { api } from "../api/client";
@@ -168,4 +168,21 @@ export function useReviewSummary() {
       return data;
     },
   });
+}
+
+/** The summary's headline number — the badge every Organize door shares
+    (Tracks header, Settings' Library row). One derivation, so the count
+    can never drift between doors. */
+export function useReviewCount(): number {
+  const { data } = useReviewSummary();
+  return useMemo(() => {
+    if (!data) return 0;
+    return (
+      data.no_album +
+      data.single_track_albums +
+      data.mixed_album_artist_albums +
+      data.missing_track_no +
+      data.suffix_collisions
+    );
+  }, [data]);
 }

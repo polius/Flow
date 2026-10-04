@@ -11,7 +11,7 @@ import { TrackTableHead, type TrackSortKey } from "../components/TrackTableHead"
 import { VirtualTrackTable } from "../components/VirtualTrackTable";
 import { EmptyState } from "../components/EmptyState";
 import { LoadingState } from "../components/LoadingState";
-import { useReviewSummary } from "../components/ReviewStrip";
+import { useReviewCount } from "../components/ReviewStrip";
 import { IconOrganize, IconTracks } from "../components/icons";
 import { fmtCount } from "../lib/format";
 import { usePlayerStore } from "../stores/player";
@@ -58,18 +58,7 @@ export function TracksView() {
   const genreName =
     genresData?.items.find((g) => g.id === genreId)?.name ?? null;
 
-  const summary = useReviewSummary();
-  const reviewCount = useMemo(() => {
-    const s = summary.data;
-    if (!s) return 0;
-    return (
-      s.no_album +
-      s.single_track_albums +
-      s.mixed_album_artist_albums +
-      s.missing_track_no +
-      s.suffix_collisions
-    );
-  }, [summary.data]);
+  const reviewCount = useReviewCount();
 
   const query = useInfiniteQuery({
     queryKey: ["tracks", "all", q, sort, dir, genreId],
