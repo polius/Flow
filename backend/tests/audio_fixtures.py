@@ -8,11 +8,23 @@ import struct
 from pathlib import Path
 
 from mutagen.flac import FLAC, Picture
-from mutagen.id3 import APIC, ID3, TALB, TIT2, TPE1, TPE2, TPOS, TRCK, TYER
+from mutagen.id3 import APIC, ID3, TALB, TCON, TIT2, TPE1, TPE2, TPOS, TRCK, TYER
 
 # 128 kbps MPEG-1 Layer III mono frame: 4-byte header + zeroed payload.
 _MP3_FRAME = bytes([0xFF, 0xFB, 0x90, 0xC4]) + b"\x00" * 413
 _FRAMES_PER_SECOND = 38  # 1152 samples / 44100 Hz ≈ 38.3 frames/s
+
+# MPEG-1 Layer III bitrate-index bits (byte 3, high nibble) for the sizes we use.
+_BITRATE_INDEX = {32: 0x10, 64: 0x50, 128: 0x90}
+
+
+def _mp3_frame(kbps: int) -> bytes:
+    """A silent frame at the chosen bitrate: 4-byte header + zeroed payload
+    (zero side info = no main data = silence). Frame size is 144·bitrate/
+    samplerate; mutagen estimates CBR duration from file size, so lower
+    bitrates shrink generated libraries without changing reported lengths."""
+    size = 144 * kbps * 1000 // 44100
+    return bytes([0xFF, 0xFB, _BITRATE_INDEX[kbps], 0xC4]) + b"\x00" * (size - 4)
 _JPEG_MAGIC = b"\xff\xd8\xff" + b"\x00" * 64 + b"\xff\xd9"
 _PNG_MAGIC = b"\x89PNG\r\n\x1a\n" + b"\x00" * 32
 
@@ -36,10 +48,13 @@ def make_mp3(
     track: str | None = None,
     disc: str | None = None,
     year: str | None = None,
+    genre: str | None = None,
     picture: bytes | None = None,
+    kbps: int = 128,
 ) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_bytes(_MP3_FRAME * int(seconds * _FRAMES_PER_SECOND))
+    frame = _MP3_FRAME if kbps == 128 else _mp3_frame(kbps)
+    path.write_bytes(frame * int(seconds * _FRAMES_PER_SECOND))
 
     tags = ID3()
     if title is not None:
@@ -56,6 +71,8 @@ def make_mp3(
         tags.add(TPOS(encoding=3, text=disc))
     if year is not None:
         tags.add(TYER(encoding=3, text=year))
+    if genre is not None:
+        tags.add(TCON(encoding=3, text=genre))
     if picture is not None:
         tags.add(APIC(encoding=3, mime="image/jpeg", type=3, desc="", data=picture))
     tags.save(str(path), v2_version=3)

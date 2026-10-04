@@ -30,6 +30,18 @@ Flow turns a folder of music files into a clean, fast web player — albums, art
 - **Fast** — a real index, instant search, and playback that starts right away.
 - **One container** — a single Docker service to run and update.
 
+## Quick demo
+
+Want to see it with music before adding your own? Run a throwaway demo instance — a small library included:
+
+```bash
+docker run --rm -e DEMO=true -p 8080:8080 poliuscorp/flow
+```
+
+Then open `http://localhost:8080` in your browser.
+
+> **Note:** Demo data lives inside the container and disappears when it stops. For a real installation, see [Quick start](#quick-start).
+
 ## Quick start
 
 Requires [Docker](https://docs.docker.com/get-docker/).
@@ -68,6 +80,12 @@ New files are picked up automatically. You can also trigger a scan any time from
 By default, anyone on your network can open Flow. Want a password? Go to **Settings → Access → Turn On** and set one — from then on, Flow asks for it before opening.
 
 Changed your mind? **Settings → Access → Turn Off** removes the password again.
+
+## Environment variables
+
+| Variable | Details |
+| --- | --- |
+| `DEMO` | Set to `true` to pre-load a demo library on first start (see [Quick demo](#quick-demo)) |
 
 ## License
 

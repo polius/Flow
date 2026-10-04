@@ -13,6 +13,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app import auth as auth_core
 from app import config
+from app import demo as demo_mode
 from app.db import Database
 from app.events import ScanBus
 from app.scanner import LibraryScanner
@@ -63,6 +64,9 @@ def create_app() -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         _bootstrap(db)
+        # Demo first boot writes its library before the watcher exists, so
+        # generation doesn't trip watcher-triggered scans on the way in.
+        demo_tracks = demo_mode.prepare_library(db) if config.DEMO else None
         watcher = LibraryWatcher(scanner, config.MUSIC_DIR)
         watcher.start()
         try:
@@ -71,7 +75,12 @@ def create_app() -> FastAPI:
             # the Rescan button. Later restarts rely on the watcher.
             conn = db.connect()
             empty = conn.execute("SELECT COUNT(*) AS c FROM tracks").fetchone()["c"] == 0
-            if empty and config.MUSIC_DIR.is_dir() and any(config.MUSIC_DIR.iterdir()):
+            if demo_tracks is not None:
+                # Scan the freshly generated files and dress the DB before
+                # serving, so the demo's first paint is never empty.
+                scanner.start_scan(trigger="demo")
+                demo_mode.seed_when_indexed(db, demo_tracks)
+            elif empty and config.MUSIC_DIR.is_dir() and any(config.MUSIC_DIR.iterdir()):
                 scanner.start_scan(trigger="startup")
             yield
         finally:

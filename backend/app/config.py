@@ -18,6 +18,11 @@ DB_PATH = DATA_DIR / "flow.db"
 # location; "direct" streams from FastAPI. Dev defaults to direct; the Docker
 # image sets nginx.
 STREAM_MODE = os.environ.get("FLOW_STREAM_MODE", "direct")
+
+# Demo mode: first boot with an empty library generates a showcase catalog
+# (files + favorites + playlists) instead of sitting empty. With no volume
+# mounted the whole thing is ephemeral: docker run --rm -e DEMO=true …
+DEMO = os.environ.get("DEMO", "").strip().lower() in {"1", "true", "yes", "on"}
 AUDIO_MIME = {
     "mp3": "audio/mpeg",
     "flac": "audio/flac",
