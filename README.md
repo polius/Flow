@@ -19,75 +19,45 @@
   <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/License-MIT-blue.svg"></a>
 </p>
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="assets/app-dark.png">
-  <img src="assets/app-light.png" alt="Flow — the albums grid and an album playing, in light and dark" width="100%">
-</picture>
+<p>Turn a folder of music files into a fast, clean web player that works on any device.</p>
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="assets/app-2-dark.png">
-  <img src="assets/app-2-light.png" alt="Flow — playlists and the play queue, in light and dark" width="100%">
-</picture>
+<img src="assets/albums.png" alt="Flow album view" width="80%">
 
 </div>
 
-## What it does
-
-Flow turns a folder of music files into a clean, fast web player — albums, artists, playlists, favorites, search — on any device, at home or away.
-
-- **Yours** — your files stay exactly where they are. Flow only reads them.
-- **Simple** — drop files in a folder. That's the whole workflow.
-- **Fast** — a real index, instant search, and playback that starts right away.
-- **One container** — a single Docker service to run and update.
-
-<details>
-<summary>More screenshots</summary>
-
-<p>
-  <img src="assets/home-light.png" alt="Home — recently added albums and continue listening" width="49%">
-  <img src="assets/favorites-light.png" alt="Favorites" width="49%">
-  <img src="assets/artist-light.png" alt="An artist page with albums and songs" width="49%">
-  <img src="assets/search-light.png" alt="Instant search" width="49%">
-</p>
-
-</details>
-
 ## Quick demo
 
-Want to see it with music before adding your own? Run a throwaway demo instance — a small library included:
+Want to try it out? Run:
 
 ```bash
 docker run --rm -e DEMO=true -p 8080:8080 poliuscorp/flow
 ```
 
-Then open `http://localhost:8080` in your browser.
+Then open http://localhost:8080 in your browser.
 
-> **Note:** Demo data lives inside the container and disappears when it stops. For a real installation, see [Quick start](#quick-start).
->
-> **The demo tracks are silent** — they're generated stand-ins, not real music. Playback, the queue, loudness matching — everything behaves exactly as it will with your own files.
+> **The demo tracks are silent.** They're generated placeholder files, not real music. Everything else works exactly as it does with your own files.
 
-## Quick start
-
-Requires [Docker](https://docs.docker.com/get-docker/).
+## Set up
 
 1. Download [`docker-compose.yml`](docker-compose.yml).
-2. Start:
 
-```bash
-docker compose up -d
-```
+2. Start the container:
 
-Flow creates a `flow` folder (with `music/` inside) next to the compose file on first start.
+   ```bash
+   docker compose up -d
+   ```
 
-3. Open `http://localhost:8080` and drop your music into `flow/music/` — see below.
+On first start, a `flow/` folder is created next to the compose file, with a `music/` subfolder where you can add your music files.
 
 ## Adding music
 
-Copy your audio files (MP3, FLAC, M4A, OGG) anywhere inside `flow/music/` — the folder is created for you on first start. Any structure works. Flow walks the whole folder, so files in subfolders, in one big pile, or right at the root are all fine:
+Copy your audio files (`MP3`, `FLAC`, `M4A`, or `OGG`) anywhere inside `flow/music/`.
 
-```
+Any folder structure works. Files can be organized into artist and album folders, kept in a single directory, or placed directly in the root:
+
+```text
 flow/
-└── music/                  ← anything in here gets scanned
+└── music/
     ├── My Mixtape.mp3
     ├── Artist Name/
     │   └── Album Name/
@@ -95,21 +65,15 @@ flow/
     └── Some Other Song.flac
 ```
 
-**Albums and artists come from your files' tags**, not from folder names. Untagged files still get indexed — a name like `01 - Song.mp3` is read as track 1, "Song", and anything else uses the filename as the title. For proper albums, artwork, and artist pages, make sure your files are tagged.
+**Albums and artists are read from your files' tags, not their folder names.**
 
-New files are picked up automatically. You can also trigger a scan any time from **Settings → Library**. To remove music, delete the files and rescan.
+Untagged files are still indexed. For example, a file named `01 - Song.mp3` is interpreted as track 1 with the title `Song`; otherwise, the filename is used as the title.
 
-## Login (optional)
+For the best experience — including albums, artwork, and artist pages — make sure your files have proper metadata.
 
-By default, anyone on your network can open Flow. Want a password? Go to **Settings → Access → Turn On** and set one — from then on, Flow asks for it before opening.
+New files are picked up automatically. You can also trigger a scan at any time from **Settings → Library**.
 
-Changed your mind? **Settings → Access → Turn Off** removes the password again.
-
-## Environment variables
-
-| Variable | Details |
-| --- | --- |
-| `DEMO` | Set to `true` to pre-load a demo library on first start (see [Quick demo](#quick-demo)) |
+To remove music, delete the files and run a scan.
 
 ## License
 
