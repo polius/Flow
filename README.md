@@ -41,6 +41,8 @@ docker run --rm -e DEMO=true -p 8080:8080 poliuscorp/flow
 Then open `http://localhost:8080` in your browser.
 
 > **Note:** Demo data lives inside the container and disappears when it stops. For a real installation, see [Quick start](#quick-start).
+>
+> **The demo tracks are silent** — they're generated stand-ins, not real music. Playback, the queue, loudness matching — everything behaves exactly as it will with your own files.
 
 ## Quick start
 
