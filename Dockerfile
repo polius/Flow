@@ -26,8 +26,11 @@ FROM python:3.13-alpine AS runtime
 # and pipefail — kept on real bash for predictability, not busybox ash.
 # ffmpeg: scan-time loudness analysis; its absence degrades gracefully —
 # tracks just play at unity gain.
+# UID/GID 1000 keeps a host-bind-mounted /flow writable without manual
+# chowns on Linux hosts — the app user matches the host's first user.
 RUN apk add --no-cache nginx tini bash ffmpeg \
- && adduser -D -u 1000 flow
+ && addgroup -g 1000 flow \
+ && adduser -D -u 1000 -G flow flow
 
 WORKDIR /app
 COPY --from=backend /opt/venv /opt/venv
