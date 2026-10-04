@@ -19,6 +19,11 @@
   <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/License-MIT-blue.svg"></a>
 </p>
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/app-dark.png">
+  <img src="assets/app-light.png" alt="Flow — the albums grid and an album playing, in light and dark" width="100%">
+</picture>
+
 </div>
 
 ## What it does
@@ -29,6 +34,18 @@ Flow turns a folder of music files into a clean, fast web player — albums, art
 - **Simple** — drop files in a folder. That's the whole workflow.
 - **Fast** — a real index, instant search, and playback that starts right away.
 - **One container** — a single Docker service to run and update.
+
+<details>
+<summary>More screenshots</summary>
+
+<p>
+  <img src="assets/home-light.png" alt="Home — recently added albums" width="49%">
+  <img src="assets/playlists-light.png" alt="Playlists" width="49%">
+  <img src="assets/artist-light.png" alt="An artist page with albums and songs" width="49%">
+  <img src="assets/search-light.png" alt="Instant search" width="49%">
+</p>
+
+</details>
 
 ## Quick demo
 
