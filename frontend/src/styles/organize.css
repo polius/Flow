@@ -16,7 +16,6 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  margin-top: 18px;
 }
 
 /* The filter speaks the app's search language (the topbar pill):
