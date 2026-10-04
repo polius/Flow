@@ -384,7 +384,11 @@ def test_analysis_marks_measured_tracks(conn, music, scanner, monkeypatch):
         calls.append(os.path.basename(str(path)))
         return -3.0
 
+    # Patch both namespaces: scanner imported ffmpeg_available directly
+    # (`from app.loudness import ...`), so a loudness-only patch leaves the
+    # real guard active — and CI, without ffmpeg, skips the whole phase.
     monkeypatch.setattr(loudness, "ffmpeg_available", lambda: True)
+    monkeypatch.setattr("app.scanner.ffmpeg_available", lambda: True)
     monkeypatch.setattr("app.scanner.analyze_file", fake_analyze)
     scanner._analyze_gains()
     gains = {
