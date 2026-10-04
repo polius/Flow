@@ -207,8 +207,10 @@
   .player {
     display: flex;
     gap: 12px;
-    /* 4px top inset keeps the row clear of the seek box pinned above it. */
-    padding: 4px 12px 0;
+    /* 4px top inset keeps the row clear of the seek box pinned above it;
+       the bottom floor lifts the row clear of the home indicator (the
+       bar's own height already includes the safe-area inset). */
+    padding: 4px 12px max(env(safe-area-inset-bottom, 0px), 8px);
   }
 
   .player__meta {

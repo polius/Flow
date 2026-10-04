@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class ScanStatus(BaseModel):
@@ -49,6 +49,23 @@ class ScanErrorLog(BaseModel):
     total: int
     truncated: bool
     items: list[ScanErrorEntry]
+
+
+class AuthStatus(BaseModel):
+    enabled: bool
+    authenticated: bool
+
+
+class LoginIn(BaseModel):
+    password: str = Field(min_length=1, max_length=128)
+
+
+class PasswordIn(BaseModel):
+    """`password: null` turns login OFF; a string turns it on or replaces it.
+    The field is required (never defaulted) so an absent key is a 422, not
+    an accidental disable."""
+
+    password: str | None = Field(..., min_length=4, max_length=128)
 
 
 # ---- Library -----------------------------------------------------------------

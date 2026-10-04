@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef } from "react";
-import { Outlet, useLocation } from "react-router";
+import { Navigate, Outlet, useLocation } from "react-router";
 
+import { useAuthStatus } from "../api/auth";
 import { ensureScanSync } from "../api/scanSync";
 import { useGlobalShortcuts } from "../lib/shortcuts";
 import { AddToPlaylistDialog } from "./AddToPlaylistDialog";
@@ -19,6 +20,8 @@ export function AppShell() {
   const location = useLocation();
   const canvasRef = useRef<HTMLElement>(null);
   useGlobalShortcuts();
+
+  const { data: authStatus } = useAuthStatus();
 
   useEffect(() => {
     ensureScanSync();
@@ -44,6 +47,21 @@ export function AppShell() {
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [focusSearch]);
+
+  // The login guard: when the owner turned Login on, an unauthenticated
+  // browser gets no further. The API is already refusing it (401s flip the
+  // cached status via the client middleware), so this redirect lands the
+  // moment the status is known — and hands /login the destination so
+  // sign-in returns the user exactly where they were heading.
+  if (authStatus?.enabled && !authStatus.authenticated) {
+    return (
+      <Navigate
+        to="/login"
+        replace
+        state={{ from: location.pathname + location.search }}
+      />
+    );
+  }
 
   return (
     <div className="shell">

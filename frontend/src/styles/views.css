@@ -503,6 +503,85 @@
   margin-top: 6px;
 }
 
+/* ---- Settings: access (optional login) ------------------------------------- */
+
+/* The editor expands as a stacked row — same shape as the skipped-files
+   row: the fields lead, full width, with the note and actions trailing. */
+.access-editor {
+  gap: 10px;
+}
+
+.access-field {
+  position: relative;
+  display: flex;
+}
+
+.access-field input {
+  width: 100%;
+  height: 38px;
+  padding: 0 40px 0 12px;
+  font: inherit;
+  font-size: var(--text-body);
+  color: var(--text-primary);
+  background: var(--bg-canvas);
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius-m);
+  outline: none;
+  transition: border-color var(--dur-fast) var(--ease-out);
+}
+
+.access-field input:focus,
+.access-field input:focus-visible {
+  outline: none;
+  border-color: var(--text-secondary);
+}
+
+.access-reveal {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 38px;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-tertiary);
+  transition: color var(--dur-fast) var(--ease-out);
+}
+
+.access-reveal:hover:not(:disabled) {
+  color: var(--text-primary);
+}
+
+.access-editor__error {
+  margin: 0;
+  font-size: var(--text-small);
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.access-editor__note {
+  margin: 0;
+  font-size: var(--text-caption);
+  line-height: var(--leading-normal);
+  color: var(--text-secondary);
+}
+
+.access-editor__actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+/* The confirm button meets the .btn beside it — same scale, hierarchy
+   carried by fill alone, like the onboarding pair. */
+.access-editor__actions .btn--primary {
+  padding: 6px 16px;
+  font-size: var(--text-small);
+}
+
 /* ---- Settings: scan-error disclosure --------------------------------------- */
 
 /* The Skipped row is stacked: the label (with its explanation) leads, the

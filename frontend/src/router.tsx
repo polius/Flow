@@ -7,6 +7,7 @@ import { ArtistDetailView } from "./views/ArtistDetailView";
 import { ArtistsView } from "./views/ArtistsView";
 import { FavoritesView } from "./views/FavoritesView";
 import { HomeView } from "./views/HomeView";
+import { LoginView } from "./views/LoginView";
 import { PlaylistDetailView } from "./views/PlaylistDetailView";
 import { PlaylistsView } from "./views/PlaylistsView";
 import { SearchView } from "./views/SearchView";
@@ -28,6 +29,9 @@ function OrganizeRedirect() {
 }
 
 export const router = createBrowserRouter([
+  // Sign-in stands alone: no shell, no nav, nothing to interact with but
+  // the password. It renders only when Login is on (the guard inside).
+  { path: "/login", element: <LoginView /> },
   {
     element: <AppShell />,
     children: [

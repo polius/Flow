@@ -8,8 +8,9 @@
 <h1>Flow</h1>
 
 <p>
-  <strong>Point it at a folder of music. It scans, indexes, and streams — self-hosted,<br>
-  one small Docker container, and it never writes to your files.</strong>
+  <strong>Your music, streamed from your own server.</strong><br>
+  Point Flow at a folder of music files — it scans, indexes, and streams them.<br>
+  Self-hosted, one small Docker container, and it never touches your files.
 </p>
 
 <p>
@@ -19,47 +20,53 @@
 
 </div>
 
-## Features
+## What it does
 
-- **Read-only by design** — metadata edits live in SQLite as overlays, never in your files' tags.
-- **Built for big libraries** — windowed rendering and paged fetching: a 10,000-track library opens instantly and scrolls smoothly end to end.
-- **Mass curation** — bulk re-grouping, inline cell edits, a "Needs attention" review strip, one-generation undo.
-- **Instant seeking** — audio streams straight from disk with native `Range` support, not proxied through the app.
-- **One small image** — ~99 MB with base OS, nginx, backend, and the built frontend. No accounts, LAN + VPN by design.
+Flow turns a folder of music files into a clean, fast web player — albums, artists, playlists, favorites, search — on any device, at home or away.
+
+- **Yours** — your files stay exactly where they are. Flow only reads them.
+- **Simple** — drop files in a folder. That's the whole workflow.
+- **Fast** — a real index, instant search, and playback that starts right away.
+- **One container** — a single Docker service to run and update.
 
 ## Quick start
 
-Requires [Docker](https://docs.docker.com/get-docker/) with [Compose](https://docs.docker.com/compose/install/).
+Requires [Docker](https://docs.docker.com/get-docker/).
 
 1. Download [`docker-compose.yml`](docker-compose.yml).
-2. Create a `flow` folder next to it and put your music in `flow/music/`.
-3. Start:
+2. Start:
 
 ```bash
 docker compose up -d
 ```
 
-Open `http://localhost:8080` — API docs live at `/api/docs`.
+Flow creates a `flow` folder (with `music/` inside) next to the compose file on first start.
 
-> **Keep it on the LAN.** Flow has no authentication by design; anyone who can reach the port can browse, stream, and rewrite your library's metadata. To listen from outside, tunnel in with a VPN (Cloudflare, WireGuard, Tailscale).
+3. Open `http://localhost:8080` and drop your music into `flow/music/` — see below.
 
-An empty index next to a non-empty music folder triggers a scan on startup; after that the watcher keeps the index in sync, and Settings has a Rescan button.
+## Adding music
 
-## Configuration
+Copy your audio files (MP3, FLAC, M4A, OGG) anywhere inside `flow/music/` — the folder is created for you on first start. Any structure works. Flow walks the whole folder, so files in subfolders, in one big pile, or right at the root are all fine:
 
-Everything Flow touches lives in one host folder, mounted at `/flow` inside the container:
-
-| Host path | Container path | Contents |
-|---|---|---|
-| `./flow/music` | `/flow/music` | Your audio files — read as-is, never written to |
-| `./flow/data` | `/flow/data` | SQLite index (created on first start) |
-
-**Custom port** — change the *first* number of the mapping; leave the container port as `8080`:
-
-```yaml
-ports:
-  - "8888:8080"
 ```
+flow/
+└── music/                  ← anything in here gets scanned
+    ├── My Mixtape.mp3
+    ├── Artist Name/
+    │   └── Album Name/
+    │       └── 01 - Song.mp3
+    └── Some Other Song.flac
+```
+
+**Albums and artists come from your files' tags**, not from folder names. Untagged files still get indexed — a name like `01 - Song.mp3` is read as track 1, "Song", and anything else uses the filename as the title. For proper albums, artwork, and artist pages, make sure your files are tagged.
+
+New files are picked up automatically. You can also trigger a scan any time from **Settings → Library**. To remove music, delete the files and rescan.
+
+## Login (optional)
+
+By default, anyone on your network can open Flow. Want a password? Go to **Settings → Access → Turn On** and set one — from then on, Flow asks for it before opening.
+
+Changed your mind? **Settings → Access → Turn Off** removes the password again.
 
 ## License
 

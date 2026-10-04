@@ -7,14 +7,16 @@ import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException
-from fastapi.responses import FileResponse
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
+from app import auth as auth_core
 from app import config
 from app.db import Database
 from app.events import ScanBus
 from app.scanner import LibraryScanner
+from app.routers import auth as auth_router
 from app.routers import editing as editing_router
 from app.routers import covers as covers_router
 from app.routers import library as library_router
@@ -34,6 +36,10 @@ logging.basicConfig(
 
 def _bootstrap(db: Database) -> None:
     """Startup-time settings hygiene."""
+    # First-run turnkey: the music folder must exist before the watcher or
+    # the auto-scan look at it. exist_ok makes this a no-op when it's there
+    # — an existing library is never touched, let alone recreated.
+    config.MUSIC_DIR.mkdir(parents=True, exist_ok=True)
     conn = db.connect()
     conn.execute(
         "INSERT INTO settings (key, value) VALUES ('library_path', ?) "
@@ -88,6 +94,29 @@ def create_app() -> FastAPI:
         db.connect().execute("SELECT 1").fetchone()
         return {"status": "ok", "version": app.version}
 
+    # ---- the login gate ------------------------------------------------------
+    # When no password is set (auth off) this is a pass-through. When one is,
+    # every /api/* path needs a valid session cookie — except /api/health,
+    # which the container healthcheck polls without one, and the auth
+    # endpoints themselves, which are how a session is earned. Static files
+    # stay open: the SPA loads, asks /api/auth/status, and routes itself to
+    # the login page when the answer is "enabled, not signed in".
+    _AUTH_PUBLIC_PATHS = {"/api/health", "/api/auth/status", "/api/auth/login"}
+
+    @app.middleware("http")
+    async def auth_gate(request: Request, call_next):
+        path = request.url.path
+        if path.startswith("/api/") and path not in _AUTH_PUBLIC_PATHS:
+            conn = request.app.state.db.connect()
+            if auth_core.get_password_hash(conn) is not None:
+                token = request.cookies.get(auth_core.SESSION_COOKIE)
+                if not auth_core.validate_session(conn, token):
+                    return JSONResponse(
+                        {"detail": "Not authenticated"}, status_code=401
+                    )
+        return await call_next(request)
+
+    app.include_router(auth_router.router)
     app.include_router(scan_router.router)
     app.include_router(settings_router.router)
     app.include_router(library_router.router)

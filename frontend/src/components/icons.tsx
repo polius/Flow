@@ -314,3 +314,24 @@ export function IconPlaylistAdd(props: IconProps) {
     </Icon>
   );
 }
+
+/* Password reveal — an eye that closes. The lid line doubles as the lash
+   so the glyph reads at 16px without a second stroke. */
+export function IconEye(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M2.8 12C5.1 7.9 8.2 6 12 6s6.9 1.9 9.2 6c-2.3 4.1-5.4 6-9.2 6s-6.9-1.9-9.2-6Z" />
+      <circle cx="12" cy="12" r="2.9" />
+    </Icon>
+  );
+}
+
+export function IconEyeOff(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="m4.5 4 15 15" />
+      <path d="M9.8 5.2A10.7 10.7 0 0 1 12 5c3.8 0 6.9 2 9.2 6a15.6 15.6 0 0 1-2.6 3.3M6.6 6.6C4.8 8 3.4 9.8 2.8 12c2.3 4 5.4 6 9.2 6 1.3 0 2.6-.3 3.8-.8" />
+      <path d="M9.9 9.9a2.9 2.9 0 0 0 4.1 4.1" />
+    </Icon>
+  );
+}

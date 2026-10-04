@@ -6,6 +6,7 @@ import { isIOS } from "../lib/platform";
 import { usePlayerStore } from "../stores/player";
 import { useScanStore } from "../stores/scan";
 import { useUiStore, type ThemeMode } from "../stores/ui";
+import { AccessSettings } from "../components/AccessSettings";
 import { ScanErrorsPanel } from "../components/ScanErrors";
 
 const THEME_MODES: { mode: ThemeMode; label: string }[] = [
@@ -43,7 +44,7 @@ export function SettingsView() {
   return (
     <section className="view">
       <h1 className="view__title">Settings</h1>
-      <p className="view__subtitle">Appearance, library status, and playback.</p>
+      <p className="view__subtitle">Appearance, access, library, and playback.</p>
 
       {scan?.mountGuard && (
         <div className="settings-guard" role="status">
@@ -88,6 +89,8 @@ export function SettingsView() {
               </span>
             </div>
           </div>
+
+          <AccessSettings />
 
           <div className="settings-group">
             <h2>Library</h2>

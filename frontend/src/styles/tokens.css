@@ -96,11 +96,14 @@
    (pointer: coarse)) sizes the top bar's targets to the 44pt HIG floor
    with invisible slop. */
 
-/* Phones: the mini player bar is one row — 62px, iOS-like. The canvas
-   and any other consumer of --player-height follow the bar automatically. */
+/* Phones: the mini player bar is one row — iOS-like, sized for thumbs and
+   grown by the device's bottom safe-area inset so controls sit clear of
+   the home indicator on notched iPhones (elsewhere the env reads 0 and
+   the bar is its natural 72px). The canvas and any other consumer of
+   --player-height follow the bar automatically. */
 @media (max-width: 640px) {
   :root {
-    --player-height: 62px;
+    --player-height: calc(72px + env(safe-area-inset-bottom, 0px));
   }
 }
 
