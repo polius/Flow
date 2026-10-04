@@ -48,6 +48,8 @@ Then open http://localhost:8080 in your browser.
 
 On first start, a `flow/` folder is created next to the compose file, with a `music/` subfolder where you can add your music files.
 
+> Root-owned host folders (common on NAS) work as-is: the container prepares its data folder on start and then runs unprivileged — no manual `chown` needed.
+
 ## Adding music
 
 Copy your audio files (`MP3`, `FLAC`, `M4A`, or `OGG`) anywhere inside `flow/music/`.
