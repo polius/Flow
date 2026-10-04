@@ -157,131 +157,166 @@ def _generated_title(rng: random.Random, used: set[str]) -> str:
 
 
 # ---- cover art -----------------------------------------------------------------
-# Pure-stdlib PNGs. Five styles × curated palettes, rendered at 256 and
-# nearest-neighbour upscaled ×2 (procedural art doesn't mind).
+# Pure-stdlib PNGs, rendered per-pixel and smoothed by construction: every
+# style is analytic color blending (soft radial falloffs, feathered edges,
+# multi-stop gradients), never hard shapes. Fine deterministic dithering
+# breaks up 8-bit banding on the gradients.
 
 class Palette(NamedTuple):
     top: tuple[int, int, int]
     bottom: tuple[int, int, int]
-    accent: tuple[int, int, int]
-    accent_hi: tuple[int, int, int]
-    ink: tuple[int, int, int]
+    a: tuple[int, int, int]    # primary accent: glows, hills, the sun
+    b: tuple[int, int, int]    # secondary accent
+    ink: tuple[int, int, int]  # deep tone: front layers, depth
 
 
 PALETTES: dict[str, Palette] = {
-    "dusk":   Palette((43, 16, 85), (117, 151, 222), (255, 138, 92), (255, 209, 148), (24, 12, 48)),
-    "ember":  Palette((41, 12, 8), (183, 65, 14), (255, 196, 90), (255, 231, 176), (26, 8, 4)),
-    "mint":   Palette((214, 238, 228), (130, 200, 176), (23, 92, 74), (46, 130, 104), (10, 40, 33)),
-    "cobalt": Palette((12, 24, 69), (43, 92, 202), (122, 208, 255), (190, 236, 255), (8, 14, 42)),
-    "rose":   Palette((252, 214, 222), (240, 128, 152), (122, 32, 56), (198, 66, 96), (74, 8, 28)),
-    "sand":   Palette((250, 240, 214), (222, 184, 120), (110, 74, 36), (158, 118, 62), (56, 36, 16)),
-    "plum":   Palette((38, 8, 46), (122, 44, 140), (255, 158, 196), (255, 208, 228), (24, 4, 30)),
-    "forest": Palette((10, 34, 26), (36, 94, 66), (168, 220, 132), (210, 240, 180), (6, 20, 16)),
-    "noir":   Palette((20, 20, 24), (58, 58, 68), (230, 230, 240), (255, 255, 255), (10, 10, 14)),
-    "ocean":  Palette((4, 42, 64), (16, 108, 144), (126, 224, 216), (196, 248, 244), (2, 24, 38)),
-    "citrus": Palette((255, 244, 214), (255, 176, 59), (66, 45, 8), (120, 84, 20), (38, 26, 6)),
-    "steel":  Palette((222, 228, 236), (138, 152, 170), (34, 48, 66), (70, 92, 118), (12, 18, 28)),
+    "porcelain": Palette((244, 241, 236), (231, 224, 214), (186, 164, 134), (150, 131, 105), (74, 66, 56)),
+    "sage":      Palette((232, 237, 228), (198, 210, 192), (122, 148, 121), (88, 112, 95), (61, 77, 66)),
+    "blush":     Palette((246, 232, 228), (235, 201, 196), (207, 143, 135), (165, 102, 96), (122, 79, 74)),
+    "powder":    Palette((233, 239, 245), (203, 217, 230), (137, 167, 196), (104, 136, 170), (74, 94, 116)),
+    "sand":      Palette((242, 233, 218), (224, 205, 178), (186, 150, 105), (150, 118, 80), (105, 85, 60)),
+    "mauve":     Palette((239, 230, 239), (216, 196, 218), (168, 133, 180), (132, 100, 142), (96, 74, 104)),
+    "mist":      Palette((230, 236, 236), (201, 216, 216), (134, 166, 166), (101, 134, 134), (74, 94, 94)),
+    "terra":     Palette((243, 228, 217), (226, 195, 172), (196, 139, 95), (158, 101, 65), (110, 74, 50)),
+    "lavender":  Palette((238, 234, 244), (213, 204, 228), (158, 141, 194), (122, 104, 160), (86, 74, 110)),
+    "stone":     Palette((236, 236, 234), (213, 213, 210), (160, 160, 155), (120, 120, 115), (80, 80, 76)),
+    "ink":       Palette((46, 49, 64), (74, 79, 99), (139, 147, 173), (198, 204, 221), (24, 26, 36)),
+    "forest":    Palette((46, 58, 51), (70, 88, 76), (126, 149, 133), (180, 199, 184), (24, 32, 27)),
+    "night":     Palette((35, 39, 51), (58, 66, 88), (107, 126, 168), (168, 184, 220), (16, 18, 26)),
+    "wine":      Palette((58, 42, 50), (84, 64, 75), (143, 107, 126), (196, 160, 178), (30, 20, 26)),
 }
 
-# Styles are paired with palettes that flatter them (light backgrounds for
-# geometry, deep gradients for glow).
+# Styles are paired with palettes that flatter them — washed pastels for the
+# airy styles, the deep tones where a little drama helps.
 STYLE_PALETTES: dict[str, list[str]] = {
-    "sun": ["dusk", "ember", "cobalt", "plum"],
-    "rings": ["ocean", "forest", "noir", "steel", "plum"],
-    "halftone": ["mint", "citrus", "rose", "sand"],
-    "waves": ["ocean", "forest", "plum", "steel", "dusk"],
-    "arcs": ["rose", "citrus", "mint", "sand", "steel"],
+    "haze":  ["porcelain", "sage", "powder", "blush", "ink", "night"],
+    "dawn":  ["sand", "terra", "blush", "mist", "wine", "ink"],
+    "bloom": ["blush", "mauve", "lavender", "sage", "powder", "stone"],
+    "dune":  ["sand", "terra", "forest", "night", "stone", "sage"],
+    "silk":  ["lavender", "powder", "mist", "wine", "ink", "sand"],
 }
 
-
-def _lerp(a: tuple[int, int, int], b: tuple[int, int, int], t: float) -> tuple[int, int, int]:
+def _smooth(t: float) -> float:
     t = max(0.0, min(1.0, t))
-    return tuple(round(x + (y - x) * t) for x, y in zip(a, b))  # type: ignore[return-value]
+    return t * t * (3 - 2 * t)
 
 
-def _style_sun(pal: Palette) -> Callable[[float, float], tuple[int, int, int]]:
-    """Synthwave sun: a striped disc sinking into a dusk gradient."""
-    cx, cy, r = 0.5, 0.45, 0.30
-
-    def px(u: float, v: float) -> tuple[int, int, int]:
-        base = _lerp(pal.top, pal.bottom, v)
-        d = math.hypot(u - cx, v - cy)
-        if d <= r:
-            band = (v - cy) / r
-            slot = ((band + 1.35) * 2.6) % 1.0
-            if band > 0.08 and slot < band * 0.9:  # gaps widen toward the bottom
-                return base
-            return _lerp(pal.accent_hi, pal.accent, d / r)
-        return base
-
-    return px
+def _mix(a: tuple[int, int, int], b: tuple[int, int, int], t: float) -> tuple[float, float, float]:
+    t = max(0.0, min(1.0, t))
+    return (a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t)
 
 
-def _style_rings(pal: Palette) -> Callable[[float, float], tuple[int, int, int]]:
-    """Concentric rings, off-centre — vinyl grooves fading into the edges."""
-    cx, cy = 0.36, 0.38
-
-    def px(u: float, v: float) -> tuple[int, int, int]:
-        base = _lerp(pal.top, pal.bottom, v)
-        d = math.hypot(u - cx, v - cy)
-        ring = (pal.accent, pal.accent_hi, pal.bottom)[int(d * 11) % 3]
-        return _lerp(ring, base, max(0.0, (d - 0.72) / 0.3))
-
-    return px
+def _stops(stops: list[tuple[int, int, int]], t: float) -> tuple[float, float, float]:
+    """Piecewise-linear gradient through the given colors."""
+    x = max(0.0, min(0.9999, t)) * (len(stops) - 1)
+    i = int(x)
+    return _mix(stops[i], stops[i + 1], x - i)
 
 
-def _style_halftone(pal: Palette) -> Callable[[float, float], tuple[int, int, int]]:
-    """A dot grid that swells along the diagonal — print-shop texture."""
+def _style_haze(pal: Palette, rng: random.Random) -> Callable[[float, float], tuple[float, float, float]]:
+    """Light shafts: two crossing diagonal bands of color, heavily feathered."""
+    a1 = rng.uniform(0.25, 0.65)
+    bands = [
+        (rng.uniform(0.2, 0.8), rng.uniform(0.2, 0.5), a1, rng.uniform(0.1, 0.16), pal.a, 0.7),
+        (rng.uniform(0.2, 0.8), rng.uniform(0.5, 0.8), a1 + rng.uniform(0.7, 1.2),
+         rng.uniform(0.08, 0.14), pal.b, 0.55),
+    ]
 
-    def px(u: float, v: float) -> tuple[int, int, int]:
-        step = 1 / 13
-        gu, gv = round(u / step) * step, round(v / step) * step
-        d = math.hypot(u - gu, v - gv)
-        if d <= step * (0.16 + 0.42 * (u + v) / 2):
-            return _lerp(pal.accent, pal.ink, (u + v) / 2)
-        return _lerp(pal.top, pal.bottom, v)
+    def px(u: float, v: float) -> tuple[float, float, float]:
+        col = _mix(pal.top, pal.bottom, v)
+        for cx, cy, ang, w, c, s in bands:
+            d = abs((u - cx) * -math.sin(ang) + (v - cy) * math.cos(ang))
+            col = _mix(col, c, _smooth((w - d) / (w * 0.9)) * s)
+        return col
 
     return px
 
 
-def _style_waves(pal: Palette) -> Callable[[float, float], tuple[int, int, int]]:
-    """Undulating accent ridges over a vertical gradient — hills, or a calm sea."""
-    amp1, amp2 = 0.05, 0.03
+def _style_dawn(pal: Palette, rng: random.Random) -> Callable[[float, float], tuple[float, float, float]]:
+    """First light: a feathered sun setting into a dark, gently curved horizon."""
+    hx, hy = rng.uniform(0.38, 0.62), rng.uniform(0.46, 0.54)
+    r = rng.uniform(0.14, 0.19)
+    hz = hy + r * rng.uniform(0.25, 0.55)  # the horizon cuts the sun
+    curve, cph = rng.uniform(0.015, 0.03), rng.uniform(0, 6.28)
+    disc = _mix(pal.a, pal.ink, 0.3)       # a touch deeper than the sky glow
 
-    def px(u: float, v: float) -> tuple[int, int, int]:
-        base = _lerp(pal.top, pal.bottom, v)
-        w = amp1 * math.sin(u * 5.2 + 1.3) + amp2 * math.sin(u * 9.7 + 0.4)
-        pulse = max(0.0, math.sin((v + w) * 6.0 * math.pi)) ** 3  # 3 crisp ridges
-        return _lerp(base, pal.accent, pulse * 0.92)
-
-    return px
-
-
-def _style_arcs(pal: Palette) -> Callable[[float, float], tuple[int, int, int]]:
-    """Bauhaus circles: a loose cluster of bold discs on a plain gradient."""
-    # (center u, center v, radius, color) — later discs win where they overlap.
-    discs = (
-        (0.36, 0.38, 0.27, pal.accent),
-        (0.62, 0.32, 0.20, pal.ink),
-        (0.34, 0.66, 0.22, pal.accent_hi),
-        (0.66, 0.64, 0.31, pal.accent),
-    )
-
-    def px(u: float, v: float) -> tuple[int, int, int]:
-        for cu, cv, r, color in discs:
-            if math.hypot(u - cu, v - cv) < r:
-                return color
-        return _lerp(pal.top, pal.bottom, v)
+    def px(u: float, v: float) -> tuple[float, float, float]:
+        col = _mix(pal.top, pal.bottom, v)
+        d = math.hypot(u - hx, (v - hy) * 1.1)
+        col = _mix(col, pal.b, _smooth((r * 3 - d) / (r * 3)) * 0.2)  # halo
+        col = _mix(col, disc, _smooth((r - d) / (r * 0.45)))          # soft disc
+        ground = hz + curve * math.sin(u * 6.28 + cph)
+        col = _mix(col, pal.ink, _smooth((v - ground) / 0.06) * 0.72)
+        afterglow = abs(v - ground)  # a warm band hugging the horizon line
+        col = _mix(col, pal.b, _smooth((0.07 - afterglow) / 0.07) * 0.3)
+        return col
 
     return px
 
 
-STYLES: dict[str, Callable[[Palette], Callable[[float, float], tuple[int, int, int]]]] = {
-    "sun": _style_sun,
-    "rings": _style_rings,
-    "halftone": _style_halftone,
-    "waves": _style_waves,
-    "arcs": _style_arcs,
+def _style_bloom(pal: Palette, rng: random.Random) -> Callable[[float, float], tuple[float, float, float]]:
+    """Watercolor: one large bloom, a smaller answer, a deep accent note."""
+    cx, cy = rng.uniform(0.25, 0.42), rng.uniform(0.25, 0.42)
+    blobs = [
+        (cx, cy, rng.uniform(0.3, 0.42), pal.a, 0.9),
+        (rng.uniform(0.55, 0.75), rng.uniform(0.55, 0.75), rng.uniform(0.18, 0.28), pal.b, 0.85),
+        (rng.uniform(0.6, 0.85), rng.uniform(0.15, 0.35), rng.uniform(0.12, 0.2), pal.ink, 0.25),
+    ]
+
+    def px(u: float, v: float) -> tuple[float, float, float]:
+        col = _mix(pal.top, pal.bottom, v)
+        for bx, by, r, c, s in blobs:
+            d = math.hypot(u - bx, v - by)
+            col = _mix(col, c, _smooth((r - d) / (r * 0.35)) * s)
+        return col
+
+    return px
+
+
+def _style_dune(pal: Palette, rng: random.Random) -> Callable[[float, float], tuple[float, float, float]]:
+    """Layered hills at dusk: long sine silhouettes, nearer means darker."""
+    layers = []
+    for i, c in enumerate((pal.a, pal.b, pal.ink)):
+        layers.append((
+            0.52 + i * 0.13,            # crest height per layer
+            rng.uniform(0.04, 0.09),    # amplitude
+            rng.uniform(0.9, 1.6) + i * 0.5,
+            rng.uniform(0, 6.28),
+            c,
+        ))
+
+    def px(u: float, v: float) -> tuple[float, float, float]:
+        col = _mix(pal.top, pal.bottom, v * 0.7 + 0.05)
+        for base, amp, freq, ph, c in layers:
+            y = base + amp * math.sin(u * freq * 6.28 + ph)
+            col = _mix(col, c, _smooth((v - y) / 0.06))  # cover below the crest
+        return col
+
+    return px
+
+
+def _style_silk(pal: Palette, rng: random.Random) -> Callable[[float, float], tuple[float, float, float]]:
+    """Light on silk: a multi-stop gradient folded along a soft diagonal."""
+    theta = rng.uniform(0.45, 1.0)
+    warp, wf = rng.uniform(0.06, 0.12), rng.uniform(1.8, 3.0)
+    stops = [pal.a, pal.top, pal.b, pal.bottom]
+    cos_t, sin_t = math.cos(theta), math.sin(theta)
+
+    def px(u: float, v: float) -> tuple[float, float, float]:
+        t = (u * cos_t + v * sin_t) / (cos_t + sin_t)  # corners span 0..1, no seam
+        t += warp * math.sin(u * wf * 6.28 + v * 2.2)
+        return _stops(stops, t)
+
+    return px
+
+
+STYLES: dict[str, Callable[[Palette, random.Random], Callable[[float, float], tuple[float, float, float]]]] = {
+    "haze": _style_haze,
+    "dawn": _style_dawn,
+    "bloom": _style_bloom,
+    "dune": _style_dune,
+    "silk": _style_silk,
 }
 
 _RENDER = 256  # rendered small, upscaled ×2 below
@@ -303,14 +338,21 @@ def _png(width: int, height: int, raw: bytes) -> bytes:
     )
 
 
-def render_cover(style_name: str, palette_name: str) -> bytes:
-    px = STYLES[style_name](PALETTES[palette_name])
+def render_cover(style_name: str, palette_name: str, rng: random.Random) -> bytes:
+    px = STYLES[style_name](PALETTES[palette_name], rng)
     rows = []
     for y in range(_RENDER):
         v = y / (_RENDER - 1)
         row = bytearray()
         for x in range(_RENDER):
-            row.extend(px(x / (_RENDER - 1), v))
+            c = px(x / (_RENDER - 1), v)
+            # deterministic ±0.5 dither: breaks gradient banding, keeps PNGs sane
+            d = ((((x * 73856093) ^ (y * 19349663)) & 255) / 255.0) - 0.5
+            row.extend((
+                max(0, min(255, round(c[0] + d))),
+                max(0, min(255, round(c[1] + d))),
+                max(0, min(255, round(c[2] + d))),
+            ))
         big = bytearray()
         for i in range(0, len(row), 3):
             big += row[i:i + 3] * 2  # nearest-neighbour upscale
@@ -390,7 +432,7 @@ def generate_library(music_dir: Path, albums_limit: int | None = None) -> int:
             style = rng.choice([s for s in STYLE_PALETTES if s != last_style])
             palette = rng.choice([p for p in STYLE_PALETTES[style] if p != last_palette])
             last_style, last_palette = style, palette
-            cover = render_cover(style, palette)
+            cover = render_cover(style, palette, rng)
 
             album_dir = music_dir / _safe_name(artist) / f"{year} - {_safe_name(album)}"
             for t, title in enumerate(titles):
