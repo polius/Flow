@@ -19,7 +19,6 @@
   <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/License-MIT-blue.svg"></a>
 </p>
 
-<p>Turn a folder of music files into a fast, clean web player that works on any device.</p>
 
 <img src="assets/albums.png" alt="Flow album view" width="80%">
 
