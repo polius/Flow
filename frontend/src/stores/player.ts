@@ -62,7 +62,8 @@ interface PlayerState {
   shuffle: boolean;
   repeat: RepeatMode;
   /** Sound Check: apply the scan's loudness analysis so albums play at a
-      matched level. Off → unity gain, exactly as before. */
+      matched level. On by default — consistency is the behavior, the toggle
+      is the escape hatch. Off → unity gain, exactly as before. */
   soundcheck: boolean;
   /** Where the queue came from: the "Playing from" sentence on the queue
       drawer and Now Playing. Set only by queue REPLACEMENT (play tracks /
@@ -156,7 +157,7 @@ export const usePlayerStore = create<PlayerState>()(
       buffered: 0,
       shuffle: false,
       repeat: "off",
-      soundcheck: false,
+      soundcheck: true,
       origin: null,
 
       playTracks: (tracks, startIndex, origin) => {
