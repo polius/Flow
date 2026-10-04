@@ -808,15 +808,17 @@
   min-height: 120px;
 }
 
-/* ---- Settings: Sound Check toggle ------------------------------------------ */
+/* ---- Settings: Normalize volume toggle -------------------------------------- */
 
+/* Explanatory copy under a row's label. Secondary, not tertiary — a hint
+   that must be read cannot whisper (tertiary stays for true asides). */
 .settings-row__hint {
   display: block;
   margin-top: 3px;
   max-width: 46ch;
   font-size: var(--text-caption);
   font-weight: 400;
-  color: var(--text-tertiary);
+  color: var(--text-secondary);
 }
 
 .settingstoggle {

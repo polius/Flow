@@ -185,10 +185,11 @@ export function SettingsView() {
               <h2>Playback</h2>
               <div className="settings-row">
                 <span className="settings-row__label">
-                  Sound Check
+                  Normalize volume
                   <span className="settings-row__hint">
-                    Match volume across tracks — loudness is measured during the
-                    scan, tracks without a measurement play at their own level.
+                    Balances soft and loud songs, creating a more uniform
+                    listening experience. Loudness is measured during the scan;
+                    tracks without a measurement play at their own level.
                   </span>
                 </span>
                 <span className="settings-row__value">
