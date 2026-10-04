@@ -26,9 +26,9 @@ FROM python:3.13-alpine AS runtime
 # and pipefail — kept on real bash for predictability, not busybox ash.
 # ffmpeg: scan-time loudness analysis; its absence degrades gracefully —
 # tracks just play at unity gain.
-# UID/GID 1000 keeps a host-bind-mounted /flow writable without manual
-# chowns on Linux hosts — the app user matches the host's first user.
-RUN apk add --no-cache nginx tini bash ffmpeg \
+# su-exec: start.sh runs as root just long enough to prepare a root-owned
+# bind mount, then re-execs the servers as the unprivileged app user.
+RUN apk add --no-cache nginx tini bash ffmpeg su-exec \
  && addgroup -g 1000 flow \
  && adduser -D -u 1000 -G flow flow
 
@@ -43,7 +43,14 @@ RUN chmod +x /app/start.sh \
  && mkdir -p /flow/music /flow/data /tmp/nginx \
  && chown -R flow:flow /app /flow /tmp/nginx
 
-USER flow
+# No USER directive: the container starts as root so start.sh can prepare
+# a bind-mounted /flow whose host directory is root-owned (NAS shares
+# usually are). A bind mount shadows the /flow dirs created above, and a
+# plain non-root container can't mkdir inside such a mount. Once the
+# writable dirs are in place, start.sh drops to flow:flow — nginx and
+# uvicorn never run as root. An explicit `docker run --user …` skips all
+# of this and runs directly as that user, files stay owned by flow (1000,
+# the host's first user on typical Linux installs).
 ENV PATH="/opt/venv/bin:$PATH" \
     FLOW_MUSIC_DIR=/flow/music \
     FLOW_DATA_DIR=/flow/data \
