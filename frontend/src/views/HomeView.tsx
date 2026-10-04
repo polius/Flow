@@ -79,7 +79,7 @@ function ContinueListening() {
           )}
         </span>
         <span className="continuecard__action" aria-hidden="true">
-          {isPlaying ? <IconPause size={13} /> : <IconPlay size={13} />}
+          {isPlaying ? <IconPause size={20} /> : <IconPlay size={20} />}
         </span>
       </div>
     </div>

@@ -24,7 +24,7 @@ import {
   IconShuffle,
 } from "./icons";
 import { QueuePanel } from "./QueuePanel";
-import { PlayPauseButton, Scrubber, TransportButton, VolumeControl } from "./transport";
+import { PlayPauseButton, Scrubber, TransportButton } from "./transport";
 import { useModalFocus } from "../lib/focus";
 import "../styles/nowplaying.css";
 
@@ -219,9 +219,6 @@ export function NowPlaying() {
               </div>
               <div className="nowplaying__progress">
                 <Scrubber />
-              </div>
-              <div className="nowplaying__volume">
-                <VolumeControl size={15} />
               </div>
             </div>
           </div>

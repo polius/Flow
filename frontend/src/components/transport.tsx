@@ -5,7 +5,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 
 import { fmtDuration } from "../lib/format";
 import { usePlayerStore } from "../stores/player";
-import { IconPause, IconPlay, IconVolume, IconVolumeMute } from "./icons";
+import { IconPause, IconPlay } from "./icons";
 
 export function Scrubber() {
   const position = usePlayerStore((s) => s.position);
@@ -20,6 +20,7 @@ export function Scrubber() {
   // seeks the element must cancel.
   const pendingSeek = useRef<number | null>(null);
   const seekRaf = useRef<number | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const flushSeek = () => {
     seekRaf.current = null;
@@ -39,6 +40,32 @@ export function Scrubber() {
 
   useEffect(() => cancelPendingSeek, []);
 
+  // Release: commit the position the user actually chose. The truth is the
+  // element's own value, not the closure's — and the native `change` event
+  // is the one release signal every browser fires (some touch browsers,
+  // iOS Safari notably, never dispatch pointerup for a range drag, which
+  // left `scrub` stuck and the position frozen at the drag point while the
+  // audio played on). commit is idempotent; the duplicate paths (pointerup,
+  // keyup, blur) only ever re-commit the same value.
+  const commit = () => {
+    cancelPendingSeek();
+    const el = inputRef.current;
+    if (el != null) {
+      const final = Number(el.value);
+      if (Number.isFinite(final)) seek(final);
+    }
+    setScrub(null);
+    setDragging(false);
+  };
+
+  useEffect(() => {
+    const el = inputRef.current;
+    if (!el) return;
+    el.addEventListener("change", commit);
+    return () => el.removeEventListener("change", commit);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const value = scrub ?? position;
   const max = duration || 0;
   const pct = (v: number) => (max > 0 ? Math.min(100, (v / max) * 100) : 0);
@@ -55,19 +82,11 @@ export function Scrubber() {
       var(--scrubber-rest, var(--bg-active)) ${pct(buffered)}% 100%)`,
   };
 
-  const commit = () => {
-    cancelPendingSeek();
-    if (scrub != null) {
-      seek(scrub);
-      setScrub(null);
-    }
-    setDragging(false);
-  };
-
   return (
     <>
       <span className="player__time">{fmtDuration(dragging ? scrub : position)}</span>
       <input
+        ref={inputRef}
         type="range"
         className="range player__scrubber"
         style={trackStyle}
@@ -87,49 +106,17 @@ export function Scrubber() {
           }
         }}
         onPointerUp={commit}
-        onKeyUp={commit}
-        onBlur={() => {
+        onPointerCancel={() => {
+          // The system took the pointer mid-drag: release the visual hold
+          // without committing a position the user didn't choose.
           cancelPendingSeek();
           setScrub(null);
           setDragging(false);
         }}
+        onKeyUp={commit}
+        onBlur={commit}
       />
       <span className="player__time">{fmtDuration(duration)}</span>
-    </>
-  );
-}
-
-/* Volume with click-to-mute: muted (or at zero) shows the muted glyph;
-   moving the slider unmutes. */
-export function VolumeControl({ size = 16 }: { size?: number }) {
-  const volume = usePlayerStore((s) => s.volume);
-  const muted = usePlayerStore((s) => s.muted);
-  const setVolume = usePlayerStore((s) => s.setVolume);
-  const toggleMute = usePlayerStore((s) => s.toggleMute);
-
-  const silent = muted || volume === 0;
-  return (
-    <>
-      <button
-        type="button"
-        className="volumebtn"
-        aria-label={silent ? "Unmute" : "Mute"}
-        aria-pressed={silent}
-        title={silent ? "Unmute" : "Mute"}
-        onClick={toggleMute}
-      >
-        {silent ? <IconVolumeMute size={size} /> : <IconVolume size={size} />}
-      </button>
-      <input
-        type="range"
-        className="range"
-        min={0}
-        max={1}
-        step={0.01}
-        value={volume}
-        onChange={(e) => setVolume(Number(e.target.value))}
-        aria-label="Volume"
-      />
     </>
   );
 }

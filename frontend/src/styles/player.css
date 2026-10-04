@@ -104,17 +104,27 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  /* Fixed circles: mode toggles change only their paint when activated —
+     never their geometry, so the transport row can't shift under the thumb. */
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
   color: var(--text-secondary);
   transition: color var(--dur-fast) var(--ease-out),
-    transform var(--dur-fast) var(--ease-out);
+    transform var(--dur-fast) var(--ease-out),
+    background-color var(--dur-fast) var(--ease-out);
 }
 
 .player__btn:hover:not(:disabled) {
   color: var(--text-primary);
 }
 
+/* Active mode toggles (shuffle/repeat) read as ON, not merely darker:
+   the soft active fill — the app's "current" language (playing row,
+   selection) — under full-ink glyph. Grey-on-grey read as disabled. */
 .player__btn--active {
   color: var(--text-primary);
+  background: var(--bg-active);
 }
 
 .player__btn--active:hover:not(:disabled) {
@@ -168,18 +178,6 @@
 
 .player__time:last-child {
   text-align: right;
-}
-
-.player__volume {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 10px;
-  color: var(--text-secondary);
-}
-
-.player__volume .range {
-  max-width: 110px;
 }
 
 /* ---- nothing playing ----
@@ -259,8 +257,7 @@
     height: 38px;
   }
 
-  .player__btn--secondary,
-  .player__volume {
+  .player__btn--secondary {
     display: none;
   }
 }

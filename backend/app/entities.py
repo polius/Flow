@@ -124,5 +124,8 @@ def prune_orphans(conn) -> None:
     conn.execute(
         "DELETE FROM artwork WHERE id NOT IN ("
         "  SELECT artwork_id FROM tracks WHERE artwork_id IS NOT NULL"
-        "  UNION SELECT artwork_id FROM albums WHERE artwork_id IS NOT NULL)"
+        "  UNION SELECT artwork_id FROM albums WHERE artwork_id IS NOT NULL"
+        "  UNION SELECT cover_artwork_id FROM albums WHERE cover_artwork_id IS NOT NULL"
+        "  UNION SELECT cover_artwork_id FROM artists WHERE cover_artwork_id IS NOT NULL"
+        "  UNION SELECT cover_artwork_id FROM playlists WHERE cover_artwork_id IS NOT NULL)"
     )

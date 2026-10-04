@@ -14,6 +14,7 @@ import {
   type ServerQueueState,
 } from "../api/queue";
 import type { QueueOrigin, Track } from "../api/types";
+import { isIOS } from "../lib/platform";
 import { useUiStore } from "./ui";
 
 export type RepeatMode = "off" | "all" | "one";
@@ -58,10 +59,6 @@ interface PlayerState {
   position: number; // seconds
   duration: number; // seconds (from the audio element once known)
   buffered: number; // seconds buffered ahead
-  volume: number; // 0..1
-  /** Click-to-mute: transient, not persisted — a fresh session is
-      unmuted, like every platform player. The slider keeps its level. */
-  muted: boolean;
   shuffle: boolean;
   repeat: RepeatMode;
   /** Sound Check: apply the scan's loudness analysis so albums play at a
@@ -101,6 +98,10 @@ interface PlayerState {
   removeQueued: (tracks: Track[]) => void;
   /** Removes an upcoming track from the queue. No-op for the current one. */
   removeFromQueue: (queueIndex: number) => void;
+  /** Empties the queue in one gesture (the drawer's Clear button): playback
+      stops, everything is dropped, and the whole session is offered back
+      through the undo toast. */
+  clearQueue: () => void;
   /** Undoes a queue removal: re-inserts the track at its former queue
       index and play-order slot. The playing row's pointer follows the
       world shift, as in every other queue mutation. */
@@ -115,8 +116,6 @@ interface PlayerState {
   next: () => void;
   prev: () => void;
   seek: (seconds: number) => void;
-  setVolume: (v: number) => void;
-  toggleMute: () => void;
   setShuffle: (on: boolean) => void;
   cycleRepeat: () => void;
   setSoundcheck: (on: boolean) => void;
@@ -155,8 +154,6 @@ export const usePlayerStore = create<PlayerState>()(
       position: 0,
       duration: 0,
       buffered: 0,
-      volume: 0.8,
-      muted: false,
       shuffle: false,
       repeat: "off",
       soundcheck: false,
@@ -305,6 +302,37 @@ export const usePlayerStore = create<PlayerState>()(
         });
       },
 
+      clearQueue: () => {
+        const { queue, order, orderPos, position, origin } = get();
+        if (queue.length === 0) return;
+        // The exact session, captured for the undo: restoring brings the
+        // playhead AND the origin back — everything but the sound. A plain
+        // set re-mirrors the snapshot to the server like any queue edit.
+        const snapshot = { queue, order, orderPos, position, origin };
+        if (audio) {
+          audio.pause();
+          // The standby is stale with the plan it preloaded.
+          if (standbyTrack != null) resetStandby();
+        }
+        const noun = queue.length === 1 ? "track" : "tracks";
+        set({
+          queue: [],
+          order: [],
+          orderPos: -1,
+          origin: null,
+          isPlaying: false,
+          position: 0,
+          duration: 0,
+          buffered: 0,
+        });
+        useUiStore.getState().showUndoNotice({
+          message: `Cleared the queue — ${queue.length} ${noun}`,
+          undo: async () => {
+            usePlayerStore.setState(snapshot);
+          },
+        });
+      },
+
       restoreToQueue: (orderSlot, queueIndex, track) => {
         const { queue, order, orderPos } = get();
         // Clamp into whatever the list looks like now — reorders or adds
@@ -402,18 +430,6 @@ export const usePlayerStore = create<PlayerState>()(
         set({ position: seconds });
       },
 
-      setVolume: (v) => {
-        const volume = Math.min(1, Math.max(0, v));
-        // Raising the slider is an unmute in every platform player.
-        set({ volume, muted: volume > 0 ? false : get().muted });
-        applyVolume();
-      },
-
-      toggleMute: () => {
-        set({ muted: !get().muted });
-        applyVolume();
-      },
-
       setSoundcheck: (on) => {
         set({ soundcheck: on });
         // The gain must follow the toggle immediately, not on next load.
@@ -442,7 +458,6 @@ export const usePlayerStore = create<PlayerState>()(
       // every store update, and position changes 4×/s while playing,
       // which would stringify a full-library queue at that cadence.
       partialize: (s) => ({
-        volume: s.volume,
         shuffle: s.shuffle,
         repeat: s.repeat,
         soundcheck: s.soundcheck,
@@ -488,17 +503,10 @@ const PRELOAD_AHEAD_SECONDS = 10;
 
 const trackSrc = (track: Track): string => `/api/stream/${track.id}`;
 
-/** The volume the elements should actually carry — mute wins over the
-    slider level, which keeps its value underneath. */
-function effectiveVolume(): number {
-  const { volume, muted } = usePlayerStore.getState();
-  return muted ? 0 : volume;
-}
-
-function applyVolume(): void {
-  const v = effectiveVolume();
-  for (const el of elements()) el.volume = v;
-}
+/* There is no in-app volume or mute: iOS ignores element volume outright,
+   and on desktop the media keys / hardware controls own loudness. The
+   elements play at unity; the one app-level loudness control is Sound
+   Check's gain below. */
 
 function currentTrack(): Track | null {
   const { queue, order, orderPos } = usePlayerStore.getState();
@@ -526,6 +534,12 @@ let audioCtx: AudioContext | null = null;
 const gainNodes = new Map<HTMLAudioElement, GainNode>();
 
 function ensureGraph(): void {
+  // iOS: the OS suspends AudioContext rendering the moment the page is
+  // backgrounded, and an element routed through the graph falls silent
+  // with it. The elements play straight to the output there — the one
+  // path Apple keeps alive with the screen off (Sound Check degrades;
+  // its setting hides itself on iOS).
+  if (isIOS) return;
   if (audioCtx != null || typeof window === "undefined") return;
   try {
     const Ctx: typeof AudioContext =
@@ -541,6 +555,9 @@ function ensureGraph(): void {
       gain.connect(audioCtx.destination);
       gainNodes.set(el, gain);
     }
+    // The first write matches the current toggle, not the node's unity
+    // default.
+    applyGain(audio, currentTrack());
   } catch {
     // No graph (old browser, blocked context): play plain, stay honest.
     audioCtx = null;
@@ -554,12 +571,31 @@ function resumeGraph(): void {
   }
 }
 
+/* Coming back to the foreground after an interruption: Safari may keep
+   the context suspended ("interrupted" on iOS builds, "suspended" on the
+   desktop) even though the element believes it is playing — silence over
+   a running song. A suspend/resume pair clears the stuck state; resume()
+   alone covers the plain case. */
+function recoverGraph(): void {
+  if (audioCtx == null || audioCtx.state === "running") return;
+  audioCtx
+    .suspend()
+    .then(() => audioCtx?.resume())
+    .catch(() => {});
+}
+
 function applyGain(el: HTMLAudioElement | null, track: Track | null): void {
   const gain = el != null ? gainNodes.get(el) : undefined;
-  if (el == null || gain == null) return;
+  if (el == null || gain == null || audioCtx == null) return;
   const { soundcheck } = usePlayerStore.getState();
   const db = soundcheck && track != null ? track.gain_db : null;
-  gain.gain.value = db != null ? Math.pow(10, db / 20) : 1;
+  // setTargetAtTime glides the step so a Sound Check toggle (or the first
+  // apply mid-play) never clicks.
+  gain.gain.setTargetAtTime(
+    db != null ? Math.pow(10, db / 20) : 1,
+    audioCtx.currentTime,
+    0.015,
+  );
 }
 
 /* -- window title ----------------------------------------------------------- */
@@ -626,7 +662,6 @@ function prepareStandby(): void {
   if (standbyTrack?.id === next.track.id) return;
   standbyTrack = next.track;
   standby.src = trackSrc(next.track);
-  standby.volume = effectiveVolume();
   applyGain(standby, next.track);
   standby.load();
 }
@@ -741,8 +776,6 @@ function startPositionLoop(): void {
 }
 
 for (const el of elements()) {
-  el.volume = effectiveVolume();
-
   // Every handler guards on `el !== audio`: the standby element's events
   // are machinery, never state. The one exception is its load error —
   // a failed preload must fall back to the classic advance path.
@@ -833,6 +866,14 @@ for (const el of elements()) {
     advance(1, true); // rest at the end of the queue, like a natural finish
   });
 }
+
+/* The audio session hint (recent WebKit): "playback" marks this page as
+   long-form media — the signal iOS uses to keep audio alive in the
+   background and wire up lock-screen controls. */
+const nav = typeof navigator !== "undefined"
+  ? (navigator as Navigator & { audioSession?: { type: string } })
+  : null;
+if (nav?.audioSession) nav.audioSession.type = "playback";
 
 setupMediaSession();
 syncWindowTitle();
@@ -973,7 +1014,13 @@ if (typeof window !== "undefined") {
   };
   window.addEventListener("pagehide", flushSession);
   document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "hidden") flushSession();
+    if (document.visibilityState === "hidden") {
+      flushSession();
+      return;
+    }
+    // Back in the foreground: un-stick a context the OS suspended behind
+    // the page's back (see recoverGraph).
+    recoverGraph();
   });
 }
 

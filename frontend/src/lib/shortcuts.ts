@@ -11,7 +11,6 @@ import { useEffect } from "react";
 import { usePlayerStore } from "../stores/player";
 import { useUiStore } from "../stores/ui";
 
-const VOLUME_STEP = 0.05;
 const SEEK_STEP = 10;
 
 /** Input types that carry text — the only focus from which Esc defers. */
@@ -106,23 +105,6 @@ export function useGlobalShortcuts(): void {
           if (!hasQueue) return;
           e.preventDefault();
           player.seek(Math.max(0, player.position - SEEK_STEP));
-          break;
-        }
-        case "ArrowUp": {
-          e.preventDefault();
-          player.setVolume(player.volume + VOLUME_STEP);
-          break;
-        }
-        case "ArrowDown": {
-          e.preventDefault();
-          player.setVolume(player.volume - VOLUME_STEP);
-          break;
-        }
-        case "m":
-        case "M": {
-          // The mute toggle, on the key every desktop player gives it.
-          e.preventDefault();
-          player.toggleMute();
           break;
         }
       }

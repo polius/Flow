@@ -1,5 +1,5 @@
-/* Range inputs — used by the scrubber and volume control.
-   Monochrome: track in the inset grey, thumb in primary ink. */
+/* Range inputs — the scrubber. Monochrome: track in the inset grey,
+   thumb in primary ink. */
 
 input[type="range"].range {
   appearance: none;
@@ -43,23 +43,30 @@ input[type="range"].range::-moz-range-thumb {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
 }
 
-/* Click-to-mute: the volume icon is a control, not decoration.
-   Shared by the player bar and Now Playing — same target. */
-.volumebtn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex: none;
-  color: var(--text-secondary);
-  transition: color var(--dur-fast) var(--ease-out);
-}
+/* Touch: a 4px bar is an unreachable target — a finger lands beside it and
+   the slider ignores the tap. The input grows a 24px hit box while the
+   visible track stays the 4px hairline: vertical padding creates the box,
+   background-clip: content-box keeps fill and gradient confined to the
+   band, and the thumb centers on the same 4px content box as before, so
+   the geometry the eye learned doesn't move. */
+@media (hover: none) {
+  input[type="range"].range {
+    height: 24px;
+    padding: 10px 0;
+    border-radius: 0;
+    -webkit-background-clip: content-box;
+    background-clip: content-box;
+  }
 
-.volumebtn:hover {
-  color: var(--text-primary);
-}
+  input[type="range"].range::-webkit-slider-thumb {
+    width: 14px;
+    height: 14px;
+  }
 
-.volumebtn[aria-pressed="true"] {
-  color: var(--text-tertiary);
+  input[type="range"].range::-moz-range-thumb {
+    width: 14px;
+    height: 14px;
+  }
 }
 
 /* The playing marker: three accent bars, shared by the queue drawer rows

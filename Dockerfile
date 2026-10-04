@@ -1,7 +1,4 @@
 # Flow — single container, single port.
-#
-# Alpine base: all runtime deps ship musl wheels, and the measured Debian-slim
-# premium was ~135MB, not the ~40MB the original estimate assumed.
 
 # ---- Stage 1: frontend build ------------------------------------------------
 FROM node:22-alpine AS frontend

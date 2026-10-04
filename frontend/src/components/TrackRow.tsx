@@ -10,6 +10,7 @@ import { Link } from "react-router";
 
 import type { Track } from "../api/types";
 import { fmtDuration } from "../lib/format";
+import { isRowDragActive } from "../lib/rowDrag";
 import {
   IconHeart,
   IconHeartFill,
@@ -155,6 +156,9 @@ export function TrackRow({
     if (onTrackMenu) {
       pressRef.current = { timer: null, x: t.clientX, y: t.clientY, fired: false };
       pressRef.current.timer = window.setTimeout(() => {
+        // A lifted drag owns this press: hold-to-reorder wins the hold, and
+        // the menu must not spring open under the ghost mid-drag.
+        if (isRowDragActive()) return;
         pressRef.current.fired = true;
         onTrackMenu(track, pressRef.current.x, pressRef.current.y);
       }, LONG_PRESS_MS);
@@ -174,6 +178,9 @@ export function TrackRow({
   };
 
   const onTouchMove = (e: React.TouchEvent) => {
+    // A lifted drag owns this finger: the swipe must not lock (and fight
+    // the ghost's transform) while the row is in the hand.
+    if (isRowDragActive()) return;
     if (pressRef.current.timer != null) {
       const t = e.touches[0];
       const dx = t.clientX - pressRef.current.x;

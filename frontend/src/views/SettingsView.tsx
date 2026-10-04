@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 
 import { api } from "../api/client";
 import { fmtCount, fmtDateTime, scanStatusLabel } from "../lib/format";
+import { isIOS } from "../lib/platform";
 import { usePlayerStore } from "../stores/player";
 import { useScanStore } from "../stores/scan";
 import { useUiStore, type ThemeMode } from "../stores/ui";
@@ -136,32 +137,38 @@ export function SettingsView() {
             )}
           </div>
 
-          <div className="settings-group">
-            <h2>Playback</h2>
-            <div className="settings-row">
-              <span className="settings-row__label">
-                Sound Check
-                <span className="settings-row__hint">
-                  Match volume across tracks — loudness is measured during the
-                  scan, tracks without a measurement play at their own level.
-                </span>
-              </span>
-              <span className="settings-row__value">
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={soundcheck}
-                  className={`settingstoggle${soundcheck ? " settingstoggle--on" : ""}`}
-                  onClick={() => setSoundcheck(!soundcheck)}
-                >
-                  <span className="settingstoggle__knob" aria-hidden="true" />
-                  <span className="settingstoggle__label">
-                    {soundcheck ? "On" : "Off"}
+          {/* Playback — but not on iOS: Sound Check rides the Web Audio
+              graph, and the graph is bypassed there (the OS suspends it in
+              the background, which would kill background playback). A
+              setting that can't apply must not present itself. */}
+          {!isIOS && (
+            <div className="settings-group">
+              <h2>Playback</h2>
+              <div className="settings-row">
+                <span className="settings-row__label">
+                  Sound Check
+                  <span className="settings-row__hint">
+                    Match volume across tracks — loudness is measured during the
+                    scan, tracks without a measurement play at their own level.
                   </span>
-                </button>
-              </span>
+                </span>
+                <span className="settings-row__value">
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={soundcheck}
+                    className={`settingstoggle${soundcheck ? " settingstoggle--on" : ""}`}
+                    onClick={() => setSoundcheck(!soundcheck)}
+                  >
+                    <span className="settingstoggle__knob" aria-hidden="true" />
+                    <span className="settingstoggle__label">
+                      {soundcheck ? "On" : "Off"}
+                    </span>
+                  </button>
+                </span>
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
     </section>

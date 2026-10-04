@@ -165,18 +165,6 @@
   width: 100%;
 }
 
-.nowplaying__volume {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  color: var(--text-secondary);
-}
-
-.nowplaying__volume .range {
-  max-width: 200px;
-}
-
 /* ---- idle stage: the queue is present before anything plays ---- */
 
 .nowplaying__idle {
@@ -286,6 +274,20 @@
 
 .queue__add:hover {
   background: var(--bg-hover);
+}
+
+/* The Clear action shares the Add pill's chrome; the consequence is
+   carried by weight (the app's danger language), never alarm color. */
+.queue__clear {
+  font-weight: 650;
+}
+
+/* Two pills plus the count is one slot too many on the smallest phones —
+   the count is metadata, the actions are function. */
+@media (max-width: 380px) {
+  .queue__count {
+    display: none;
+  }
 }
 
 /* Position in the queue — the "you are here" of the full list. */

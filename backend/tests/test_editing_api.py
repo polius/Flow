@@ -113,6 +113,32 @@ def test_album_edit_prunes_orphaned_album(client, library):
     assert "Elsewhere" in titles
 
 
+def test_prune_keeps_user_set_covers(client, library):
+    """Artwork referenced ONLY by a cover_artwork_id (a playlist's uploaded
+    cover) must survive the orphan prune — the FK-constrained DELETE used to
+    trip over exactly those rows and 500 the edit that triggered it."""
+    import base64
+
+    png = base64.b64decode(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQ"
+        "AAAABJRU5ErkJggg=="
+    )
+    created = client.post("/api/playlists", json={"name": "Covers"})
+    pid = created.json()["id"]
+    uploaded = client.put(
+        f"/api/playlists/{pid}/cover",
+        files={"file": ("cover.png", png, "image/png")},
+    )
+    cover_id = uploaded.json()["cover_artwork_id"]
+    assert cover_id is not None
+
+    # The edit whose prune used to crash — and the cover must survive it.
+    track = _track(client, "Loose")
+    out = client.patch(f"/api/tracks/{track['id']}", json={"title": "Loose 2"})
+    assert out.status_code == 200
+    assert client.get(f"/api/artwork/{cover_id}").status_code == 200
+
+
 def test_album_edit_moves_track_and_creates_album(client, library):
     first = _track(client, "First")
     pump = client.get("/api/albums", params={"q": "pump"}).json()["items"][0]

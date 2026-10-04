@@ -13,7 +13,7 @@ import {
   IconRepeat,
   IconShuffle,
 } from "./icons";
-import { PlayPauseButton, Scrubber, TransportButton, VolumeControl } from "./transport";
+import { PlayPauseButton, Scrubber, TransportButton } from "./transport";
 import "../styles/player.css";
 
 function TrackLine({ track }: { track: Track | null }) {
@@ -104,10 +104,6 @@ export function PlayerBar() {
         <div className="player__progress">
           <Scrubber />
         </div>
-      </div>
-
-      <div className="player__volume">
-        <VolumeControl size={16} />
       </div>
     </footer>
   );

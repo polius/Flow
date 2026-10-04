@@ -40,8 +40,7 @@ import {
   IconPlay,
   IconPlus,
   IconTrash,
-} from "./icons";
-import "../styles/nowplaying.css";
+} from "./icons";import "../styles/nowplaying.css";
 
 /* .queue__row: 38px artwork + 7px padding × 2 — fixed-height rows. */
 const ROW_HEIGHT = 52;
@@ -230,6 +229,7 @@ export function QueuePanel({ onCollapse }: QueuePanelProps) {
   const removeFromQueue = usePlayerStore((s) => s.removeFromQueue);
   const restoreToQueue = usePlayerStore((s) => s.restoreToQueue);
   const moveInQueue = usePlayerStore((s) => s.moveInQueue);
+  const clearQueue = usePlayerStore((s) => s.clearQueue);
   const togglePlay = usePlayerStore((s) => s.togglePlay);
   const showUndoNotice = useUiStore((s) => s.showUndoNotice);
   const [adding, setAdding] = useState(false);
@@ -637,6 +637,21 @@ export function QueuePanel({ onCollapse }: QueuePanelProps) {
               <IconPlus size={13} />
               Add
             </button>
+            {/* One gesture empties the queue; the undo toast hands the whole
+                session back (playhead and origin included), so the destructive
+                action needs no confirmation dialog. */}
+            {order.length > 0 && (
+              <button
+                type="button"
+                className="queue__add queue__clear"
+                onClick={clearQueue}
+                aria-label="Clear queue"
+                title="Clear queue"
+              >
+                <IconTrash size={13} />
+                Clear
+              </button>
+            )}
             {order.length > 0 && (
               <span className="queue__count">
                 {orderPos >= 0

@@ -1453,6 +1453,75 @@ textarea.inlineedit__input {
   gap: 10px;
 }
 
+/* New Playlist dialog: the optional cover slot — a dashed tile at rest,
+   the picked image once chosen, with a text remove beneath. Same quiet
+   grammar as the naming field it sits beside. */
+.addto__coverrow {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.addto__coverbutton {
+  position: relative;
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 84px;
+  height: 84px;
+  border: 1px dashed var(--control-border);
+  border-radius: var(--radius-m);
+  background: var(--bg-canvas);
+  color: var(--text-tertiary);
+  overflow: hidden;
+  transition: border-color var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out);
+}
+
+.addto__coverbutton:hover {
+  border-color: color-mix(in srgb, var(--text-primary) 40%, transparent);
+  color: var(--text-secondary);
+}
+
+.addto__coverbutton img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.addto__covermeta {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.addto__coverhint {
+  font-size: var(--text-small);
+  color: var(--text-secondary);
+  overflow-wrap: anywhere;
+}
+
+.addto__coverremove {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--control-border);
+  font-size: var(--text-small);
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.addto__coverremove:hover {
+  color: var(--text-primary);
+}
+
 .addto__cancel {
   display: inline-flex;
   align-items: center;

@@ -67,7 +67,6 @@ beforeEach(() => {
     position: 12,
     duration: 180,
     buffered: 0,
-    volume: 0.8,
     shuffle: false,
     repeat: "off",
   });

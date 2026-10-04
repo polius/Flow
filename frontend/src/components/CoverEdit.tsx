@@ -6,6 +6,7 @@
 
 import { useRef, useState, type ReactNode } from "react";
 
+import { prepareCoverFile } from "../lib/coverImage";
 import { IconClose, IconPlus } from "./icons";
 import "../styles/library.css";
 import "../styles/editing.css";
@@ -33,9 +34,13 @@ export function CoverEdit({
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const onPick = async (file: File | undefined) => {
-    if (!file || uploading) return;
+  const onPick = async (picked: File | undefined) => {
+    if (!picked || uploading) return;
     setUploading(true);
+    // Oversized images are downscaled client-side: a 2 MB+ photo would
+    // otherwise 413 at the proxy (or waste its headroom) for pixels a
+    // 220px header never shows.
+    const file = await prepareCoverFile(picked);
     await onFile(file);
     setUploading(false);
   };

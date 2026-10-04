@@ -61,33 +61,29 @@
   gap: 8px;
 }
 
-.album-card__play {
+/* The disc action — one design, three homes: the card's play + "…"
+   twins, and the continue-listening row's state glyph. The surface is
+   dimmed a step toward ink rather than plain --bg-elevated — pure white
+   (light) / near-black (dark) discs float detached above the art; the
+   mix seats them on both themes, on every device. */
+.album-card__play,
+.album-card__more,
+.continuecard__action {
   display: flex;
   align-items: center;
   justify-content: center;
   width: 40px;
   height: 40px;
   border-radius: 50%;
-  background: var(--text-primary);
-  color: var(--bg-canvas);
-  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.3);
-  opacity: 0;
-  transform: translateY(4px);
-  transition: opacity var(--dur-fast) var(--ease-out),
-    transform var(--dur-fast) var(--ease-out);
-}
-
-.album-card__more {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  background: var(--bg-elevated);
+  background: color-mix(in srgb, var(--text-primary) 12%, var(--bg-elevated));
   color: var(--text-primary);
   border: 1px solid var(--separator);
   box-shadow: 0 3px 10px rgba(0, 0, 0, 0.22);
+}
+
+/* The card pair is hover-revealed; the continue row's disc is always on. */
+.album-card__play,
+.album-card__more {
   opacity: 0;
   transform: translateY(4px);
   transition: opacity var(--dur-fast) var(--ease-out),
@@ -113,10 +109,7 @@
   transform: translateY(0);
 }
 
-.album-card__play:hover {
-  transform: translateY(0) scale(1.06);
-}
-
+.album-card__play:hover,
 .album-card__more:hover {
   transform: translateY(0) scale(1.06);
 }
@@ -195,17 +188,11 @@
 .continuecard__sub a:hover {
   text-decoration: underline;
 }
+/* The continue row's action shares the disc design (with the card pair,
+   above); only its row layout lives here. */
 .continuecard__action {
   flex: none;
   margin-left: auto;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 30px;
-  height: 30px;
-  border-radius: 999px;
-  background: var(--bg-active);
-  color: var(--text-primary);
 }
 
 .libsection > h2 {
@@ -869,11 +856,8 @@ button.trackhead__sort:hover {
     opacity: 0;
   }
 
-  .album-card__play {
-    opacity: 1;
-    transform: none;
-  }
-
+  /* The action pair is always visible — touch has no hover to reveal it. */
+  .album-card__play,
   .album-card__more {
     opacity: 1;
     transform: none;

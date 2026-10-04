@@ -1,13 +1,20 @@
 /* Press-and-drag row reorder shared by the reorderable row lists. Mouse
-   only — a touch lift would starve the long-press menu timer. The owning
-   table finds the pressed row by `[data-idx]` and clones the `.trackrow`
-   inside it as the ghost. */
+   lifts on press-move; touch/pen lifts on a long press — the queue
+   drawer's grammar, so one hold gesture means "reorder" everywhere. A
+   touch that moves before the lift belongs to the scroller (or the row's
+   own swipe) and cancels the drag. The owning table finds the pressed row
+   by `[data-idx]` and clones the `.trackrow` inside it as the ghost. */
 
 import { useEffect, useRef, useState } from "react";
 import type { PointerEvent as ReactPointerEvent, RefObject } from "react";
 
 /** Mouse press-move slop before a drag lifts. */
 const MOUSE_LIFT_PX = 5;
+/** Hold-to-lift on touch/pen — the home-screen drag grammar. */
+const TOUCH_LIFT_MS = 350;
+/** Movement that cancels a pending touch lift: a touch that travels is
+    a scroll or a row swipe, never a drag request. */
+const TOUCH_CANCEL_PX = 10;
 /** Auto-scroll edge band (px) and top speed (px per frame). */
 const EDGE_PX = 56;
 const EDGE_SPEED = 14;
@@ -26,6 +33,7 @@ export interface RowDragState {
    frame loop must never read stale state. */
 interface DragGesture {
   pointerId: number;
+  touch: boolean;
   from: number;
   el: HTMLElement | null; // the grabbed row wrapper (measured at lift)
   startX: number;
@@ -37,11 +45,13 @@ interface DragGesture {
   rowH: number;
   raf: number | null;
   esc: ((e: KeyboardEvent) => void) | null;
+  liftTimer: number | null;
   canvas: HTMLElement | null; // the shell scroll container (auto-scroll)
 }
 
 const freshGesture = (): DragGesture => ({
   pointerId: -1,
+  touch: false,
   from: -1,
   el: null,
   startX: 0,
@@ -53,8 +63,18 @@ const freshGesture = (): DragGesture => ({
   rowH: 0,
   raf: null,
   esc: null,
+  liftTimer: null,
   canvas: null,
 });
+
+/** Cross-component "a row is lifted" signal: TrackRow's long-press menu
+    reads it to stand down while the drag owns the press. An object property,
+    written only from event handlers — never render. */
+const rowDragBus = { live: false };
+
+export function isRowDragActive(): boolean {
+  return rowDragBus.live;
+}
 
 export interface RowDragOptions {
   /** The reorderable list's container — pointer capture, slot math, and
@@ -90,13 +110,30 @@ export function useRowDragReorder({ containerRef, enabled, count, onMove, onLift
     () => () => {
       const g = gestureRef.current;
       if (g.raf != null) cancelAnimationFrame(g.raf);
+      if (g.liftTimer != null) window.clearTimeout(g.liftTimer);
       if (g.esc) document.removeEventListener("keydown", g.esc);
+      rowDragBus.live = false;
       ghostRef.current?.remove();
       ghostRef.current = null;
       if (settleTimerRef.current) window.clearTimeout(settleTimerRef.current);
     },
     [],
   );
+
+  // Past the lift the gesture owns vertical movement: a non-passive
+  // listener is the only way to keep the shell's scroller from taking the
+  // touch back once the row is in the hand (the queue drawer's approach).
+  useEffect(() => {
+    const table = containerRef.current;
+    if (!table) return;
+    const block = (e: TouchEvent) => {
+      if (gestureRef.current.lifted) e.preventDefault();
+    };
+    table.addEventListener("touchmove", block, { passive: false });
+    return () => table.removeEventListener("touchmove", block);
+    // The table element is stable for the hook's lifetime.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const applyDrag = (next: RowDragState | null) => {
     dragRef.current = next;
@@ -107,8 +144,18 @@ export function useRowDragReorder({ containerRef, enabled, count, onMove, onLift
   const resetGesture = () => {
     const g = gestureRef.current;
     if (g.raf != null) cancelAnimationFrame(g.raf);
+    if (g.liftTimer != null) window.clearTimeout(g.liftTimer);
     if (g.esc) document.removeEventListener("keydown", g.esc);
+    rowDragBus.live = false;
     gestureRef.current = freshGesture();
+  };
+
+  const clearLiftTimer = () => {
+    const g = gestureRef.current;
+    if (g.liftTimer != null) {
+      window.clearTimeout(g.liftTimer);
+      g.liftTimer = null;
+    }
   };
 
   /** Commit (or cancel): settle the ghost onto the slot, then clean up. */
@@ -144,12 +191,14 @@ export function useRowDragReorder({ containerRef, enabled, count, onMove, onLift
     const g = gestureRef.current;
     const table = containerRef.current;
     const rowEl = g.el;
+    clearLiftTimer();
     if (!table || !rowEl?.isConnected) {
       resetGesture();
       return;
     }
     const rowRect = rowEl.getBoundingClientRect();
     g.lifted = true;
+    rowDragBus.live = true;
     g.grabDy = g.clientY - rowRect.top;
     g.rowH = rowRect.height;
     // Pointer capture retargets the release to the table — a committed drag
@@ -159,6 +208,8 @@ export function useRowDragReorder({ containerRef, enabled, count, onMove, onLift
     } catch {
       // The pointer may have died between down and lift — up/cancel clean up.
     }
+    // Haptic tick on lift, where the platform allows it (the queue's grammar).
+    if (g.touch && "vibrate" in navigator) navigator.vibrate(10);
     // The ghost: the row itself, cloned at lift and elevated. Live hover
     // chrome can't be photographed (the clone is pointer-events: none), so
     // it always reads as the row at rest. A wrapper-less row (Favorites) IS
@@ -235,7 +286,9 @@ export function useRowDragReorder({ containerRef, enabled, count, onMove, onLift
 
   const onPointerDown = (e: ReactPointerEvent) => {
     if (!enabled) return;
-    if (e.pointerType !== "mouse" || e.button !== 0) return;
+    const mouse = e.pointerType === "mouse";
+    if (mouse && e.button !== 0) return;
+    if (!mouse && e.pointerType !== "touch" && e.pointerType !== "pen") return;
     if (gestureRef.current.pointerId !== -1) return;
     if (ghostRef.current) return; // a settle is still in flight
     const target = e.target as Element;
@@ -248,6 +301,7 @@ export function useRowDragReorder({ containerRef, enabled, count, onMove, onLift
     gestureRef.current = {
       ...freshGesture(),
       pointerId: e.pointerId,
+      touch: !mouse,
       from,
       el: rowEl,
       startX: e.clientX,
@@ -256,6 +310,11 @@ export function useRowDragReorder({ containerRef, enabled, count, onMove, onLift
       clientY: e.clientY,
       canvas: containerRef.current?.closest<HTMLElement>(".shell__canvas") ?? null,
     };
+    // Touch lifts on a hold; a moving touch cancels below (scroll and the
+    // row's swipe keep their native gestures). Mouse lifts on press-move.
+    if (!mouse) {
+      gestureRef.current.liftTimer = window.setTimeout(lift, TOUCH_LIFT_MS);
+    }
   };
 
   const onPointerMove = (e: ReactPointerEvent) => {
@@ -264,6 +323,14 @@ export function useRowDragReorder({ containerRef, enabled, count, onMove, onLift
     g.clientX = e.clientX;
     g.clientY = e.clientY;
     if (!g.lifted) {
+      if (g.touch) {
+        // A touch that travels before the lift is a scroll (or the row's
+        // swipe-to-remove): stand down and let it belong to the surface.
+        const dx = e.clientX - g.startX;
+        const dy = e.clientY - g.startY;
+        if (dx * dx + dy * dy >= TOUCH_CANCEL_PX * TOUCH_CANCEL_PX) resetGesture();
+        return;
+      }
       const dx = e.clientX - g.startX;
       const dy = e.clientY - g.startY;
       if (dx * dx + dy * dy >= MOUSE_LIFT_PX * MOUSE_LIFT_PX) lift();
@@ -293,7 +360,7 @@ export function useRowDragReorder({ containerRef, enabled, count, onMove, onLift
   const onPointerLeave = (e: ReactPointerEvent) => {
     const g = gestureRef.current;
     // A mouse pressed-but-not-lifted that leaves the list is a dead arm.
-    if (g.lifted || g.pointerId !== e.pointerId) return;
+    if (g.touch || g.lifted || g.pointerId !== e.pointerId) return;
     resetGesture();
   };
 

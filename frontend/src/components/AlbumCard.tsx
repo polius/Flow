@@ -5,7 +5,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { api } from "../api/client";
 import type { AlbumSummary, QueueOrigin } from "../api/types";
@@ -22,6 +22,7 @@ export function AlbumCard({ album }: { album: AlbumSummary }) {
   const openAddToPlaylist = useUiStore((s) => s.openAddToPlaylist);
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const queryClient = useQueryClient();
 
   // The album IS the origin: playing or shuffling the card names
   // it, so the queue's "Playing from" sentence is born telling the truth.
@@ -31,15 +32,19 @@ export function AlbumCard({ album }: { album: AlbumSummary }) {
     href: `/albums/${album.id}`,
   };
 
-  // Tracks resolve when the menu asks for them — never on grid render.
+  // Tracks resolve when an action asks for them — never on grid render.
+  // The card's Play shares the fetch (on demand, below); the menu's items
+  // read the query result once opening it has triggered the load. Same key
+  // the detail view caches under, so a visit reuses what the card fetched.
+  const fetchDetail = async () => {
+    const { data } = await api.GET("/api/albums/{album_id}", {
+      params: { path: { album_id: album.id } },
+    });
+    return data;
+  };
   const { data: detail } = useQuery({
     queryKey: ["album", album.id],
-    queryFn: async () => {
-      const { data } = await api.GET("/api/albums/{album_id}", {
-        params: { path: { album_id: album.id } },
-      });
-      return data;
-    },
+    queryFn: fetchDetail,
     enabled: menuOpen,
   });
   const tracks = detail?.tracks ?? [];
@@ -67,8 +72,19 @@ export function AlbumCard({ album }: { album: AlbumSummary }) {
     setMenuOpen(false);
   };
 
-  const play = () => {
-    if (tracks.length > 0) playTracks(tracks, 0, origin);
+  // Play resolves the list on demand — cache when something (the menu, a
+  // detail visit) already fetched it, one server call when not. The button
+  // must never sit disabled waiting on that fetch: a disabled play is a
+  // dead tap AND the arrow cursor the action pair must never show.
+  const play = async () => {
+    const resolved =
+      detail ??
+      (await queryClient.fetchQuery({
+        queryKey: ["album", album.id],
+        queryFn: fetchDetail,
+      }));
+    const list = resolved?.tracks ?? [];
+    if (list.length > 0) playTracks(list, 0, origin);
   };
   const shuffle = () => {
     if (tracks.length === 0) return;
@@ -94,7 +110,6 @@ export function AlbumCard({ album }: { album: AlbumSummary }) {
             type="button"
             className="album-card__play"
             onClick={play}
-            disabled={loading || tracks.length === 0}
             aria-label={`Play ${album.title}`}
             title="Play album"
           >
