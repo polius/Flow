@@ -4,48 +4,16 @@
  */
 
 export interface paths {
-    "/api/auth/login": {
+    "/api/health": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        requestBody?: never;
-        /** Login */
-        post: operations["login_api_auth_login_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/auth/logout": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Logout */
-        post: operations["logout_api_auth_logout_post"];
+        /** Health */
+        get: operations["health_api_health_get"];
         put?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/auth/password": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Set Password */
-        get?: never;
-        put: operations["set_password_api_auth_password_put"];
         post?: never;
         delete?: never;
         options?: never;
@@ -60,7 +28,13 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Auth Status */
+        /**
+         * Auth Status
+         * @description Auth status.
+         *
+         *     One question per page load: is login on, and does this browser
+         *     already hold a valid session?
+         */
         get: operations["auth_status_api_auth_status_get"];
         put?: never;
         post?: never;
@@ -70,16 +44,65 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/health": {
+    "/api/auth/login": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** Health */
-        get: operations["health_api_health_get"];
+        get?: never;
         put?: never;
+        /**
+         * Login
+         * @description Login. Verify the password and set the session cookie.
+         */
+        post: operations["login_api_auth_login_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/logout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Logout
+         * @description Logout. Revoke this browser's session and clear the cookie.
+         */
+        post: operations["logout_api_auth_logout_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set Password
+         * @description Set Password. Turn login on, change the password, or turn it off
+         *     (password: null).
+         *
+         *     When login is already on, the middleware requires a session to reach
+         *     here — Settings changes come from a signed-in browser. Turning login
+         *     on issues this browser its session immediately, so the person who
+         *     enabled it isn't locked out by their own next click.
+         */
+        put: operations["set_password_api_auth_password_put"];
         post?: never;
         delete?: never;
         options?: never;
@@ -684,31 +707,6 @@ export interface components {
             /** Cover Artwork Id */
             cover_artwork_id?: number | null;
         };
-        /** AuthStatus */
-        AuthStatus: {
-            /** Enabled */
-            enabled: boolean;
-            /** Authenticated */
-            authenticated: boolean;
-        };
-        /** LoginIn */
-        LoginIn: {
-            /**
-             * Password
-             * @minLength 1
-             * @maxLength 128
-             */
-            password: string;
-        };
-        /** PasswordIn */
-        PasswordIn: {
-            /**
-             * Password
-             * @minLength 4
-             * @maxLength 128
-             */
-            password: string | null;
-        };
         /** ArtistDetail */
         ArtistDetail: {
             /** Id */
@@ -758,6 +756,13 @@ export interface components {
         ArtistUpdate: {
             /** Cover Artwork Id */
             cover_artwork_id?: number | null;
+        };
+        /** AuthStatus */
+        AuthStatus: {
+            /** Enabled */
+            enabled: boolean;
+            /** Authenticated */
+            authenticated: boolean;
         };
         /** Body_set_album_cover_api_albums__album_id__cover_put */
         Body_set_album_cover_api_albums__album_id__cover_put: {
@@ -868,6 +873,20 @@ export interface components {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
         };
+        /**
+         * Health
+         * @description Liveness + the running version. The frontend's topbar badge reads
+         *     the version from here, so it always matches the serving backend.
+         */
+        Health: {
+            /**
+             * Status
+             * @constant
+             */
+            status: "ok";
+            /** Version */
+            version: string;
+        };
         /** LibraryCounts */
         LibraryCounts: {
             /** Tracks */
@@ -878,6 +897,21 @@ export interface components {
             artists: number;
             /** Playlists */
             playlists: number;
+        };
+        /** LoginIn */
+        LoginIn: {
+            /** Password */
+            password: string;
+        };
+        /**
+         * PasswordIn
+         * @description `password: null` turns login OFF; a string turns it on or replaces it.
+         *     The field is required (never defaulted) so an absent key is a 422, not
+         *     an accidental disable.
+         */
+        PasswordIn: {
+            /** Password */
+            password: string | null;
         };
         /** PlaylistCreate */
         PlaylistCreate: {
@@ -1329,6 +1363,26 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    health_api_health_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Health"];
+                };
+            };
+        };
+    };
     auth_status_api_auth_status_get: {
         parameters: {
             query?: never;
@@ -1431,28 +1485,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    health_api_health_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
                 };
             };
         };

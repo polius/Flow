@@ -20,6 +20,7 @@ import { NavLink, useLocation, useNavigate, useSearchParams } from "react-router
 import { useQuery } from "@tanstack/react-query";
 
 import { api } from "../api/client";
+import { useAppVersion } from "../api/system";
 import { fmtCount, scanProgressFraction, scanStatusLabel } from "../lib/format";
 import { useMediaQuery } from "../lib/media";
 import { useScanStore } from "../stores/scan";
@@ -80,6 +81,9 @@ export function TopBar() {
   const focusSignal = useUiStore((s) => s.searchFocusSignal);
   const scan = useScanStore((s) => s.status);
   const scanning = scan?.state === "scanning";
+  // The version badge after the wordmark — whatever the serving backend
+  // says, never a second constant to keep in step.
+  const { data: version } = useAppVersion();
   // Wide windows: the section nav wears visible labels. The only JS
   // consumer is the tooltip — a labeled control needs no "Tracks" tooltip
   // hovering beside the word "Tracks".
@@ -175,7 +179,10 @@ export function TopBar() {
         <span className="topbar__brand-mark">
           <IconMusicNote size={17} />
         </span>
-        <span className="topbar__brand-name">Flow</span>
+        <span className="topbar__brand-name">
+          Flow
+          {version && <span className="topbar__brand-version">v{version}</span>}
+        </span>
       </NavLink>
 
       {/* Global scan indicator. Quiet, tabular, honest; gone the moment

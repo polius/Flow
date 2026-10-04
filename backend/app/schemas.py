@@ -68,6 +68,17 @@ class PasswordIn(BaseModel):
     password: str | None = Field(..., min_length=4, max_length=128)
 
 
+# ---- System --------------------------------------------------------------------
+
+
+class Health(BaseModel):
+    """Liveness + the running version. The frontend's topbar badge reads
+    the version from here, so it always matches the serving backend."""
+
+    status: Literal["ok"]
+    version: str
+
+
 # ---- Library -----------------------------------------------------------------
 
 

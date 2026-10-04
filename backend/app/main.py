@@ -11,6 +11,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
+from app import __version__
 from app import auth as auth_core
 from app import config
 from app import demo as demo_mode
@@ -27,6 +28,7 @@ from app.routers import queue as queue_router
 from app.routers import scan as scan_router
 from app.routers import search as search_router
 from app.routers import settings as settings_router
+from app.schemas import Health
 from app.watcher import LibraryWatcher
 
 logging.basicConfig(
@@ -88,7 +90,7 @@ def create_app() -> FastAPI:
 
     app = FastAPI(
         title="Flow",
-        version="0.1.0",
+        version=__version__,
         openapi_url="/api/openapi.json",
         docs_url="/api/docs",
         lifespan=lifespan,
@@ -97,11 +99,13 @@ def create_app() -> FastAPI:
     app.state.scan_bus = bus
     app.state.scanner = scanner
 
-    @app.get("/api/health", tags=["system"])
-    def health() -> dict:
+    @app.get("/api/health", tags=["system"], response_model=Health)
+    def health() -> Health:
         # Real liveness check: a broken database means an unhealthy container.
+        # Typed so `version` is part of the OpenAPI contract the frontend
+        # generates its client from — the topbar badge reads it from here.
         db.connect().execute("SELECT 1").fetchone()
-        return {"status": "ok", "version": app.version}
+        return Health(status="ok", version=app.version)
 
     # ---- the login gate ------------------------------------------------------
     # When no password is set (auth off) this is a pass-through. When one is,
