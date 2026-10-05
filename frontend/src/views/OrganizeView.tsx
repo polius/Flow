@@ -20,7 +20,7 @@ import { AlbumFilterMenu } from "../components/AlbumFilterMenu";
 import { EmptyState } from "../components/EmptyState";
 import { LoadingState } from "../components/LoadingState";
 import { OrganizeGrid, type SelectAllState } from "../components/OrganizeGrid";
-import { ReviewStrip, useReviewSummary } from "../components/ReviewStrip";
+import { ReviewStrip, REVIEW_FILTER_KEYS, useReviewSummary } from "../components/ReviewStrip";
 import { IconClose, IconOrganize, IconSearch } from "../components/icons";
 import { useCurrentTrack } from "../stores/player";
 import { useUiStore } from "../stores/ui";
@@ -57,7 +57,11 @@ const isInteractiveTarget = (el: EventTarget | null): boolean => {
 export function OrganizeView() {
   const [searchParams, setSearchParams] = useSearchParams();
   const urlQ = searchParams.get("q") ?? "";
-  const review = searchParams.get("review");
+  const reviewParam = searchParams.get("review");
+  // Stale URLs outlive their pill (bookmark, restored tab). An unknown key
+  // would 422 the tracks query — degrade to no filter instead.
+  const review =
+    reviewParam && REVIEW_FILTER_KEYS.has(reviewParam) ? reviewParam : null;
   const albumParam = searchParams.get("album_id");
   const artistParam = searchParams.get("artist_id");
   const albumId = albumParam != null ? Number(albumParam) : null;

@@ -282,7 +282,6 @@ class ReviewSummary(BaseModel):
     no_album: int
     single_track_albums: int
     mixed_album_artist_albums: int
-    missing_track_no: int
     suffix_collisions: int
     collision_groups: list[CollisionGroup]
     undo_available: bool

@@ -330,7 +330,6 @@ def review_summary(request: Request) -> ReviewSummary:
         return conn.execute(sql).fetchone()["c"]
 
     no_album = count("SELECT COUNT(*) AS c FROM tracks WHERE album_id IS NULL")
-    missing_track_no = count("SELECT COUNT(*) AS c FROM tracks WHERE track_no IS NULL")
     single_track_albums = count(
         "SELECT COUNT(*) AS c FROM (SELECT album_id FROM tracks "
         "WHERE album_id IS NOT NULL GROUP BY album_id HAVING COUNT(*) = 1)"
@@ -372,7 +371,6 @@ def review_summary(request: Request) -> ReviewSummary:
         no_album=no_album,
         single_track_albums=single_track_albums,
         mixed_album_artist_albums=mixed_album_artist_albums,
-        missing_track_no=missing_track_no,
         suffix_collisions=len(collisions),
         collision_groups=collisions[:24],
         undo_available=undo_row is not None,

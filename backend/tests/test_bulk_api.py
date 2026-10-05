@@ -223,9 +223,6 @@ def test_undo_clears_and_recreates_entities(client, library):
 
 def test_review_filters_on_track_list(client, library):
     assert client.get("/api/tracks", params={"review": "no_album"}).json()["total"] == 1
-    assert (
-        client.get("/api/tracks", params={"review": "missing_track_no"}).json()["total"] == 1
-    )
     # The Wall and The Wall (Deluxe Edition) each hold one track.
     assert (
         client.get("/api/tracks", params={"review": "single_track_albums"}).json()["total"]
@@ -268,7 +265,6 @@ def test_curate_sort_keeps_same_titled_albums_contiguous(client, library):
 def test_review_summary_counts(client, library):
     summary = client.get("/api/review/summary").json()
     assert summary["no_album"] == 1
-    assert summary["missing_track_no"] == 1
     assert summary["single_track_albums"] == 2
     assert summary["mixed_album_artist_albums"] == 0
     assert summary["undo_available"] is False

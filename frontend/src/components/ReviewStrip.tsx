@@ -3,6 +3,15 @@
    for the grid below. Text-first and quiet — a healthy library collapses
    to one calm line. */
 
+/** The review-filter keys the grid understands — the pill keys above. Used
+    to sanitize the ?review= URL param: a bookmark or restored tab pointing
+    at a pill that no longer exists must degrade to "no filter", not 422. */
+export const REVIEW_FILTER_KEYS: ReadonlySet<string> = new Set([
+  "no_album",
+  "single_track_albums",
+  "mixed_album_artist",
+]);
+
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 
@@ -55,11 +64,6 @@ export function ReviewStrip({ summary, activeReview, onPick, onPickAlbum }: Revi
       count: summary.mixed_album_artist_albums,
       label: summary.mixed_album_artist_albums === 1 ? "album mixes album artists" : "albums mix album artists",
     },
-    {
-      key: "missing_track_no",
-      count: summary.missing_track_no,
-      label: summary.missing_track_no === 1 ? "track lacks a track number" : "tracks lack a track number",
-    },
   ];
   const problems = items.filter((i) => i.count > 0);
   const clean = problems.length === 0 && summary.suffix_collisions === 0;
@@ -67,7 +71,7 @@ export function ReviewStrip({ summary, activeReview, onPick, onPickAlbum }: Revi
   if (clean) {
     return (
       <p className="orgstrip orgstrip--clean" role="status">
-        Nothing needs attention — every track is grouped and numbered.
+        Nothing needs attention — every track is grouped.
       </p>
     );
   }
@@ -181,7 +185,6 @@ export function useReviewCount(): number {
       data.no_album +
       data.single_track_albums +
       data.mixed_album_artist_albums +
-      data.missing_track_no +
       data.suffix_collisions
     );
   }, [data]);
