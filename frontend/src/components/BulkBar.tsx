@@ -1,7 +1,7 @@
 /* The Organize view's selection bar: bulk set (album/artist/genre) with
    suggestions from the existing entities, and a confirm sheet with honest
-   arithmetic (count + what gets removed). The result banner doubles as the
-   undo affordance for the last apply. */
+   arithmetic (count + what gets removed). The apply itself reports through
+   the app's undo pill — this component only gathers the change. */
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -9,7 +9,6 @@ import { useQuery } from "@tanstack/react-query";
 import { api } from "../api/client";
 import type { Track } from "../api/types";
 import { useUiStore } from "../stores/ui";
-import { IconClose } from "./icons";
 
 export type BulkField = "artist" | "album" | "album_artist" | "genre";
 
@@ -400,32 +399,5 @@ function ConsequenceLine({
       <strong>{shown.map((n) => `“${n}”`).join(", ")}</strong>
       {rest > 0 ? ` and ${rest} more` : ""} {suffix}.
     </p>
-  );
-}
-
-export function BulkBanner({
-  applied,
-  onUndo,
-  onDismiss,
-}: {
-  applied: number;
-  onUndo: () => void;
-  onDismiss: () => void;
-}) {
-  useEffect(() => {
-    const t = window.setTimeout(onDismiss, 8000);
-    return () => window.clearTimeout(t);
-  }, [applied, onDismiss]);
-  return (
-    <div className="orgbar orgbar--banner" role="status" aria-live="polite">
-      <span className="orgbar__count">Updated {applied.toLocaleString()} {applied === 1 ? "track" : "tracks"}</span>
-      <span className="orgbar__sep" aria-hidden="true" />
-      <button type="button" className="orgbar__action" onClick={onUndo}>
-        Undo
-      </button>
-      <button type="button" className="orgbar__quiet" aria-label="Dismiss" onClick={onDismiss}>
-        <IconClose size={14} />
-      </button>
-    </div>
   );
 }

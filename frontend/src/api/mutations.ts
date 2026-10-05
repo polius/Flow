@@ -173,8 +173,13 @@ export function useBulkApply() {
   };
 }
 
-export function useUndoBulkApply() {
+/** Undo the last library edit. One generation, server-side, overwritten by
+    every write — single PATCH, bulk apply, drag-reorder — so the toast
+    pill's Undo and Organize's ⌘Z are two doors to the same room. On
+    success the pill quietly restates the outcome: restored, not updated. */
+export function useUndoTrackEdit() {
   const queryClient = useQueryClient();
+  const showUndoNotice = useUiStore((s) => s.showUndoNotice);
   return async (): Promise<number | null> => {
     const { data, response } = await api.POST("/api/tracks/bulk/undo");
     if (!response.ok || !data) return null;
@@ -186,21 +191,38 @@ export function useUndoBulkApply() {
     void queryClient.invalidateQueries({ queryKey: ["search"] });
     void queryClient.invalidateQueries({ queryKey: ["genres"] });
     void queryClient.invalidateQueries({ queryKey: ["review"] });
+    if (data.applied > 0) {
+      showUndoNotice({
+        message: `Restored ${data.applied.toLocaleString()} ${data.applied === 1 ? "track" : "tracks"}`,
+      });
+    }
     return data.applied;
   };
 }
 
 /** Drag-reorder: one album's tracks in their new order — the server
-    renumbers 1..n and flags each overlay-edited. */
+    renumbers 1..n and flags each overlay-edited. The reorder lands in the
+    same undo generation as any edit, so the pill's Undo puts the numbers
+    back (used by Organize's grid and the album page alike). */
 export function useReorderTracks() {
   const queryClient = useQueryClient();
+  const showUndoNotice = useUiStore((s) => s.showUndoNotice);
+  const undoEdit = useUndoTrackEdit();
   return async (trackIds: number[]): Promise<boolean> => {
-    const { response } = await api.POST("/api/tracks/reorder", {
+    const { data, response } = await api.POST("/api/tracks/reorder", {
       body: { track_ids: trackIds },
     });
     if (response.ok) {
       void queryClient.invalidateQueries({ queryKey: ["tracks"] });
       void queryClient.invalidateQueries({ queryKey: ["review"] });
+      if ((data?.applied ?? 0) > 0) {
+        showUndoNotice({
+          message: `Reordered ${data!.applied.toLocaleString()} ${data!.applied === 1 ? "track" : "tracks"}`,
+          undo: async () => {
+            await undoEdit();
+          },
+        });
+      }
     }
     return response.ok;
   };

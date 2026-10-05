@@ -305,6 +305,25 @@ def test_reorder_renumbers_and_sets_overlay(client, library):
     assert client.get(f"/api/tracks/{loose['id']}").json()["track_no"] == 1
 
 
+def test_reorder_is_undoable(client, library):
+    """A drag-reorder stores the pre-drag numbers as the undo generation;
+    bulk/undo puts them back (including a number that was unset)."""
+    first = _track(client, "First")
+    second = _track(client, "Second")
+    loose = _track(client, "Loose")
+
+    client.post(
+        "/api/tracks/reorder",
+        json={"track_ids": [second["id"], first["id"], loose["id"]]},
+    )
+    out = client.post("/api/tracks/bulk/undo")
+    assert out.status_code == 200
+    assert out.json()["applied"] == 3
+
+    numbers = {t["id"]: t["track_no"] for t in client.get("/api/tracks").json()["items"]}
+    assert numbers == {first["id"]: 1, second["id"]: 2, loose["id"]: None}
+
+
 # ---- Favorites manual order ----
 
 
@@ -372,3 +391,43 @@ def test_favorites_reorder_writes_manual_order(client, library):
 def test_favorites_reorder_rejects_empty(client, library):
     out = client.post("/api/favorites/reorder", json={"track_ids": []})
     assert out.status_code == 422
+
+
+# ---- single-edit undo ----
+
+
+def test_single_patch_stores_undo_generation(client, library):
+    """A single-track PATCH joins the same one-generation undo as a bulk
+    apply: bulk/undo restores every field the patch touched."""
+    track = _track(client, "Loose")
+
+    out = client.patch(
+        f"/api/tracks/{track['id']}", json={"title": "Renamed", "genre": "Rock"}
+    )
+    assert out.status_code == 200
+    assert client.get("/api/review/summary").json()["undo_available"] is True
+
+    undone = client.post("/api/tracks/bulk/undo")
+    assert undone.status_code == 200
+    assert undone.json()["applied"] == 1
+
+    restored = client.get(f"/api/tracks/{track['id']}").json()
+    assert restored["title"] == "Loose"
+    assert restored["genre"] is None
+    # The generation is spent — one undo, like every other edit.
+    assert client.post("/api/tracks/bulk/undo").status_code == 404
+
+
+def test_favorite_patch_leaves_undo_generation_alone(client, library):
+    """The heart's PATCH carries no metadata fields, so it must not clobber
+    a pending undo generation — the heart has its own undo elsewhere."""
+    track = _track(client, "Loose")
+    client.patch(f"/api/tracks/{track['id']}", json={"title": "Renamed"})
+
+    client.patch(f"/api/tracks/{track['id']}", json={"favorite": True})
+    assert client.get("/api/review/summary").json()["undo_available"] is True
+
+    client.post("/api/tracks/bulk/undo")
+    assert client.get(f"/api/tracks/{track['id']}").json()["title"] == "Loose"
+    # The favorite rode its own path and is untouched by the metadata undo.
+    assert client.get(f"/api/tracks/{track['id']}").json()["favorite"] is True
