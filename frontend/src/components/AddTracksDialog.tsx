@@ -194,10 +194,12 @@ export function AddTracksDialog(props: AddTracksDialogProps) {
     }
   };
 
-  // Arrows move the highlight, Enter/Space toggles — from the search field,
-  // so the whole picker runs without leaving the keyboard. Toggle only when
-  // the list reflects what's typed: pressing Enter mid-debounce must not act
-  // on the previous query's results.
+  // Arrows move the highlight, Enter toggles — from the search field, so
+  // the whole picker runs without leaving the keyboard. Space stays a
+  // character: the field is a text input first, and multi-word queries
+  // ("daft punk") must type normally instead of toggling a row. Toggle only
+  // when the list reflects what's typed: pressing Enter mid-debounce must
+  // not act on the previous query's results.
   const onSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     const settled = q === input.trim();
     if (e.key === "ArrowDown") {
@@ -206,7 +208,7 @@ export function AddTracksDialog(props: AddTracksDialogProps) {
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
       setCursor((c) => Math.max(c - 1, 0));
-    } else if (e.key === "Enter" || e.key === " ") {
+    } else if (e.key === "Enter") {
       const track = results[cursor];
       if (settled && track && !existingIds.has(track.id)) {
         e.preventDefault();
