@@ -109,6 +109,14 @@ export function VirtualTrackTable({
      rows are exactly the rows that can be clicked, so every selected id
      resolves to a real track here. */
   const selection = useTrackSelection(tracks, current?.id ?? null);
+  /* Title clicks play through the same whole-view resolution as the
+     Play button, and any live selection dissolves with the play. */
+  const playFromTitle = (index: number) => {
+    selection.clear();
+    const track = tracks[index];
+    if (track != null && track.id === current?.id) togglePlay();
+    else play(index);
+  };
   const openAddToPlaylist = useUiStore((s) => s.openAddToPlaylist);
   const addToQueue = usePlayerStore((s) => s.addToQueue);
   const setFavoriteMany = useSetFavoriteMany();
@@ -216,6 +224,7 @@ export function VirtualTrackTable({
               }}
               dataIdx={canDrag ? item.index : undefined}
               onActivate={play}
+              onTitlePlay={playFromTitle}
               onTogglePlay={togglePlay}
               onToggleFavorite={toggleFavorite}
               onTrackMenu={trackMenu}

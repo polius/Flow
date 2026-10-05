@@ -1,13 +1,12 @@
-/* Multi-select for the listening tables: a plain click on the row body
-   (or a modifier click anywhere, title included) selects the row,
-   Shift-click takes the contiguous range from the anchor. A plain click
-   on the title never reaches here — the row plays it first, before the
-   pill grammar. A fresh modifier selection counts the playing track as
-   already in. Selection is identified by TRACK ID, so a reorder or
-   removal under a live selection moves with the rows instead of
-   re-pointing at different ones. No chrome exists until a selection
-   does; a tap selects on touch too (the long-press menu stays the touch
-   path for the other verbs). */
+/* Multi-select for the listening tables: modifier clicks build the
+   selection — Cmd/Ctrl/Alt toggles a row, Shift takes the contiguous
+   range from the anchor — and a fresh selection counts the playing
+   track as already in. Plain clicks never select: the title plays, and
+   any live selection just dissolves. Selection is identified by TRACK
+   ID, so a reorder or removal under a live selection moves with the
+   rows instead of re-pointing at different ones. No chrome exists until
+   a selection does; the long-press menu stays the touch path for the
+   other verbs. */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -33,10 +32,9 @@ export function useTrackSelection(tracks: Track[], playingId?: number | null) {
     lastIdRef.current = null;
   }, []);
 
-  /** Handles a row click. Always consumes it — a plain click on the row
-      body selects just that row (the title never arrives here: the row
-      plays it first), a modifier-click grows or shrinks the selection
-      around it. */
+  /** Handles a row click. Always consumes it — modifier clicks grow or
+      shrink the selection around the clicked row; a plain click just
+      dissolves any live selection. */
   const onRowClick = useCallback(
     (track: Track, index: number, e: SelectClick): boolean => {
       const mod = e.metaKey || e.ctrlKey || e.altKey;
@@ -75,13 +73,11 @@ export function useTrackSelection(tracks: Track[], playingId?: number | null) {
         for (let i = lo; i <= hi; i++) next.add(tracks[i].id);
         lastIdRef.current = track.id;
       } else {
-        // Plain click: single-select, replaced whole. Re-clicking the lone
-        // selected row keeps it — clearing is Esc and the bar's ×, not a
-        // click trap.
-        next.clear();
-        next.add(track.id);
-        anchorIdRef.current = track.id;
-        lastIdRef.current = track.id;
+        // Plain click: never selects — a live selection dissolves and the
+        // pill hides with it; with none live there is nothing to do.
+        // Building a selection is the modifiers' job.
+        if (ids.size > 0) clear();
+        return true;
       }
       setIds(next);
       return true;

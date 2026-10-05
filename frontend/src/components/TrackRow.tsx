@@ -1,9 +1,9 @@
 /* One track row, shared by TrackTable and VirtualTrackTable so the markup
    can't drift. State comes in as props — neither table owns per-row
-   subscriptions. A plain click on the title plays (the selection pill
-   never opens); every other part of the row, and any modifier click,
-   selects. Playback also belongs to the row's Play button and the
-   keyboard cursor's Enter.
+   subscriptions. A plain click on the title plays; any plain click —
+   title or row body — dissolves a live selection pill, and only
+   modifier clicks build a selection. Playback also belongs to the row's
+   Play button and the keyboard cursor's Enter.
    Playlist rows: hover-revealed minus on desktop, swipe-to-remove on
    touch — the drag opens the action, the tap commits it. */
 import { useEffect, useRef, useState } from "react";
@@ -52,6 +52,10 @@ interface TrackRowProps {
   style?: CSSProperties;
   /** Row activation: play this index (parent decides the play context). */
   onActivate: (index: number) => void;
+  /** Plain title click: play this row now — the table's handler clears
+      any live selection around it (playing is not curation) and gives
+      the current track the Play button's toggle instead of a restart. */
+  onTitlePlay: (index: number) => void;
   onTogglePlay: () => void;
   onToggleFavorite: (track: Track) => void;
   /** Opens the row action menu (right-click / long-press, see TrackActionsMenu). */
@@ -71,10 +75,12 @@ interface TrackRowProps {
   /** Reports open/close so the parent can close the previously open row. */
   onSwipeOpenChange?: (open: boolean) => void;
   /** Marquee selection: every row click is offered to the table's
-      selection hook — plain click single-selects, Cmd/Ctrl/Alt toggles,
-      Shift ranges. The row plays from a plain title click before this is
-      ever reached (modifier title clicks still land here); playback is
-      otherwise the Play button's alone. */
+      selection hook — modifier clicks build the selection (Cmd/Ctrl/Alt
+      toggles, Shift ranges, a fresh one opens with the playing track in
+      it) and a plain click dissolves any live selection. The row plays
+      from a plain title click before this is ever reached (modifier
+      title clicks still land here); playback is otherwise the Play
+      button's alone. */
   onSelectClick?: (
     track: Track,
     index: number,
@@ -92,6 +98,7 @@ export function TrackRow({
   extraClassName,
   style,
   onActivate,
+  onTitlePlay,
   onTogglePlay,
   onToggleFavorite,
   onTrackMenu,
@@ -262,9 +269,10 @@ export function TrackRow({
       onClick={(e) => {
         // The click a long-press or swipe leaves behind is swallowed, and
         // a tap on a revealed row closes it instead. Then the fork: a
-        // plain click on the title plays — the pill never opens — while
-        // every other part of the row, and any modifier click on the
-        // title, keeps the selection grammar.
+        // plain click on the title plays (a live pill dissolves with
+        // it); every other part of the row, and any modifier click on
+        // the title, goes to the selection grammar — where a plain click
+        // just dissolves too.
         if (pressRef.current.fired) {
           pressRef.current.fired = false;
           return;
@@ -285,11 +293,9 @@ export function TrackRow({
           !e.altKey &&
           !e.shiftKey
         ) {
-          // Title click: play — the Play button's exact contract, so the
-          // current track toggles pause instead of restarting. Cmd/Ctrl,
-          // Alt, and Shift fall through to selection (the pill).
-          if (isCurrent) onTogglePlay();
-          else onActivate(index);
+          // Title click: play — a live pill dissolves with it. Cmd/Ctrl,
+          // Alt, and Shift fall through to selection.
+          onTitlePlay(index);
           return;
         }
         onSelectClick?.(track, index, e);
