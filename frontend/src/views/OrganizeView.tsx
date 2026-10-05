@@ -1,21 +1,24 @@
 /* Organize: mass curation of the library's SQLite metadata — never the
    files; every edit is an overlay through the same path as Get Info, so
    rescans preserve it. Keys: arrows move the cursor, Space selects, Enter
-   edits, ⌘A selects all matching, ⌘Z undoes the last bulk apply. */
+   edits, ⌘A selects all matching. Every change — a cell edit, Get Info,
+   a bulk apply, a drag-reorder — lands in one server-side undo generation
+   and announces itself in the app's undo pill (bottom); ⌘Z is its
+   keyboard twin. */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { useSearchParams } from "react-router";
 
 import { api } from "../api/client";
-import type { BulkApplyIn, Track } from "../api/types";
+import type { BulkApplyIn, Track, TrackPatch } from "../api/types";
 import {
   useBulkApply,
   usePatchTrack,
   useReorderTracks,
-  useUndoBulkApply,
+  useUndoTrackEdit,
 } from "../api/mutations";
-import { BulkBar, BulkBanner } from "../components/BulkBar";
+import { BulkBar } from "../components/BulkBar";
 import { AlbumFilterMenu } from "../components/AlbumFilterMenu";
 import { EmptyState } from "../components/EmptyState";
 import { LoadingState } from "../components/LoadingState";
@@ -54,6 +57,14 @@ const isInteractiveTarget = (el: EventTarget | null): boolean => {
   );
 };
 
+/** The undo pill's wording for a field set/clear — the same phrase an
+    inline cell edit and a bulk apply produce, so the gesture's size is
+    the only difference the user reads. */
+function bulkChangeMessage(field: string, value: string): string {
+  const label = field === "album_artist" ? "album artist" : field;
+  return value.trim() ? `Set ${label} to “${value.trim()}”` : `Cleared ${label}`;
+}
+
 export function OrganizeView() {
   const [searchParams, setSearchParams] = useSearchParams();
   const urlQ = searchParams.get("q") ?? "";
@@ -86,12 +97,13 @@ export function OrganizeView() {
   const compact = useCompactMode();
   const openGetInfo = useUiStore((s) => s.openGetInfo);
   const openTrackMenu = useUiStore((s) => s.openTrackMenu);
+  const showUndoNotice = useUiStore((s) => s.showUndoNotice);
   const current = useCurrentTrack();
 
   const summary = useReviewSummary();
   const patchTrack = usePatchTrack();
   const bulkApply = useBulkApply();
-  const undoBulk = useUndoBulkApply();
+  const undoEdit = useUndoTrackEdit();
   const reorderTracks = useReorderTracks();
 
   // ---- filters -----------------------------------------------------------
@@ -288,7 +300,6 @@ export function OrganizeView() {
   const [cursorIndex, setCursorIndex] = useState<number | null>(null);
   const [editTrackId, setEditTrackId] = useState<number | null>(null);
   const [applying, setApplying] = useState(false);
-  const [banner, setBanner] = useState<{ kind: "applied" | "undone"; n: number } | null>(null);
 
   const editAt = useCallback((index: number) => {
     const t = tracks[index];
@@ -299,13 +310,14 @@ export function OrganizeView() {
     window.setTimeout(() => setEditTrackId((cur) => (cur === t.id ? null : cur)), 400);
   }, [tracks]);
 
-  // ⌘Z — undo the last bulk apply (one generation, server-side).
-  const undo = useCallback(async () => {
+  // ⌘Z — undo the last edit (one generation, server-side). The undo pill
+  // offers the same reversal after every change; the shortcut is its
+  // keyboard twin, and the summary's refetch after undo closes the gate.
+  const undoLastEdit = useCallback(async () => {
     setApplying(true);
-    const n = await undoBulk();
+    await undoEdit();
     setApplying(false);
-    if (n != null) setBanner({ kind: "undone", n });
-  }, [undoBulk]);
+  }, [undoEdit]);
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -313,17 +325,22 @@ export function OrganizeView() {
         if (isInteractiveTarget(e.target)) return;
         if (summary.data?.undo_available) {
           e.preventDefault();
-          void undo();
+          void undoLastEdit();
         }
       }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [undo, summary.data?.undo_available]);
+  }, [undoLastEdit, summary.data?.undo_available]);
 
   // ---- apply ----------------------------------------------------------------
   const applyBulk = useCallback(
-    async (changes: { artist?: string; album?: string; album_artist?: string }) => {
+    async (changes: {
+      artist?: string;
+      album?: string;
+      album_artist?: string;
+      genre?: string;
+    }) => {
       setApplying(true);
       const body: BulkApplyIn = allMatching
         ? {
@@ -339,34 +356,74 @@ export function OrganizeView() {
       setApplying(false);
       if (n != null) {
         clearSelection();
-        setBanner({ kind: "applied", n });
+        // The pill speaks the user's action, not the mechanism — what was
+        // set, to what, across how many tracks. Undo rides the server's
+        // edit undo, the exact path ⌘Z takes.
+        const [field] = Object.keys(changes);
+        const value = field ? (changes[field as keyof typeof changes] ?? "") : "";
+        showUndoNotice({
+          message: `${bulkChangeMessage(field ?? "", value)} · ${n.toLocaleString()} ${
+            n === 1 ? "track" : "tracks"
+          }`,
+          undo: async () => {
+            await undoEdit();
+          },
+        });
       }
     },
-    [allMatching, urlQ, review, albumId, artistId, exceptIds, selected, bulkApply, clearSelection],
+    [
+      allMatching,
+      urlQ,
+      review,
+      albumId,
+      artistId,
+      exceptIds,
+      selected,
+      bulkApply,
+      clearSelection,
+      showUndoNotice,
+      undoEdit,
+    ],
   );
 
   // ---- cell commits ----------------------------------------------------------
+  // A single cell edit is the same undoable write as a bulk apply: the pill
+  // names what changed; Undo puts the previous value back server-side.
+  const commitCell = useCallback(
+    async (t: Track, patch: TrackPatch, message: string) => {
+      if (await patchTrack(t.id, patch)) {
+        showUndoNotice({
+          message,
+          undo: async () => {
+            await undoEdit();
+          },
+        });
+      }
+    },
+    [patchTrack, showUndoNotice, undoEdit],
+  );
   const commitTitle = useCallback(
-    async (t: Track, title: string) => void patchTrack(t.id, { title }),
-    [patchTrack],
+    (t: Track, title: string) => commitCell(t, { title }, `Renamed to “${title}”`),
+    [commitCell],
   );
   const commitArtist = useCallback(
-    async (t: Track, artist: string) => void patchTrack(t.id, { artist }),
-    [patchTrack],
+    (t: Track, artist: string) => commitCell(t, { artist }, bulkChangeMessage("artist", artist)),
+    [commitCell],
   );
   const commitAlbum = useCallback(
-    async (t: Track, album: string) => void patchTrack(t.id, { album }),
-    [patchTrack],
+    (t: Track, album: string) => commitCell(t, { album }, bulkChangeMessage("album", album)),
+    [commitCell],
   );
   const commitGenre = useCallback(
-    async (t: Track, genre: string) => void patchTrack(t.id, { genre }),
-    [patchTrack],
+    (t: Track, genre: string) => commitCell(t, { genre }, bulkChangeMessage("genre", genre)),
+    [commitCell],
   );
 
   // Drag-reorder within an album: the grid resolves one album's block into
   // its new order; the server renumbers 1..n as overlay edits. The drag is
   // the only way order is written, so the numbers can never disagree with
-  // the rows.
+  // the rows. The hook raises the undo pill — a reorder is an edit like
+  // any other here.
   const onReorderBlock = useCallback(
     async (orderedIds: number[]) => {
       await reorderTracks(orderedIds);
@@ -400,10 +457,7 @@ export function OrganizeView() {
     enabled: artistId != null,
   });
 
-  const undoAvailable = summary.data?.undo_available === true;
-
-  const empty = query.isPending ? (
-    <LoadingState variant="rows" />
+  const empty = query.isPending ? (    <LoadingState variant="rows" />
   ) : tracks.length === 0 ? (
     hasFilters ? (
       <div className="orgempty">
@@ -463,16 +517,6 @@ export function OrganizeView() {
           albumId={albumId}
           onChange={(id) => setParam("album_id", id != null ? String(id) : null)}
         />
-        {undoAvailable && !compact && (
-          <button
-            type="button"
-            className="orgfilter__undo"
-            onClick={() => void undo()}
-            title="Undo the last bulk apply (⌘Z)"
-          >
-            Undo
-          </button>
-        )}
       </div>
 
       <ReviewStrip
@@ -569,18 +613,7 @@ export function OrganizeView() {
         />
       )}
 
-      {!compact && banner && (
-        <BulkBanner
-          applied={banner.n}
-          onUndo={
-            banner.kind === "applied"
-              ? () => void undo()
-              : () => setBanner(null)
-          }
-          onDismiss={() => setBanner(null)}
-        />
-      )}
-      {!compact && !banner && count > 0 && (
+      {!compact && count > 0 && (
         <BulkBar
           count={count}
           filterMode={allMatching}

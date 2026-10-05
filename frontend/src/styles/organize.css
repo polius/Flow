@@ -11,7 +11,7 @@
 
 /* ---- filter field ----------------------------------------------------------- */
 
-/* One working row: the filter pill grows, Undo rides beside it. */
+/* One working row: the filter pill grows beside the album menu. */
 .orgtoolbar {
   display: flex;
   align-items: center;
@@ -81,25 +81,6 @@
 .orgfilter__clear:hover {
   color: var(--text-primary);
   background: var(--bg-hover);
-}
-
-/* Undo sits with the filter — one quiet row of working controls, a sibling
-   pill to the search field it shares the toolbar with. */
-.orgfilter__undo {
-  flex: none;
-  padding: 7px 14px;
-  border: 1px solid var(--control-border);
-  border-radius: 999px;
-  font-size: var(--text-body);
-  font-weight: 600;
-  color: var(--text-primary);
-  transition: background var(--dur-fast) var(--ease-out),
-    border-color var(--dur-fast) var(--ease-out);
-}
-
-.orgfilter__undo:hover {
-  background: var(--bg-hover);
-  border-color: transparent;
 }
 
 /* ---- review strip ("Needs attention") --------------------------------------- */

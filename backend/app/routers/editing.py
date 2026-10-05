@@ -1,4 +1,6 @@
-"""Track editing: single-track PATCH, bulk apply with undo, reorder, review summary."""
+"""Track editing: single-track PATCH, bulk apply, reorder — every write
+lands one server-side undo generation (settings.bulk_undo), so ⌘Z and the
+undo toast always reverse the most recent change, whatever its size."""
 
 from __future__ import annotations
 
@@ -81,6 +83,15 @@ def patch_track(request: Request, track_id: int, patch: TrackPatch) -> TrackOut:
         if cols:
             _run_update(conn, track, cols)
             prune_orphans(conn)
+            # Single edits join the same undo generation as bulk applies:
+            # metadata fields only — the favorite heart carries its own
+            # client-side undo and must not clobber a pending generation.
+            undo_fields = {k: v for k, v in fields.items() if k != "favorite"}
+            if undo_fields:
+                store_undo(
+                    conn,
+                    [{"id": track_id, "fields": {k: _old_value(k, track) for k in undo_fields}}],
+                )
         conn.commit()
         return cols
 
@@ -249,12 +260,18 @@ def reorder_tracks(request: Request, body: TrackReorderIn) -> BulkApplyOut:
 
     def _apply() -> int:
         applied = 0
+        undo_entries: list[dict] = []
         for chunk in _chunks(ids, _CHUNK):
             placeholders = ", ".join("?" * len(chunk))
+            # The pre-drag numbers are the undo entry: re-applying them is
+            # the same overlay write the drag itself performs.
             rows = conn.execute(
-                f"SELECT id, user_edited FROM tracks t WHERE t.id IN ({placeholders})",
+                f"SELECT id, track_no, user_edited FROM tracks t WHERE t.id IN ({placeholders})",
                 chunk,
             ).fetchall()
+            undo_entries.extend(
+                {"id": r["id"], "fields": {"track_no": r["track_no"]}} for r in rows
+            )
             for row in rows:
                 edited = Edited(row["user_edited"]) | Edited.TRACK_NO
                 conn.execute(
@@ -262,6 +279,8 @@ def reorder_tracks(request: Request, body: TrackReorderIn) -> BulkApplyOut:
                     (position_of[row["id"]], int(edited), row["id"]),
                 )
                 applied += 1
+        if applied:
+            store_undo(conn, undo_entries)
         conn.commit()
         return applied
 

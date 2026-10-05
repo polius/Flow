@@ -1,11 +1,13 @@
 /* Get Info — right-side editing panel. Edits land as SQLite overlays via
-   PATCH /api/tracks/{id}; files are never touched. */
+   PATCH /api/tracks/{id}; files are never touched. A save joins the same
+   server-side undo generation as every other library edit, so the pill
+   that follows can always take it back. */
 
 import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 
 import { api } from "../api/client";
-import { usePatchTrack, useToggleFavorite } from "../api/mutations";
+import { usePatchTrack, useToggleFavorite, useUndoTrackEdit } from "../api/mutations";
 import { isTextEditingTarget } from "../lib/shortcuts";
 import { useModalFocus } from "../lib/focus";
 import { Artwork } from "./Artwork";
@@ -16,8 +18,10 @@ import "../styles/editing.css";
 export function GetInfoPanel() {
   const trackId = useUiStore((s) => s.getInfoTrackId);
   const closeGetInfo = useUiStore((s) => s.closeGetInfo);
+  const showUndoNotice = useUiStore((s) => s.showUndoNotice);
   const patchTrack = usePatchTrack();
   const toggleFavorite = useToggleFavorite();
+  const undoEdit = useUndoTrackEdit();
   const surfaceRef = useRef<HTMLElement>(null);
 
   // Modal focus. The panel itself takes focus — not a field: Esc
@@ -95,7 +99,18 @@ export function GetInfoPanel() {
         : {}),
     };
     const ok = await patchTrack(track.id, body);
-    if (ok) closeGetInfo();
+    if (ok) {
+      // The save lands in the same server-side undo generation as every
+      // other library edit; the pill's Undo restores the previous values,
+      // from wherever the panel was opened.
+      showUndoNotice({
+        message: `Updated “${draft.title.trim() || track.title}”`,
+        undo: async () => {
+          await undoEdit();
+        },
+      });
+      closeGetInfo();
+    }
   };
 
   const field = (
