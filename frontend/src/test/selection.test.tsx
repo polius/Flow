@@ -109,6 +109,24 @@ describe("marquee selection", () => {
     expect(result.current.lastIndex()).toBe(3);
   });
 
+  it("a fresh modifier selection counts the playing track as already in", () => {
+    const { result } = renderHook(() => useTrackSelection(tracks, tracks[2].id));
+    click(result, 0, { metaKey: true });
+    expect(result.current.count).toBe(2);
+    expect([...result.current.ids].sort((a, b) => a - b)).toEqual([1, 3]);
+    expect(result.current.selectedTracks.map((t) => t.id)).toEqual([1, 3]);
+  });
+
+  it("clicking the playing track itself selects it alone", () => {
+    const { result } = renderHook(() => useTrackSelection(tracks, tracks[2].id));
+    click(result, 2, { altKey: true });
+    expect(result.current.count).toBe(1);
+    expect([...result.current.ids]).toEqual([3]);
+    // …and a second modifier click on it toggles it back out.
+    click(result, 2, { altKey: true });
+    expect(result.current.count).toBe(0);
+  });
+
   it("Esc clears the selection, but defers while a surface owns the keyboard", () => {
     const { result } = renderHook(() => useTrackSelection(tracks));
     click(result, 0, { metaKey: true });

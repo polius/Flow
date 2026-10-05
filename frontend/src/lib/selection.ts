@@ -2,7 +2,8 @@
    (or a modifier click anywhere, title included) selects the row,
    Shift-click takes the contiguous range from the anchor. A plain click
    on the title never reaches here — the row plays it first, before the
-   pill grammar. Selection is identified by TRACK ID, so a reorder or
+   pill grammar. A fresh modifier selection counts the playing track as
+   already in. Selection is identified by TRACK ID, so a reorder or
    removal under a live selection moves with the rows instead of
    re-pointing at different ones. No chrome exists until a selection
    does; a tap selects on touch too (the long-press menu stays the touch
@@ -21,7 +22,7 @@ export interface SelectClick {
   shiftKey: boolean;
 }
 
-export function useTrackSelection(tracks: Track[]) {
+export function useTrackSelection(tracks: Track[], playingId?: number | null) {
   const [ids, setIds] = useState<ReadonlySet<number>>(() => new Set());
   const anchorIdRef = useRef<number | null>(null);
   const lastIdRef = useRef<number | null>(null);
@@ -41,6 +42,18 @@ export function useTrackSelection(tracks: Track[]) {
       const mod = e.metaKey || e.ctrlKey || e.altKey;
       const next = new Set(ids);
       if (mod) {
+        // The playing track is already in a fresh selection: the first
+        // modifier click files the group (playing + clicked), not the
+        // clicked row alone. Clicking the playing track itself selects
+        // it like any other row.
+        if (
+          next.size === 0 &&
+          playingId != null &&
+          track.id !== playingId &&
+          tracks.some((t) => t.id === playingId)
+        ) {
+          next.add(playingId);
+        }
         if (next.has(track.id)) {
           next.delete(track.id);
           if (lastIdRef.current === track.id) lastIdRef.current = null;
@@ -73,7 +86,7 @@ export function useTrackSelection(tracks: Track[]) {
       setIds(next);
       return true;
     },
-    [ids, tracks, clear],
+    [ids, tracks, clear, playingId],
   );
 
   /** The index of the last-selected row in the current list — the row

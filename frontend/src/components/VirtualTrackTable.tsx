@@ -108,7 +108,7 @@ export function VirtualTrackTable({
      loaded rows; the floating quiet bar files the selection. The loaded
      rows are exactly the rows that can be clicked, so every selected id
      resolves to a real track here. */
-  const selection = useTrackSelection(tracks);
+  const selection = useTrackSelection(tracks, current?.id ?? null);
   const openAddToPlaylist = useUiStore((s) => s.openAddToPlaylist);
   const addToQueue = usePlayerStore((s) => s.addToQueue);
   const setFavoriteMany = useSetFavoriteMany();

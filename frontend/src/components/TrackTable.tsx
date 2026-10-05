@@ -109,7 +109,7 @@ export function TrackTable({
      floating quiet bar files the selection. Transient by construction —
      this component's state — so navigation, a filter change, or a view
      remount clears it; Esc clears it in place (the hook's listener). */
-  const selection = useTrackSelection(tracks);
+  const selection = useTrackSelection(tracks, current?.id ?? null);
   const openAddToPlaylist = useUiStore((s) => s.openAddToPlaylist);
   const addToQueue = usePlayerStore((s) => s.addToQueue);
   const setFavoriteMany = useSetFavoriteMany();
