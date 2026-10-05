@@ -1,9 +1,10 @@
 /* Track table shared by album detail, artist detail, playlists, and
    search. Row markup lives in TrackRow so the windowed VirtualTrackTable
-   renders the exact same rows. Rows select on click; playback is the
-   row's Play button. Playlist + album reorder is the queue's
-   press-and-drag grammar, owned by the shared useRowDragReorder hook —
-   optimistic, with the server call as the source of truth. */
+   renders the exact same rows. A plain title click plays; other clicks
+   select, and playback also answers to the row's Play button. Playlist +
+   album reorder is the queue's press-and-drag grammar, owned by the
+   shared useRowDragReorder hook — optimistic, with the server call as
+   the source of truth. */
 
 import { useEffect, useRef, useState } from "react";
 import type { KeyboardEvent as ReactKeyboardEvent } from "react";

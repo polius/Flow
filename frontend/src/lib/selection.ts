@@ -1,11 +1,12 @@
-/* Multi-select for the listening tables: a plain click selects the row,
-   modifier-click toggles rows in/out, Shift-click takes the contiguous
-   range from the anchor. Playback never fires from a click — the Play
-   button and the keyboard cursor own it. Selection is identified by TRACK
-   ID, so a reorder or removal under a live selection moves with the rows
-   instead of re-pointing at different ones. No chrome exists until a
-   selection does; a tap selects on touch too (the long-press menu stays
-   the touch path for playback and the other verbs). */
+/* Multi-select for the listening tables: a plain click on the row body
+   (or a modifier click anywhere, title included) selects the row,
+   Shift-click takes the contiguous range from the anchor. A plain click
+   on the title never reaches here — the row plays it first, before the
+   pill grammar. Selection is identified by TRACK ID, so a reorder or
+   removal under a live selection moves with the rows instead of
+   re-pointing at different ones. No chrome exists until a selection
+   does; a tap selects on touch too (the long-press menu stays the touch
+   path for the other verbs). */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -31,9 +32,10 @@ export function useTrackSelection(tracks: Track[]) {
     lastIdRef.current = null;
   }, []);
 
-  /** Handles a row click. Always consumes it — the row never plays from a
-      click; a plain click selects just that row, a modifier-click grows
-      or shrinks the selection around it. */
+  /** Handles a row click. Always consumes it — a plain click on the row
+      body selects just that row (the title never arrives here: the row
+      plays it first), a modifier-click grows or shrinks the selection
+      around it. */
   const onRowClick = useCallback(
     (track: Track, index: number, e: SelectClick): boolean => {
       const mod = e.metaKey || e.ctrlKey || e.altKey;
