@@ -121,7 +121,6 @@ LEFT JOIN artists aar2 ON aar2.id = t.album_artist_id
 # apply select the same rows.
 REVIEW_FILTERS = {
     "no_album": "t.album_id IS NULL",
-    "missing_track_no": "t.track_no IS NULL",
     "single_track_albums": (
         "t.album_id IN (SELECT album_id FROM tracks WHERE album_id IS NOT NULL "
         "GROUP BY album_id HAVING COUNT(*) = 1)"

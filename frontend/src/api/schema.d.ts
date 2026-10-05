@@ -1184,8 +1184,6 @@ export interface components {
             single_track_albums: number;
             /** Mixed Album Artist Albums */
             mixed_album_artist_albums: number;
-            /** Missing Track No */
-            missing_track_no: number;
             /** Suffix Collisions */
             suffix_collisions: number;
             /** Collision Groups */
