@@ -219,6 +219,18 @@
   color: var(--text-primary);
 }
 
+/* iOS Safari auto-zooms the page into any focused input whose font is
+   under 16px, and its zoom-back-out on blur is unreliable — the scale
+   gets stuck after the panel closes or a suggestion is picked. There is
+   no API to force the zoom back out, so the zoom is prevented at the
+   source: 16px on iOS only, probed via the iOS-only touch-callout
+   property (desktop Safari, Chrome, and Firefox fail the check). */
+@supports (-webkit-touch-callout: none) {
+  .topbar__input {
+    font-size: 16px;
+  }
+}
+
 .topbar__input::placeholder {
   color: var(--text-tertiary);
 }

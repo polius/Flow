@@ -508,6 +508,10 @@ function SearchZone({
     const onPointerDown = (e: PointerEvent) => {
       if (zoneRef.current?.contains(e.target as Node)) return;
       setOpen(false);
+      // The outside tap must also end the field's focus: on touch devices
+      // the panel unmounts mid-tap and the keyboard would otherwise stay
+      // up, stranding the input's focus state after the close.
+      inputRef.current?.blur();
     };
     window.addEventListener("pointerdown", onPointerDown);
     return () => window.removeEventListener("pointerdown", onPointerDown);
