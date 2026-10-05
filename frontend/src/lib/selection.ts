@@ -1,11 +1,12 @@
-/* Multi-select for the listening tables: a plain click selects the row,
-   modifier-click toggles rows in/out, Shift-click takes the contiguous
-   range from the anchor. Playback never fires from a click — the Play
-   button and the keyboard cursor own it. Selection is identified by TRACK
-   ID, so a reorder or removal under a live selection moves with the rows
-   instead of re-pointing at different ones. No chrome exists until a
-   selection does; a tap selects on touch too (the long-press menu stays
-   the touch path for playback and the other verbs). */
+/* Multi-select for the listening tables: modifier clicks build the
+   selection — Cmd/Ctrl/Alt toggles a row, Shift takes the contiguous
+   range from the anchor — and a fresh selection counts the playing
+   track as already in. Plain clicks never select: the title plays, and
+   any live selection just dissolves. Selection is identified by TRACK
+   ID, so a reorder or removal under a live selection moves with the
+   rows instead of re-pointing at different ones. No chrome exists until
+   a selection does; the long-press menu stays the touch path for the
+   other verbs. */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -20,7 +21,7 @@ export interface SelectClick {
   shiftKey: boolean;
 }
 
-export function useTrackSelection(tracks: Track[]) {
+export function useTrackSelection(tracks: Track[], playingId?: number | null) {
   const [ids, setIds] = useState<ReadonlySet<number>>(() => new Set());
   const anchorIdRef = useRef<number | null>(null);
   const lastIdRef = useRef<number | null>(null);
@@ -31,14 +32,26 @@ export function useTrackSelection(tracks: Track[]) {
     lastIdRef.current = null;
   }, []);
 
-  /** Handles a row click. Always consumes it — the row never plays from a
-      click; a plain click selects just that row, a modifier-click grows
-      or shrinks the selection around it. */
+  /** Handles a row click. Always consumes it — modifier clicks grow or
+      shrink the selection around the clicked row; a plain click just
+      dissolves any live selection. */
   const onRowClick = useCallback(
     (track: Track, index: number, e: SelectClick): boolean => {
       const mod = e.metaKey || e.ctrlKey || e.altKey;
       const next = new Set(ids);
       if (mod) {
+        // The playing track is already in a fresh selection: the first
+        // modifier click files the group (playing + clicked), not the
+        // clicked row alone. Clicking the playing track itself selects
+        // it like any other row.
+        if (
+          next.size === 0 &&
+          playingId != null &&
+          track.id !== playingId &&
+          tracks.some((t) => t.id === playingId)
+        ) {
+          next.add(playingId);
+        }
         if (next.has(track.id)) {
           next.delete(track.id);
           if (lastIdRef.current === track.id) lastIdRef.current = null;
@@ -60,18 +73,16 @@ export function useTrackSelection(tracks: Track[]) {
         for (let i = lo; i <= hi; i++) next.add(tracks[i].id);
         lastIdRef.current = track.id;
       } else {
-        // Plain click: single-select, replaced whole. Re-clicking the lone
-        // selected row keeps it — clearing is Esc and the bar's ×, not a
-        // click trap.
-        next.clear();
-        next.add(track.id);
-        anchorIdRef.current = track.id;
-        lastIdRef.current = track.id;
+        // Plain click: never selects — a live selection dissolves and the
+        // pill hides with it; with none live there is nothing to do.
+        // Building a selection is the modifiers' job.
+        if (ids.size > 0) clear();
+        return true;
       }
       setIds(next);
       return true;
     },
-    [ids, tracks, clear],
+    [ids, tracks, clear, playingId],
   );
 
   /** The index of the last-selected row in the current list — the row

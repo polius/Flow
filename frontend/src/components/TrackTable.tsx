@@ -1,9 +1,11 @@
 /* Track table shared by album detail, artist detail, playlists, and
    search. Row markup lives in TrackRow so the windowed VirtualTrackTable
-   renders the exact same rows. Rows select on click; playback is the
-   row's Play button. Playlist + album reorder is the queue's
-   press-and-drag grammar, owned by the shared useRowDragReorder hook —
-   optimistic, with the server call as the source of truth. */
+   renders the exact same rows. A plain title click plays — dissolving
+   any live pill — and modifier clicks select; playback also answers to
+   the row's Play button. Playlist +
+   album reorder is the queue's press-and-drag grammar, owned by the
+   shared useRowDragReorder hook — optimistic, with the server call as
+   the source of truth. */
 
 import { useEffect, useRef, useState } from "react";
 import type { KeyboardEvent as ReactKeyboardEvent } from "react";
@@ -108,7 +110,16 @@ export function TrackTable({
      floating quiet bar files the selection. Transient by construction —
      this component's state — so navigation, a filter change, or a view
      remount clears it; Esc clears it in place (the hook's listener). */
-  const selection = useTrackSelection(tracks);
+  const selection = useTrackSelection(tracks, current?.id ?? null);
+  /* A plain title click plays — and any live selection dissolves with it
+     (playing is not curation). The current track toggles pause instead
+     of restarting, the Play button's contract. */
+  const playFromTitle = (index: number) => {
+    selection.clear();
+    const track = tracks[index];
+    if (track != null && track.id === current?.id) togglePlay();
+    else play(index);
+  };
   const openAddToPlaylist = useUiStore((s) => s.openAddToPlaylist);
   const addToQueue = usePlayerStore((s) => s.addToQueue);
   const setFavoriteMany = useSetFavoriteMany();
@@ -195,6 +206,7 @@ export function TrackTable({
       }
       dataIdx={reorderable ? index : undefined}
       onActivate={play}
+      onTitlePlay={playFromTitle}
       onTogglePlay={togglePlay}
       onToggleFavorite={toggleFavorite}
       onTrackMenu={trackMenu}

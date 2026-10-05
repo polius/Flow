@@ -1,7 +1,9 @@
-/* Marquee selection on the listening tables: a plain click single-selects
-   (never plays), Cmd/Ctrl/Alt toggles, Shift ranges from the anchor, Esc
-   clears unless a surface owns the keyboard, and selection is id-keyed so a
-   reorder under a live selection moves with the rows. */
+/* Marquee selection on the listening tables: modifier clicks build the
+   selection — Cmd/Ctrl/Alt toggles, Shift ranges from the anchor, and a
+   fresh selection counts the playing track as already in — while plain
+   clicks never select (they dissolve a live one). Esc clears unless a
+   surface owns the keyboard, and selection is id-keyed so a reorder
+   under a live selection moves with the rows. */
 
 import { act, fireEvent, renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "vitest";
@@ -86,18 +88,16 @@ describe("marquee selection", () => {
     expect(result.current.count).toBe(1);
   });
 
-  it("a plain click single-selects the clicked row and consumes the click (never plays)", () => {
+  it("a plain click dissolves a live selection and never selects", () => {
     const { result } = renderHook(() => useTrackSelection(tracks));
     click(result, 0, { metaKey: true });
     click(result, 1, { metaKey: true });
     expect(result.current.count).toBe(2);
     expect(click(result, 3)).toBe(true);
-    expect(result.current.count).toBe(1);
-    expect([...result.current.ids]).toEqual([4]);
-    // Re-clicking the lone selected row keeps it — clearing is Esc/×, not
-    // a click trap.
+    expect(result.current.count).toBe(0);
+    // With nothing live, a plain click stays nothing.
     expect(click(result, 3)).toBe(true);
-    expect(result.current.count).toBe(1);
+    expect(result.current.count).toBe(0);
   });
 
   it("Shift-click selects the contiguous range from the anchor", () => {
@@ -107,6 +107,24 @@ describe("marquee selection", () => {
     expect([...result.current.ids].sort((a, b) => a - b)).toEqual([2, 3, 4]);
     // The clicked row is the last-selected one — the row Enter plays.
     expect(result.current.lastIndex()).toBe(3);
+  });
+
+  it("a fresh modifier selection counts the playing track as already in", () => {
+    const { result } = renderHook(() => useTrackSelection(tracks, tracks[2].id));
+    click(result, 0, { metaKey: true });
+    expect(result.current.count).toBe(2);
+    expect([...result.current.ids].sort((a, b) => a - b)).toEqual([1, 3]);
+    expect(result.current.selectedTracks.map((t) => t.id)).toEqual([1, 3]);
+  });
+
+  it("clicking the playing track itself selects it alone", () => {
+    const { result } = renderHook(() => useTrackSelection(tracks, tracks[2].id));
+    click(result, 2, { altKey: true });
+    expect(result.current.count).toBe(1);
+    expect([...result.current.ids]).toEqual([3]);
+    // …and a second modifier click on it toggles it back out.
+    click(result, 2, { altKey: true });
+    expect(result.current.count).toBe(0);
   });
 
   it("Esc clears the selection, but defers while a surface owns the keyboard", () => {
