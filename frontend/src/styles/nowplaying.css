@@ -165,6 +165,58 @@
   width: 100%;
 }
 
+/* ---- Add to Playlist: the transport's quiet footnote ----
+   A labeled pill, not a sixth circle: filing the playing song is a
+   different tier of action than moving playback. The queue's Add pill is
+   the app's grammar for a quiet secondary action; the height lands at the
+   30px transport circles' rhythm, so the controls read as one column. */
+.nowplaying__addto {
+  align-self: center;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 14px;
+  border: 1px solid var(--control-border);
+  border-radius: 999px;
+  font-size: var(--text-small);
+  font-weight: 600;
+  color: var(--text-secondary);
+  transition: color var(--dur-fast) var(--ease-out),
+    background-color var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out);
+}
+
+/* Press feedback on both pointers — the same scale the primary buttons
+   answer with. */
+.nowplaying__addto:active {
+  transform: scale(0.97);
+}
+
+/* Hover brightens only where hover exists: a coarse pointer leaves the
+   fill stuck on after a tap, so touch never wears a hover state. */
+@media (hover: hover) {
+  .nowplaying__addto:hover {
+    color: var(--text-primary);
+    background: var(--bg-hover);
+  }
+}
+
+/* Touch: the pill keeps its ~30px drawing but its hit area reaches the
+   44pt HIG floor with invisible slop — the top bar's technique. Vertical
+   slop stays 8px: 8px of clearance remains above (the scrubber owns its
+   own hit area) and the stage's bottom padding absorbs the rest. */
+@media (hover: none) and (pointer: coarse) {
+  .nowplaying__addto {
+    position: relative;
+  }
+
+  .nowplaying__addto::before {
+    content: "";
+    position: absolute;
+    inset: -8px -14px;
+  }
+}
+
 /* ---- idle stage: the queue is present before anything plays ---- */
 
 .nowplaying__idle {

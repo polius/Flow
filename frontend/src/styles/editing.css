@@ -822,10 +822,15 @@ textarea.inlineedit__input {
 
 /* ---- Add Tracks picker (playlist detail) ---------------------------------- */
 
+/* Above the Now Playing takeover: the takeover's own Add to Playlist pill
+   opens the Add to Playlist dialog, and these surfaces are shared. The
+   takeover paints last in AppShell at the same tier, so DOM order would
+   bury the picker family behind it — the GetInfo panel's burial-and-fix,
+   same answer. The scrim sits one step under its panels (+5). */
 .addtracks__scrim {
   position: fixed;
   inset: 0;
-  z-index: calc(var(--z-modal) - 1);
+  z-index: calc(var(--z-modal) + 4);
   background: rgba(0, 0, 0, 0.18);
 }
 
@@ -834,7 +839,8 @@ textarea.inlineedit__input {
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  z-index: var(--z-modal);
+  /* Matches its scrim's tier — see .addtracks__scrim. */
+  z-index: calc(var(--z-modal) + 5);
   display: flex;
   flex-direction: column;
   width: min(620px, 94vw);
@@ -1316,7 +1322,11 @@ textarea.inlineedit__input {
   border-radius: var(--radius-l, 14px);
   box-shadow: 0 18px 60px rgba(0, 0, 0, 0.28);
   outline: none;
-  z-index: var(--z-modal);
+  /* Opens above the Now Playing takeover — the takeover's pill summons
+     this dialog from inside it, and the takeover paints last in AppShell
+     at the base tier. Same tier the GetInfo panel earned for the same
+     reason; its scrim rides one step below (see .addtracks__scrim). */
+  z-index: calc(var(--z-modal) + 5);
 }
 
 .addto__head {

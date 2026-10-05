@@ -18,6 +18,7 @@ import {
   IconChevronDown,
   IconMusicNote,
   IconNext,
+  IconPlaylistAdd,
   IconPrev,
   IconQueue,
   IconRepeat,
@@ -33,6 +34,7 @@ const NARROW_BP = "(max-width: 940px)";
 export function NowPlaying() {
   const open = useUiStore((s) => s.nowPlayingOpen);
   const close = useUiStore((s) => s.closeNowPlaying);
+  const openAddToPlaylist = useUiStore((s) => s.openAddToPlaylist);
   const track = useCurrentTrack();
   const isPlaying = usePlayerStore((s) => s.isPlaying);
   const shuffle = usePlayerStore((s) => s.shuffle);
@@ -220,6 +222,25 @@ export function NowPlaying() {
               <div className="nowplaying__progress">
                 <Scrubber />
               </div>
+              {/* The filing action, the transport's quiet footnote: a labeled
+                  pill (the queue's Add grammar) rather than a sixth circle —
+                  filing the playing song is a different tier of action than
+                  moving playback. Opens the shared Add to Playlist dialog,
+                  the Tracks context menu's destination. Hidden while the
+                  track is unverified (a restored session): no door opens
+                  onto an id the server hasn't vouched for — the same reason
+                  the names above render as text. */}
+              {verified && (
+                <button
+                  type="button"
+                  className="nowplaying__addto"
+                  onClick={() => openAddToPlaylist([track])}
+                  aria-haspopup="dialog"
+                >
+                  <IconPlaylistAdd size={13} />
+                  Add to Playlist
+                </button>
+              )}
             </div>
           </div>
         ) : (
