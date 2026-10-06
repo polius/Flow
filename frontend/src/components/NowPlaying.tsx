@@ -235,7 +235,12 @@ export function NowPlaying() {
                   reason the names above render as text. */}
               {verified && (
                 <div className="nowplaying__actions">
-                  <FavoriteButton track={track} className="nowplaying__fav" size={15} />
+                  <FavoriteButton
+                    track={track}
+                    circled
+                    className="nowplaying__fav"
+                    size={15}
+                  />
                   <button
                     type="button"
                     className="nowplaying__addto"

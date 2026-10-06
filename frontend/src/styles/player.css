@@ -86,13 +86,15 @@
 }
 
 /* The favorite toggle rides after the song name — the playing track's
-   always-visible heart (a single heart isn't noise; a column of them is,
-   which is why the rows hover-reveal instead). Filled means loved, the
-   same state the row heart shows; the geometry stays fixed so the title's
-   ellipsis, not the heart, absorbs the squeeze. */
+   always-visible heart. Bare, like everything in this bar: the glyph
+   speaks in ink alone at rest, and states arrive as soft fills (hover's
+   hover fill, loved's active fill) rather than chrome. The 20px gap is
+   deliberate — a tertiary control reads as attached to the title when it
+   crowds it; the geometry stays fixed so the title's ellipsis, not the
+   heart, absorbs the squeeze. */
 .player__fav {
   flex: none;
-  margin-left: 2px;
+  margin-left: 8px;
 }
 
 .player__center {
