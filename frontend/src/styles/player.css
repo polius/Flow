@@ -6,7 +6,16 @@
   height: var(--player-height);
   z-index: var(--z-player);
   display: grid;
-  grid-template-columns: minmax(180px, 1fr) minmax(0, 2.4fr) minmax(150px, 1fr);
+  /* Side tracks outweigh the center (1.4fr vs 1.6fr) but stay equal to
+     each other, so the transport keeps sitting dead-centered in the bar.
+     The old 1fr/2.4fr/1fr split starved the song title: at laptop widths
+     the info column capped near 300px and ellipsized while visible slack
+     sat unused beside the scrubber (its 640px cap leaves the center track
+     half-empty there). Now the sides take ~32% each and the center ~36% —
+     under the scrubber's cap at laptop widths, so the scrubber spans its
+     whole track and the slack is gone; long titles breathe until they
+     genuinely run out. */
+  grid-template-columns: minmax(180px, 1.4fr) minmax(0, 1.6fr) minmax(150px, 1.4fr);
   align-items: center;
   gap: 24px;
   padding: 0 20px;
