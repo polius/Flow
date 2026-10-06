@@ -85,6 +85,16 @@
   text-decoration: underline;
 }
 
+/* The favorite toggle rides after the song name — the playing track's
+   always-visible heart (a single heart isn't noise; a column of them is,
+   which is why the rows hover-reveal instead). Filled means loved, the
+   same state the row heart shows; the geometry stays fixed so the title's
+   ellipsis, not the heart, absorbs the squeeze. */
+.player__fav {
+  flex: none;
+  margin-left: 2px;
+}
+
 .player__center {
   display: flex;
   flex-direction: column;

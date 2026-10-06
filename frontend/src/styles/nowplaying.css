@@ -171,7 +171,6 @@
    the app's grammar for a quiet secondary action; the height lands at the
    30px transport circles' rhythm, so the controls read as one column. */
 .nowplaying__addto {
-  align-self: center;
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -184,6 +183,30 @@
   transition: color var(--dur-fast) var(--ease-out),
     background-color var(--dur-fast) var(--ease-out),
     transform var(--dur-fast) var(--ease-out);
+}
+
+/* The footnote's row: the favorite toggle and the filing pill side by
+   side — a state and an action at the same tier, drawn at the same
+   height. The heart needs no label (its outline→fill is the sentence);
+   the pill keeps its words. */
+.nowplaying__actions {
+  align-self: center;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.nowplaying__fav {
+  width: 30px;
+  height: 30px;
+}
+
+/* Where hover exists, the circle wears the pill's hover fill — two
+   controls, one system. */
+@media (hover: hover) {
+  .nowplaying__fav:hover {
+    background: var(--bg-hover);
+  }
 }
 
 /* Press feedback on both pointers — the same scale the primary buttons

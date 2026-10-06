@@ -7,6 +7,7 @@ import type { Track } from "../api/types";
 import { trackIsUnverified, useCurrentTrack, usePlayerStore } from "../stores/player";
 import { useUiStore } from "../stores/ui";
 import { Artwork } from "./Artwork";
+import { FavoriteButton } from "./FavoriteButton";
 import {
   IconNext,
   IconPrev,
@@ -72,6 +73,15 @@ export function PlayerBar() {
         <div className="player__titles">
           <TrackLine track={track} />
         </div>
+        {/* The playing song's favorite toggle, parked after the title like
+            the mini-player's "+" in Spotify — but speaking this app's
+            language: the same outline→fill heart the rows show, so a loved
+            song reads as loved everywhere. Hidden while nothing plays and
+            while a restored session is unverified: no state change opens
+            onto an id the server hasn't vouched for. */}
+        {track != null && !trackIsUnverified(track) && (
+          <FavoriteButton track={track} className="player__fav" size={15} />
+        )}
       </div>
 
       <div className="player__center">

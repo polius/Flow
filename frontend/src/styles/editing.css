@@ -1,6 +1,6 @@
 /* Row actions, inline rename, playlist mosaic + cards, search bar, Get
-   Info panel, and the shared library picker. Chrome stays near-monochrome;
-   artwork remains the only color. */
+   Info panel, the shared library picker, and the shared favorite toggle.
+   Chrome stays near-monochrome; artwork remains the only color. */
 
 /* ---- track row extras: heart ---------------------------------------------- */
 
@@ -73,6 +73,74 @@
    track is already loved — same state language as the row heart. */
 .trackmenu__heart--on {
   color: var(--text-primary);
+}
+
+/* ---- the shared favorite toggle (player bar + Now Playing) -----------------
+   One control for both playing surfaces, speaking the app's favorite
+   grammar: the heart, outlined at rest, filled at full ink when loved —
+   "solid when favorited". The fill answers the tap with a small spring
+   (overshoot and settle); removal is a quiet swap, because losing a state
+   shouldn't perform. Monochrome by house rule: the artwork stays the only
+   color, the way the row hearts already behave. */
+
+.favbtn {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  color: var(--text-secondary);
+  transition: color var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out),
+    background-color var(--dur-fast) var(--ease-out);
+}
+
+.favbtn:hover {
+  color: var(--text-primary);
+}
+
+/* Press feedback — the transport's own answer. */
+.favbtn:active {
+  transform: scale(0.92);
+}
+
+.favbtn--on,
+.favbtn--on:hover {
+  color: var(--text-primary);
+}
+
+.favbtn__glyph {
+  display: flex;
+}
+
+/* The gaining direction springs; the class carries the animation, so it
+   runs once on becoming loved and never on the way back. */
+.favbtn--on .favbtn__glyph {
+  animation: favbtn-pop 0.32s var(--ease-out);
+}
+
+@keyframes favbtn-pop {
+  0% {
+    transform: scale(0.55);
+  }
+  55% {
+    transform: scale(1.22);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* Touch: no hover moment to lean on — the circle grows invisible slop out
+   to the 44pt floor (the Add-to-Playlist pill's technique). */
+@media (hover: none) and (pointer: coarse) {
+  .favbtn::before {
+    content: "";
+    position: absolute;
+    inset: -8px;
+  }
 }
 
 /* Long-press belongs to the row action menu — the OS text-selection

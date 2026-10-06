@@ -14,6 +14,7 @@ import { trackIsUnverified, useCurrentTrack, usePlayerStore } from "../stores/pl
 import { useUiStore } from "../stores/ui";
 import { Ambience } from "./Ambience";
 import { Artwork } from "./Artwork";
+import { FavoriteButton } from "./FavoriteButton";
 import {
   IconChevronDown,
   IconMusicNote,
@@ -222,24 +223,29 @@ export function NowPlaying() {
               <div className="nowplaying__progress">
                 <Scrubber />
               </div>
-              {/* The filing action, the transport's quiet footnote: a labeled
-                  pill (the queue's Add grammar) rather than a sixth circle —
-                  filing the playing song is a different tier of action than
-                  moving playback. Opens the shared Add to Playlist dialog,
-                  the Tracks context menu's destination. Hidden while the
-                  track is unverified (a restored session): no door opens
-                  onto an id the server hasn't vouched for — the same reason
-                  the names above render as text. */}
+              {/* The transport's quiet footnote, now a pair: the favorite
+                  toggle and the filing pill share one row — a state and an
+                  action at the same tier, the heart's circle drawn at the
+                  pill's height so they read as siblings. The heart carries
+                  the app's favorite grammar (outline → fill, the rows'
+                  state language); the pill keeps its door into the shared
+                  Add to Playlist dialog. Both hidden while the track is
+                  unverified (a restored session): no door opens onto an id
+                  the server hasn't vouched for — the same reason the names
+                  above render as text. */}
               {verified && (
-                <button
-                  type="button"
-                  className="nowplaying__addto"
-                  onClick={() => openAddToPlaylist([track])}
-                  aria-haspopup="dialog"
-                >
-                  <IconPlaylistAdd size={13} />
-                  Add to Playlist
-                </button>
+                <div className="nowplaying__actions">
+                  <FavoriteButton track={track} className="nowplaying__fav" size={15} />
+                  <button
+                    type="button"
+                    className="nowplaying__addto"
+                    onClick={() => openAddToPlaylist([track])}
+                    aria-haspopup="dialog"
+                  >
+                    <IconPlaylistAdd size={13} />
+                    Add to Playlist
+                  </button>
+                </div>
               )}
             </div>
           </div>

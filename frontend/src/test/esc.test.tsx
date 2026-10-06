@@ -112,7 +112,9 @@ describe("Esc closes the frontmost surface while a button has focus", () => {
     useUiStore.setState({ nowPlayingOpen: true });
     render(
       <MemoryRouter>
-        <NowPlaying />
+        <QueryClientProvider client={new QueryClient()}>
+          <NowPlaying />
+        </QueryClientProvider>
       </MemoryRouter>,
     );
 
