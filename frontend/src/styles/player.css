@@ -97,13 +97,22 @@
 /* The favorite toggle rides after the song name — the playing track's
    always-visible heart. Bare, like everything in this bar: the glyph
    speaks in ink alone at rest, and states arrive as soft fills (hover's
-   hover fill, loved's active fill) rather than chrome. The 20px gap is
-   deliberate — a tertiary control reads as attached to the title when it
-   crowds it; the geometry stays fixed so the title's ellipsis, not the
-   heart, absorbs the squeeze. */
+   hover fill, loved's active fill) rather than chrome — the hairline
+   circle belongs to the Now Playing stage only. The box is 32px: a step
+   above the transport circles' 30px, still under the play button's 34 —
+   and invisible at rest, so it competes with nothing while giving the
+   hover and loved fills a touch more presence and the tap target an
+   easy clearance of the 44pt floor. The 16px glyph joins the shuffle
+   and repeat icons' ink size and keeps the heart at exactly half its
+   box — the same 2:1 ratio the stage's circled heart holds. The 20px
+   gap before it is deliberate — a tertiary control reads as attached to
+   the title when it crowds it; the geometry stays fixed so the title's
+   ellipsis, not the heart, absorbs the squeeze. */
 .player__fav {
   flex: none;
   margin-left: 8px;
+  width: 32px;
+  height: 32px;
 }
 
 .player__center {
