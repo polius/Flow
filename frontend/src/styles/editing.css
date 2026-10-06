@@ -76,15 +76,15 @@
 }
 
 /* ---- the shared favorite toggle (player bar + Now Playing) -----------------
-   One control, two drawings. Bar (base): the ring is part of the glyph —
-   circle and heart on one stroke, one ink — so states live in the drawing
-   itself: ink brightens on hover, loved floods the ring solid with the
-   heart knocked out. Stage (circled): the bare heart inside a hairline
-   circle, the filing pill's outlined sibling — soft hover fill, border
-   released into the active fill when loved. Both toggle through the same
-   crossfade: the outline layer retires while the fill settles in, the
-   play/pause glyph's grammar. Monochrome by house rule: artwork stays
-   the only color. */
+   One control, two dress codes. Base (the bottom bar): a bare glyph —
+   every control in the bar is bare; a ring at rest there reads as a form
+   control. Hover raises the soft hover fill; loved wears the soft active
+   fill the bar's own mode toggles wear when ON. Circled (the Now Playing
+   stage): a hairline border, the filing pill's outlined sibling — ON
+   releases the border into the active fill. Both share the glyph: the
+   outline and the fill are the same path on two layers, so toggling
+   reads as the heart filling in, not two icons swapping. Monochrome by
+   house rule: artwork stays the only color. */
 
 .favbtn {
   position: relative;
@@ -101,10 +101,11 @@
     transform var(--dur-fast) var(--ease-out);
 }
 
-/* The bar's drawn ring answers the pointer in ink alone — the transport's
-   own hover grammar; a drawn object needs no fill to feel alive. */
+/* Hover raises a soft circle under the glyph — the toolbar button's
+   answer: no chrome at rest, a body under the pointer. */
 .favbtn:hover {
   color: var(--text-primary);
+  background: var(--bg-hover);
 }
 
 /* Press feedback — the transport's own answer. */
@@ -112,29 +113,22 @@
   transform: scale(0.92);
 }
 
-/* Loved: the ring floods solid (the fill glyph paints in currentColor)
-   and the heart goes die-cut — the payoff lives in the drawing, so the
-   state needs no background wash. */
+/* Loved = the mode toggles' ON state: soft fill under full ink. */
 .favbtn--on,
 .favbtn--on:hover {
   color: var(--text-primary);
+  background: var(--bg-active);
 }
 
 /* The stage's dressing: the hairline circle, the filing pill's outlined
-   sibling. Hover wears the pill's recipe (soft fill, border kept); ON
-   releases the border into the active fill. */
+   sibling. ON releases the border into the fill. */
 .favbtn--circled {
   border: 1px solid var(--control-border);
-}
-
-.favbtn--circled:hover {
-  background: var(--bg-hover);
 }
 
 .favbtn--circled.favbtn--on,
 .favbtn--circled.favbtn--on:hover {
   border-color: transparent;
-  background: var(--bg-active);
 }
 
 /* The glyph: two layers on one path — the outline retires while the fill
