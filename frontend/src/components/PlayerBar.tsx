@@ -74,14 +74,14 @@ export function PlayerBar() {
           <TrackLine track={track} />
         </div>
         {/* The playing song's favorite toggle, parked after the title with
-            room to breathe. Bare by design: nothing in this bar wears a
-            border, so the ring stayed in Now Playing — here the heart
-            speaks in ink alone, and hover/loved raise the soft fills the
-            bar already answers with. Hidden while nothing plays and while
-            a restored session is unverified: no state change opens onto an
+            room to breathe: a drawn ring-and-heart, one object — Spotify's
+            circled structure in this set's own stroke. Loved floods the
+            ring solid with the heart knocked out, the play button's
+            filled-circle weight. Hidden while nothing plays and while a
+            restored session is unverified: no state change opens onto an
             id the server hasn't vouched for. */}
         {track != null && !trackIsUnverified(track) && (
-          <FavoriteButton track={track} className="player__fav" size={16} />
+          <FavoriteButton track={track} className="player__fav" size={22} />
         )}
       </div>
 

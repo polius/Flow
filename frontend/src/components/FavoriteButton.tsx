@@ -1,24 +1,35 @@
-/* The favorite toggle for the playing surfaces — the bottom bar (after the
-   song name) and the Now Playing stage (beside the filing pill). One
-   control, two dress codes: on the stage it is a hairline circle, the
-   filing pill's outlined sibling; in the bar it is a bare glyph, because
-   nothing in the bar wears a border — a resting ring there reads as a
-   form control, not a player control. Both speak the same states: the
-   outline and the fill are the same path on two layers, so toggling
-   reads as the heart filling in, not two icons swapping; loved wears the
-   soft active fill the bar's own mode toggles wear when ON. Driven by
-   the shared mutation — optimistic, the queue patched in place, removal
-   undoable. The hover title is the control's sentence: it names what the
-   tap will do, in the state the tap will leave behind. */
+/* The favorite toggle for the playing surfaces. One control, two drawings
+   of the same heart:
+
+   Bar (default): the ring is part of the drawing — circle and heart on
+   one stroke, one ink, no UI box (nothing in the bar wears chrome, and a
+   drawn ring reads as a button the way a circled-plus does). Loved
+   floods the ring solid with the heart knocked out — the play button's
+   own filled-circle weight, the state payoff as loud as the transport's.
+
+   Stage (circled): the bare heart inside a hairline circle — the filing
+   pill's outlined sibling; loved releases the border into the soft
+   active fill.
+
+   Both toggle through the same two-layer crossfade (the play/pause
+   glyph's grammar), driven by the shared mutation — optimistic, the
+   queue patched in place, removal undoable. The hover title is the
+   control's sentence: it names what the tap will do, in the state the
+   tap will leave behind. */
 
 import { useToggleFavorite } from "../api/mutations";
 import type { Track } from "../api/types";
-import { IconHeart, IconHeartFill } from "./icons";
+import {
+  IconHeart,
+  IconHeartCircle,
+  IconHeartCircleFill,
+  IconHeartFill,
+} from "./icons";
 import "../styles/editing.css";
 
 export function FavoriteButton({
   track,
-  size = 16,
+  size = 22,
   className,
   circled = false,
 }: {
@@ -29,6 +40,8 @@ export function FavoriteButton({
 }) {
   const toggleFavorite = useToggleFavorite();
   const favorite = track.favorite === true;
+  const Outline = circled ? IconHeart : IconHeartCircle;
+  const Fill = circled ? IconHeartFill : IconHeartCircleFill;
   return (
     <button
       type="button"
@@ -46,13 +59,12 @@ export function FavoriteButton({
         aria-hidden="true"
       >
         <span className="favbtn__outline">
-          <IconHeart size={size} />
+          <Outline size={size} />
         </span>
         <span className="favbtn__fill">
-          <IconHeartFill size={size} />
+          <Fill size={size} />
         </span>
       </span>
     </button>
   );
 }
-

@@ -85,13 +85,11 @@
   text-decoration: underline;
 }
 
-/* The favorite toggle rides after the song name — the playing track's
-   always-visible heart. Bare, like everything in this bar: the glyph
-   speaks in ink alone at rest, and states arrive as soft fills (hover's
-   hover fill, loved's active fill) rather than chrome. The 20px gap is
-   deliberate — a tertiary control reads as attached to the title when it
-   crowds it; the geometry stays fixed so the title's ellipsis, not the
-   heart, absorbs the squeeze. */
+/* The favorite toggle rides after the song name — a drawn ring-and-heart,
+   one object in the set's own stroke; the control's body is the drawing,
+   not chrome. The 20px gap is deliberate — a tertiary control that
+   crowds the title reads as attached to it; the geometry stays fixed so
+   the title's ellipsis, not the heart, absorbs the squeeze. */
 .player__fav {
   flex: none;
   margin-left: 8px;

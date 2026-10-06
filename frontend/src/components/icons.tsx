@@ -128,6 +128,35 @@ export function IconHeartFill(props: IconProps) {
   );
 }
 
+/* The player bar's favorite toggle: the ring is drawn, not boxed — one
+   object in this set's stroke, the heart at 72% of it. Reads as a button
+   the way a circled-plus does: the body IS the drawing. */
+export function IconHeartCircle(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <circle cx="12" cy="12" r="9.5" />
+      <path d="M11.93 17.15C8.54 14.34 6.17 12.25 6.17 9.95 6.17 8.15 7.54 6.85 9.19 6.85c1.08 0 2.09.54 2.74 1.44.65-.9 1.66-1.44 2.74-1.44 1.66 0 3.02 1.3 3.02 3.1 0 2.3-2.38 4.39-5.76 7.2Z" />
+    </Icon>
+  );
+}
+
+/* Loved: the ring floods solid — outer edge matched to the ring's, so the
+   crossfade reads as filling, not swapping — and the heart becomes a
+   die-cut hole (evenodd): the playing surface shows through it, honest on
+   the blurred bar and theme-proof in both directions. */
+export function IconHeartCircleFill(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path
+        fillRule="evenodd"
+        d="M12 1.7a10.3 10.3 0 1 0 0 20.6a10.3 10.3 0 1 0 0-20.6ZM11.93 17.15C8.54 14.34 6.17 12.25 6.17 9.95 6.17 8.15 7.54 6.85 9.19 6.85c1.08 0 2.09.54 2.74 1.44.65-.9 1.66-1.44 2.74-1.44 1.66 0 3.02 1.3 3.02 3.1 0 2.3-2.38 4.39-5.76 7.2Z"
+        fill="currentColor"
+        stroke="none"
+      />
+    </Icon>
+  );
+}
+
 export function IconPlus(props: IconProps) {
   return (
     <Icon {...props}>
