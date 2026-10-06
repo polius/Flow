@@ -1,7 +1,6 @@
 services:
   flow:
-    # image: poliuscorp/flow
-    build: .
+    image: poliuscorp/flow
     ports:
       - "8080:8080"
     volumes:
