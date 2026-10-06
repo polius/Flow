@@ -6,7 +6,10 @@
   height: var(--player-height);
   z-index: var(--z-player);
   display: grid;
-  grid-template-columns: minmax(180px, 1fr) minmax(0, 2.4fr) minmax(150px, 1fr);
+  /* Sides outweigh the center but stay equal to each other, so the
+     transport sits dead-centered and the title gets room before it
+     ellipsizes (the old 1fr/2.4fr/1fr split starved it). */
+  grid-template-columns: minmax(180px, 1.4fr) minmax(0, 1.6fr) minmax(150px, 1.4fr);
   align-items: center;
   gap: 24px;
   padding: 0 20px;
@@ -83,6 +86,18 @@
    underline on hover, nothing louder than the artist link beside it. */
 .player__title a:hover {
   text-decoration: underline;
+}
+
+/* The playing track's always-visible heart, bare like everything in
+   this bar — the hairline circle belongs to the stage. 32px box, a
+   step above the transport circles' 30px; the 16px glyph sits at half
+   its box, the stage circled heart's ratio. The 20px gap before it is
+   deliberate — the title's ellipsis, not the heart, absorbs squeeze. */
+.player__fav {
+  flex: none;
+  margin-left: 8px;
+  width: 32px;
+  height: 32px;
 }
 
 .player__center {

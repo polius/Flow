@@ -4,6 +4,8 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import type { ReactElement } from "react";
 
 import type { Track } from "../api/types";
 import { usePlayerStore } from "../stores/player";
@@ -57,6 +59,19 @@ const track = (id: number, title: string): Track => ({
   path: `Artist/Album/${title}.mp3`,
 });
 
+/* NowPlaying mounts the shared favorite toggle — a react-query mutation,
+   like every write in the app. The provider here stands in for the one
+   the app's root (main.tsx) always supplies. */
+function withProviders(ui: ReactElement): ReactElement {
+  return (
+    <MemoryRouter>
+      <QueryClientProvider client={new QueryClient()}>
+        {ui}
+      </QueryClientProvider>
+    </MemoryRouter>
+  );
+}
+
 beforeEach(() => {
   localStorage.clear();
   usePlayerStore.setState({
@@ -87,22 +102,14 @@ afterEach(cleanup);
 describe("Now Playing modal focus", () => {
   it("moves focus into the takeover on open", () => {
     useUiStore.setState({ nowPlayingOpen: true });
-    const { container } = render(
-      <MemoryRouter>
-        <NowPlaying />
-      </MemoryRouter>,
-    );
+    const { container } = render(withProviders(<NowPlaying />));
     const surface = container.querySelector(".nowplaying")!;
     expect(surface.contains(document.activeElement)).toBe(true);
   });
 
   it("keeps Tab cycling inside the takeover", () => {
     useUiStore.setState({ nowPlayingOpen: true });
-    render(
-      <MemoryRouter>
-        <NowPlaying />
-      </MemoryRouter>,
-    );
+    render(withProviders(<NowPlaying />));
     const surface = document.querySelector(".nowplaying")!;
     const inside = () =>
       surface.contains(document.activeElement);
@@ -126,10 +133,12 @@ describe("Now Playing modal focus", () => {
   it("restores focus to the opener on close", () => {
     useUiStore.setState({ nowPlayingOpen: true });
     render(
-      <MemoryRouter>
-        <button type="button">Opener</button>
-        <NowPlaying />
-      </MemoryRouter>,
+      withProviders(
+        <>
+          <button type="button">Opener</button>
+          <NowPlaying />
+        </>,
+      ),
     );
     const opener = screen.getByRole("button", { name: "Opener" });
     opener.focus();

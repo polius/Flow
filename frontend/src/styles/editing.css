@@ -1,6 +1,6 @@
 /* Row actions, inline rename, playlist mosaic + cards, search bar, Get
-   Info panel, and the shared library picker. Chrome stays near-monochrome;
-   artwork remains the only color. */
+   Info panel, the shared library picker, and the shared favorite toggle.
+   Chrome stays near-monochrome; artwork remains the only color. */
 
 /* ---- track row extras: heart ---------------------------------------------- */
 
@@ -73,6 +73,98 @@
    track is already loved — same state language as the row heart. */
 .trackmenu__heart--on {
   color: var(--text-primary);
+}
+
+/* ---- the shared favorite toggle (player bar + Now Playing) -----------------
+   One control, two dress codes: the bar's bare glyph and the stage's
+   circled sibling. Hover raises a soft fill; loved wears the active
+   fill (circled releases its border into it). */
+
+.favbtn {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  color: var(--text-secondary);
+  transition: color var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out),
+    background-color var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out);
+}
+
+/* Hover raises a soft circle under the glyph — the toolbar button's
+   answer: no chrome at rest, a body under the pointer. */
+.favbtn:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+
+/* Press feedback — the transport's own answer. */
+.favbtn:active {
+  transform: scale(0.92);
+}
+
+/* Loved = the mode toggles' ON state: soft fill under full ink. */
+.favbtn--on,
+.favbtn--on:hover {
+  color: var(--text-primary);
+  background: var(--bg-active);
+}
+
+/* The stage's dressing: the hairline circle, the filing pill's outlined
+   sibling. ON releases the border into the fill. */
+.favbtn--circled {
+  border: 1px solid var(--control-border);
+}
+
+.favbtn--circled.favbtn--on,
+.favbtn--circled.favbtn--on:hover {
+  border-color: transparent;
+}
+
+/* The glyph: two layers on one path — the outline retires while the fill
+   settles in, 150ms, the play/pause crossfade's exact grammar. */
+.favbtn__glyph {
+  position: relative;
+  display: flex;
+}
+
+.favbtn__outline,
+.favbtn__fill {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out);
+}
+
+.favbtn__fill {
+  opacity: 0;
+  transform: scale(0.8);
+}
+
+.favbtn--on .favbtn__outline {
+  opacity: 0;
+}
+
+.favbtn--on .favbtn__fill {
+  opacity: 1;
+  transform: scale(1);
+}
+
+/* Touch: no hover moment to lean on — the button grows invisible slop out
+   to the 44pt floor (the Add-to-Playlist pill's technique). */
+@media (hover: none) and (pointer: coarse) {
+  .favbtn::before {
+    content: "";
+    position: absolute;
+    inset: -8px;
+  }
 }
 
 /* Long-press belongs to the row action menu — the OS text-selection

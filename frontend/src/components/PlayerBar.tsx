@@ -7,6 +7,7 @@ import type { Track } from "../api/types";
 import { trackIsUnverified, useCurrentTrack, usePlayerStore } from "../stores/player";
 import { useUiStore } from "../stores/ui";
 import { Artwork } from "./Artwork";
+import { FavoriteButton } from "./FavoriteButton";
 import {
   IconNext,
   IconPrev,
@@ -72,6 +73,12 @@ export function PlayerBar() {
         <div className="player__titles">
           <TrackLine track={track} />
         </div>
+        {/* The playing song's favorite toggle, after the title. Bare —
+            nothing in this bar wears a border. Hidden while nothing plays
+            or the session is unverified. */}
+        {track != null && !trackIsUnverified(track) && (
+          <FavoriteButton track={track} className="player__fav" size={16} />
+        )}
       </div>
 
       <div className="player__center">
