@@ -74,13 +74,13 @@ export function PlayerBar() {
           <TrackLine track={track} />
         </div>
         {/* The playing song's favorite toggle, parked after the title like
-            the mini-player's "+" in Spotify — but speaking this app's
-            language: the same outline→fill heart the rows show, so a loved
-            song reads as loved everywhere. Hidden while nothing plays and
-            while a restored session is unverified: no state change opens
-            onto an id the server hasn't vouched for. */}
+            the mini-player's "+" in Spotify: a hairline circle holding the
+            heart — reads as a button, not a doodle — and when loved, the
+            transport's own ON state. Hidden while nothing plays and while
+            a restored session is unverified: no state change opens onto an
+            id the server hasn't vouched for. */}
         {track != null && !trackIsUnverified(track) && (
-          <FavoriteButton track={track} className="player__fav" size={15} />
+          <FavoriteButton track={track} className="player__fav" size={14} />
         )}
       </div>
 

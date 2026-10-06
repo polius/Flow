@@ -76,12 +76,13 @@
 }
 
 /* ---- the shared favorite toggle (player bar + Now Playing) -----------------
-   One control for both playing surfaces, speaking the app's favorite
-   grammar: the heart, outlined at rest, filled at full ink when loved —
-   "solid when favorited". The fill answers the tap with a small spring
-   (overshoot and settle); removal is a quiet swap, because losing a state
-   shouldn't perform. Monochrome by house rule: the artwork stays the only
-   color, the way the row hearts already behave. */
+   A real control, not a floating glyph: a hairline circle — Spotify's
+   mini-player "+" reads as a button, and so does this — holding the app's
+   heart. Loved turns the circle ON with the transport's own active
+   language: the soft active fill under a full-ink filled heart, the
+   border released. The outline and the fill are the same path on two
+   layers, so toggling reads as the heart filling in, not two icons
+   swapping. Monochrome by house rule: artwork stays the only color. */
 
 .favbtn {
   position: relative;
@@ -90,15 +91,20 @@
   justify-content: center;
   width: 28px;
   height: 28px;
+  border: 1px solid var(--control-border);
   border-radius: 50%;
   color: var(--text-secondary);
   transition: color var(--dur-fast) var(--ease-out),
-    transform var(--dur-fast) var(--ease-out),
-    background-color var(--dur-fast) var(--ease-out);
+    border-color var(--dur-fast) var(--ease-out),
+    background-color var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out);
 }
 
+/* Hover wears the pill's recipe: primary ink over the soft fill, the
+   border kept. */
 .favbtn:hover {
   color: var(--text-primary);
+  background: var(--bg-hover);
 }
 
 /* Press feedback — the transport's own answer. */
@@ -106,31 +112,45 @@
   transform: scale(0.92);
 }
 
+/* Loved = the mode toggles' ON state: soft fill under full ink, the
+   border retired into the fill. */
 .favbtn--on,
 .favbtn--on:hover {
   color: var(--text-primary);
+  border-color: transparent;
+  background: var(--bg-active);
 }
 
+/* The glyph: two layers on one path — the outline retires while the fill
+   settles in, 150ms, the play/pause crossfade's exact grammar. */
 .favbtn__glyph {
+  position: relative;
   display: flex;
 }
 
-/* The gaining direction springs; the class carries the animation, so it
-   runs once on becoming loved and never on the way back. */
-.favbtn--on .favbtn__glyph {
-  animation: favbtn-pop 0.32s var(--ease-out);
+.favbtn__outline,
+.favbtn__fill {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out);
 }
 
-@keyframes favbtn-pop {
-  0% {
-    transform: scale(0.55);
-  }
-  55% {
-    transform: scale(1.22);
-  }
-  100% {
-    transform: scale(1);
-  }
+.favbtn__fill {
+  opacity: 0;
+  transform: scale(0.8);
+}
+
+.favbtn--on .favbtn__outline {
+  opacity: 0;
+}
+
+.favbtn--on .favbtn__fill {
+  opacity: 1;
+  transform: scale(1);
 }
 
 /* Touch: no hover moment to lean on — the circle grows invisible slop out
