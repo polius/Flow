@@ -76,15 +76,9 @@
 }
 
 /* ---- the shared favorite toggle (player bar + Now Playing) -----------------
-   One control, two dress codes. Base (the bottom bar): a bare glyph —
-   every control in the bar is bare; a ring at rest there reads as a form
-   control. Hover raises the soft hover fill; loved wears the soft active
-   fill the bar's own mode toggles wear when ON. Circled (the Now Playing
-   stage): a hairline border, the filing pill's outlined sibling — ON
-   releases the border into the active fill. Both share the glyph: the
-   outline and the fill are the same path on two layers, so toggling
-   reads as the heart filling in, not two icons swapping. Monochrome by
-   house rule: artwork stays the only color. */
+   One control, two dress codes: the bar's bare glyph and the stage's
+   circled sibling. Hover raises a soft fill; loved wears the active
+   fill (circled releases its border into it). */
 
 .favbtn {
   position: relative;

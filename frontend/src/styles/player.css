@@ -6,15 +6,9 @@
   height: var(--player-height);
   z-index: var(--z-player);
   display: grid;
-  /* Side tracks outweigh the center (1.4fr vs 1.6fr) but stay equal to
-     each other, so the transport keeps sitting dead-centered in the bar.
-     The old 1fr/2.4fr/1fr split starved the song title: at laptop widths
-     the info column capped near 300px and ellipsized while visible slack
-     sat unused beside the scrubber (its 640px cap leaves the center track
-     half-empty there). Now the sides take ~32% each and the center ~36% —
-     under the scrubber's cap at laptop widths, so the scrubber spans its
-     whole track and the slack is gone; long titles breathe until they
-     genuinely run out. */
+  /* Sides outweigh the center but stay equal to each other, so the
+     transport sits dead-centered and the title gets room before it
+     ellipsizes (the old 1fr/2.4fr/1fr split starved it). */
   grid-template-columns: minmax(180px, 1.4fr) minmax(0, 1.6fr) minmax(150px, 1.4fr);
   align-items: center;
   gap: 24px;
@@ -94,20 +88,11 @@
   text-decoration: underline;
 }
 
-/* The favorite toggle rides after the song name — the playing track's
-   always-visible heart. Bare, like everything in this bar: the glyph
-   speaks in ink alone at rest, and states arrive as soft fills (hover's
-   hover fill, loved's active fill) rather than chrome — the hairline
-   circle belongs to the Now Playing stage only. The box is 32px: a step
-   above the transport circles' 30px, still under the play button's 34 —
-   and invisible at rest, so it competes with nothing while giving the
-   hover and loved fills a touch more presence and the tap target an
-   easy clearance of the 44pt floor. The 16px glyph joins the shuffle
-   and repeat icons' ink size and keeps the heart at exactly half its
-   box — the same 2:1 ratio the stage's circled heart holds. The 20px
-   gap before it is deliberate — a tertiary control reads as attached to
-   the title when it crowds it; the geometry stays fixed so the title's
-   ellipsis, not the heart, absorbs the squeeze. */
+/* The playing track's always-visible heart, bare like everything in
+   this bar — the hairline circle belongs to the stage. 32px box, a
+   step above the transport circles' 30px; the 16px glyph sits at half
+   its box, the stage circled heart's ratio. The 20px gap before it is
+   deliberate — the title's ellipsis, not the heart, absorbs squeeze. */
 .player__fav {
   flex: none;
   margin-left: 8px;

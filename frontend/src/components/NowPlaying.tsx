@@ -224,15 +224,9 @@ export function NowPlaying() {
                 <Scrubber />
               </div>
               {/* The transport's quiet footnote, now a pair: the favorite
-                  toggle and the filing pill share one row — a state and an
-                  action at the same tier, both drawn as outlined circles at
-                  the pill's height, so they read as siblings. The heart's
-                  circle turns ON with the transport's active language when
-                  the track is loved; the pill keeps its door into the
-                  shared Add to Playlist dialog. Both hidden while the
-                  track is unverified (a restored session): no door opens
-                  onto an id the server hasn't vouched for — the same
-                  reason the names above render as text. */}
+                  toggle and the filing pill — a state and an action at the
+                  same tier. Hidden while the track is unverified, like the
+                  text names above. */}
               {verified && (
                 <div className="nowplaying__actions">
                   <FavoriteButton

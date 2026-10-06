@@ -185,10 +185,8 @@
     transform var(--dur-fast) var(--ease-out);
 }
 
-/* The footnote's row: the favorite toggle and the filing pill side by
-   side — a state and an action at the same tier, drawn at the same
-   height. The heart needs no label (its outline→fill is the sentence);
-   the pill keeps its words. */
+/* The favorite toggle and the filing pill — a state and an action at
+   the same tier, drawn at the same height. */
 .nowplaying__actions {
   align-self: center;
   display: flex;
