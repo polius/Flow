@@ -574,7 +574,11 @@
 
   .topbar__navmenu-btn {
     display: flex;
-    margin-left: 12px;
+  }
+
+  .topbar__searchzone {
+    margin-left: 16px;
+    margin-right: 16px;
   }
 
   .topbar__scan {
