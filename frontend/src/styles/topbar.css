@@ -572,6 +572,10 @@
     display: none;
   }
 
+  .topbar__brand {
+    padding-right: 0;
+  }
+
   .topbar__navmenu-btn {
     display: flex;
   }
