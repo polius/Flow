@@ -11,7 +11,7 @@
    Hand-written, no build step — the manifest/icons precedent (§30.9). Bump
    VERSION to drop every cache on deploy (activate removes the old ones). */
 
-const VERSION = "flow-shell-v1";
+const VERSION = "flow-shell-v2";
 const SHELL_CACHE = `${VERSION}-shell`;
 const ASSET_CACHE = `${VERSION}-assets`;
 const OFFLINE_URL = "/offline.html";
