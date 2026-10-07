@@ -582,16 +582,7 @@
   }
 
   .topbar__scan {
-    padding: 4px 8px;
-  }
-
-  .topbar__scan-text {
     display: none;
-  }
-
-  .topbar__scan-spin {
-    border-color: var(--bg-active);
-    border-top-color: var(--text-secondary);
   }
 }
 
