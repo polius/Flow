@@ -217,6 +217,8 @@
   background: transparent;
   font-size: var(--text-body);
   color: var(--text-primary);
+  -webkit-appearance: none;
+  appearance: none;
 }
 
 /* iOS Safari auto-zooms the page into any focused input whose font is
@@ -572,6 +574,7 @@
 
   .topbar__navmenu-btn {
     display: flex;
+    margin-left: 12px;
   }
 
   .topbar__scan {
