@@ -217,6 +217,8 @@
   background: transparent;
   font-size: var(--text-body);
   color: var(--text-primary);
+  -webkit-appearance: none;
+  appearance: none;
 }
 
 /* iOS Safari auto-zooms the page into any focused input whose font is
@@ -570,21 +572,21 @@
     display: none;
   }
 
+  .topbar__brand {
+    padding-right: 0;
+  }
+
   .topbar__navmenu-btn {
     display: flex;
   }
 
+  .topbar__searchzone {
+    margin-left: 16px;
+    margin-right: 16px;
+  }
+
   .topbar__scan {
-    padding: 4px 8px;
-  }
-
-  .topbar__scan-text {
     display: none;
-  }
-
-  .topbar__scan-spin {
-    border-color: var(--bg-active);
-    border-top-color: var(--text-secondary);
   }
 }
 
