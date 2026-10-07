@@ -55,9 +55,11 @@ self.addEventListener("fetch", (event) => {
 
   // Navigations: network first (the app is live data over a thin shell);
   // an unreachable server gets the one fallback page, retry button inside.
+  // cache: "reload" bypasses the HTTP cache — a navigation served from a
+  // stale heuristic entry would pin the whole shell to an old build.
   if (req.mode === "navigate") {
     event.respondWith(
-      fetch(req).catch(() =>
+      fetch(req, { cache: "reload" }).catch(() =>
         caches
           .open(SHELL_CACHE)
           .then((cache) => cache.match(OFFLINE_URL))
