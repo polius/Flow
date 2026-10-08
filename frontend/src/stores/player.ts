@@ -499,6 +499,15 @@ let loadedSrc: string | null = null;
 let errorSkipStreak = 0;
 const MAX_ERROR_SKIPS = 5;
 
+/** MediaError.code → human reason (HTML spec codes; not all browsers
+    expose the MediaError constructor, hence literal numbers). */
+const MEDIA_ERROR_NAMES: Record<number, string> = {
+  1: "interrupted", // MEDIA_ERR_ABORTED — fetch aborted (tab backgrounded, src swap)
+  2: "network error", // MEDIA_ERR_NETWORK — connection failed mid-fetch
+  3: "decoding failed", // MEDIA_ERR_DECODE — bytes arrived, browser can't decode
+  4: "unreadable or missing", // MEDIA_ERR_SRC_NOT_SUPPORTED — bad status/format
+};
+
 /** How close to the end (seconds) the next track starts preloading. */
 const PRELOAD_AHEAD_SECONDS = 10;
 
@@ -853,6 +862,19 @@ for (const el of elements()) {
     // (audio.currentSrc is absolute and unsettled during failed loads —
     // the engine's own record of the requested URL is the truth.)
     if (track == null || loadedSrc !== trackSrc(track)) return;
+    // The MediaError code is the only record of WHY the stream failed —
+    // server logs stay clean for client-side failures (a fetch that never
+    // completes, a decode error on a 200). Name the reason in the skip
+    // notice so the next report diagnoses itself.
+    const err = el.error;
+    const reason = err
+      ? MEDIA_ERROR_NAMES[err.code] ?? `error code ${err.code}`
+      : "unknown error";
+    console.warn(
+      `Stream failed for "${track.title}" (${reason}):`,
+      err?.message || "(no message)",
+      loadedSrc,
+    );
     errorSkipStreak += 1;
     if (errorSkipStreak > MAX_ERROR_SKIPS) {
       usePlayerStore.setState({ isPlaying: false });
@@ -862,7 +884,7 @@ for (const el of elements()) {
       return;
     }
     useUiStore.getState().showUndoNotice({
-      message: `Skipped “${track.title}” — file unavailable.`,
+      message: `Skipped “${track.title}” — file unavailable (${reason}).`,
     });
     advance(1, true); // rest at the end of the queue, like a natural finish
   });
