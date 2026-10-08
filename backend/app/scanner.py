@@ -78,12 +78,16 @@ class LibraryScanner:
         self._bus = bus
         self._lock = threading.Lock()
         self._running = False
+        # finished_at lives here (not just in settings) so every SSE event
+        # carries it — the UI's "Last scan" reads the stream, and an idle
+        # event without it would wipe the timestamp back to "never".
         self._state = {
             "state": "idle",
             "phase": None,
             "current": 0,
             "total": 0,
             "errors": 0,
+            "finished_at": None,
         }
         # Per-file failures of the last scan (path + reason), persisted at
         # finish and served by GET /api/scan/errors.
@@ -160,9 +164,10 @@ class LibraryScanner:
             log.exception("Scan crashed")
             try:
                 conn = self._db.connect()
-                self._set_state(state="idle", phase=None)
+                # Persist first so the idle event below carries finished_at.
                 self._persist_finish(conn, errors=self._state["errors"])
                 conn.commit()
+                self._set_state(state="idle", phase=None)
             except Exception:  # noqa: BLE001
                 log.exception("Could not reset scan state after crash")
         finally:
@@ -581,6 +586,7 @@ class LibraryScanner:
     # -- settings persistence (reload shows scan state) ---------------------
 
     def _persist_start(self, conn, total: int) -> None:
+        self._state["finished_at"] = None
         _settings_upsert(conn, "scan_state", "scanning")
         _settings_upsert(conn, "scan_total", str(total))
         _settings_upsert(conn, "scan_current", "0")
@@ -592,8 +598,10 @@ class LibraryScanner:
         _settings_upsert(conn, "scan_errors", str(errors))
 
     def _persist_finish(self, conn, errors: int) -> None:
+        finished_at = _utcnow()
+        self._state["finished_at"] = finished_at
         _settings_upsert(conn, "scan_state", "idle")
-        _settings_upsert(conn, "scan_finished_at", _utcnow())
+        _settings_upsert(conn, "scan_finished_at", finished_at)
         _settings_upsert(conn, "scan_errors", str(errors))
         # Path + reason for every skipped file, capped so a catastrophically
         # bad mount can't grow a settings row without bound. `total` keeps
