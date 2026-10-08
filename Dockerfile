@@ -9,7 +9,7 @@ COPY frontend/ ./
 RUN npm run build
 
 # ---- Stage 2: python dependencies -------------------------------------------
-FROM python:3.13-alpine AS backend
+FROM python:3.14-alpine AS backend
 RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 COPY backend/requirements.txt ./
@@ -21,7 +21,7 @@ RUN pip install --no-cache-dir -r requirements.txt \
     find /opt/venv -name "*.pyc" -delete
 
 # ---- Stage 3: runtime --------------------------------------------------------
-FROM python:3.13-alpine AS runtime
+FROM python:3.14-alpine AS runtime
 # tini: PID 1 signal handling. bash: the start script uses `wait -n`
 # and pipefail — kept on real bash for predictability, not busybox ash.
 # ffmpeg: scan-time loudness analysis; its absence degrades gracefully —
