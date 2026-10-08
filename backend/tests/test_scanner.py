@@ -273,6 +273,26 @@ def test_scan_state_persisted_to_settings(conn, music, scanner):
     assert persisted["scan_finished_at"]
 
 
+def test_scan_events_carry_finished_at(conn, music, db):
+    """The UI's 'Last scan' reads the SSE stream: the final idle event must
+    include finished_at, or the store wipes it back to 'never'."""
+    from app.scanner import LibraryScanner
+
+    events = []
+
+    class RecordingBus:
+        def publish(self, event: dict) -> None:
+            events.append(event)
+
+    scanner = LibraryScanner(db, music, RecordingBus())
+    make_mp3(music / "01.mp3", title="T")
+    scanner.run_scan("test")
+
+    idle = events[-1]
+    assert idle["state"] == "idle"
+    assert idle["finished_at"]
+
+
 def test_hidden_and_unsupported_files_ignored(conn, music, scanner):
     make_mp3(music / "01.mp3", title="T")
     (music / ".hidden" / "02.mp3").parent.mkdir()
