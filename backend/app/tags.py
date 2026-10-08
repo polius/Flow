@@ -11,6 +11,7 @@ from pathlib import Path
 from mutagen import File as MutagenFile
 from mutagen.flac import FLAC
 from mutagen.id3 import ID3
+from mutagen.mp3 import MP3
 from mutagen.mp4 import MP4
 
 log = logging.getLogger("flow.tags")
@@ -82,6 +83,23 @@ def parse_audio(path: Path) -> ParsedTags | None:
         return None
 
 
+def iso_bmff_offset(src: Path) -> int | None:
+    """Byte offset where an ISO-BMFF (MP4 family) payload starts, or None
+    when no `ftyp` box shows up in the head: 0 = the file IS one, >0 = junk
+    (typically an ID3v2 tag) precedes it. Lives here (not repair.py) because
+    the parser needs the same bytes-level answer on its success path."""
+    try:
+        with src.open("rb") as fh:
+            head = fh.read(65536)
+    except OSError:
+        return None
+    i = head.find(b"ftyp")
+    if i < 4:
+        return 0 if i == 0 else None
+    size = int.from_bytes(head[i - 4 : i], "big")
+    return i - 4 if size >= 8 else None
+
+
 def _mislabeled_container(path: Path) -> str | None:
     """Sniff the leading bytes for a container other than the extension's.
     Stream-ripped files often arrive as fragmented MP4/DASH (or WAV/FLAC)
@@ -111,6 +129,22 @@ def _parse_audio(path: Path) -> ParsedTags:
     audio = MutagenFile(str(path), easy=False)
     if audio is None or audio.info is None:
         log.warning("Unrecognized audio file skipped: %s", path)
+        return None
+
+    # A mutagen MP3 verdict is not proof of MP3 bytes. Stream-rips glue an
+    # ID3v2 tag onto MP4/DASH data, and mutagen's frame-sync hunt inside the
+    # ISO-BMFF payload can validate a decoy header — the file then indexes
+    # as mp3, and the browser is served audio/mpeg that is really MP4
+    # (Firefox fails demux outright; Chrome only sniffs its way around it).
+    # The bytes decide: send the file to the repair pass, which strips the
+    # junk and remuxes the payload into a canonical container.
+    if isinstance(audio, MP3) and iso_bmff_offset(path) is not None:
+        log.warning(
+            "Unreadable audio file skipped: %s — bytes are an ISO-BMFF (MP4) "
+            "container behind the ID3 tag, not MPEG frames (re-encode or "
+            "rename to index it)",
+            path,
+        )
         return None
 
     info = audio.info

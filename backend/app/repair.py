@@ -16,7 +16,7 @@ from mutagen.mp4 import MP4, MP4Cover
 
 from app import config
 from app.artwork import sniff_mime
-from app.tags import parse_audio
+from app.tags import iso_bmff_offset, parse_audio
 
 log = logging.getLogger("flow.repair")
 
@@ -85,7 +85,7 @@ def repair_file(
         # An ISO-BMFF payload behind junk (typically the stream-rip's ID3
         # tag) must be probed from the payload start. The junk is skipped
         # onto a temp copy — the original stays byte-identical.
-        offset = _iso_bmff_offset(src)
+        offset = iso_bmff_offset(src)
         probe_src = src
         if offset:
             stripped = out_dir / f".{key}.stripped"
@@ -144,22 +144,6 @@ def repair_file(
                     tmp.unlink()
                 except OSError:
                     pass
-
-
-def _iso_bmff_offset(src: Path) -> int | None:
-    """Byte offset where an ISO-BMFF (MP4 family) payload starts, or None
-    when no `ftyp` box shows up in the head: 0 = the file IS one, >0 = junk
-    (typically an ID3v2 tag) precedes it."""
-    try:
-        with src.open("rb") as fh:
-            head = fh.read(65536)
-    except OSError:
-        return None
-    i = head.find(b"ftyp")
-    if i < 4:
-        return 0 if i == 0 else None
-    size = int.from_bytes(head[i - 4 : i], "big")
-    return i - 4 if size >= 8 else None
 
 
 def _copy_from_offset(src: Path, dst: Path, offset: int) -> None:

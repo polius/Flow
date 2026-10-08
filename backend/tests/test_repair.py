@@ -14,7 +14,7 @@ import pytest
 from mutagen.id3 import APIC, ID3, TALB, TIT2, TPE1, TRCK
 from mutagen.mp4 import MP4
 
-from tests.audio_fixtures import jpeg_bytes, make_mp3
+from tests.audio_fixtures import _mp3_frame, jpeg_bytes, make_mp3
 
 
 def ffmpeg_present() -> bool:
@@ -102,6 +102,38 @@ def test_dash_file_is_repaired_and_indexed(conn, music, scanner):
     assert tags["\xa9alb"] == ["Onze"]
     assert tags["trkn"] == [(7, 12)]
 
+    # The original is byte-identical after the repair.
+    assert src.read_bytes() == before
+
+
+@requires_ffmpeg
+def test_dash_rip_with_decoy_sync_still_repaired(conn, music, scanner):
+    """The rip's ISO-BMFF payload can contain bytes that pass mutagen's
+    frame-sync validation: mutagen then returns an MP3 verdict and the
+    failure-path mislabel sniff never runs. The success path must still
+    refuse the mp3 index (the bytes are an MP4) and take the repair."""
+    src = make_dash_as_mp3(music / "Decoy Song.mp3", title="Decoy", artist="R")
+    data = src.read_bytes()
+    id3_end = 10 + (
+        (data[6] & 0x7F) << 21
+        | (data[7] & 0x7F) << 14
+        | (data[8] & 0x7F) << 7
+        | (data[9] & 0x7F)
+    )
+    # Two consecutive valid silent MPEG frames right after the tag: mutagen
+    # requires 2+ chained frames to commit to a verdict, finds them, and
+    # happily reports an MP3 — exactly what real rips' payloads do by luck.
+    src.write_bytes(data[:id3_end] + _mp3_frame(128) * 2 + data[id3_end:])
+    before = src.read_bytes()
+    scanner.run_scan("test")
+
+    row = track_row(conn, "Decoy Song.mp3")
+    assert row is not None
+    assert row["format"] == "m4a"  # not mp3: the payload is ISO-BMFF
+    assert row["media_path"] is not None
+    assert Path(row["media_path"]).is_file()
+    assert row["duration"] > 0.5
+    assert scanner.current_state_event()["errors"] == 0
     # The original is byte-identical after the repair.
     assert src.read_bytes() == before
 
