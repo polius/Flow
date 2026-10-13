@@ -20,7 +20,7 @@
 </p>
 
 
-<img src="assets/albums.png" alt="Flow album view" width="80%">
+<img src="assets/albums.png" alt="Flow album view" width="100%">
 
 </div>
 
