@@ -184,6 +184,11 @@
 .topbar__search {
   display: flex;
   flex: 1;
+  /* Without this the pill keeps the input's intrinsic (size-attribute)
+     width when the zone is squeezed to its 140px floor, overflowing the
+     zone and painting over the nav — the positioned searchzone stacks
+     above the static nav. min-width:0 lets the pill shrink with the zone. */
+  min-width: 0;
   align-items: center;
   gap: 9px;
   padding: 7px 14px;
