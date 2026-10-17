@@ -90,8 +90,9 @@
      640  phone — overflow nav sheet, mini player, compact insets
      760  the brand wordmark hides
      940  Now Playing queue → sheet
-    1020  top-bar nav gains text labels (six labeled items, Settings
-          included; measured for the search field's 240px basis)
+    1200  top-bar nav gains text labels (six labeled items, Settings
+          included; measured so the search field keeps ~384px once the
+          labels appear)
    Independent of width, touch capability ((hover: none) +
    (pointer: coarse)) sizes the top bar's targets to the 44pt HIG floor
    with invisible slop. */

@@ -69,7 +69,7 @@ const NAV: NavEntry[] = [
    read JS constants, so the two must be kept in step (tokens.css documents
    the canonical set). */
 const PHONE_BP = "(min-width: 641px)";
-const LABELED_BP = "(min-width: 1020px)";
+const LABELED_BP = "(min-width: 1200px)";
 
 export function TopBar() {
   const [searchParams, setSearchParams] = useSearchParams();
