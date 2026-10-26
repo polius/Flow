@@ -1,6 +1,6 @@
 /* ESLint — flat config. Type-aware rules read tsconfig.json, so the lint
    pass sees real types, not just syntax. The generated API client is
-   excluded: it is machine-written and committed as-is (see README). */
+   excluded: it is machine-written (`npm run gen:api`) and committed as-is. */
 import tseslint from "typescript-eslint";
 import reactHooks from "eslint-plugin-react-hooks";
 import reactRefresh from "eslint-plugin-react-refresh";

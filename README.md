@@ -214,27 +214,6 @@ All settings are optional environment variables.
 | `FLOW_LOG_LEVEL` | `INFO` | `DEBUG`, `INFO`, `WARNING`, or `ERROR`. |
 | `DEMO` | – | `true` fills an empty library with silent demo tracks. |
 
-## Development
-
-You'll need Python 3.15, Node 26, [uv](https://docs.astral.sh/uv/), and ffmpeg.
-
-```bash
-# Backend: http://127.0.0.1:8000 (music from ./music, data in ./.data)
-cd backend
-uv venv .venv && uv pip install -p .venv -r requirements.txt -r requirements-dev.txt
-.venv/bin/uvicorn app.main:app --reload
-
-# Frontend: http://localhost:5173 (proxies /api to the backend)
-cd frontend
-npm ci && npm run dev
-```
-
-Checks: `.venv/bin/ruff check .` and `.venv/bin/python -m pytest tests -q` in `backend/`, then `npm run lint`, `npm test`, and `npm run build` in `frontend/`. After changing the API, run `npm run gen:api` with the backend running, and commit `src/api/schema.d.ts`. CI checks that it's in sync.
-
-Python dependencies go in `backend/requirements.in`. Then regenerate the hash-locked `requirements.txt` with the `uv pip compile` command at the top of that file.
-
-To release, set the same version in `backend/app/__init__.py` and `frontend/package.json`, then publish a GitHub release tagged `vX.Y.Z`. The release workflow stops if the tag and the version don't match.
-
 ## Security
 
 To report a vulnerability, see [SECURITY.md](SECURITY.md).
