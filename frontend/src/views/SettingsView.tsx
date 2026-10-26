@@ -17,6 +17,10 @@ const THEME_MODES: { mode: ThemeMode; label: string }[] = [
   { mode: "dark", label: "Dark" },
 ];
 
+function countLabel(n: number, one: string, many: string): string {
+  return `${fmtCount(n)} ${n === 1 ? one : many}`;
+}
+
 export function SettingsView() {
   const scan = useScanStore((s) => s.status);
   const scanning = scan?.state === "scanning";
@@ -142,7 +146,12 @@ export function SettingsView() {
               <span className="settings-row__label">Contents</span>
               <span className="settings-row__value">
                 {counts
-                  ? `${fmtCount(counts.tracks)} songs · ${fmtCount(counts.albums)} albums · ${fmtCount(counts.artists)} artists · ${fmtCount(counts.playlists)} playlists`
+                  ? [
+                      countLabel(counts.tracks, "song", "songs"),
+                      countLabel(counts.albums, "album", "albums"),
+                      countLabel(counts.artists, "artist", "artists"),
+                      countLabel(counts.playlists, "playlist", "playlists"),
+                    ].join(" · ")
                   : "Counting…"}
               </span>
             </div>
