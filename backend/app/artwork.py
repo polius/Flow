@@ -177,9 +177,11 @@ class ArtworkStore:
         return None
 
     def _store(self, data: bytes, mime: str) -> int | None:
-        if not data:
+        # Re-sniff whatever the caller claims: only JPEG/PNG bytes are stored.
+        sniffed = sniff_mime(data) if data else None
+        if sniffed is None:
             return None
-        return store_artwork(self._conn, data, mime)
+        return store_artwork(self._conn, data, sniffed)
 
 
 # ---- sized variants -----------------------------------------------------------

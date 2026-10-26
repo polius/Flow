@@ -143,6 +143,16 @@ def cross_site_write(request: Request) -> bool:
     return not _origin_matches_host(origin, hosts)
 
 
+def _has_entries(folder: Path) -> bool:
+    """True when the music folder holds anything. An unreadable folder
+    answers False instead of failing startup — the watcher reports it and
+    picks it up once it becomes readable."""
+    try:
+        return folder.is_dir() and any(folder.iterdir())
+    except OSError:
+        return False
+
+
 def create_app() -> FastAPI:
     db = Database(config.DB_PATH)
     db.init()
@@ -178,7 +188,7 @@ def create_app() -> FastAPI:
                 # serving, so the demo's first paint is never empty.
                 scanner.start_scan(trigger="demo")
                 demo_mode.seed_when_indexed(db, demo_tracks)
-            elif empty and config.MUSIC_DIR.is_dir() and any(config.MUSIC_DIR.iterdir()):
+            elif empty and _has_entries(config.MUSIC_DIR):
                 scanner.start_scan(trigger="startup")
             yield
         finally:
