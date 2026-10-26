@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Flow video</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="stage">
+    <div id="bg">
+      <!-- the ambience: a soft wash in the colours of whatever is playing -->
+      <div class="wash w1"></div>
+      <div class="wash w2"></div>
+      <div class="wash w3"></div>
+      <!-- a record's grooves, turning slowly behind everything -->
+      <svg class="grooves" width="3200" height="3200" viewBox="-1600 -1600 3200 3200"></svg>
+      <div class="vignette"></div>
+    </div>
+    <div id="scenes"></div>
+    <!-- the film's own playhead -->
+    <div id="scrub"><b></b></div>
+    <div id="whiteout"></div>
+  </div>
+  <script src="engine.js"></script>
+  <script src="scenes.js"></script>
+</body>
+</html>

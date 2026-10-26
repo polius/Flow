@@ -19,3 +19,4 @@ frontend/coverage
 .github
 assets
 *.md
+scripts/explainer
