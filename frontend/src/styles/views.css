@@ -361,8 +361,40 @@
   margin-top: 8px;
 }
 
+/* Rows that carry a hint paragraph stack on phones: title and hint get the
+   full width, the control sits under them instead of squeezing the text
+   into a sliver beside it. */
+@media (max-width: 640px) {
+  .settings-row--stack {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .settings-row--stack .settings-row__value {
+    justify-content: space-between;
+  }
+}
+
 .settings-row__label {
   font-size: var(--text-regular);
+}
+
+/* An inline keycap in a value ("Press ? anywhere"). */
+.settings-row__kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  border: 1px solid var(--control-border);
+  border-bottom-width: 2px;
+  border-radius: var(--radius-s);
+  background: var(--bg-inset);
+  font: inherit;
+  font-weight: 600;
+  color: var(--text-primary);
 }
 
 .settings-row__value {
@@ -836,6 +868,11 @@
 
 .settingstoggle {
   display: inline-flex;
+  /* Never squeezed or broken: the row's value column wraps anywhere (long
+     paths), which turned "On" into "O/n" at 390px. */
+  flex: none;
+  white-space: nowrap;
+  overflow-wrap: normal;
   align-items: center;
   gap: 8px;
   padding: 3px;

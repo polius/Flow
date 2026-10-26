@@ -114,3 +114,64 @@ export function useGlobalShortcuts(): void {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 }
+
+/* ---- discovery keys: ? · / · L ------------------------------------------
+   Self-contained on purpose (its own listener, its own guard) so it never
+   tangles with the transport handler above. Letters only fire with no
+   modifier and never while text is being edited; open menus and modal
+   surfaces keep the keyboard. A focused button does NOT block them —
+   unlike Space, a letter has no native meaning on a button.
+     ?  the shortcut sheet (toggles)
+     /  focus the search field (the ⌘F twin, one key)
+     L  love / unlove the playing song */
+
+export function useDiscoveryShortcuts(actions: {
+  helpOpen: boolean;
+  toggleHelp: () => void;
+  toggleFavorite: () => void;
+}): void {
+  const { helpOpen, toggleHelp, toggleFavorite } = actions;
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.metaKey || e.ctrlKey || e.altKey || e.repeat) return;
+      if (isTextEditingTarget(document.activeElement)) return;
+      const ui = useUiStore.getState();
+      if (ui.contextMenuOpen) return;
+      // The sheet itself registers as a modal (pickerOpen): "?" still
+      // closes it; any OTHER open modal keeps the key.
+      if (e.key === "?") {
+        if (ui.pickerOpen && !helpOpen) return;
+        e.preventDefault();
+        toggleHelp();
+        return;
+      }
+      if (ui.pickerOpen) return;
+      if (e.key === "/") {
+        e.preventDefault();
+        ui.focusSearch();
+        return;
+      }
+      if ((e.key === "l" || e.key === "L") && !e.shiftKey) {
+        e.preventDefault();
+        toggleFavorite();
+      }
+    };
+    // Settings' "Show" button opens the same sheet (openShortcutSheet).
+    const onOpenRequest = () => {
+      if (!helpOpen) toggleHelp();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    window.addEventListener(SHEET_EVENT, onOpenRequest);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener(SHEET_EVENT, onOpenRequest);
+    };
+  }, [helpOpen, toggleHelp, toggleFavorite]);
+}
+
+const SHEET_EVENT = "flow:shortcut-sheet";
+
+/** Open the shortcut sheet from a control (the "?" key's pointer twin). */
+export function openShortcutSheet(): void {
+  window.dispatchEvent(new Event(SHEET_EVENT));
+}

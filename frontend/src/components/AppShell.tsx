@@ -10,6 +10,7 @@ import { GetInfoPanel } from "./GetInfoPanel";
 import { NowPlaying } from "./NowPlaying";
 import { OrganizeSheet } from "./OrganizeSheet";
 import { PlayerBar } from "./PlayerBar";
+import { ShortcutSheet } from "./ShortcutSheet";
 import { TopBar } from "./TopBar";
 import { TrackActionsMenu } from "./TrackActionsMenu";
 import { UndoToast } from "./UndoToast";
@@ -78,6 +79,7 @@ export function AppShell() {
       <AddToPlaylistDialog />
       <UndoToast />
       <Announcer />
+      <ShortcutSheet />
       <OrganizeSheet />
       <NowPlaying />
     </div>

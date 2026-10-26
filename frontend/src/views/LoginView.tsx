@@ -84,6 +84,20 @@ export function LoginView() {
           <h1 className="login__title">Sign in to Flow</h1>
           <p className="login__lede">Enter the password you set in Settings.</p>
 
+          {/* Flow has one account and no username — but password managers
+              file a credential under the username field beside it. A
+              hidden, fixed one makes "Flow" save as one tidy entry instead
+              of an anonymous password. */}
+          <input
+            type="text"
+            name="username"
+            autoComplete="username"
+            value="flow"
+            readOnly
+            className="sr-only"
+            tabIndex={-1}
+            aria-hidden="true"
+          />
           <div className="login__field">
             <input
               ref={inputRef}
@@ -98,6 +112,14 @@ export function LoginView() {
               placeholder="Password"
               aria-label="Password"
               aria-invalid={message != null}
+              // The error and the Caps Lock note are read with the field,
+              // not only when they appear.
+              aria-describedby={
+                [message ? "login-error" : null, capsLock ? "login-caps" : null]
+                  .filter(Boolean)
+                  .join(" ") || undefined
+              }
+              name="password"
               autoComplete="current-password"
               autoCapitalize="none"
               autoCorrect="off"
@@ -118,12 +140,12 @@ export function LoginView() {
           </div>
 
           {capsLock && (
-            <p className="login__hint" role="status">
+            <p className="login__hint" id="login-caps" role="status">
               Caps Lock is on.
             </p>
           )}
           {message && (
-            <p className="login__error" role="alert">
+            <p className="login__error" id="login-error" role="alert">
               {message}
             </p>
           )}
