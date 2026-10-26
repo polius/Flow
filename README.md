@@ -19,7 +19,7 @@
   <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/License-MIT-blue.svg"></a>
 </p>
 
-<img src="assets/albums.png" alt="Flow album view" width="100%">
+<a href="https://pol.alzina.dev/videos/flow.mp4"><img src="assets/video-poster.png" alt="Flow's album view. Click to watch the one-minute video: building a library, playing, searching and organizing your music" width="100%"></a>
 
 </div>
 
