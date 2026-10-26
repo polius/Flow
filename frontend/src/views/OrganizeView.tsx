@@ -363,7 +363,7 @@ export function OrganizeView() {
         const value = field ? (changes[field as keyof typeof changes] ?? "") : "";
         showUndoNotice({
           message: `${bulkChangeMessage(field ?? "", value)} · ${n.toLocaleString()} ${
-            n === 1 ? "track" : "tracks"
+            n === 1 ? "song" : "songs"
           }`,
           undo: async () => {
             await undoEdit();
@@ -463,7 +463,7 @@ export function OrganizeView() {
       <div className="orgempty">
         <EmptyState
           icon={<IconSearch size={26} />}
-          title="No tracks match"
+          title="No songs match"
           hint="Try a different filter, or clear it to see the whole library."
         />
         <button type="button" className="view__action" onClick={clearFilters}>
@@ -490,7 +490,7 @@ export function OrganizeView() {
             className="orgfilter__input"
             value={filterText}
             placeholder="Filter by title, artist, or album"
-            aria-label="Filter tracks"
+            aria-label="Filter songs"
             onChange={(e) => setFilterText(e.target.value)}
             onKeyDown={(e) => {
               // The field's own Esc: clear first, blur — the sheet closes on

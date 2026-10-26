@@ -170,10 +170,10 @@ export function GetInfoPanel() {
                   type="button"
                   className="getinfo__favorite"
                   onClick={() => toggleFavorite(track)}
-                  aria-label={track.favorite ? "Remove from favorites" : "Add to favorites"}
+                  aria-label={track.favorite ? "Remove from Favorites" : "Add to Favorites"}
                 >
                   {track.favorite ? <IconHeartFill size={17} /> : <IconHeart size={17} />}
-                  {track.favorite ? "Favorited" : "Add to favorites"}
+                  {track.favorite ? "Favorited" : "Add to Favorites"}
                 </button>
               </div>
             </div>

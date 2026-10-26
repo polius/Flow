@@ -237,9 +237,9 @@ export function AddTracksDialog(props: AddTracksDialogProps) {
           <h2 className="addtracks__title">Add to {props.playlist.name}</h2>
           <p className="addtracks__sub">
             {props.playlist.track_count === 0
-              ? "Search your library, then select the tracks to add."
+              ? "Search your library, then select the songs to add."
               : `Search your library — ${props.playlist.track_count} ${
-                  props.playlist.track_count === 1 ? "track is" : "tracks are"
+                  props.playlist.track_count === 1 ? "song is" : "songs are"
                 } already in this playlist.`}
           </p>
         </div>
@@ -269,8 +269,8 @@ export function AddTracksDialog(props: AddTracksDialogProps) {
         aria-modal="true"
         aria-label={
           props.kind === "playlist"
-            ? `Add tracks to ${props.playlist.name}`
-            : "Add tracks to the queue"
+            ? `Add songs to ${props.playlist.name}`
+            : "Add songs to the queue"
         }
       >
         <header className="addtracks__head">
@@ -336,7 +336,7 @@ export function AddTracksDialog(props: AddTracksDialogProps) {
           className="addtracks__list"
           role="listbox"
           aria-multiselectable="true"
-          aria-label="Library tracks"
+          aria-label="Library songs"
         >
           {isPending && results.length === 0 ? (
             <div className="addtracks__placeholder">Loading your library…</div>
@@ -438,7 +438,7 @@ export function AddTracksDialog(props: AddTracksDialogProps) {
               "Nothing selected"
             ) : (
               <>
-                {selectedCount} {selectedCount === 1 ? "track" : "tracks"}
+                {selectedCount} {selectedCount === 1 ? "song" : "songs"}
                 {selectedSeconds > 0 && <> · {fmtMinutes(selectedSeconds)}</>}
               </>
             )}

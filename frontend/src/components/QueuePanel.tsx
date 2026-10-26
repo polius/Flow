@@ -664,7 +664,7 @@ export function QueuePanel({ onCollapse }: QueuePanelProps) {
               <span className="queue__count">
                 {orderPos >= 0
                   ? `${orderPos + 1} of ${order.length}`
-                  : `${order.length} ${order.length === 1 ? "track" : "tracks"}`}
+                  : `${order.length} ${order.length === 1 ? "song" : "songs"}`}
               </span>
             )}
           </div>

@@ -42,7 +42,7 @@ function confirmArrival(
   destination: "next" | "end" | "now",
   tracks: Track[],
 ): void {
-  const noun = n === 1 ? "track" : "tracks";
+  const noun = n === 1 ? "song" : "songs";
   const where =
     destination === "next"
       ? "play next"
@@ -411,7 +411,7 @@ export const usePlayerStore = create<PlayerState>()(
           // The standby is stale with the plan it preloaded.
           if (standbyTrack != null) resetStandby();
         }
-        const noun = queue.length === 1 ? "track" : "tracks";
+        const noun = queue.length === 1 ? "song" : "songs";
         set({
           queue: [],
           order: [],

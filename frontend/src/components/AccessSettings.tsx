@@ -282,7 +282,7 @@ export function AccessSettings() {
         </span>
         <span className="settings-row__value">
           {status == null ? (
-            "…"
+            "Checking…"
           ) : status.enabled ? (
             <>
               <span>On</span>

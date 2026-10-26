@@ -77,7 +77,7 @@ export function Scrubber() {
     // resetting background-size. --scrubber-rest keeps the empty rest track
     // visible in dark mode.
     backgroundImage: `linear-gradient(to right,
-      var(--text-tertiary) 0% ${pct(value)}%,
+      var(--text-secondary) 0% ${pct(value)}%,
       var(--control-border) ${pct(value)}% ${pct(buffered)}%,
       var(--scrubber-rest, var(--bg-active)) ${pct(buffered)}% 100%)`,
   };
