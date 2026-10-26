@@ -108,6 +108,17 @@ export function IconMusicNote(props: IconProps) {
   );
 }
 
+/** The app icon's filled eighth note (assets/logo-*.svg), drawn on the
+    icon's own 512 grid: sized to its tile, it sits exactly where it sits on
+    the Home Screen icon. Not a stroked glyph — it is the brand, not UI. */
+export function IconFlowMark({ size = 20, ...rest }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 512 512" fill="currentColor" aria-hidden="true" {...rest}>
+      <path d="M247 349.76V104H275C314 105 350 128 362 170C370 196 366 222 352 236C343 246 332 251 320 252C329 236 333 220 333 202C333 182 326 169 314 162C303 156 290 155 275 155V349.76ZM272.98 338.11A64 46 -20 1 1 152.7 381.89A64 46 -20 1 1 272.98 338.11Z" />
+    </svg>
+  );
+}
+
 export function IconHeart(props: IconProps) {
   return (
     <Icon {...props}>

@@ -41,16 +41,18 @@
 }
 
 /* The lockup carries the app's identity alone in this bar, so it
-   steps up — 32px mark, 18px wordmark — without leaving the monochrome
-   grammar. Still dock-icon quiet on hover; just a bigger object to answer. */
+   steps up — 30px mark with the app icon's own filled note (drawn a
+   little inside the tile, so it reads as a mark rather than a block),
+   18px wordmark — without leaving the monochrome grammar.
+   Still dock-icon quiet on hover; just a bigger object to answer. */
 .topbar__brand-mark {
   display: flex;
   align-items: center;
   justify-content: center;
   flex: none;
-  width: 32px;
-  height: 32px;
-  border-radius: 10px;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
   background: var(--text-primary);
   color: var(--bg-canvas);
   transition: transform var(--dur-normal) var(--ease-spring),

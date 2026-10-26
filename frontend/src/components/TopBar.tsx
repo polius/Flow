@@ -34,9 +34,9 @@ import {
   IconAlbums,
   IconArtists,
   IconClose,
+  IconFlowMark,
   IconHeart,
   IconMenu,
-  IconMusicNote,
   IconPlay,
   IconPlaylists,
   IconSearch,
@@ -51,7 +51,7 @@ const DEBOUNCE_MS = 200;
 interface NavEntry {
   to: string;
   label: string;
-  Icon: (props: IconProps) => ReturnType<typeof IconMusicNote>;
+  Icon: (props: IconProps) => ReturnType<typeof IconTracks>;
 }
 
 /* Section nav — the brand lockup is the Home affordance, so "/" is
@@ -178,7 +178,7 @@ export function TopBar() {
     <header className="topbar">
       <NavLink to="/" end className="topbar__brand" title="Home">
         <span className="topbar__brand-mark">
-          <IconMusicNote size={17} />
+          <IconFlowMark size={24} />
         </span>
         <span className="topbar__brand-name">
           Flow
