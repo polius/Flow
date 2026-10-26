@@ -6,6 +6,7 @@ import { cleanup, fireEvent, render } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { Ambience } from "../components/Ambience";
+import { ArtistPortrait } from "../components/ArtistPortrait";
 import { Artwork } from "../components/Artwork";
 import { artworkSize, artworkUrl } from "../lib/artwork";
 
@@ -52,5 +53,18 @@ describe("Artwork", () => {
     expect(container.querySelector("img")?.getAttribute("src")).toMatch(
       /^\/api\/artwork\/3(\?s=\d+)?$/,
     );
+  });
+});
+
+describe("ArtistPortrait", () => {
+  it("asks for a sized portrait and falls back per id", () => {
+    const { container, rerender } = render(<ArtistPortrait artworkId={4} name="Ada" />);
+    // jsdom lays nothing out: the measurement falls back to 256 px.
+    expect(container.querySelector("img")?.getAttribute("src")).toMatch(/^\/api\/artwork\/4(\?s=\d+)?$/);
+    fireEvent.error(container.querySelector("img")!);
+    expect(container.querySelector(".artistcard__monogram")?.textContent).toBe("A");
+
+    rerender(<ArtistPortrait artworkId={5} name="Ada" />);
+    expect(container.querySelector("img")?.getAttribute("src")).toMatch(/^\/api\/artwork\/5/);
   });
 });
