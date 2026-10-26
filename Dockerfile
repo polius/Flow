@@ -1,7 +1,12 @@
 # Flow — single container, single port.
+#
+# Base images are pinned by digest (tag kept alongside for readability);
+# Dependabot bumps both, and CI builds and smoke-tests the result.
 
 # ---- Stage 1: frontend build ------------------------------------------------
-FROM node:26-alpine AS frontend
+# The output is static files, so this stage always runs on the build host's
+# own platform — no emulation for the arm64 image.
+FROM --platform=$BUILDPLATFORM node:26-alpine@sha256:40cd011b55415bc894e45b02fdd5a5dfde056921b7d23a64c74f80497af48797 AS frontend
 WORKDIR /build
 COPY frontend/package.json frontend/package-lock.json ./
 RUN npm ci
@@ -9,19 +14,25 @@ COPY frontend/ ./
 RUN npm run build
 
 # ---- Stage 2: python dependencies -------------------------------------------
-FROM python:3.15-alpine AS backend
+FROM python:3.15-alpine@sha256:d44b1254cb92329418d164b22b20d86bbd3869d48e80e09e476531a409a728bb AS backend
 RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
+# requirements.txt is the hashed lock compiled from requirements.in, so
+# every transitive dependency is pinned and verified.
 COPY backend/requirements.txt ./
-# musl wheels exist for every dep (mutagen/watchdog pure, pydantic-core
-# publishes musllinux) — no compiler in the image.
-RUN pip install --no-cache-dir -r requirements.txt \
- && pip uninstall -y pip \
- && find /opt/venv -type d \( -name "__pycache__" -o -name "tests" \) -exec rm -rf {} + 2>/dev/null; \
-    find /opt/venv -name "*.pyc" -delete
+# No compiler in the image: pydantic-core publishes musllinux wheels, and
+# watchdog's sdist builds pure Python on Linux (its C extension is macOS's
+# FSEvents only).
+# Bytecode is compiled once here: at runtime /opt/venv is read-only to the
+# app user, so anything not precompiled is recompiled on every boot.
+RUN set -eux; \
+    pip install --no-cache-dir --require-hashes -r requirements.txt; \
+    pip uninstall -y pip; \
+    find /opt/venv -type d \( -name "__pycache__" -o -name "tests" \) -prune -exec rm -rf {} +; \
+    python -m compileall -q -j 0 --invalidation-mode checked-hash /opt/venv/lib
 
 # ---- Stage 3: runtime --------------------------------------------------------
-FROM python:3.15-alpine AS runtime
+FROM python:3.15-alpine@sha256:d44b1254cb92329418d164b22b20d86bbd3869d48e80e09e476531a409a728bb AS runtime
 # tini: PID 1 signal handling. bash: the start script uses `wait -n`
 # and pipefail — kept on real bash for predictability, not busybox ash.
 # ffmpeg: scan-time loudness analysis; its absence degrades gracefully —
@@ -36,21 +47,28 @@ WORKDIR /app
 COPY --from=backend /opt/venv /opt/venv
 COPY --from=frontend /build/dist /app/static
 COPY backend/app /app/app
-COPY nginx/default.conf /app/nginx.conf
+COPY nginx/default.conf nginx/headers-common.conf nginx/security-headers.conf nginx/proxy-api.conf /app/nginx/
 COPY docker/start.sh /app/start.sh
 
-RUN chmod +x /app/start.sh \
- && mkdir -p /flow/music /flow/data /tmp/nginx \
- && chown -R flow:flow /app /flow /tmp/nginx
+# /app stays root-owned and read-only to the app user: a parser exploit
+# can't rewrite the code or the nginx config. Only /flow and nginx's temp
+# dir are writable. The app's bytecode is compiled here for the same
+# reason as the venv's.
+RUN --mount=type=bind,source=docker/csp-hashes.py,target=/tmp/csp-hashes.py \
+    set -eux; \
+    python /tmp/csp-hashes.py /app/static/index.html /app/nginx/security-headers.conf; \
+    python -m compileall -q -j 0 --invalidation-mode checked-hash /app/app; \
+    chmod 0755 /app/start.sh; \
+    mkdir -p /flow/music /flow/data /tmp/nginx; \
+    chown flow:flow /flow /flow/music /flow/data /tmp/nginx
 
 # No USER directive: the container starts as root so start.sh can prepare
 # a bind-mounted /flow whose host directory is root-owned (NAS shares
 # usually are). A bind mount shadows the /flow dirs created above, and a
 # plain non-root container can't mkdir inside such a mount. Once the
-# writable dirs are in place, start.sh drops to flow:flow — nginx and
-# uvicorn never run as root. An explicit `docker run --user …` skips all
-# of this and runs directly as that user, files stay owned by flow (1000,
-# the host's first user on typical Linux installs).
+# writable dirs are in place, start.sh drops to PUID:PGID (default
+# flow:flow, 1000:1000) — nginx and uvicorn never run as root. An explicit
+# `docker run --user …` skips all of this and runs directly as that user.
 ENV PATH="/opt/venv/bin:$PATH" \
     FLOW_MUSIC_DIR=/flow/music \
     FLOW_DATA_DIR=/flow/data \

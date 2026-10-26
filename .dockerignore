@@ -12,3 +12,10 @@ music
 *.db-shm
 .DS_Store
 *.log
+**/.pytest_cache
+**/.ruff_cache
+backend/.data
+frontend/coverage
+.github
+assets
+*.md

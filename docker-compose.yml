@@ -5,6 +5,12 @@ services:
       - "8080:8080"
     volumes:
       - ./flow:/flow
+    # environment:
+    #   # Sets the login password on first start (auth is off by default).
+    #   FLOW_PASSWORD: "change-me"
+    #   # Run as the host user that owns your music (default 1000:1000).
+    #   PUID: "1000"
+    #   PGID: "1000"
     restart: unless-stopped
     healthcheck:
       test:
