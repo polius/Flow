@@ -177,7 +177,7 @@ docker compose pull && docker compose up -d
 
 Images are tagged by version (`1.6.0`), minor (`1.6`), and major (`1`), so you can pin `poliuscorp/flow:1` to get fixes but not breaking changes. To roll back, set the previous version's tag in `docker-compose.yml` and run `docker compose up -d` again. Database changes are additive, so the older version still runs on upgraded data (you may need to sign in again). To restore older data instead, stop the container and put back a backup or the automatic pre-upgrade copy.
 
-On its first start after an upgrade, Flow re-checks files an older version may have indexed with the wrong format and repairs them in the background. ReplayGain values read from tags are corrected as files are rescanned; to refresh them all at once, run a full rescan with `POST /api/scan?full=1`.
+On its first start after an upgrade, Flow re-checks files an older version may have indexed with the wrong format and repairs them in the background. Files repaired by an older version keep their copies, and ReplayGain values read from tags are corrected as files are rescanned. To redo all of it at once, use **Settings → Library → Full rescan**: it re-reads every file, retries files that couldn't be read, and rebuilds every repaired copy with the current repair (an old copy is kept if its rebuild fails). Edits, favorites and playlists are kept. The same scan is available as `POST /api/scan?full=1`.
 
 ## Configuration
 

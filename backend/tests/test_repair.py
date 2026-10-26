@@ -160,6 +160,46 @@ def test_repaired_copy_is_reused_while_original_is_unchanged(conn, music, scanne
 
 
 @requires_ffmpeg
+def test_full_rescan_rebuilds_a_good_copy(conn, music, scanner):
+    """Settings → Full rescan re-derives every repaired copy with the
+    current pipeline (an older release may have made it), in place."""
+    make_dash_as_mp3(music / "song.mp3", seconds=1.0)
+    scanner.run_scan("test")
+    row = track_row(conn, "song.mp3")
+    copy = Path(row["media_path"])
+    copy.write_bytes(copy.read_bytes())  # same bytes, new inode
+    before = copy.stat().st_ino
+
+    scanner.run_scan("test", full=True)
+    after = track_row(conn, "song.mp3")
+    assert after["id"] == row["id"]
+    assert after["media_path"] == str(copy)
+    assert copy.stat().st_ino != before  # promoted over, not reused
+
+
+@requires_ffmpeg
+def test_full_rescan_keeps_the_old_copy_when_the_rebuild_fails(
+    conn, music, scanner, monkeypatch
+):
+    import app.repair as repair
+
+    make_dash_as_mp3(music / "song.mp3", seconds=1.0)
+    scanner.run_scan("test")
+    copy = Path(track_row(conn, "song.mp3")["media_path"])
+    data = copy.read_bytes()
+
+    monkeypatch.setattr(
+        repair, "_remux", lambda *a, **k: repair.RepairResult(detail="ffmpeg broke")
+    )
+    scanner.run_scan("test", full=True)
+    row = track_row(conn, "song.mp3")
+    assert row["media_path"] == str(copy)
+    assert copy.read_bytes() == data
+    assert not list(repair.repaired_dir().glob("*.failed"))
+    assert scanner.scan_error_log()["items"] == []
+
+
+@requires_ffmpeg
 def test_deleted_repaired_copy_is_re_derived(conn, music, scanner):
     make_dash_as_mp3(music / "song.mp3", seconds=1.0)
     scanner.run_scan("test")

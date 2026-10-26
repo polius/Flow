@@ -115,8 +115,8 @@ def repair_file(
     rel: str, src: Path, *, mtime: float, size: int, retry: bool = False
 ) -> RepairResult:
     """Attempt to rescue one file mutagen refused (or parsed as something
-    browsers can't play). Never touches `src`. `retry` ignores a recorded
-    failure (a forced full rescan)."""
+    browsers can't play). Never touches `src`. `retry` (a forced full
+    rescan) ignores a recorded failure and rebuilds even a good copy."""
     if not config.REPAIR or size < MIN_REPAIR_BYTES:
         return RepairResult()
     if not (shutil.which("ffmpeg") and shutil.which("ffprobe")):
@@ -133,13 +133,35 @@ def repair_file(
 
     # An identical repair from an earlier scan (same path+size+mtime → same
     # key, whatever release made it) is reused instead of paying ffmpeg
-    # again; a copy that no longer verifies is rebuilt from scratch.
+    # again; a copy that no longer verifies is rebuilt from scratch. A
+    # forced full rescan rebuilds even a good copy — the pipeline may have
+    # improved since it was made — and keeps the old one only when the
+    # rebuild fails: a full rescan never loses a track that played.
+    kept = _existing_copy(out_dir, key)
+    if kept is not None and not retry:
+        return kept
+    result = _remux(rel, src, out_dir, key, failed_marker)
+    if result.path is None and kept is not None and kept.path is not None:
+        # The marker _remux may have written would hide the working copy
+        # from the next ordinary scan.
+        _discard(failed_marker)
+        log.warning("Rebuild failed, keeping the earlier copy: %s (%s)", rel, result.detail)
+        return kept
+    return result
+
+
+def _existing_copy(out_dir: Path, key: str) -> RepairResult | None:
     for existing in sorted(out_dir.glob(f"{key}.*")):
         if _COPY_RE.match(existing.name):
             parsed = _verified(existing)
             if parsed is not None:
                 return RepairResult(path=existing, parsed=parsed)
+    return None
 
+
+def _remux(rel: str, src: Path, out_dir: Path, key: str, failed_marker: Path) -> RepairResult:
+    """One fresh repair: probe the payload, remux it to a temp file, verify
+    it, then promote it atomically over any earlier copy of the same name."""
     stripped: Path | None = None
     part: Path | None = None
     try:
