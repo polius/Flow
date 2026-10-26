@@ -70,8 +70,13 @@ function open(): void {
       useScanStore.getState().setStatus(statusFromEvent(event));
       // A scan that just finished changed the library under every list:
       // counts, grids, Recently added, search. Only the transition — the
-      // stream's first idle event on connect changes nothing.
-      if (event.state === "idle" && previous?.state === "scanning") {
+      // stream's first idle event on connect changes nothing. The index is
+      // final once the loudness pass starts (the scan stays "scanning"
+      // through it), so new songs show up then, not after the analysis.
+      const indexed =
+        event.state === "idle" ||
+        (event.phase === "analyze" && previous?.phase !== "analyze");
+      if (indexed && previous?.state === "scanning") {
         invalidateLibrary(queryClient);
       }
     } catch {
