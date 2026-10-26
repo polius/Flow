@@ -10,7 +10,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 
-vi.mock("../api/scanSync", () => ({ ensureScanSync: () => {} }));
+vi.mock("../api/scanSync", () => ({ ensureScanSync: () => {}, stopScanSync: () => {} }));
 vi.mock("../api/queue", () => ({
   fetchServerQueue: vi.fn().mockResolvedValue({ status: "empty" }),
   saveServerQueue: vi.fn(),

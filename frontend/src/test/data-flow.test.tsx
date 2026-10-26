@@ -78,7 +78,7 @@ describe("row menu Play", () => {
         trackMenu: { track: track(1), x: 0, y: 0, context: [track(1)], contextLoader, playFrom },
       });
     });
-    fireEvent.click(screen.getByRole("button", { name: "Play" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Play" }));
     expect(playFrom).toHaveBeenCalledTimes(1);
     expect(contextLoader).not.toHaveBeenCalled();
   });
