@@ -25,10 +25,14 @@ export function UndoToast() {
   if (!notice) return null;
 
   return (
+    // Not a live region: a region mounted together with its text is often
+    // missed by screen readers. The shell's always-mounted Announcer
+    // speaks the notice; this pill is the visual + the Undo control.
     <div
       key={notice.id}
       className="undotoast"
-      role="status"
+      role="group"
+      aria-label="Notification"
       onMouseEnter={() => setHeld(true)}
       onMouseLeave={() => setHeld(false)}
       onFocus={() => setHeld(true)}

@@ -15,6 +15,7 @@ def test_bootstrap_creates_missing_music_dir(tmp_path, monkeypatch):
     db.init()
     monkeypatch.setattr(config, "MUSIC_DIR", music)
     main._bootstrap(db)
+    db.close_all()
 
     assert music.is_dir()
 
@@ -31,6 +32,7 @@ def test_bootstrap_never_touches_an_existing_music_dir(tmp_path, monkeypatch):
     db.init()
     monkeypatch.setattr(config, "MUSIC_DIR", music)
     main._bootstrap(db)
+    db.close_all()
 
     assert (music / "song.mp3").read_bytes() == b"keep"
     assert list(music.iterdir()) == [music / "song.mp3"]
@@ -46,5 +48,6 @@ def test_bootstrap_creates_nested_music_dir(tmp_path, monkeypatch):
     db.init()
     monkeypatch.setattr(config, "MUSIC_DIR", music)
     main._bootstrap(db)
+    db.close_all()
 
     assert music.is_dir()

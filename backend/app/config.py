@@ -30,6 +30,10 @@ AUDIO_MIME = {
     "ogg": "audio/ogg",
     "opus": "audio/opus",
     "wav": "audio/wav",
+    # Indexed only when repair can't produce a browser-safe copy (FLOW_REPAIR
+    # off, no ffmpeg): an honest type beats audio/mpeg over AIFF bytes.
+    "aiff": "audio/aiff",
+    "aac": "audio/aac",
 }
 
 # Built frontend, served by FastAPI when present (prod convenience).
@@ -43,8 +47,27 @@ LIBRARY_EXTENSIONS: frozenset[str] = frozenset({".mp3", ".flac", ".m4a", ".ogg"}
 # FLOW_REPAIR=off disables.
 REPAIR = os.environ.get("FLOW_REPAIR", "on").strip().lower() not in {"off", "0", "false"}
 
-# inotify does not propagate through Docker bind mounts (especially from
-# macOS hosts), so "auto" picks the polling observer inside containers.
-WATCHER_MODE = os.environ.get("FLOW_WATCHER", "auto")
-POLL_INTERVAL = float(os.environ.get("FLOW_POLL_INTERVAL", "5.0"))
+# Startup heal (heal.run_startup_heal): when file detection has improved
+# since the library was last scanned, schedule one rescan at boot so rows
+# indexed under the old rules are re-checked. FLOW_AUTO_HEAL=off leaves that
+# to the next manual or watcher-triggered scan.
+AUTO_HEAL = os.environ.get("FLOW_AUTO_HEAL", "on").strip().lower() not in {"off", "0", "false"}
+
+# Filesystem watching: "native" (inotify/FSEvents), "polling", or "auto" —
+# native unless the library sits on a filesystem that doesn't deliver
+# change events (network shares, FUSE, Docker Desktop's VM file sharing);
+# see watcher.py. Polling stats the whole library every POLL_INTERVAL
+# seconds, so the default is gentle enough to let NAS disks spin down.
+WATCHER_MODE = os.environ.get("FLOW_WATCHER", "auto").strip().lower()
+POLL_INTERVAL = float(os.environ.get("FLOW_POLL_INTERVAL", "60"))
 WATCH_DEBOUNCE = float(os.environ.get("FLOW_WATCH_DEBOUNCE", "2.0"))
+
+# Login bootstrap. FLOW_PASSWORD seeds the login password at boot when none
+# is set (never overwrites one chosen in Settings), so a fresh install isn't
+# open to whoever arrives first. FLOW_RESET_PASSWORD=1 is the recovery path:
+# at boot it clears the password and every session (then FLOW_PASSWORD, if
+# also set, becomes the new password).
+PASSWORD = os.environ.get("FLOW_PASSWORD") or None
+RESET_PASSWORD = os.environ.get("FLOW_RESET_PASSWORD", "").strip().lower() in {
+    "1", "true", "yes", "on",
+}

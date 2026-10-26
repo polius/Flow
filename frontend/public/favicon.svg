@@ -2,7 +2,7 @@
   <!--
     Flow favicon — the app icon's eighth note, redrawn as vectors and
     adapted per theme ramp: the tile stays near-black in light chrome and
-    inverts in dark chrome, so it never vanishes into a dark tab bar (§2.7).
+    inverts in dark chrome, so it never vanishes into a dark tab bar.
   -->
   <style>
     .tile { fill: #1c1c1e; }

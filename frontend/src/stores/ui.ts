@@ -9,6 +9,9 @@ import type { QueueOrigin, Track } from "../api/types";
 /** "system" follows prefers-color-scheme; light/dark are manual overrides. */
 export type ThemeMode = "system" | "light" | "dark";
 
+/** The tile color of the icon a phone gets from "Add to Home Screen". */
+export type HomeIcon = "dark" | "light";
+
 /** A track action menu request. `origin` is what the queue's "Playing
     from" becomes if the menu's Play starts playback from here.
     `removeFromPlaylist` is set when the row came from a playlist; the
@@ -21,6 +24,10 @@ export interface TrackMenuRequest {
   y: number;
   context?: Track[];
   contextLoader?: () => Promise<Track[]>;
+  /** The invoking table's own row-click play for this track. When set,
+      the menu's Play uses it — paged views play the whole view in one
+      server request, exactly like the row click. */
+  playFrom?: () => void;
   origin?: QueueOrigin | null;
   removeFromPlaylist?: () => void;
   /** The invoking table's live selection, when the right-clicked row is
@@ -80,6 +87,9 @@ interface UiState {
   /** Theme override; default follows the OS. */
   themeMode: ThemeMode;
   setThemeMode: (mode: ThemeMode) => void;
+  /** Which app icon this device installs; light is the default. */
+  homeIcon: HomeIcon;
+  setHomeIcon: (icon: HomeIcon) => void;
   /** The undo toast: destructive-but-recoverable actions land here — one
       notice at a time, single-generation. Recoverable notices carry
       `undo`; stream-error skips use the same quiet pill without it. */
@@ -117,6 +127,8 @@ export const useUiStore = create<UiState>()(
       setQueueDragOpen: (queueDragOpen) => set({ queueDragOpen }),
       themeMode: "system",
       setThemeMode: (themeMode) => set({ themeMode }),
+      homeIcon: "light",
+      setHomeIcon: (homeIcon) => set({ homeIcon }),
       undoNotice: null,
       showUndoNotice: (notice) =>
         set({ undoNotice: { ...notice, id: ++undoNonce } }),
@@ -129,6 +141,7 @@ export const useUiStore = create<UiState>()(
       name: "flow.ui",
       partialize: (s) => ({
         themeMode: s.themeMode,
+        homeIcon: s.homeIcon,
       }),
     },
   ),

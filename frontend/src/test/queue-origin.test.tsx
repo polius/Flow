@@ -94,7 +94,7 @@ describe("arrival toast + undo", () => {
     usePlayerStore.getState().playNextMany([added, track(10)]);
 
     const notice = useUiStore.getState().undoNotice;
-    expect(notice?.message).toBe("Added 2 tracks — play next");
+    expect(notice?.message).toBe("Added 2 songs — play next");
     expect(notice?.undo).toBeTypeOf("function");
 
     const order = usePlayerStore.getState().order;
@@ -110,7 +110,7 @@ describe("arrival toast + undo", () => {
     usePlayerStore.getState().addToQueue([added]);
 
     const notice = useUiStore.getState().undoNotice;
-    expect(notice?.message).toBe("Added 1 track — end of queue");
+    expect(notice?.message).toBe("Added 1 song — end of queue");
 
     void notice!.undo!();
     expect(usePlayerStore.getState().queue.map((t) => t.id)).toEqual([1]);

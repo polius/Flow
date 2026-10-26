@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useParams } from "react-router";
+import { Link, useParams } from "react-router";
 
 import { api } from "../api/client";
 import type { QueueOrigin } from "../api/types";
@@ -14,6 +14,7 @@ import { ArtistPortrait } from "../components/ArtistPortrait";
 import { CollectionActions } from "../components/CollectionActions";
 import { CoverEdit } from "../components/CoverEdit";
 import { EmptyState } from "../components/EmptyState";
+import { ErrorState } from "../components/ErrorState";
 import { LoadingState } from "../components/LoadingState";
 import { IconArtists } from "../components/icons";
 import { coverChangeNotice, coverRemovalNotice } from "../lib/coverUndo";
@@ -36,26 +37,42 @@ export function ArtistDetailView() {
   const updateArtist = useUpdateArtist();
   const showUndoNotice = useUiStore((s) => s.showUndoNotice);
 
-  const { data: artist } = useQuery({
+  const { data: artist, isError, refetch } = useQuery({
     queryKey: ["artist", artistId],
     queryFn: async () => {
       const { data, response } = await api.GET("/api/artists/{artist_id}", {
         params: { path: { artist_id: artistId } },
       });
-      if (!response.ok) return null;
+      // Only a 404 means "not found"; anything else is retryable.
+      if (response.status === 404) return null;
+      if (!response.ok) throw new Error(`artist ${artistId}: HTTP ${response.status}`);
       return data;
     },
     enabled: Number.isFinite(artistId),
   });
 
-  if (artist === null) {
+  if (artist === null || !Number.isFinite(artistId)) {
     return (
       <section className="view">
         <EmptyState
           icon={<IconArtists size={26} />}
           title="Artist not found"
           hint="They may have been removed during a library rescan."
+          action={
+            <Link to="/artists" className="btn empty-state__action">
+              Back to Artists
+            </Link>
+          }
+          headingLevel={1}
         />
+      </section>
+    );
+  }
+
+  if (artist === undefined && isError) {
+    return (
+      <section className="view">
+        <ErrorState what="this artist" retry={refetch} />
       </section>
     );
   }
@@ -131,7 +148,7 @@ export function ArtistDetailView() {
           <div className="detailhead__actions">
             <CollectionActions
               tracks={artist.tracks}
-              label={`${artist.name}'s songs`}
+              label={`${artist.name}’s songs`}
               origin={origin}
             />
           </div>
@@ -154,8 +171,9 @@ export function ArtistDetailView() {
           <h2>Songs</h2>
           {/* context stays the WHOLE list, so every visible row plays in the
               artist's full context even while collapsed. */}
-          <TrackTableHead variant="artist" />
           <TrackTable
+            head={<TrackTableHead variant="artist" />}
+            label={`Songs by ${artist.name}`}
             tracks={visibleSongs}
             variant="artist"
             context={artist.tracks}

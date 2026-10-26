@@ -98,8 +98,10 @@ export interface paths {
          *     (password: null).
          *
          *     When login is already on, the middleware requires a session to reach
-         *     here — Settings changes come from a signed-in browser. Turning login
-         *     on issues this browser its session immediately, so the person who
+         *     here — Settings changes come from a signed-in browser — and changing or
+         *     disabling also needs the current password, so a stolen session (or an
+         *     unlocked device) can't lock the owner out or switch login off. Turning
+         *     login on issues this browser its session immediately, so the person who
          *     enabled it isn't locked out by their own next click.
          */
         put: operations["set_password_api_auth_password_put"];
@@ -117,7 +119,13 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Scan progress event stream (SSE) */
+        /**
+         * Scan progress event stream (SSE)
+         * @description Every app tab holds one of these open, so the stream lives on the
+         *     event loop and costs no worker thread while it waits — a sync generator
+         *     parked in a blocking get() held one of the shared pool's 40 threads per
+         *     tab, and enough tabs froze every endpoint, the healthcheck included.
+         */
         get: operations["scan_events_api_scan_get"];
         put?: never;
         /** Trigger a library rescan */
@@ -418,6 +426,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/favorites/bulk": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Bulk Favorite
+         * @description Love or unlove many tracks in one transaction (one request, one
+         *     invalidation for a big selection). Loving appends to the manual order
+         *     in the order given; unloving releases the slot. Unknown ids are
+         *     ignored. Like the heart, this never joins the edit undo generation.
+         */
+        post: operations["bulk_favorite_api_favorites_bulk_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/review/summary": {
         parameters: {
             query?: never;
@@ -613,6 +644,8 @@ export interface paths {
          * Put Queue
          * @description The client's plan mirror: whole-snapshot replace with a client-built
          *     play order. A malformed order is a 422, never a corrupted server copy.
+         *     Track ids a scan has removed since the client loaded them are dropped
+         *     (a foreign-key failure here once left the database locked).
          */
         put: operations["put_queue_api_queue_put"];
         /**
@@ -766,26 +799,17 @@ export interface components {
         };
         /** Body_set_album_cover_api_albums__album_id__cover_put */
         Body_set_album_cover_api_albums__album_id__cover_put: {
-            /**
-             * File
-             * Format: binary
-             */
+            /** File */
             file: string;
         };
         /** Body_set_artist_cover_api_artists__artist_id__cover_put */
         Body_set_artist_cover_api_artists__artist_id__cover_put: {
-            /**
-             * File
-             * Format: binary
-             */
+            /** File */
             file: string;
         };
         /** Body_set_playlist_cover_api_playlists__playlist_id__cover_put */
         Body_set_playlist_cover_api_playlists__playlist_id__cover_put: {
-            /**
-             * File
-             * Format: binary
-             */
+            /** File */
             file: string;
         };
         /**
@@ -832,6 +856,11 @@ export interface components {
         BulkApplyOut: {
             /** Applied */
             applied: number;
+            /**
+             * Undo Available
+             * @default true
+             */
+            undo_available: boolean;
         };
         /**
          * CollisionGroup
@@ -843,6 +872,22 @@ export interface components {
             key: string;
             /** Albums */
             albums: components["schemas"]["AlbumRef"][];
+        };
+        /**
+         * FavoritesBulkIn
+         * @description Love or unlove many tracks in one request. Unknown ids are ignored;
+         *     loving appends to the Favorites manual order in the order given.
+         */
+        FavoritesBulkIn: {
+            /** Track Ids */
+            track_ids: number[];
+            /** Favorite */
+            favorite: boolean;
+        };
+        /** FavoritesBulkOut */
+        FavoritesBulkOut: {
+            /** Updated */
+            updated: number;
         };
         /** GenreListOut */
         GenreListOut: {
@@ -907,11 +952,15 @@ export interface components {
          * PasswordIn
          * @description `password: null` turns login OFF; a string turns it on or replaces it.
          *     The field is required (never defaulted) so an absent key is a 422, not
-         *     an accidental disable.
+         *     an accidental disable. When a password is already set, changing or
+         *     disabling it needs `current_password` — a stolen session alone can't
+         *     lock the owner out or switch login off.
          */
         PasswordIn: {
             /** Password */
             password: string | null;
+            /** Current Password */
+            current_password?: string | null;
         };
         /** PlaylistCreate */
         PlaylistCreate: {
@@ -1132,7 +1181,8 @@ export interface components {
          *     source of UI truth and PUTs its whole queue when the plan changes.
          *     `order` must be a permutation of 0..n-1 into `track_ids`. `origin`
          *     rides along unchanged — queue edits never rewrite where the queue came
-         *     from.
+         *     from. Track ids a scan removed since the client loaded them are dropped
+         *     (with their order entries), never a failed write.
          */
         QueuePutIn: {
             /** Track Ids */
@@ -1147,6 +1197,17 @@ export interface components {
              */
             position: number;
             origin?: components["schemas"]["QueueOrigin"] | null;
+        };
+        /**
+         * QueuePutMinimalOut
+         * @description PUT /api/queue?minimal=1 — the mirror's acknowledgement without
+         *     echoing every row back (a 20k-track queue is megabytes of TrackOut).
+         */
+        QueuePutMinimalOut: {
+            /** Updated At */
+            updated_at: string;
+            /** Count */
+            count: number;
         };
         /**
          * QueueSnapshot
@@ -1351,6 +1412,10 @@ export interface components {
             msg: string;
             /** Error Type */
             type: string;
+            /** Input */
+            input?: unknown;
+            /** Context */
+            ctx?: Record<string, never>;
         };
     };
     responses: never;
@@ -1509,7 +1574,10 @@ export interface operations {
     };
     trigger_scan_api_scan_post: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Re-read every file's tags, not just the ones whose size or mtime changed (for taggers that preserve timestamps). */
+                full?: boolean;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -1525,6 +1593,15 @@ export interface operations {
                     "application/json": {
                         [key: string]: unknown;
                     };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -2163,6 +2240,39 @@ export interface operations {
             };
         };
     };
+    bulk_favorite_api_favorites_bulk_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FavoritesBulkIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FavoritesBulkOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     review_summary_api_review_summary_get: {
         parameters: {
             query?: never;
@@ -2544,7 +2654,10 @@ export interface operations {
     };
     get_artwork_api_artwork__artwork_id__get: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Edge length in px for a resized JPEG (64, 96, 128, 256, 512; other values snap up). Absent = the original bytes. */
+                s?: number | null;
+            };
             header?: never;
             path: {
                 artwork_id: number;
@@ -2595,7 +2708,10 @@ export interface operations {
     };
     put_queue_api_queue_put: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Answer with {updated_at, count} instead of echoing the whole snapshot. */
+                minimal?: boolean;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -2612,7 +2728,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["QueueSnapshot"];
+                    "application/json": components["schemas"]["QueueSnapshot"] | components["schemas"]["QueuePutMinimalOut"];
                 };
             };
             /** @description Validation Error */

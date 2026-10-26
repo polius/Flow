@@ -66,9 +66,10 @@ export function FirstRun({ settings }: { settings: SettingsOut }) {
       <div className="onboard__glyph" aria-hidden="true">
         <IconMusicNote size={26} />
       </div>
-      <h2 className="onboard__title">
+      {/* The page's h1: on an empty library Home steps aside and this IS the page. */}
+      <h1 className="onboard__title">
         {folderMissing ? "Flow can’t see your music folder" : "Welcome to Flow"}
-      </h2>
+      </h1>
       <p className="onboard__lede">
         {folderMissing
           ? "The folder Flow was pointed at isn’t there right now — usually a drive that isn’t mounted yet. Your library is safe: nothing has been removed."
@@ -82,7 +83,7 @@ export function FirstRun({ settings }: { settings: SettingsOut }) {
               Make sure the drive or share holding your music is mounted and
               this path exists: <PathChip path={settings.library_path} />
             </Step>
-            <Step n={2} title="Check the mount">
+            <Step n={2} title="Check the container volume">
               Make sure the volume in docker-compose.yml points at the folder
               holding your music (host <code className="onboard__code">./flow/music</code> →{" "}
               container <code className="onboard__code">/flow/music</code>) and
@@ -125,17 +126,19 @@ export function FirstRun({ settings }: { settings: SettingsOut }) {
 
 /* The first scan caught mid-flight: the startup auto-scan is already doing
    exactly what the steps describe, so the page says so instead of showing
-   a blank canvas. Live line under aria-live. */
+   a blank canvas. The progress line is NOT a live region: the shell's
+   one announcer says "scan started" and "scan finished" — a per-tick
+   count read aloud is noise. */
 export function FirstScan({ scan }: { scan: ScanStatus | null }) {
   const progress = scan && scanStatusLabel(scan);
   return (
-    <div className="onboard" role="status">
+    <div className="onboard">
       <div className="onboard__glyph" aria-hidden="true">
         <span className="onboard__spin" />
       </div>
-      <h2 className="onboard__title">Building your library</h2>
-      <p className="onboard__lede" aria-live="polite">
-        {progress ?? "Scanning…"} — this page fills in as tracks arrive.
+      <h1 className="onboard__title">Building your library</h1>
+      <p className="onboard__lede">
+        {progress ?? "Scanning…"} — this page fills in as songs arrive.
       </p>
     </div>
   );

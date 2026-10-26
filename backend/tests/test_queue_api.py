@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import sqlite3
 
 import pytest
 from tests.audio_fixtures import make_mp3
@@ -403,3 +404,96 @@ def test_playhead_write_lands_while_another_writer_holds_the_lock(db):
 
     row = conn.execute("SELECT updated_at FROM queue_state WHERE id = 0").fetchone()
     assert row["updated_at"] == "held"
+
+
+# ---- failed writes never hold the lock; stale ids; minimal PUT ----
+
+
+def _db_path(client):
+    from app import config
+
+    return config.DB_PATH
+
+
+def test_put_with_a_removed_track_drops_it_instead_of_failing(client, library):
+    """The audit's repro: a scan removed a queued track, then the client
+    PUTs its plan still holding that id. Used to be a foreign-key 500
+    that left the database locked."""
+    ids = _ids(client)[:4]
+    gone = 999_999
+    # Plan [a, gone, b, c] playing `gone`'s successor b (order_pos 2).
+    response = client.put(
+        "/api/queue",
+        json={
+            "track_ids": [ids[0], gone, ids[1], ids[2]],
+            "order": [0, 1, 2, 3],
+            "order_pos": 2,
+        },
+    )
+    assert response.status_code == 200
+    snap = response.json()
+    assert [t["id"] for t in snap["items"]] == ids[:3]
+    assert snap["order"] == [0, 1, 2]
+    assert snap["items"][snap["order"][snap["order_pos"]]]["id"] == ids[1]
+
+    # Nobody holds the write lock afterwards.
+    other = sqlite3.connect(_db_path(client), timeout=0.2)
+    other.execute("BEGIN IMMEDIATE")
+    other.rollback()
+    other.close()
+
+
+def test_failed_request_never_leaves_its_transaction_open(client, library, monkeypatch):
+    """Any exception between a write and its commit is rolled back when the
+    request ends: the write lock is released at once and the half-written
+    queue never rides into a later commit on the same worker thread."""
+    from app.routers import queue as queue_router
+
+    ids = _ids(client)
+    client.put("/api/queue", json={"track_ids": ids[:3], "order": [0, 1, 2], "order_pos": 0})
+
+    def half_write(conn, **_kwargs):
+        conn.execute("DELETE FROM queue_items")
+        raise RuntimeError("boom between write and commit")
+
+    monkeypatch.setattr(queue_router, "_write_snapshot", half_write)
+    with client.__class__(client.app, raise_server_exceptions=False) as failing:
+        assert failing.put(
+            "/api/queue", json={"track_ids": ids[:2], "order": [0, 1], "order_pos": 0}
+        ).status_code == 500
+    monkeypatch.undo()
+
+    other = sqlite3.connect(_db_path(client), timeout=0.2)
+    other.execute("BEGIN IMMEDIATE")  # "database is locked" before the fix
+    other.rollback()
+    other.close()
+
+    # A later write on any worker commits only its own changes.
+    client.patch("/api/queue", json={"position": 1.5})
+    assert [t["id"] for t in client.get("/api/queue").json()["items"]] == ids[:3]
+
+
+def test_put_minimal_returns_only_the_ack(client, library):
+    ids = _ids(client)[:3]
+    body = {"track_ids": [*ids, 424242], "order": [3, 2, 1, 0], "order_pos": 1}
+    response = client.put("/api/queue", params={"minimal": 1}, json=body)
+    assert response.status_code == 200
+    ack = response.json()
+    assert set(ack) == {"updated_at", "count"}
+    assert ack["count"] == 3
+    snap = client.get("/api/queue").json()
+    assert snap["updated_at"] == ack["updated_at"]
+    assert snap["order"] == [2, 1, 0]
+
+    # Old clients (no param) still get the whole snapshot back.
+    full = client.put("/api/queue", json=body).json()
+    assert [t["id"] for t in full["items"]] == ids
+
+
+def test_play_with_curate_sort(client, library):
+    """sort=curate orders by the album artist — the id query must carry
+    that join (used to be a 500)."""
+    response = client.post("/api/queue", json={"q": "Song", "sort": "curate"})
+    assert response.status_code == 200
+    titles = [t["title"] for t in response.json()["items"]]
+    assert titles == sorted(titles)

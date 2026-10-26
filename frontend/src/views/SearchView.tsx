@@ -7,6 +7,7 @@ import { Link, useSearchParams } from "react-router";
 import { api } from "../api/client";
 import { AlbumCard } from "../components/AlbumCard";
 import { EmptyState } from "../components/EmptyState";
+import { ErrorState } from "../components/ErrorState";
 import { IconSearch } from "../components/icons";
 import { PlaylistArt } from "../components/PlaylistArt";
 import { TrackTable } from "../components/TrackTable";
@@ -18,11 +19,14 @@ export function SearchView() {
   const [searchParams] = useSearchParams();
   const urlQuery = searchParams.get("q") ?? "";
 
-  const { data, isFetching } = useQuery({
+  const { data, isFetching, isError, refetch } = useQuery({
     queryKey: ["search", urlQuery],
-    queryFn: async () => {
+    // The field updates the URL as the user types (debounced in the top
+    // bar): a query the next one overtook is aborted, not left to land.
+    queryFn: async ({ signal }) => {
       const { data } = await api.GET("/api/search", {
         params: { query: { q: urlQuery } },
+        signal,
       });
       return data;
     },
@@ -45,8 +49,10 @@ export function SearchView() {
         <EmptyState
           icon={<IconSearch size={26} />}
           title="Search your library"
-          hint="Type to search across tracks, albums, artists, and playlists."
+          hint="Type to search across songs, albums, artists, and playlists."
         />
+      ) : results === undefined && isError ? (
+        <ErrorState what="search results" retry={refetch} />
       ) : nothing && !isFetching ? (
         <EmptyState
           icon={<IconSearch size={26} />}
@@ -58,10 +64,11 @@ export function SearchView() {
           {results.tracks.length > 0 && (
             <section className="searchgroup">
               <SectionHeader
-                title="Tracks"
+                title="Songs"
                 more={{ to: `/tracks?q=${encodeURIComponent(urlQuery)}`, label: "Show all in Tracks" }}
               />
               <TrackTable
+                label={`Songs matching “${urlQuery}”`}
                 tracks={results.tracks}
                 variant="all"
                 // Results lead with the play affordance, not an ordinal — a

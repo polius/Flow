@@ -1,4 +1,12 @@
-"""Artwork handling: tag-embedded art first, folder fallback, sha1 dedup; blobs are stored as original bytes, never re-encoded."""
+"""Artwork handling: tag-embedded art first, folder fallback, sha1 dedup; blobs are stored as original bytes, never re-encoded.
+
+Only bytes that sniff as JPEG or PNG are ever stored: the MIME type a tag
+claims is attacker-controlled (an APIC frame can say image/svg+xml and carry
+a <script>), and the artwork endpoint is served from the app's own origin.
+Serving re-sniffs too (`served_mime`), so rows stored by older versions are
+safe before any rescan. Sized variants (`thumbnail_path`) are JPEG renders
+cached under DATA_DIR/artwork-cache/.
+"""
 
 from __future__ import annotations
 
@@ -6,7 +14,10 @@ import base64
 import hashlib
 import logging
 import os
+import shutil
 import sqlite3
+import subprocess
+import threading
 from pathlib import Path
 
 from mutagen import File as MutagenFile
@@ -22,9 +33,11 @@ FOLDER_ARTWORK_NAMES = (
 
 MIME_JPEG = "image/jpeg"
 MIME_PNG = "image/png"
+MIME_OCTET = "application/octet-stream"
 
 
 def sniff_mime(data: bytes) -> str | None:
+    """JPEG or PNG by magic bytes — the only types stored."""
     if data[:3] == b"\xff\xd8\xff":
         return MIME_JPEG
     if data[:8] == b"\x89PNG\r\n\x1a\n":
@@ -32,48 +45,77 @@ def sniff_mime(data: bytes) -> str | None:
     return None
 
 
+def served_mime(data: bytes) -> str:
+    """The Content-Type to serve a stored blob with, from its bytes alone —
+    never the stored column. WebP/GIF are recognized for rows stored before
+    sniff-only storage; anything else is octet-stream (downloaded, never
+    rendered as a document)."""
+    mime = sniff_mime(data)
+    if mime is not None:
+        return mime
+    if data[:4] == b"RIFF" and data[8:12] == b"WEBP":
+        return "image/webp"
+    if data[:6] in (b"GIF87a", b"GIF89a"):
+        return "image/gif"
+    return MIME_OCTET
+
+
+def _pick(candidates: list[tuple[bytes, bool]]) -> tuple[bytes, str] | None:
+    """(bytes, is_front_cover) pairs in tag order → the front cover if it
+    sniffs as an image, else the first picture that does."""
+    usable = [(data, front) for data, front in candidates if data and sniff_mime(data)]
+    if not usable:
+        return None
+    data = next((d for d, front in usable if front), usable[0][0])
+    return data, sniff_mime(data)
+
+
 def _extract_embedded(path: Path, suffix: str) -> tuple[bytes, str] | None:
-    """Return (image_bytes, mime) from the file's tags, or None."""
+    """Return (image_bytes, mime) from the file's tags, or None. Pictures
+    whose bytes aren't JPEG/PNG are skipped whatever MIME the tag claims —
+    the folder image then gets its chance."""
     audio = MutagenFile(str(path), easy=False)
     if audio is None or audio.tags is None:
         return None
 
     if suffix == ".mp3" and isinstance(audio.tags, ID3):
         # Prefer front cover (picture type 3), fall back to the first image.
-        apics = audio.tags.getall("APIC")
-        for apic in apics:
-            if getattr(apic, "type", None) is not None and apic.type == 3:
-                return apic.data, sniff_mime(apic.data) or apic.mime
-        if apics:
-            return apics[0].data, sniff_mime(apics[0].data) or apics[0].mime
-        return None
+        return _pick(
+            [(apic.data, getattr(apic, "type", None) == 3) for apic in audio.tags.getall("APIC")]
+        )
 
     if suffix == ".flac" and isinstance(audio, FLAC):
-        if audio.pictures:
-            front = next((p for p in audio.pictures if p.type == 3), audio.pictures[0])
-            return front.data, sniff_mime(front.data) or front.mime
-        return None
+        return _pick([(p.data, p.type == 3) for p in audio.pictures])
 
     if suffix == ".m4a" and isinstance(audio, MP4):
         covers = audio.tags.get("covr") if audio.tags else None
-        if covers:
-            data = bytes(covers[0])
-            mime = sniff_mime(data) or (
-                MIME_PNG if getattr(covers[0], "imageformat", None) == MP4.FORMAT_PNG else MIME_JPEG
-            )
-            return data, mime
-        return None
+        return _pick([(bytes(c), False) for c in covers or []])
 
     # Ogg Vorbis / Ogg FLAC: pictures ride in a base64 metadata_block_picture
     # comment (the FLAC-picture convention).
-    block = audio.tags.get("metadata_block_picture") if audio.tags else None
-    if block:
+    candidates: list[tuple[bytes, bool]] = []
+    for block in audio.tags.get("metadata_block_picture") or []:
         try:
-            picture = Picture(base64.b64decode(block[0]))
-            return picture.data, sniff_mime(picture.data) or picture.mime
+            picture = Picture(base64.b64decode(block))
+            candidates.append((picture.data, picture.type == 3))
         except Exception:  # noqa: BLE001 - malformed picture is not fatal
             log.debug("Unreadable metadata_block_picture in %s", path, exc_info=True)
-    return None
+    return _pick(candidates)
+
+
+def store_artwork(conn, data: bytes, mime: str) -> int:
+    """Content-addressed artwork storage (sha1 dedup), shared by the scanner
+    and cover uploads. Callers pass a sniffed MIME type."""
+    digest = hashlib.sha1(data).hexdigest()
+    row = conn.execute("SELECT id FROM artwork WHERE hash = ?", (digest,)).fetchone()
+    if row is not None:
+        return int(row["id"])
+    return int(
+        conn.execute(
+            "INSERT INTO artwork (hash, blob, mime) VALUES (?, ?, ?)",
+            (digest, data, mime),
+        ).lastrowid
+    )
 
 
 class ArtworkStore:
@@ -135,14 +177,122 @@ class ArtworkStore:
         return None
 
     def _store(self, data: bytes, mime: str) -> int | None:
-        if not data:
+        # Re-sniff whatever the caller claims: only JPEG/PNG bytes are stored.
+        sniffed = sniff_mime(data) if data else None
+        if sniffed is None:
             return None
-        digest = hashlib.sha1(data).hexdigest()
-        row = self._conn.execute("SELECT id FROM artwork WHERE hash = ?", (digest,)).fetchone()
-        if row:
-            return row["id"]
-        cur = self._conn.execute(
-            "INSERT INTO artwork (hash, blob, mime) VALUES (?, ?, ?)",
-            (digest, data, mime),
-        )
-        return int(cur.lastrowid)
+        return store_artwork(self._conn, data, sniffed)
+
+
+# ---- sized variants -----------------------------------------------------------
+
+# Grid tiles ask for one of these edge lengths; other values snap up to the
+# next one (anything larger to the largest), so the cache holds at most
+# len(THUMB_SIZES) files per artwork.
+THUMB_SIZES = (64, 96, 128, 256, 512)
+THUMB_CACHE_DIR = "artwork-cache"
+THUMB_TIMEOUT_SECONDS = 15
+# ffmpeg renders are CPU-bound; a burst of cold grid tiles shouldn't fan out
+# into one process per request.
+_thumb_slots = threading.BoundedSemaphore(4)
+
+
+def snap_size(size: int) -> int:
+    return next((s for s in THUMB_SIZES if s >= size), THUMB_SIZES[-1])
+
+
+def _thumb_name(artwork_id: int, size: int, digest: str) -> str:
+    # The content hash makes a reused id (pruned row, new art) a cache miss
+    # rather than a stale hit; the id prefix lets a render sweep its own
+    # outdated siblings, so re-uploads never accumulate files.
+    return f"{artwork_id}-{size}-{digest[:16]}.jpg"
+
+
+def thumbnail_path(
+    cache_dir: Path, artwork_id: int, digest: str, blob: bytes, size: int
+) -> Path | None:
+    """A cached JPEG at most `size` px on its long edge (never upscaled),
+    rendered with ffmpeg on first request. None when ffmpeg is missing or
+    can't decode the image — the caller serves the original instead."""
+    size = snap_size(size)
+    target = cache_dir / _thumb_name(artwork_id, size, digest)
+    if target.is_file():
+        return target
+    ffmpeg = shutil.which("ffmpeg")
+    if ffmpeg is None:
+        return None
+    try:
+        cache_dir.mkdir(parents=True, exist_ok=True)
+    except OSError:
+        log.warning("Artwork cache dir %s is not writable", cache_dir, exc_info=True)
+        return None
+    stem = f".{artwork_id}-{size}-{os.getpid()}-{threading.get_ident()}"
+    source, rendered = cache_dir / f"{stem}.src", cache_dir / f"{stem}.tmp"
+    try:
+        with _thumb_slots:
+            source.write_bytes(blob)
+            result = subprocess.run(
+                [
+                    ffmpeg, "-nostdin", "-v", "error", "-y",
+                    "-i", str(source),
+                    "-vf",
+                    f"scale=w='min({size},iw)':h='min({size},ih)'"
+                    ":force_original_aspect_ratio=decrease",
+                    "-frames:v", "1", "-pix_fmt", "yuvj420p", "-q:v", "3",
+                    "-f", "mjpeg", str(rendered),
+                ],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.PIPE,
+                timeout=THUMB_TIMEOUT_SECONDS,
+                check=False,
+            )
+        if (
+            result.returncode != 0
+            or not rendered.is_file()
+            or sniff_mime(rendered.read_bytes()[:8]) != MIME_JPEG
+        ):
+            log.debug(
+                "Thumbnail render failed for artwork %s: %s",
+                artwork_id, result.stderr.decode("utf-8", "replace")[-300:],
+            )
+            return None
+        os.replace(rendered, target)
+    except (OSError, subprocess.SubprocessError):
+        log.warning("Thumbnail render failed for artwork %s", artwork_id, exc_info=True)
+        return None
+    finally:
+        for leftover in (source, rendered):
+            try:
+                leftover.unlink()
+            except OSError:
+                pass
+    # Drop this size's renders of older content under the same id.
+    for stale in cache_dir.glob(f"{artwork_id}-{size}-*.jpg"):
+        if stale != target:
+            try:
+                stale.unlink()
+            except OSError:
+                pass
+    return target
+
+
+def prune_thumbnail_cache(conn, cache_dir: Path) -> int:
+    """Delete cached renders whose artwork row is gone or whose content
+    changed. One directory listing plus one query — run once at startup."""
+    if not cache_dir.is_dir():
+        return 0
+    live = {(str(r["id"]), r["hash"][:16]) for r in conn.execute("SELECT id, hash FROM artwork")}
+    removed = 0
+    for entry in cache_dir.iterdir():
+        name = entry.name
+        if name.startswith("."):
+            continue  # an in-flight render's temp file
+        parts = name.removesuffix(".jpg").split("-", 2)
+        if name.endswith(".jpg") and len(parts) == 3 and (parts[0], parts[2]) in live:
+            continue
+        try:
+            entry.unlink()
+            removed += 1
+        except OSError:
+            pass
+    return removed

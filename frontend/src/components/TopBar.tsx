@@ -21,6 +21,7 @@ import { useQuery } from "@tanstack/react-query";
 
 import { api } from "../api/client";
 import { useAppVersion } from "../api/system";
+import { useDebouncedValue } from "../lib/debounce";
 import { fmtCount, scanProgressFraction, scanStatusLabel } from "../lib/format";
 import { useMediaQuery } from "../lib/media";
 import { useScanStore } from "../stores/scan";
@@ -33,9 +34,9 @@ import {
   IconAlbums,
   IconArtists,
   IconClose,
+  IconFlowMark,
   IconHeart,
   IconMenu,
-  IconMusicNote,
   IconPlay,
   IconPlaylists,
   IconSearch,
@@ -50,7 +51,7 @@ const DEBOUNCE_MS = 200;
 interface NavEntry {
   to: string;
   label: string;
-  Icon: (props: IconProps) => ReturnType<typeof IconMusicNote>;
+  Icon: (props: IconProps) => ReturnType<typeof IconTracks>;
 }
 
 /* Section nav — the brand lockup is the Home affordance, so "/" is
@@ -177,7 +178,7 @@ export function TopBar() {
     <header className="topbar">
       <NavLink to="/" end className="topbar__brand" title="Home">
         <span className="topbar__brand-mark">
-          <IconMusicNote size={17} />
+          <IconFlowMark size={24} />
         </span>
         <span className="topbar__brand-name">
           Flow
@@ -189,7 +190,9 @@ export function TopBar() {
           the scan settles. The error count is a real control: it opens the
           skipped-files list — a count nobody can inspect is a dead end. */}
       {scanning && scan && scanLabel && (
-        <div className="topbar__scan" role="status" aria-live="polite">
+        // Visual only — progress ticks are not read aloud; the shell's
+        // Announcer speaks the scan's start and end.
+        <div className="topbar__scan">
           {scanFraction == null ? (
             <span className="topbar__scan-spin" aria-hidden="true" />
           ) : (
@@ -350,6 +353,10 @@ function ScanRing({ fraction }: { fraction: number }) {
    position-anchored chrome (not a route): results appear under the user's
    hands while the page behind never changes. */
 
+const SUGGEST_ID = "topbar-suggest";
+/** Option ids: a suggestion's flat index, or -1 for "See all results". */
+const optionId = (idx: number) => (idx < 0 ? "suggest-opt-all" : `suggest-opt-${idx}`);
+
 interface SuggestItem {
   key: string;
   render: () => React.ReactNode;
@@ -375,16 +382,20 @@ function SearchZone({
   const [activeIdx, setActiveIdx] = useState(-1);
   const zoneRef = useRef<HTMLDivElement>(null);
 
+  // One request per pause in typing, not per keystroke — and a request
+  // the next query overtook is aborted (the signal), not left to land.
+  const settledQ = useDebouncedValue(q, DEBOUNCE_MS);
   const search = useQuery({
-    queryKey: ["search", q],
-    queryFn: async () => {
+    queryKey: ["search", settledQ],
+    queryFn: async ({ signal }) => {
       const { data } = await api.GET("/api/search", {
-        params: { query: { q } },
+        params: { query: { q: settledQ } },
+        signal,
       });
       return data;
     },
     // On /search the page below IS the results — the panel stays shut.
-    enabled: q.length > 0 && open && pathname !== "/search",
+    enabled: settledQ.length > 0 && open && pathname !== "/search",
     placeholderData: (prev) => prev,
   });
 
@@ -468,7 +479,7 @@ function SearchZone({
             />
             <span className="suggest__name">{p.name}</span>
             <span className="suggest__meta">
-              {fmtCount(p.track_count)} track{p.track_count === 1 ? "" : "s"}
+              {fmtCount(p.track_count)} song{p.track_count === 1 ? "" : "s"}
             </span>
           </>
         ),
@@ -483,7 +494,7 @@ function SearchZone({
   const groups = useMemo(() => {
     if (items.length === 0) return [];
     const spans: { label: string; count: number }[] = [
-      { label: "Tracks", count: Math.min(4, results?.tracks.length ?? 0) },
+      { label: "Songs", count: Math.min(4, results?.tracks.length ?? 0) },
       { label: "Albums", count: Math.min(4, results?.albums.length ?? 0) },
       { label: "Artists", count: Math.min(3, results?.artists.length ?? 0) },
       { label: "Playlists", count: Math.min(3, results?.playlists.length ?? 0) },
@@ -522,6 +533,10 @@ function SearchZone({
   }, [pathname]);
 
   const panelOpen = open && q.length > 0 && pathname !== "/search";
+  // The highlighted option, by id, for aria-activedescendant. With nothing
+  // highlighted, Enter means "See all results" — that row is the active one.
+  const activeOptionId =
+    results && items.length > 0 ? optionId(activeIdx >= 0 ? activeIdx : -1) : undefined;
 
   const onInputKeyDown = (e: ReactKeyboardEvent<HTMLInputElement>) => {
     if (panelOpen && results) {
@@ -561,9 +576,17 @@ function SearchZone({
           className="topbar__input"
           type="search"
           name="q"
-          placeholder="Albums, artists, tracks, playlists…"
+          placeholder="Albums, artists, songs, playlists…"
           value={text}
           aria-label="Search library"
+          // The ARIA combobox contract: the field owns the panel, says
+          // whether it is open, and points at the highlighted option so a
+          // screen reader follows the arrows (focus never leaves the field).
+          role="combobox"
+          aria-autocomplete="list"
+          aria-expanded={panelOpen}
+          aria-controls={SUGGEST_ID}
+          aria-activedescendant={panelOpen ? activeOptionId : undefined}
           onChange={(e) => {
             setText(e.target.value);
             if (e.target.value.trim()) setOpen(true);
@@ -576,16 +599,27 @@ function SearchZone({
       </label>
 
       {panelOpen && (
-        <div className="suggest" role="listbox" aria-label="Search results">
+        <div className="suggest" id={SUGGEST_ID} role="listbox" aria-label="Search results">
           {search.isFetching && !results ? (
-            <div className="suggest__loading">Searching…</div>
+            <div className="suggest__loading" role="option" aria-selected={false} aria-disabled="true">
+              Searching…
+            </div>
           ) : results && items.length === 0 ? (
-            <div className="suggest__loading">No results for “{q}”</div>
+            <div className="suggest__loading" role="option" aria-selected={false} aria-disabled="true">
+              No results for “{q}”
+            </div>
           ) : results ? (
             <>
               {groups.map((g) => (
-                <div key={g.label} className="suggest__group">
-                  <span className="suggest__grouplabel">{g.label}</span>
+                <div
+                  key={g.label}
+                  className="suggest__group"
+                  role="group"
+                  aria-labelledby={`suggest-group-${g.label}`}
+                >
+                  <span className="suggest__grouplabel" id={`suggest-group-${g.label}`}>
+                    {g.label}
+                  </span>
                   {items
                     .slice(g.from, g.from + g.count)
                     .map((item, i) => {
@@ -593,8 +627,12 @@ function SearchZone({
                       return (
                         <button
                           key={item.key}
+                          id={optionId(idx)}
                           type="button"
                           role="option"
+                          // Options are reached with the arrows from the
+                          // field, not with Tab.
+                          tabIndex={-1}
                           aria-selected={activeIdx === idx}
                           className={`suggest__item${
                             activeIdx === idx ? " suggest__item--active" : ""
@@ -613,6 +651,10 @@ function SearchZone({
               ))}
               <button
                 type="button"
+                id={optionId(-1)}
+                role="option"
+                tabIndex={-1}
+                aria-selected={activeIdx === -1}
                 className={`suggest__all${
                   activeIdx === -1 ? " suggest__all--active" : ""
                 }`}

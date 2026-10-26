@@ -29,9 +29,9 @@ import { Link } from "react-router";
 
 import type { Track } from "../api/types";
 import { fmtDuration } from "../lib/format";
-import { trackIsUnverified, usePlayerStore } from "../stores/player";
+import { nudgeSlot, sameIds, trackIsUnverified, usePlayerStore } from "../stores/player";
 import { useUiStore } from "../stores/ui";
-import { AddTracksDialog } from "./AddTracksDialog";
+import { AddTracksDialog } from "./LazyAddTracksDialog";
 import { Artwork } from "./Artwork";
 import {
   IconChevronDown,
@@ -250,6 +250,8 @@ export function QueuePanel({ onCollapse }: QueuePanelProps) {
   const listRef = useRef<HTMLDivElement>(null);
   const mountedRef = useRef(false);
   const lastQueueRef = useRef(queue);
+  const lastOrderRef = useRef(order);
+  const lastPosRef = useRef(orderPos);
 
   const origin = usePlayerStore((s) => s.origin);
   const closeNowPlaying = useUiStore((s) => s.closeNowPlaying);
@@ -283,8 +285,14 @@ export function QueuePanel({ onCollapse }: QueuePanelProps) {
     const list = listRef.current;
     if (!list || order.length === 0 || orderPos >= order.length) return;
     if (gestureRef.current.lifted) return;
-    const isNewQueue = lastQueueRef.current !== queue;
+    // Same ids is the same queue: a heart toggled on a queued row patches
+    // it in place and must not steer the list under the reader at all.
+    const isNewQueue = !sameIds(lastQueueRef.current, queue);
+    const patchedInPlace = !isNewQueue && lastOrderRef.current === order;
     lastQueueRef.current = queue;
+    lastOrderRef.current = order;
+    if (mountedRef.current && patchedInPlace && lastPosRef.current === orderPos) return;
+    lastPosRef.current = orderPos;
     const entry = layoutRef.current.rowEntry[Math.max(0, orderPos)];
     const top = entry != null ? layoutRef.current.starts[entry] : 0;
     const inView =
@@ -656,7 +664,7 @@ export function QueuePanel({ onCollapse }: QueuePanelProps) {
               <span className="queue__count">
                 {orderPos >= 0
                   ? `${orderPos + 1} of ${order.length}`
-                  : `${order.length} ${order.length === 1 ? "track" : "tracks"}`}
+                  : `${order.length} ${order.length === 1 ? "song" : "songs"}`}
               </span>
             )}
           </div>
@@ -780,10 +788,10 @@ export function QueuePanel({ onCollapse }: QueuePanelProps) {
                         // focused row one slot at a time.
                         if (e.altKey && (e.key === "ArrowUp" || e.key === "ArrowDown")) {
                           e.preventDefault();
-                          const to =
-                            e.key === "ArrowUp" ? idx - 1 : idx + 1;
+                          const direction = e.key === "ArrowUp" ? -1 : 1;
+                          const to = idx + direction;
                           if (to < 0 || to >= order.length) return;
-                          moveInQueue(idx, to < idx ? to : to + 2);
+                          moveInQueue(idx, nudgeSlot(idx, direction));
                           requestAnimationFrame(() => {
                             listRef.current
                               ?.querySelector<HTMLElement>(

@@ -4,7 +4,7 @@
    the app's undo pill — this component only gathers the change. */
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 
 import { api } from "../api/client";
 import type { Track } from "../api/types";
@@ -304,6 +304,94 @@ export function BulkBar({ count, filterMode, applying, selectedTracks, onClear, 
   );
 }
 
+interface EntityCount {
+  id: number;
+  title: string;
+  track_count: number;
+}
+
+/** A handful of misses are fetched one by one (in parallel); past this,
+    one paged walk of the summary list is cheaper than N detail reads. */
+const DETAIL_FETCH_MAX = 8;
+const SUMMARY_PAGE = 1000;
+
+/** Title + track count for each album (or artist) id. The counts are
+    already in any summary list or detail this session has loaded — the
+    cache answers first. What it can't answer comes from a few parallel
+    detail reads, or one paged walk of the summaries for a big selection
+    (a 300-album selection once made 300 sequential detail requests). */
+async function resolveCounts(
+  queryClient: QueryClient,
+  kind: "album" | "artist",
+  ids: number[],
+  signal: AbortSignal,
+): Promise<EntityCount[]> {
+  const wanted = new Set(ids);
+  const found = new Map<number, EntityCount>();
+  const take = (item: unknown) => {
+    if (item == null || typeof item !== "object") return;
+    const e = item as { id?: unknown; title?: unknown; name?: unknown; track_count?: unknown };
+    if (typeof e.id !== "number" || !wanted.has(e.id) || found.has(e.id)) return;
+    const title = kind === "album" ? e.title : e.name;
+    if (typeof title !== "string" || typeof e.track_count !== "number") return;
+    found.set(e.id, { id: e.id, title, track_count: e.track_count });
+  };
+  // Cached summaries (["albums", …] / ["artists", …]) and details — only
+  // entries no edit has invalidated since: a stale count would misstate
+  // what gets removed.
+  const fresh = (queryKey: string[]) =>
+    queryClient
+      .getQueryCache()
+      .findAll({ queryKey, predicate: (q) => !q.state.isInvalidated })
+      .map((q) => q.state.data);
+  for (const data of fresh([`${kind}s`])) {
+    const d = data as { items?: unknown; pages?: unknown } | undefined;
+    if (Array.isArray(d?.items)) (d.items as unknown[]).forEach(take);
+    if (Array.isArray(d?.pages)) {
+      for (const page of d.pages as { items?: unknown }[]) {
+        if (Array.isArray(page?.items)) (page.items as unknown[]).forEach(take);
+      }
+    }
+  }
+  for (const data of fresh([kind])) take(data);
+
+  const missing = ids.filter((id) => !found.has(id));
+  if (missing.length > 0 && missing.length <= DETAIL_FETCH_MAX) {
+    await Promise.all(
+      missing.map(async (id) => {
+        const { data } =
+          kind === "album"
+            ? await api.GET("/api/albums/{album_id}", {
+                params: { path: { album_id: id } },
+                signal,
+              })
+            : await api.GET("/api/artists/{artist_id}", {
+                params: { path: { artist_id: id } },
+                signal,
+              });
+        take(data);
+      }),
+    );
+  } else if (missing.length > 0) {
+    for (let offset = 0; ; offset += SUMMARY_PAGE) {
+      const { data } =
+        kind === "album"
+          ? await api.GET("/api/albums", {
+              params: { query: { limit: SUMMARY_PAGE, offset } },
+              signal,
+            })
+          : await api.GET("/api/artists", {
+              params: { query: { limit: SUMMARY_PAGE, offset } },
+              signal,
+            });
+      const items = data?.items ?? [];
+      items.forEach(take);
+      if (items.length < SUMMARY_PAGE || ids.every((id) => found.has(id))) break;
+    }
+  }
+  return ids.map((id) => found.get(id)).filter((e): e is EntityCount => e != null);
+}
+
 function ConsequenceLine({
   field,
   value,
@@ -324,25 +412,11 @@ function ConsequenceLine({
     return [...s];
   }, [field, selectedTracks]);
 
+  const queryClient = useQueryClient();
   const details = useQuery({
     queryKey: ["consequences", field, ids],
-    queryFn: async () => {
-      const out: { id: number; title: string; track_count: number }[] = [];
-      for (const id of ids) {
-        if (field === "album") {
-          const { data } = await api.GET("/api/albums/{album_id}", {
-            params: { path: { album_id: id } },
-          });
-          if (data) out.push({ id, title: data.title, track_count: data.track_count });
-        } else {
-          const { data } = await api.GET("/api/artists/{artist_id}", {
-            params: { path: { artist_id: id } },
-          });
-          if (data) out.push({ id, title: data.name, track_count: data.track_count });
-        }
-      }
-      return out;
-    },
+    queryFn: ({ signal }) =>
+      resolveCounts(queryClient, field === "album" ? "album" : "artist", ids, signal),
     enabled: !filterMode && ids.length > 0 && field !== "genre",
   });
   const affected = useMemo(() => {

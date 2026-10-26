@@ -24,7 +24,7 @@ def db(tmp_path):
     database = Database(tmp_path / "test.db")
     database.init()
     yield database
-    database.close_thread()
+    database.close_all()
 
 
 @pytest.fixture
@@ -60,7 +60,10 @@ def client(monkeypatch, tmp_path, library):
     monkeypatch.setattr(config, "MUSIC_DIR", library)
     monkeypatch.setattr(config, "DIST_DIR", None)
     app = create_app()
-    monkeypatch.setattr(app.state.scanner, "start_scan", lambda trigger: False)
+    monkeypatch.setattr(app.state.scanner, "start_scan", lambda trigger, full=False: False)
     with TestClient(app) as c:
         app.state.scanner.run_scan("test")
         yield c
+    # Pool threads opened their own connections; close them all so none is
+    # left to the garbage collector (a ResourceWarning per connection).
+    app.state.db.close_all()

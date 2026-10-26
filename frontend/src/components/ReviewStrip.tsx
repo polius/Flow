@@ -52,12 +52,12 @@ export function ReviewStrip({ summary, activeReview, onPick, onPickAlbum }: Revi
     {
       key: "no_album",
       count: summary.no_album,
-      label: summary.no_album === 1 ? "track has no album" : "tracks have no album",
+      label: summary.no_album === 1 ? "song has no album" : "songs have no album",
     },
     {
       key: "single_track_albums",
       count: summary.single_track_albums,
-      label: summary.single_track_albums === 1 ? "album holds a single track" : "albums hold a single track",
+      label: summary.single_track_albums === 1 ? "album holds a single song" : "albums hold a single song",
     },
     {
       key: "mixed_album_artist",

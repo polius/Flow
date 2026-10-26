@@ -4,10 +4,21 @@ on:
   push:
     branches: [main]
   pull_request:
+  # The release workflow re-runs everything on the tagged commit.
+  workflow_call:
+
+permissions:
+  contents: read
 
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
+
+# Versions match the Dockerfile's base images (node:26-alpine,
+# python:3.15-alpine); bump them together.
+env:
+  NODE_VERSION: "26"
+  PYTHON_VERSION: "3.15"
 
 jobs:
   frontend:
@@ -17,10 +28,12 @@ jobs:
       run:
         working-directory: frontend
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          node-version: 22
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
           cache: npm
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci
@@ -28,6 +41,8 @@ jobs:
       - run: npm test
       - run: npm run build
 
+  # The job name is a required check in the "Require CI checks on main"
+  # ruleset; it also runs ruff.
   backend:
     name: Backend — pytest
     runs-on: ubuntu-latest
@@ -35,15 +50,86 @@ jobs:
       run:
         working-directory: backend
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-python@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          python-version: "3.13"
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
       # The runner image ships without ffmpeg; without it the repair suite
       # silently skips 12 tests and loudness analysis can't be exercised.
       - name: Install ffmpeg
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y --no-install-recommends ffmpeg
-      - run: pip install -r requirements.txt -r requirements-dev.txt
+      # Two installs: requirements.txt is hash-locked, which pip enforces
+      # for every requirement in the same invocation.
+      - run: pip install --require-hashes -r requirements.txt
+      - run: pip install -r requirements-dev.txt
+      - run: ruff check --output-format=github .
       - run: python -m pytest tests/ -q
+
+  api-schema:
+    name: API schema — no drift
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: pip install --require-hashes -r backend/requirements.txt
+      - run: npm ci
+        working-directory: frontend
+      # Regenerate the frontend's API types from the backend's OpenAPI
+      # document; any difference means schema.d.ts wasn't regenerated
+      # (`npm run gen:api` against a running backend).
+      - name: Regenerate frontend/src/api/schema.d.ts
+        run: |
+          python -c "import json; from app.main import app; print(json.dumps(app.openapi()))" > "$RUNNER_TEMP/openapi.json"
+          (cd ../frontend && npx openapi-typescript "$RUNNER_TEMP/openapi.json" -o src/api/schema.d.ts)
+        working-directory: backend
+        env:
+          FLOW_DATA_DIR: ${{ runner.temp }}/data
+          FLOW_MUSIC_DIR: ${{ runner.temp }}/music
+      - run: git diff --exit-code -- frontend/src/api/schema.d.ts
+
+  # Builds the real image on each architecture and runs it: catches a base
+  # image or dependency bump that breaks the container before it merges.
+  docker:
+    name: Docker — build and smoke test (${{ matrix.arch }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-latest
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - name: Build image
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          load: true
+          tags: flow:ci
+          cache-from: type=gha,scope=ci-${{ matrix.arch }}
+          cache-to: type=gha,scope=ci-${{ matrix.arch }},mode=max
+      - name: Start a demo container
+        run: docker run -d --name flow -p 8080:8080 -e DEMO=true flow:ci
+      - name: Smoke test
+        run: .github/scripts/smoke-test.sh http://127.0.0.1:8080
+      - name: Container log
+        if: always()
+        run: docker logs flow

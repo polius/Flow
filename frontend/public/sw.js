@@ -1,14 +1,15 @@
-/* Flow's offline shell (Review 2 §4.2): the installed PWA answers even when
-   uvicorn is restarting — a §32-verified event the browser currently answers
-   with a dinosaur. The scope is deliberately the shell only, per the review:
+/* Flow's offline shell: the installed PWA answers even when uvicorn is
+   restarting (a container update, a crash loop) — a moment the browser
+   would otherwise answer with its own offline dinosaur. The scope is
+   deliberately the shell only:
 
    - hashed assets (/assets/…) are cache-first: Vite content-hashes them, so
      a hit is always the bytes that URL names (immutable, like nginx's);
-   - /api is network-only — data is never cached (the queue is server truth,
-     §32), and the app's own error states are the offline story for calls;
+   - /api is network-only — data is never cached (the queue is server
+     truth), and the app's own error states are the offline story for calls;
    - navigations try the network and fall back to one calm offline page.
 
-   Hand-written, no build step — the manifest/icons precedent (§30.9). Bump
+   Hand-written, no build step — like the manifest and icons beside it. Bump
    VERSION to drop every cache on deploy (activate removes the old ones). */
 
 const VERSION = "flow-shell-v2";
@@ -16,7 +17,7 @@ const SHELL_CACHE = `${VERSION}-shell`;
 const ASSET_CACHE = `${VERSION}-assets`;
 const OFFLINE_URL = "/offline.html";
 /* The runtime cache is bounded — old builds' hashes churn out slowly, but
-   unbounded growth is not a design (§8.0.2: edge cases get a decision). */
+   a cache that only ever grows would eventually fill the device. */
 const MAX_ASSETS = 128;
 
 self.addEventListener("install", (event) => {

@@ -10,11 +10,12 @@ import { SortMenu, type SortOption } from "../components/SortMenu";
 import { TrackTableHead, type TrackSortKey } from "../components/TrackTableHead";
 import { VirtualTrackTable } from "../components/VirtualTrackTable";
 import { EmptyState } from "../components/EmptyState";
+import { ErrorState } from "../components/ErrorState";
 import { LoadingState } from "../components/LoadingState";
 import { useReviewCount } from "../components/ReviewStrip";
 import { IconOrganize, IconTracks } from "../components/icons";
 import { fmtCount } from "../lib/format";
-import { usePlayerStore } from "../stores/player";
+import { beginPlayRequest, usePlayerStore } from "../stores/player";
 import { useUiStore } from "../stores/ui";
 
 /* Full-library view, windowed: pages of 1000 stream in behind the
@@ -116,12 +117,16 @@ export function TracksView() {
   // there is no page for the queue to be truncated to. When everything is
   // already local, play instantly; a failed POST falls back to the
   // client-side whole-view fetch.
+  // The row menu's "Play" runs this same path (one request, not a
+  // page-by-page fetch). A slow request that a newer play overtook is
+  // dropped — it must not replace the queue the user started since.
   const playFromHere = useCallback(
     (index: number) => {
       if (tracks.length >= total) {
         playTracks(tracks, index, viewOrigin);
         return;
       }
+      const isCurrent = beginPlayRequest();
       void playByFilter({
         q: q || undefined,
         genreId: genreId ?? undefined,
@@ -130,6 +135,7 @@ export function TracksView() {
         start: index,
         origin: viewOrigin,
       }).then((snapshot) => {
+        if (!isCurrent()) return;
         if (snapshot) {
           playSnapshot(snapshot);
           return;
@@ -140,6 +146,7 @@ export function TracksView() {
           sort,
           dir,
         }).then((full) => {
+          if (!isCurrent()) return;
           const list = full.length > 0 ? full : tracks;
           playTracks(list, Math.min(index, list.length - 1), viewOrigin);
         });
@@ -147,12 +154,6 @@ export function TracksView() {
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [playTracks, playSnapshot, tracks, total, q, genreName, genreId, sort, dir],
-  );
-
-  // The row menu's "Play" resolves the same whole view.
-  const contextLoader = useCallback(
-    () => fetchAllTracks({ q: q || undefined, genreId: genreId ?? undefined, sort, dir }),
-    [q, genreId, sort, dir],
   );
 
   const handleNearEnd = useCallback(() => {
@@ -194,10 +195,10 @@ export function TracksView() {
             {/* In flight, an empty fixed-height slot — never a formatted
                 zero: a fresh visit (or a genre/filter switch) must not
                 flash "0 songs" before the count is measured. */}
-            {query.isPending
+            {query.data === undefined
               ? "\u00A0"
               : genreName
-                ? `${fmtCount(total)} ${total === 1 ? "track" : "tracks"} in “${genreName}”`
+                ? `${fmtCount(total)} ${total === 1 ? "song" : "songs"} in “${genreName}”`
                 : q
                   ? `${fmtCount(total)} ${total === 1 ? "match" : "matches"} for “${q}”`
                   : `${fmtCount(total)} ${total === 1 ? "song" : "songs"}`}
@@ -210,7 +211,7 @@ export function TracksView() {
             value={sort}
             dir={dir}
             onChange={(key, nextDir) => onSort(key as TrackSortKey, nextDir)}
-            label="Sort tracks"
+            label="Sort songs"
           />
           <button
             type="button"
@@ -229,12 +230,14 @@ export function TracksView() {
           </button>
         </div>
       </div>
-      {query.isPending ? (
+      {query.data === undefined && query.isError ? (
+        <ErrorState what="your songs" retry={query.refetch} />
+      ) : query.isPending ? (
         <LoadingState variant="rows" />
       ) : tracks.length === 0 ? (
         <EmptyState
           icon={<IconTracks size={26} />}
-          title={q ? `No tracks match “${q}”` : "No tracks yet"}
+          title={q ? `No songs match “${q}”` : "No songs yet"}
           hint={
             q
               ? "Try a different word, or search everything from the Search view."
@@ -243,12 +246,12 @@ export function TracksView() {
         />
       ) : (
         <>
-          <TrackTableHead sort={sort} dir={dir} onSort={onSort} />
           <VirtualTrackTable
+            head={<TrackTableHead sort={sort} dir={dir} onSort={onSort} />}
+            label={genreName ? `Songs in ${genreName}` : q ? `Songs matching “${q}”` : "All songs"}
             tracks={tracks}
             onNearEnd={handleNearEnd}
             onPlay={playFromHere}
-            contextLoader={contextLoader}
           />
         </>
       )}

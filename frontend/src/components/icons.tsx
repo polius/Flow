@@ -108,6 +108,17 @@ export function IconMusicNote(props: IconProps) {
   );
 }
 
+/** The app icon's filled eighth note (assets/logo-*.svg), drawn on the
+    icon's own 512 grid: sized to its tile, it sits exactly where it sits on
+    the Home Screen icon. Not a stroked glyph — it is the brand, not UI. */
+export function IconFlowMark({ size = 20, ...rest }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 512 512" fill="currentColor" aria-hidden="true" {...rest}>
+      <path d="M247 349.76V104H275C314 105 350 128 362 170C370 196 366 222 352 236C343 246 332 251 320 252C329 236 333 220 333 202C333 182 326 169 314 162C303 156 290 155 275 155V349.76ZM272.98 338.11A64 46 -20 1 1 152.7 381.89A64 46 -20 1 1 272.98 338.11Z" />
+    </svg>
+  );
+}
+
 export function IconHeart(props: IconProps) {
   return (
     <Icon {...props}>
@@ -332,6 +343,36 @@ export function IconEyeOff(props: IconProps) {
       <path d="m4.5 4 15 15" />
       <path d="M9.8 5.2A10.7 10.7 0 0 1 12 5c3.8 0 6.9 2 9.2 6a15.6 15.6 0 0 1-2.6 3.3M6.6 6.6C4.8 8 3.4 9.8 2.8 12c2.3 4 5.4 6 9.2 6 1.3 0 2.6-.3 3.8-.8" />
       <path d="M9.9 9.9a2.9 2.9 0 0 0 4.1 4.1" />
+    </Icon>
+  );
+}
+
+/* Volume: a speaker with sound waves; muted swaps the waves for a cross. */
+export function IconVolume(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M4 9.5h3.2L11.5 6v12l-4.3-3.5H4z" />
+      <path d="M15 9.2a4 4 0 0 1 0 5.6" />
+      <path d="M17.6 6.6a7.6 7.6 0 0 1 0 10.8" />
+    </Icon>
+  );
+}
+
+export function IconVolumeMute(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M4 9.5h3.2L11.5 6v12l-4.3-3.5H4z" />
+      <path d="m15.5 9.5 5 5" />
+      <path d="m20.5 9.5-5 5" />
+    </Icon>
+  );
+}
+
+/* Sleep timer — a crescent moon. */
+export function IconMoon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M19.5 14.6A7.8 7.8 0 0 1 9.4 4.5a7.8 7.8 0 1 0 10.1 10.1Z" />
     </Icon>
   );
 }

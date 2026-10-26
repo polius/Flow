@@ -149,7 +149,8 @@ def test_genres_parsed_and_browsable(conn, music, scanner, credit_library):
 def test_replaygain_tag_is_the_fast_path(conn, music, scanner, credit_library):
     scanner.run_scan("test")
     row = track_row(conn, "genre.flac")
-    assert row["gain_db"] == pytest.approx(-6.5)
+    # ReplayGain is relative to -18 LUFS; Sound Check plays at -14 LUFS (+4 dB).
+    assert row["gain_db"] == pytest.approx(-2.5)
     # Untagged files stay NULL until the analysis phase measures them.
     assert track_row(conn, "lead.mp3")["gain_db"] is None
 
@@ -239,7 +240,7 @@ def test_featured_artist_detail_includes_credits(api_client):
 def test_track_out_carries_gain(api_client):
     items = api_client.get("/api/tracks").json()["items"]
     by_path = {t["path"]: t for t in items}
-    assert by_path["genre.flac"]["gain_db"] == pytest.approx(-6.5)
+    assert by_path["genre.flac"]["gain_db"] == pytest.approx(-2.5)
     assert by_path["lead.mp3"]["gain_db"] is None
 
 

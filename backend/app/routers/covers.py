@@ -2,31 +2,16 @@
 
 from __future__ import annotations
 
-import hashlib
-
 from fastapi import APIRouter, HTTPException, Request, UploadFile
 
-from app.artwork import sniff_mime
+from app.artwork import sniff_mime, store_artwork
 from app.schemas import AlbumDetail, AlbumUpdate, ArtistDetail, ArtistUpdate
+from app.routers.common import TxRoute
 from app.routers.library import album_detail, artist_detail
-router = APIRouter(tags=["covers"])
+router = APIRouter(tags=["covers"], route_class=TxRoute)
 
 # Cover uploads: raw bytes stored as-is (sha1 dedup), same rules as scan art.
 MAX_COVER_BYTES = 10 * 1024 * 1024
-
-
-def store_artwork(conn, data: bytes, mime: str) -> int:
-    """Content-addressed artwork storage (sha1 dedup), shared with playlists and the scanner."""
-    digest = hashlib.sha1(data).hexdigest()
-    row = conn.execute("SELECT id FROM artwork WHERE hash = ?", (digest,)).fetchone()
-    if row is not None:
-        return int(row["id"])
-    return int(
-        conn.execute(
-            "INSERT INTO artwork (hash, blob, mime) VALUES (?, ?, ?)",
-            (digest, data, mime),
-        ).lastrowid
-    )
 
 
 def store_uploaded_artwork(conn, file: UploadFile) -> int:

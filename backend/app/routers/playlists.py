@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 from collections import Counter
-from datetime import datetime, timezone
 
 from fastapi import APIRouter, HTTPException, Query, Request, Response, UploadFile
 
+from app.routers.common import DEFAULT_LIMIT, TxRoute, chunks, clamp_page, utcnow
 from app.routers.covers import store_uploaded_artwork
 from app.schemas import (
     PlaylistCreate,
@@ -20,41 +20,45 @@ from app.schemas import (
 )
 from app.routers.library import PLAYLIST_TRACK_SELECT, track_out
 
-router = APIRouter(tags=["playlists"])
-
-DEFAULT_LIMIT = 200
-MAX_LIMIT = 1000
+router = APIRouter(tags=["playlists"], route_class=TxRoute)
 
 
-def _utcnow() -> str:
-    return datetime.now(timezone.utc).isoformat()
-
-
-def _clamp(limit: int, offset: int) -> tuple[int, int]:
-    return min(max(limit, 1), MAX_LIMIT), max(offset, 0)
-
-
-def _summary(conn, row) -> PlaylistSummary:
-    artwork_ids = [
-        r["artwork_id"]
+def _mosaics(conn, playlist_ids: list[int]) -> dict[int, list[int]]:
+    """Up to four artwork ids per playlist, in playlist order — one query
+    for the whole page instead of one per row."""
+    mosaics: dict[int, list[int]] = {pid: [] for pid in playlist_ids}
+    for chunk in chunks(playlist_ids, 500):
+        marks = ", ".join("?" * len(chunk))
         for r in conn.execute(
-            "SELECT t.artwork_id FROM playlist_tracks pt "
-            "JOIN tracks t ON t.id = pt.track_id "
-            "WHERE pt.playlist_id = ? AND t.artwork_id IS NOT NULL "
-            "ORDER BY pt.position LIMIT 4",
-            (row["id"],),
-        ).fetchall()
+            "SELECT playlist_id, artwork_id FROM ("
+            "  SELECT pt.playlist_id, t.artwork_id, ROW_NUMBER() OVER ("
+            "    PARTITION BY pt.playlist_id ORDER BY pt.position) AS n "
+            "  FROM playlist_tracks pt JOIN tracks t ON t.id = pt.track_id "
+            f"  WHERE pt.playlist_id IN ({marks}) AND t.artwork_id IS NOT NULL"
+            ") WHERE n <= 4 ORDER BY playlist_id, n",
+            chunk,
+        ):
+            mosaics[r["playlist_id"]].append(r["artwork_id"])
+    return mosaics
+
+
+def playlist_summaries(conn, rows) -> list[PlaylistSummary]:
+    """Summary rows (id, name, description, created_at, cover_artwork_id,
+    track_count, duration_total) → PlaylistSummary, mosaics included."""
+    mosaics = _mosaics(conn, [r["id"] for r in rows])
+    return [
+        PlaylistSummary(
+            id=row["id"],
+            name=row["name"],
+            description=row["description"],
+            created_at=row["created_at"],
+            track_count=row["track_count"],
+            duration_total=row["duration_total"],
+            cover_artwork_id=row["cover_artwork_id"],
+            artwork_ids=mosaics[row["id"]],
+        )
+        for row in rows
     ]
-    return PlaylistSummary(
-        id=row["id"],
-        name=row["name"],
-        description=row["description"],
-        created_at=row["created_at"],
-        track_count=row["track_count"],
-        duration_total=row["duration_total"],
-        cover_artwork_id=row["cover_artwork_id"],
-        artwork_ids=artwork_ids,
-    )
 
 
 def _detail(conn, playlist_id: int) -> PlaylistDetail:
@@ -79,7 +83,7 @@ def _detail(conn, playlist_id: int) -> PlaylistDetail:
             (playlist_id,),
         ).fetchall()
     ]
-    return PlaylistDetail(**_summary(conn, row).model_dump(), tracks=tracks)
+    return PlaylistDetail(**playlist_summaries(conn, [row])[0].model_dump(), tracks=tracks)
 
 
 def _require_playlist(conn, playlist_id: int) -> None:
@@ -96,7 +100,7 @@ def list_playlists(
     offset: int = Query(0, ge=0),
 ) -> PlaylistListOut:
     conn = request.app.state.db.connect()
-    limit, offset = _clamp(limit, offset)
+    limit, offset = clamp_page(limit, offset)
 
     base = (
         "FROM playlists p "
@@ -109,11 +113,11 @@ def list_playlists(
         f"COUNT(pt.track_id) AS track_count, "
         f"COALESCE(SUM(t.duration), 0) AS duration_total "
         f"{base} GROUP BY p.id "
-        f"ORDER BY p.name COLLATE NOCASE LIMIT ? OFFSET ?",
+        f"ORDER BY p.name COLLATE NOCASE, p.id LIMIT ? OFFSET ?",
         (limit, offset),
     ).fetchall()
     return PlaylistListOut(
-        items=[_summary(conn, r) for r in rows],
+        items=playlist_summaries(conn, rows),
         total=total,
         limit=limit,
         offset=offset,
@@ -129,7 +133,7 @@ def create_playlist(request: Request, body: PlaylistCreate) -> PlaylistDetail:
     description = body.description.strip() if body.description else None
     cur = conn.execute(
         "INSERT INTO playlists (name, description, created_at) VALUES (?, ?, ?)",
-        (name, description, _utcnow()),
+        (name, description, utcnow()),
     )
     conn.commit()
     return _detail(conn, int(cur.lastrowid))

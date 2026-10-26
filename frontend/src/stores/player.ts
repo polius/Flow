@@ -5,8 +5,11 @@
    reload never costs the listening session, and nothing autoplays. */
 
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
+import { createJSONStorage, persist } from "zustand/middleware";
 
+import { AUTH_STATUS_KEY } from "../api/auth";
+import { api } from "../api/client";
+import { queryClient } from "../api/queryClient";
 import {
   fetchServerQueue,
   saveServerPlayhead,
@@ -18,6 +21,12 @@ import { isIOS } from "../lib/platform";
 import { useUiStore } from "./ui";
 
 export type RepeatMode = "off" | "all" | "one";
+
+/** The sleep timer: a wall-clock deadline, or "stop when this track
+    ends". Session-only — a reload never inherits a timer. */
+export type SleepTimer =
+  | { kind: "minutes"; minutes: number; endsAt: number }
+  | { kind: "track" };
 
 /** A hand-built queue has no origin to name: nothing renders in the
     "Playing from" surfaces. */
@@ -33,7 +42,7 @@ function confirmArrival(
   destination: "next" | "end" | "now",
   tracks: Track[],
 ): void {
-  const noun = n === 1 ? "track" : "tracks";
+  const noun = n === 1 ? "song" : "songs";
   const where =
     destination === "next"
       ? "play next"
@@ -70,6 +79,12 @@ interface PlayerState {
       adopt a snapshot), read-only for every queue edit — appending to an
       album queue doesn't rewrite where it came from. */
   origin: QueueOrigin | null;
+  /** Output level, 0..1 (desktop only — iOS volume is hardware-only, and
+      the control hides itself there). Rides the Sound Check gain stage
+      when the Web Audio graph exists, the element's own volume when not. */
+  volume: number;
+  muted: boolean;
+  sleep: SleepTimer | null;
 
   playTracks: (tracks: Track[], startIndex: number, origin?: QueueOrigin | null) => void;
   /** Adopts a server-built queue: the POST /api/queue snapshot, with the
@@ -120,20 +135,30 @@ interface PlayerState {
   setShuffle: (on: boolean) => void;
   cycleRepeat: () => void;
   setSoundcheck: (on: boolean) => void;
+  setVolume: (volume: number) => void;
+  toggleMute: () => void;
+  /** Minutes from now, "track" (stop when the current track ends), or
+      null to cancel. */
+  setSleepTimer: (choice: number | "track" | null) => void;
 }
 
 export function useCurrentTrack(): Track | null {
   return usePlayerStore((s) => s.queue[s.order[s.orderPos]] ?? null);
 }
 
-function buildOrder(
+/** The play order for `count` tracks starting at queue index
+    `startIndex`: identity, or a shuffle with the start track at its head.
+    A negative start is an idle queue (built, nothing loaded): the order
+    is rebuilt around no anchor and the playhead stays at -1. */
+export function buildOrder(
   count: number,
   shuffle: boolean,
   startIndex: number,
 ): { order: number[]; pos: number } {
   if (count === 0) return { order: [], pos: 0 };
+  const idle = startIndex < 0;
   if (!shuffle) {
-    return { order: Array.from({ length: count }, (_, i) => i), pos: startIndex };
+    return { order: Array.from({ length: count }, (_, i) => i), pos: idle ? -1 : startIndex };
   }
   const rest = Array.from({ length: count }, (_, i) => i).filter(
     (i) => i !== startIndex,
@@ -142,7 +167,81 @@ function buildOrder(
     const j = Math.floor(Math.random() * (i + 1));
     [rest[i], rest[j]] = [rest[j], rest[i]];
   }
-  return { order: [startIndex, ...rest], pos: 0 };
+  return idle ? { order: rest, pos: -1 } : { order: [startIndex, ...rest], pos: 0 };
+}
+
+/** The `moveInQueue` slot that nudges the row at `from` one place up or
+    down (Option+↑/↓). Slots count in the PRE-move list, so one row down
+    is two slots on: the row lands after its old neighbor. */
+export function nudgeSlot(from: number, direction: -1 | 1): number {
+  return direction < 0 ? from - 1 : from + 2;
+}
+
+/** Same queue ids in the same places — a row patched in place (a heart
+    toggled) is not a plan change. */
+export function sameIds(a: Track[], b: Track[]): boolean {
+  if (a === b) return true;
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) if (a[i].id !== b[i].id) return false;
+  return true;
+}
+
+/* ---- play requests --------------------------------------------------------
+   A "play this view" that has to ask the server first (a whole filter, a
+   shuffle) lands after an await — by then the user may have started
+   something else. Every queue replacement bumps the epoch; an async play
+   claims one up front and only lands while it is still the newest. */
+
+let playEpoch = 0;
+
+/** Claims the next queue replacement for an async play. Call it
+    synchronously inside the click: it also unlocks audio while the user
+    gesture is still live (iOS refuses a first play() that runs after an
+    await). Returns the staleness check to run before playing. */
+export function beginPlayRequest(): () => boolean {
+  const mine = ++playEpoch;
+  unlockAudio();
+  return () => mine === playEpoch;
+}
+
+/* ---- volume persistence -------------------------------------------------- */
+
+const VOLUME_KEY = "flow.player.volume";
+
+function readVolume(): { volume: number; muted: boolean } {
+  try {
+    const raw = localStorage.getItem(VOLUME_KEY);
+    if (raw) {
+      const v = JSON.parse(raw) as { volume?: unknown; muted?: unknown };
+      return {
+        volume:
+          typeof v.volume === "number" && Number.isFinite(v.volume)
+            ? Math.min(1, Math.max(0, v.volume))
+            : 1,
+        muted: v.muted === true,
+      };
+    }
+  } catch {
+    // Unreadable or blocked storage: full volume, like a first visit.
+  }
+  return { volume: 1, muted: false };
+}
+
+function writeVolume(volume: number, muted: boolean): void {
+  try {
+    localStorage.setItem(VOLUME_KEY, JSON.stringify({ volume, muted }));
+  } catch {
+    // Best-effort: the level still applies for this session.
+  }
+}
+
+let sleepTimerHandle: number | null = null;
+
+function clearSleepHandle(): void {
+  if (sleepTimerHandle != null) {
+    window.clearTimeout(sleepTimerHandle);
+    sleepTimerHandle = null;
+  }
 }
 
 export const usePlayerStore = create<PlayerState>()(
@@ -159,9 +258,12 @@ export const usePlayerStore = create<PlayerState>()(
       repeat: "off",
       soundcheck: true,
       origin: null,
+      ...readVolume(),
+      sleep: null,
 
       playTracks: (tracks, startIndex, origin) => {
         if (tracks.length === 0) return;
+        playEpoch++; // any pending async play is now stale
         errorSkipStreak = 0; // a fresh queue is a fresh chance for the library
         ensureGraph(); // first user gesture: the only legal moment to start audio
         resumeGraph();
@@ -181,6 +283,7 @@ export const usePlayerStore = create<PlayerState>()(
 
       playSnapshot: ({ items, order, order_pos, origin }) => {
         if (items.length === 0) return;
+        playEpoch++;
         errorSkipStreak = 0;
         ensureGraph();
         resumeGraph();
@@ -189,47 +292,36 @@ export const usePlayerStore = create<PlayerState>()(
         load(items[order[pos]], true);
       },
 
-      playNext: (track) => {
-        const { queue, order, orderPos } = get();
-        if (queue.length === 0) {
-          get().playTracks([track], 0);
-          confirmArrival(1, "now", [track]); // it didn't land next — it started
-          return;
-        }
-        const currentQueueIndex = order[orderPos];
-        const newQueue = [...queue];
-        newQueue.splice(currentQueueIndex + 1, 0, track);
-        // Insert into the existing order right after the current position:
-        // the track is guaranteed to play next, and with shuffle on the rest
-        // of the planned order stays put (a full rebuild would reshuffle it).
-        const remapped = order.map((i) => (i > currentQueueIndex ? i + 1 : i));
-        remapped.splice(orderPos + 1, 0, currentQueueIndex + 1);
-        // Seamless: the audio element keeps playing; only the plan changes.
-        set({ queue: newQueue, order: remapped, orderPos });
-        // An addition confirms its arrival — one quiet line, undoable.
-        confirmArrival(1, "next", [track]);
-      },
+      playNext: (track) => get().playNextMany([track]),
 
       playNextMany: (tracks) => {
         if (tracks.length === 0) return;
         const { queue, order, orderPos } = get();
         if (queue.length === 0) {
           get().playTracks(tracks, 0);
+          // It didn't land next — it started.
           confirmArrival(tracks.length, "now", tracks);
           return;
         }
         const n = tracks.length;
-        const currentQueueIndex = order[orderPos];
+        const currentQueueIndex = order[orderPos] as number | undefined;
+        // An idle queue (built, nothing loaded: orderPos -1) has no
+        // current row to follow — "next" is the head of the plan. Reading
+        // order[-1] + 1 here once wrote NaN into the order.
+        const idle = currentQueueIndex == null;
+        const insertAt = idle ? 0 : currentQueueIndex + 1;
         const newQueue = [...queue];
-        newQueue.splice(currentQueueIndex + 1, 0, ...tracks);
-        // Same grammar as playNext, N at a time: queue indexes past the
-        // insertion point ride up by n, and the tracks take the play-order
-        // slots directly after the current one — guaranteed to play in
-        // order, shuffle plan otherwise untouched.
-        const remapped = order.map((i) => (i > currentQueueIndex ? i + n : i));
-        const slots = tracks.map((_, k) => currentQueueIndex + 1 + k);
-        remapped.splice(orderPos + 1, 0, ...slots);
+        newQueue.splice(insertAt, 0, ...tracks);
+        // Queue indexes at/after the insertion point ride up by n, and the
+        // tracks take the play-order slots directly after the current one
+        // (or the head): guaranteed to play in order, and with shuffle on
+        // the rest of the planned order stays put (a full rebuild would
+        // reshuffle it). Seamless: the audio element keeps playing.
+        const remapped = order.map((i) => (i >= insertAt ? i + n : i));
+        const slots = tracks.map((_, k) => insertAt + k);
+        remapped.splice(idle ? 0 : orderPos + 1, 0, ...slots);
         set({ queue: newQueue, order: remapped, orderPos });
+        // An addition confirms its arrival — one quiet line, undoable.
         confirmArrival(n, "next", tracks);
       },
 
@@ -310,12 +402,16 @@ export const usePlayerStore = create<PlayerState>()(
         // playhead AND the origin back — everything but the sound. A plain
         // set re-mirrors the snapshot to the server like any queue edit.
         const snapshot = { queue, order, orderPos, position, origin };
+        playEpoch++;
+        intendPlay = false;
+        clearStallWatch();
+        clearNetworkHold();
         if (audio) {
           audio.pause();
           // The standby is stale with the plan it preloaded.
           if (standbyTrack != null) resetStandby();
         }
-        const noun = queue.length === 1 ? "track" : "tracks";
+        const noun = queue.length === 1 ? "song" : "songs";
         set({
           queue: [],
           order: [],
@@ -362,6 +458,7 @@ export const usePlayerStore = create<PlayerState>()(
       playAt: (orderIndex) => {
         const { order, queue } = get();
         if (orderIndex < 0 || orderIndex >= order.length) return;
+        playEpoch++;
         errorSkipStreak = 0;
         ensureGraph();
         resumeGraph();
@@ -396,8 +493,10 @@ export const usePlayerStore = create<PlayerState>()(
         const track = queue[order[orderPos]];
         if (!track) return;
         // A restored session has never loaded the current track into the
-        // element: the first play resumes at the saved position.
-        if (loadedSrc == null) {
+        // element: the first play resumes at the saved position. So does
+        // an element a failed stream left in its error state, or one
+        // waiting on the network — play means "try again now".
+        if (loadedSrc == null || audio.error != null || networkHold != null) {
           ensureGraph();
           resumeGraph();
           load(track, true, position);
@@ -406,15 +505,19 @@ export const usePlayerStore = create<PlayerState>()(
         if (audio.paused) {
           ensureGraph();
           resumeGraph();
+          intendPlay = true;
           void audio.play().catch(() => set({ isPlaying: false }));
         } else {
+          intendPlay = false;
           audio.pause();
         }
       },
 
       next: () => {
         errorSkipStreak = 0;
-        advance(1, false);
+        // The preloaded next track is ready to go: start it rather than
+        // throwing the buffer away and fetching it again.
+        if (!swapToStandby()) advance(1, false);
       },
       prev: () => {
         errorSkipStreak = 0;
@@ -429,20 +532,57 @@ export const usePlayerStore = create<PlayerState>()(
         if (!audio) return;
         audio.currentTime = seconds;
         set({ position: seconds });
+        syncPositionState();
       },
 
       setSoundcheck: (on) => {
         set({ soundcheck: on });
         // The gain must follow the toggle immediately, not on next load.
-        applyGain(audio, currentTrack());
-        if (standbyTrack) applyGain(standby, standbyTrack);
+        applyLevels();
       },
 
       setShuffle: (on) => {
         const { queue, order, orderPos } = get();
-        const currentQueueIndex = order[orderPos] ?? 0;
+        // An idle queue keeps playing nothing: the rebuilt plan has no
+        // anchor, and the playhead stays at -1.
+        const currentQueueIndex = order[orderPos] ?? -1;
         const rebuilt = buildOrder(queue.length, on, currentQueueIndex);
         set({ shuffle: on, order: rebuilt.order, orderPos: rebuilt.pos });
+      },
+
+      setVolume: (volume) => {
+        const v = Math.min(1, Math.max(0, Number.isFinite(volume) ? volume : 1));
+        // Dragging the level up from silence is an unmute.
+        set({ volume: v, muted: v === 0 ? get().muted : false });
+        writeVolume(v, get().muted);
+        applyLevels();
+      },
+
+      toggleMute: () => {
+        set({ muted: !get().muted });
+        writeVolume(get().volume, get().muted);
+        applyLevels();
+      },
+
+      setSleepTimer: (choice) => {
+        clearSleepHandle();
+        if (choice == null) {
+          set({ sleep: null });
+          return;
+        }
+        if (choice === "track") {
+          set({ sleep: { kind: "track" } });
+          return;
+        }
+        const ms = choice * 60_000;
+        set({ sleep: { kind: "minutes", minutes: choice, endsAt: Date.now() + ms } });
+        sleepTimerHandle = window.setTimeout(() => {
+          sleepTimerHandle = null;
+          set({ sleep: null });
+          intendPlay = false;
+          clearNetworkHold(); // asleep means asleep: no reconnect resumes it
+          audio?.pause();
+        }, ms);
       },
 
       cycleRepeat: () => {
@@ -453,11 +593,39 @@ export const usePlayerStore = create<PlayerState>()(
     }),
     {
       name: "flow.player",
+      // The middleware writes on EVERY store update: a throwing storage
+      // (quota, a blocked or private-mode store) must cost the
+      // preferences, never the action that triggered the write.
+      storage: createJSONStorage(() => ({
+        getItem: (key) => {
+          try {
+            return localStorage.getItem(key);
+          } catch {
+            return null;
+          }
+        },
+        setItem: (key, value) => {
+          try {
+            localStorage.setItem(key, value);
+          } catch {
+            // best-effort, like every write in this module
+          }
+        },
+        removeItem: (key) => {
+          try {
+            localStorage.removeItem(key);
+          } catch {
+            // best-effort
+          }
+        },
+      })),
       // Preferences ride the persist middleware. The queue and the
       // playhead are durable SESSION state — persisted below by the
       // hand-rolled writer, not here: the middleware re-serializes on
       // every store update, and position changes 4×/s while playing,
       // which would stringify a full-library queue at that cadence.
+      // Volume has its own key (flow.player.volume), read before the first
+      // paint so the slider never jumps.
       partialize: (s) => ({
         shuffle: s.shuffle,
         repeat: s.repeat,
@@ -513,10 +681,28 @@ const PRELOAD_AHEAD_SECONDS = 10;
 
 const trackSrc = (track: Track): string => `/api/stream/${track.id}`;
 
-/* There is no in-app volume or mute: iOS ignores element volume outright,
-   and on desktop the media keys / hardware controls own loudness. The
-   elements play at unity; the one app-level loudness control is Sound
-   Check's gain below. */
+/* Volume: the user's level is one more factor on the Sound Check gain
+   node when the Web Audio graph exists — the element itself stays at
+   unity there, so the two never multiply twice (browsers disagree on
+   whether element volume reaches a MediaElementSource). Without a graph
+   (before the first play, or where one can't start) the element's own
+   volume carries the level. iOS ignores element volume outright and the
+   graph is off there (below): loudness is hardware-only, and the slider
+   hides itself. */
+
+function outputLevel(): number {
+  if (isIOS) return 1;
+  const { volume, muted } = usePlayerStore.getState();
+  // Squared: a linear slider tracks perceived loudness far better than raw
+  // amplitude — the bottom half of the travel isn't all near-silence.
+  return muted ? 0 : volume * volume;
+}
+
+/** Re-apply gain (Sound Check × volume) to both elements. */
+function applyLevels(): void {
+  applyGain(audio, currentTrack());
+  if (standbyTrack) applyGain(standby, standbyTrack);
+}
 
 function currentTrack(): Track | null {
   const { queue, order, orderPos } = usePlayerStore.getState();
@@ -565,9 +751,9 @@ function ensureGraph(): void {
       gain.connect(audioCtx.destination);
       gainNodes.set(el, gain);
     }
-    // The first write matches the current toggle, not the node's unity
-    // default.
-    applyGain(audio, currentTrack());
+    // The first write matches the current toggle and level, not the
+    // node's unity default — and moves the level off the elements.
+    applyLevels();
   } catch {
     // No graph (old browser, blocked context): play plain, stay honest.
     audioCtx = null;
@@ -595,20 +781,82 @@ function recoverGraph(): void {
 }
 
 function applyGain(el: HTMLAudioElement | null, track: Track | null): void {
-  const gain = el != null ? gainNodes.get(el) : undefined;
-  if (el == null || gain == null || audioCtx == null) return;
+  if (el == null) return;
+  const level = outputLevel();
+  const gain = gainNodes.get(el);
+  if (gain == null || audioCtx == null) {
+    // No graph: the element carries the level (Sound Check needs the
+    // graph and degrades to unity).
+    if (!isIOS) el.volume = level;
+    return;
+  }
+  if (el.volume !== 1) el.volume = 1;
   const { soundcheck } = usePlayerStore.getState();
   const db = soundcheck && track != null ? track.gain_db : null;
-  // setTargetAtTime glides the step so a Sound Check toggle (or the first
-  // apply mid-play) never clicks.
+  // setTargetAtTime glides the step so a Sound Check toggle, a volume
+  // drag, or the first apply mid-play never clicks.
   gain.gain.setTargetAtTime(
-    db != null ? Math.pow(10, db / 20) : 1,
+    (db != null ? Math.pow(10, db / 20) : 1) * level,
     audioCtx.currentTime,
     0.015,
   );
 }
 
-/* -- window title ----------------------------------------------------------- */
+/* -- iOS audio unlock ---------------------------------------------------------
+   iOS grants playback per element, and only to a play() that starts inside
+   a user gesture. A play that must ask the server first (a whole filter,
+   a shuffle) reaches play() after an await, outside the gesture — so the
+   click itself plays a few milliseconds of silence on a virgin element;
+   from then on the element is ours. Desktop browsers grant the whole page
+   on the first gesture: nothing to do there but start the graph. */
+
+let elementUnlocked = false;
+let silentSrc: string | null = null;
+
+function silentWav(): string {
+  if (silentSrc != null) return silentSrc;
+  const samples = 400; // 50 ms of 8-bit silence at 8 kHz
+  const bytes = new Uint8Array(44 + samples).fill(128);
+  const view = new DataView(bytes.buffer);
+  const ascii = (at: number, text: string) => {
+    for (let i = 0; i < text.length; i++) bytes[at + i] = text.charCodeAt(i);
+  };
+  ascii(0, "RIFF");
+  view.setUint32(4, 36 + samples, true);
+  ascii(8, "WAVEfmt ");
+  view.setUint32(16, 16, true); // fmt chunk size
+  view.setUint16(20, 1, true); // PCM
+  view.setUint16(22, 1, true); // mono
+  view.setUint32(24, 8000, true); // sample rate
+  view.setUint32(28, 8000, true); // byte rate
+  view.setUint16(32, 1, true); // block align
+  view.setUint16(34, 8, true); // bits per sample
+  ascii(36, "data");
+  view.setUint32(40, samples, true);
+  silentSrc = `data:audio/wav;base64,${btoa(String.fromCharCode(...bytes))}`;
+  return silentSrc;
+}
+
+function unlockAudio(): void {
+  ensureGraph();
+  resumeGraph();
+  if (!isIOS || elementUnlocked || audio == null || loadedSrc != null) return;
+  elementUnlocked = true;
+  const el = audio;
+  el.src = silentWav();
+  // The engine ignores this element's events while loadedSrc is null —
+  // the silence is machinery, never a real start.
+  void el
+    .play()
+    .then(() => {
+      if (loadedSrc == null) el.pause();
+    })
+    .catch(() => {
+      elementUnlocked = false;
+    });
+}
+
+/* -- window title + lock screen ---------------------------------------------- */
 
 let lastTitleKey = "";
 function syncWindowTitle(): void {
@@ -622,10 +870,50 @@ function syncWindowTitle(): void {
     : "Flow";
 }
 
+let lastMetadataKey = "";
+function syncMediaSessionMetadata(track: Track | null): void {
+  if (typeof navigator === "undefined" || !("mediaSession" in navigator)) return;
+  const key = track ? `${track.id}:${track.artwork_id}` : "";
+  if (key === lastMetadataKey) return;
+  lastMetadataKey = key;
+  if (track == null) {
+    // Nothing queued: the lock screen must stop naming the old track.
+    navigator.mediaSession.metadata = null;
+    navigator.mediaSession.playbackState = "none";
+    return;
+  }
+  const artwork =
+    track.artwork_id != null
+      ? [{ src: `/api/artwork/${track.artwork_id}?s=512`, sizes: "512x512" }]
+      : [];
+  navigator.mediaSession.metadata = new MediaMetadata({
+    title: track.title,
+    artist: track.artist ?? "",
+    album: track.album ?? "",
+    artwork,
+  });
+}
+
+/** The tab title and the lock screen follow the current track — including
+    no track at all (a cleared queue). */
+function syncNowPlayingSurfaces(): void {
+  syncWindowTitle();
+  syncMediaSessionMetadata(currentTrack());
+}
+
+/** Whether the user means sound to be coming out: set by every play and
+    pause the user (or the plan) asks for, never by a pause the engine
+    makes itself — so a network hold knows whether to resume. */
+let intendPlay = false;
+
 function load(track: Track, autoplay: boolean, startAt?: number): void {
   if (!audio || !track) return;
   const src = trackSrc(track);
   loadedSrc = src;
+  intendPlay = autoplay;
+  // A new load supersedes any wait on the network or a stall.
+  clearStallWatch();
+  clearNetworkHold();
   // Any prepared standby is stale from here — the plan changed underneath.
   resetStandby();
   audio.src = src;
@@ -641,6 +929,7 @@ function load(track: Track, autoplay: boolean, startAt?: number): void {
   });
   syncMediaSessionMetadata(track);
   syncWindowTitle();
+  syncPositionState();
   if (autoplay) {
     void audio.play().catch(() => usePlayerStore.setState({ isPlaying: false }));
   }
@@ -659,6 +948,11 @@ function resetStandby(): void {
     end of the queue, or while the graph/element machinery is unavailable. */
 function prepareStandby(): void {
   if (audio == null || standby == null) return;
+  // iOS: one element only. A standby that no user gesture ever started is
+  // an element iOS may refuse to play at the boundary — music stopping
+  // between tracks with the screen off. The classic advance reloads the
+  // element the user already unlocked.
+  if (isIOS) return;
   if (usePlayerStore.getState().repeat === "one") {
     // Repeat-one never advances: nothing to pre-roll.
     if (standbyTrack != null) resetStandby();
@@ -676,8 +970,9 @@ function prepareStandby(): void {
   standby.load();
 }
 
-/** The gapless switch: play the prepared standby at the ended boundary.
-    Returns false when nothing usable is prepared (caller falls back). */
+/** The gapless switch: play the prepared standby at the ended boundary
+    (or on Next, when it is ready). Returns false when nothing usable is
+    prepared (caller falls back). */
 function swapToStandby(): boolean {
   if (audio == null || standby == null || standbyTrack == null) return false;
   if (standby.readyState < 2) return false; // nothing usable buffered
@@ -688,7 +983,10 @@ function swapToStandby(): boolean {
   audio = prepared;
   standby = finished;
   loadedSrc = trackSrc(next.track);
+  intendPlay = true;
   standbyTrack = null;
+  clearStallWatch();
+  clearNetworkHold();
   resetStandby(); // the finished element becomes the next standby
   usePlayerStore.setState({
     orderPos: next.pos,
@@ -699,36 +997,74 @@ function swapToStandby(): boolean {
   errorSkipStreak = 0;
   syncMediaSessionMetadata(next.track);
   syncWindowTitle();
+  syncPositionState();
   void audio.play().catch(() => usePlayerStore.setState({ isPlaying: false }));
   return true;
 }
 
 /* ---- Media Session — OS media keys + lock screen -------------------------- */
 
-function syncMediaSessionMetadata(track: Track): void {
-  if (typeof navigator === "undefined" || !("mediaSession" in navigator)) return;
-  const artwork =
-    track.artwork_id != null
-      ? [{ src: `/api/artwork/${track.artwork_id}`, sizes: "512x512" }]
-      : [];
-  navigator.mediaSession.metadata = new MediaMetadata({
-    title: track.title,
-    artist: track.artist ?? "",
-    album: track.album ?? "",
-    artwork,
-  });
+const MEDIA_SEEK_STEP = 10;
+
+function seekBy(delta: number): void {
+  const { position, duration, seek } = usePlayerStore.getState();
+  const target = position + delta;
+  seek(Math.max(0, duration > 0 ? Math.min(duration, target) : target));
 }
 
 function setupMediaSession(): void {
   if (typeof navigator === "undefined" || !("mediaSession" in navigator) || !audio) return;
-  navigator.mediaSession.setActionHandler("play", () => void audio!.play());
-  navigator.mediaSession.setActionHandler("pause", () => audio!.pause());
-  navigator.mediaSession.setActionHandler("previoustrack", () =>
-    usePlayerStore.getState().prev(),
-  );
-  navigator.mediaSession.setActionHandler("nexttrack", () =>
-    usePlayerStore.getState().next(),
-  );
+  const session = navigator.mediaSession;
+  const handle = (action: MediaSessionAction, handler: MediaSessionActionHandler) => {
+    try {
+      session.setActionHandler(action, handler);
+    } catch {
+      // This browser doesn't know the action: the others still work.
+    }
+  };
+  // Play and pause go through the store's toggle: after a reload the
+  // element has no source yet, and togglePlay is what loads the restored
+  // track at its saved position (a bare element.play() did nothing).
+  handle("play", () => {
+    if (audio == null || audio.paused) usePlayerStore.getState().togglePlay();
+  });
+  handle("pause", () => {
+    if (audio != null && !audio.paused) usePlayerStore.getState().togglePlay();
+  });
+  handle("stop", () => {
+    intendPlay = false;
+    audio?.pause();
+  });
+  handle("previoustrack", () => usePlayerStore.getState().prev());
+  handle("nexttrack", () => usePlayerStore.getState().next());
+  handle("seekto", (details) => {
+    if (details.seekTime != null) seekBy(details.seekTime - usePlayerStore.getState().position);
+  });
+  handle("seekbackward", (details) => seekBy(-(details.seekOffset ?? MEDIA_SEEK_STEP)));
+  handle("seekforward", (details) => seekBy(details.seekOffset ?? MEDIA_SEEK_STEP));
+}
+
+/** The lock-screen scrubber: duration, position and rate, refreshed on
+    play, pause, seek and duration change (the OS extrapolates between). */
+function syncPositionState(): void {
+  if (typeof navigator === "undefined" || !("mediaSession" in navigator)) return;
+  const session = navigator.mediaSession;
+  if (typeof session.setPositionState !== "function") return;
+  const { position, duration } = usePlayerStore.getState();
+  try {
+    if (duration > 0 && Number.isFinite(duration)) {
+      session.setPositionState({
+        duration,
+        playbackRate: audio?.playbackRate || 1,
+        position: Math.min(Math.max(0, position), duration),
+      });
+    } else {
+      session.setPositionState();
+    }
+  } catch {
+    // An inconsistent snapshot (position past a stale duration): the next
+    // event writes a good one.
+  }
 }
 
 function setPlaybackState(state: "playing" | "paused"): void {
@@ -743,9 +1079,11 @@ function advance(step: number, auto: boolean): void {
   if (pos >= state.order.length) {
     if (auto && state.repeat !== "all") {
       // End of queue, repeat off: rest on the last track.
+      intendPlay = false;
       usePlayerStore.setState({ isPlaying: false, position: 0 });
       audio?.pause();
       if (audio) audio.currentTime = 0;
+      syncPositionState();
       return;
     }
     pos = 0;
@@ -756,59 +1094,226 @@ function advance(step: number, auto: boolean): void {
   load(track, true);
 }
 
-/* -- position glide ---------------------------------------------------------
-   `timeupdate` fires ~4Hz: the scrubber and time label stepped rather than
-   glided. While playing, a rAF loop publishes `currentTime` every frame
-   instead. The persistence layer already coalesces position writes, so the
-   60×/s store updates cost one throttled write per 3s, and rAF suspends
-   itself when the tab hides (timeupdate keeps the state honest at 4Hz in
-   the background). */
+/** Sleep timer, "end of track": the music stops at the boundary and the
+    playhead rests on the next track, paused — pressing play continues
+    the queue where the timer left it. */
+function stopAfterTrack(): void {
+  usePlayerStore.setState({ sleep: null });
+  intendPlay = false;
+  const next = peekNext();
+  if (next == null) {
+    usePlayerStore.setState({ isPlaying: false, position: 0 });
+    if (audio) audio.currentTime = 0;
+    syncPositionState();
+    return;
+  }
+  usePlayerStore.setState({ orderPos: next.pos });
+  load(next.track, false);
+  usePlayerStore.setState({ isPlaying: false });
+}
 
-let positionRaf: number | null = null;
+/* -- stream failures -----------------------------------------------------------
+   A missing or undecodable file skips (bounded, below). A dropped
+   connection is not the file's fault: skipping would machine-gun through
+   the queue on a Wi-Fi blip. Network failures — and a stream that hangs
+   without ever firing `error` — hold the playhead in place and retry:
+   when the browser says it's back online, or after a short backoff when
+   it never noticed it was gone (a server restart). A refused stream can
+   also mean the session expired: the auth check routes to sign-in
+   instead of skipping. */
 
-function stopPositionLoop(): void {
-  if (positionRaf != null) {
-    cancelAnimationFrame(positionRaf);
-    positionRaf = null;
+const STALL_TIMEOUT_MS = 20_000;
+const NETWORK_RETRY_DELAYS_MS = [2000, 5000, 10_000];
+
+let stallTimer: number | null = null;
+let networkRetries = 0;
+let networkRetryTimer: number | null = null;
+/** Set while playback waits on the network: what was loaded, where, and
+    whether sound should come back by itself. */
+let networkHold: { src: string; position: number; resume: boolean } | null = null;
+
+function clearStallWatch(): void {
+  if (stallTimer != null) {
+    window.clearTimeout(stallTimer);
+    stallTimer = null;
   }
 }
 
-function startPositionLoop(): void {
-  if (positionRaf != null || typeof window === "undefined") return;
-  const frame = () => {
-    positionRaf = null;
-    const el = audio;
-    if (!el || el.paused) return; // pause/ended stop the loop via their events
-    usePlayerStore.setState({ position: el.currentTime });
-    positionRaf = window.requestAnimationFrame(frame);
-  };
-  positionRaf = window.requestAnimationFrame(frame);
+function clearNetworkHold(): void {
+  networkHold = null;
+  if (networkRetryTimer != null) {
+    window.clearTimeout(networkRetryTimer);
+    networkRetryTimer = null;
+  }
 }
+
+function armStallWatch(el: HTMLAudioElement): void {
+  clearStallWatch();
+  stallTimer = window.setTimeout(() => {
+    stallTimer = null;
+    if (el !== audio || el.paused) return;
+    // Buffering this long with no error event: a hung connection.
+    holdForNetwork();
+  }, STALL_TIMEOUT_MS);
+}
+
+function isOffline(): boolean {
+  return typeof navigator !== "undefined" && navigator.onLine === false;
+}
+
+function holdForNetwork(): void {
+  if (audio == null || loadedSrc == null || currentTrack() == null) return;
+  const first = networkHold == null;
+  networkHold = {
+    src: loadedSrc,
+    position: usePlayerStore.getState().position,
+    resume: intendPlay || (networkHold?.resume ?? false),
+  };
+  clearStallWatch();
+  audio.pause();
+  usePlayerStore.setState({ isPlaying: false });
+  syncPositionState();
+  if (isOffline()) {
+    if (first) {
+      useUiStore.getState().showUndoNotice({
+        message: "Connection lost — playback resumes when you’re back online.",
+      });
+    }
+    return; // the `online` listener takes it from here
+  }
+  if (networkRetries < NETWORK_RETRY_DELAYS_MS.length) {
+    const delay = NETWORK_RETRY_DELAYS_MS[networkRetries++];
+    if (networkRetryTimer != null) window.clearTimeout(networkRetryTimer);
+    networkRetryTimer = window.setTimeout(() => {
+      networkRetryTimer = null;
+      resumeFromHold();
+    }, delay);
+    return;
+  }
+  // Out of quiet retries: rest here, say so, and let play try again.
+  networkRetries = 0;
+  networkHold = null;
+  useUiStore.getState().showUndoNotice({
+    message: "Can’t reach Flow — press play to try again.",
+  });
+}
+
+function resumeFromHold(): void {
+  const hold = networkHold;
+  networkHold = null;
+  if (hold == null) return;
+  if (hold.src !== loadedSrc) return; // the user moved on
+  const track = currentTrack();
+  if (track == null || trackSrc(track) !== hold.src) return;
+  load(track, hold.resume, hold.position);
+}
+
+/** Asks the server whether a refused stream was a dead session. */
+async function sessionVerdict(): Promise<"ok" | "signed-out" | "unreachable"> {
+  try {
+    const { data, response } = await api.GET("/api/auth/status");
+    if (!response.ok || data == null) return response.status >= 500 ? "unreachable" : "ok";
+    if (data.enabled && !data.authenticated) {
+      // Flip the cached status: the shell guard routes to sign-in.
+      queryClient.setQueryData(AUTH_STATUS_KEY, data);
+      return "signed-out";
+    }
+    return "ok";
+  } catch {
+    return "unreachable";
+  }
+}
+
+function skipFailed(track: Track, reason: string): void {
+  errorSkipStreak += 1;
+  if (errorSkipStreak > MAX_ERROR_SKIPS) {
+    intendPlay = false;
+    usePlayerStore.setState({ isPlaying: false });
+    useUiStore.getState().showUndoNotice({
+      message: "Playback stopped — several files were unavailable.",
+    });
+    return;
+  }
+  useUiStore.getState().showUndoNotice({
+    message: `Skipped “${track.title}” — file unavailable (${reason}).`,
+  });
+  advance(1, true); // rest at the end of the queue, like a natural finish
+}
+
+/* ---- tabs -------------------------------------------------------------------
+   One browser, one voice: a tab that starts playing tells the others,
+   and they pause. A tab that yielded also stops mirroring its (now stale)
+   playhead to the server until the user acts in it again. Optional —
+   jsdom and old Safari have no BroadcastChannel. */
+
+const TAB_ID = Math.random().toString(36).slice(2);
+let tabChannel: BroadcastChannel | null = null;
+try {
+  if (typeof BroadcastChannel !== "undefined") {
+    tabChannel = new BroadcastChannel("flow.player");
+    // Node's channel (tests) would otherwise hold the process open.
+    (tabChannel as BroadcastChannel & { unref?: () => void }).unref?.();
+  }
+} catch {
+  tabChannel = null;
+}
+
+/** Another tab took over playback: this one stops writing its playhead. */
+let yieldedToOtherTab = false;
+
+tabChannel?.addEventListener("message", (e: MessageEvent) => {
+  const msg = e.data as { type?: unknown; tab?: unknown } | null;
+  if (msg?.type !== "playing" || msg.tab === TAB_ID) return;
+  yieldedToOtherTab = true;
+  intendPlay = false;
+  clearNetworkHold();
+  if (audio != null && !audio.paused) audio.pause();
+});
 
 for (const el of elements()) {
   // Every handler guards on `el !== audio`: the standby element's events
   // are machinery, never state. The one exception is its load error —
-  // a failed preload must fall back to the classic advance path.
+  // a failed preload must fall back to the classic advance path. Events
+  // before the first real load (the iOS unlock's silence) are machinery
+  // too.
+  const live = () => el === audio && loadedSrc != null;
   el.addEventListener("play", () => {
-    if (el !== audio) return;
+    if (!live()) return;
+    elementUnlocked = true; // a real start: iOS has granted this element
     resumeGraph();
     usePlayerStore.setState({ isPlaying: true });
     errorSkipStreak = 0; // a real start — the library is alive again
     setPlaybackState("playing");
-    startPositionLoop();
+    syncPositionState();
+    yieldedToOtherTab = false;
+    tabChannel?.postMessage({ type: "playing", tab: TAB_ID });
     // A real start is what played_at means: sync the playhead now,
     // not on the 3 s cadence, carrying the track id so the server stamps
     // the right row even while the plan mirror is still in flight.
     writePlayhead(true);
   });
+  el.addEventListener("playing", () => {
+    if (!live()) return;
+    clearStallWatch();
+    networkRetries = 0; // bytes are flowing again
+  });
+  el.addEventListener("waiting", () => {
+    if (!live() || el.paused) return;
+    armStallWatch(el);
+  });
   el.addEventListener("pause", () => {
-    if (el !== audio) return;
-    stopPositionLoop();
+    if (!live()) return;
+    clearStallWatch();
     usePlayerStore.setState({ isPlaying: false });
     setPlaybackState("paused");
+    syncPositionState();
   });
+  /* `timeupdate` (~4 Hz) is the position clock. A per-frame loop once
+     glided the scrubber at 60 updates a second — a re-render per frame
+     for a fill that moves a fraction of a pixel; 4 Hz is indistinguishable
+     and keeps phones cool. */
   el.addEventListener("timeupdate", () => {
-    if (el !== audio) return;
+    if (!live()) return;
     usePlayerStore.setState({ position: el.currentTime });
     if (
       Number.isFinite(el.duration) &&
@@ -818,21 +1323,27 @@ for (const el of elements()) {
     }
   });
   el.addEventListener("durationchange", () => {
-    if (el !== audio) return;
+    if (!live()) return;
     usePlayerStore.setState({
       duration: Number.isFinite(el.duration) ? el.duration : 0,
     });
+    syncPositionState();
   });
   el.addEventListener("progress", () => {
-    if (el !== audio) return;
+    if (!live()) return;
     const b = el.buffered;
     usePlayerStore.setState({
       buffered: b.length > 0 ? b.end(b.length - 1) : 0,
     });
   });
   el.addEventListener("ended", () => {
-    if (el !== audio) return;
+    if (!live()) return;
+    clearStallWatch();
     const state = usePlayerStore.getState();
+    if (state.sleep?.kind === "track") {
+      stopAfterTrack();
+      return;
+    }
     if (state.repeat === "one") {
       el.currentTime = 0;
       void el.play();
@@ -856,6 +1367,7 @@ for (const el of elements()) {
       return;
     }
     if (loadedSrc == null) return;
+    clearStallWatch();
     const state = usePlayerStore.getState();
     const track = state.queue[state.order[state.orderPos]];
     // A stale event for an already-replaced source must not skip twice.
@@ -875,18 +1387,37 @@ for (const el of elements()) {
       err?.message || "(no message)",
       loadedSrc,
     );
-    errorSkipStreak += 1;
-    if (errorSkipStreak > MAX_ERROR_SKIPS) {
-      usePlayerStore.setState({ isPlaying: false });
-      useUiStore.getState().showUndoNotice({
-        message: "Playback stopped — several files were unavailable.",
-      });
+    // The connection, not the file: hold in place and retry.
+    if (err?.code === 1 || err?.code === 2 || isOffline()) {
+      holdForNetwork();
       return;
     }
-    useUiStore.getState().showUndoNotice({
-      message: `Skipped “${track.title}” — file unavailable (${reason}).`,
+    // A refused stream (4xx) reads exactly like a missing file to the
+    // element. Ask before skipping: an expired session goes to sign-in,
+    // an unreachable server waits like any network failure.
+    const failedSrc = loadedSrc;
+    void sessionVerdict().then((verdict) => {
+      if (loadedSrc !== failedSrc) return; // the user moved on meanwhile
+      if (verdict === "signed-out") {
+        intendPlay = false;
+        usePlayerStore.setState({ isPlaying: false });
+        return;
+      }
+      if (verdict === "unreachable") {
+        holdForNetwork();
+        return;
+      }
+      skipFailed(track, reason);
     });
-    advance(1, true); // rest at the end of the queue, like a natural finish
+  });
+}
+
+if (typeof window !== "undefined") {
+  window.addEventListener("online", () => {
+    if (networkHold != null) {
+      networkRetries = 0;
+      resumeFromHold();
+    }
   });
 }
 
@@ -910,12 +1441,98 @@ syncWindowTitle();
    continues the same session). Fire-and-forget: a LAN blip costs the
    mirror nothing, and the local layer still holds the session. Every
    write is best-effort by contract — a failure costs nothing but the
-   convenience the layer exists for. */
+   convenience the layer exists for.
+
+   The local snapshot is compact: ids plus the few fields a paused,
+   unverified row renders with. Whole track objects for a whole-library
+   shuffle outgrew the localStorage quota — and a failed queue write under
+   a successful playhead write once resumed a stale queue at a fresh
+   position, so a failed queue write now clears both keys. */
 
 const QUEUE_KEY = "flow.player.queue";
 const PLAYHEAD_KEY = "flow.player.playhead";
 const QUEUE_SAVE_DEBOUNCE_MS = 400;
 const PLAYHEAD_SAVE_INTERVAL_MS = 3000;
+/** The compact snapshot's shape version. v1.5.0 stored
+    `{ queue: Track[], order, origin }` — still read, and rewritten compact,
+    on the first load after the upgrade. Its readers ignore this shape
+    (no `queue` key), so a rollback starts clean instead of crashing. */
+const LOCAL_QUEUE_VERSION = 2;
+
+/** One queued row as stored locally:
+    [id, title, artist, album, duration, artwork_id, artist_id, album_id, gain_db]. */
+type CompactRow = [
+  number,
+  string,
+  string | null,
+  string | null,
+  number,
+  number | null,
+  number | null,
+  number | null,
+  number | null,
+];
+
+function compactRow(t: Track): CompactRow {
+  return [
+    t.id,
+    t.title,
+    t.artist,
+    t.album,
+    t.duration,
+    t.artwork_id,
+    t.artist_id,
+    t.album_id,
+    t.gain_db ?? null,
+  ];
+}
+
+const numOrNull = (v: unknown): number | null =>
+  typeof v === "number" && Number.isFinite(v) ? v : null;
+const strOrNull = (v: unknown): string | null => (typeof v === "string" ? v : null);
+
+/** A restored row, rebuilt into a whole Track from whatever survived.
+    Restored rows are unverified (text, not links) until the server
+    replaces them wholesale, so the fields nothing renders yet take
+    neutral defaults. Anything without an id and a title is no row. */
+function restoredTrack(raw: Record<string, unknown>): Track | null {
+  if (typeof raw.id !== "number" || !Number.isInteger(raw.id)) return null;
+  if (typeof raw.title !== "string") return null;
+  return {
+    id: raw.id,
+    title: raw.title,
+    artist: strOrNull(raw.artist),
+    artist_id: numOrNull(raw.artist_id),
+    album: strOrNull(raw.album),
+    album_id: numOrNull(raw.album_id),
+    track_no: numOrNull(raw.track_no),
+    disc_no: numOrNull(raw.disc_no),
+    year: numOrNull(raw.year),
+    duration: numOrNull(raw.duration) ?? 0,
+    format: typeof raw.format === "string" ? raw.format : "",
+    favorite: raw.favorite === true,
+    artwork_id: numOrNull(raw.artwork_id),
+    path: typeof raw.path === "string" ? raw.path : "",
+    gain_db: numOrNull(raw.gain_db),
+  };
+}
+
+function fromCompactRow(row: unknown): Track | null {
+  if (!Array.isArray(row)) return null;
+  const [id, title, artist, album, duration, artwork_id, artist_id, album_id, gain_db] =
+    row as unknown[];
+  return restoredTrack({
+    id,
+    title,
+    artist,
+    album,
+    duration,
+    artwork_id,
+    artist_id,
+    album_id,
+    gain_db,
+  });
+}
 
 /** Set while a restore adoption writes state: the persistence layer must
     not echo a restore back to its own writers (that would PUT on every boot
@@ -924,6 +1541,10 @@ let restoring = false;
 /** Any state change after boot is user activity — it means the local
     session has an owner and the server adoption must not clobber it. */
 let sessionTouched = false;
+/** False after the queue snapshot failed to save: the playhead key stops
+    being written too until a queue write lands again — a playhead over a
+    stale queue resumes the wrong track. */
+let localQueueSaved = true;
 
 function setStateRestoring(partial: Partial<PlayerState>): void {
   restoring = true;
@@ -938,33 +1559,55 @@ let queueSaveTimer: number | null = null;
 let playheadSaveTimer: number | null = null;
 let playheadDirty = false;
 
-function writeQueueSnapshot(keepalive = false): void {
-  const { queue, order, orderPos, position, origin } = usePlayerStore.getState();
+function clearLocalKeys(): void {
+  try {
+    localStorage.removeItem(QUEUE_KEY);
+    localStorage.removeItem(PLAYHEAD_KEY);
+  } catch {
+    // best-effort, like every write here
+  }
+}
+
+function writeLocalQueue(): void {
+  const { queue, order, origin } = usePlayerStore.getState();
   try {
     // The origin rides the snapshot: the offline fallback layer restores
     // the same "Playing from" sentence the server's copy has.
     localStorage.setItem(
       QUEUE_KEY,
-      JSON.stringify({ queue, order, origin }),
+      JSON.stringify({ v: LOCAL_QUEUE_VERSION, rows: queue.map(compactRow), order, origin }),
     );
+    localQueueSaved = true;
   } catch {
     // Over quota (a very large library): this session still plays; the
-    // next one starts from the server copy. Preferences live in the other
-    // key either way.
+    // next one starts from the server copy. Both keys go — never a
+    // stale queue under a fresh playhead. Preferences live elsewhere.
+    localQueueSaved = false;
+    clearLocalKeys();
   }
+}
+
+function writeQueueSnapshot(keepalive = false): void {
+  writeLocalQueue();
+  const { queue, order, orderPos, position, origin } = usePlayerStore.getState();
   saveServerQueue({ tracks: queue, order, orderPos, position, origin }, keepalive);
 }
 
 function writePlayhead(started = false, keepalive = false): void {
   const { queue, order, orderPos, position } = usePlayerStore.getState();
-  try {
-    localStorage.setItem(
-      PLAYHEAD_KEY,
-      JSON.stringify({ orderPos, position, savedAt: Date.now() }),
-    );
-  } catch {
-    // Same best-effort story as the queue snapshot.
+  if (localQueueSaved) {
+    try {
+      localStorage.setItem(
+        PLAYHEAD_KEY,
+        JSON.stringify({ orderPos, position, savedAt: Date.now() }),
+      );
+    } catch {
+      // Same best-effort story as the queue snapshot.
+    }
   }
+  // A tab that yielded playback to another tab keeps its playhead to
+  // itself: the server's copy belongs to the tab that is playing.
+  if (yieldedToOtherTab) return;
   const current = queue[order[orderPos]] ?? null;
   saveServerPlayhead(
     {
@@ -992,20 +1635,35 @@ function schedulePlayheadSave(delayMs: number): void {
 
 if (typeof window !== "undefined") {
   usePlayerStore.subscribe((state, prev) => {
+    // The tab title and the lock screen follow the current track —
+    // restores, clears and undos included.
+    if (
+      state.queue !== prev.queue ||
+      state.order !== prev.order ||
+      state.orderPos !== prev.orderPos
+    ) {
+      syncNowPlayingSurfaces();
+    }
     if (restoring) return; // adoption is not user activity — don't echo it
+    // A row patched in place (a heart toggled on a queued track) is not a
+    // plan change: no full-queue mirror, no ownership.
+    const planChanged =
+      state.order !== prev.order ||
+      (state.queue !== prev.queue && !sameIds(state.queue, prev.queue));
     // Session identity is the plan and the playhead. Preference writes
     // (the persist middleware's rehydration, a volume nudge) don't make
     // the session owned — they must not block the server adoption.
     if (
-      state.queue !== prev.queue ||
-      state.order !== prev.order ||
+      planChanged ||
       state.orderPos !== prev.orderPos ||
       (state.isPlaying && !prev.isPlaying) ||
       (state.position !== prev.position && state.position > 0)
     ) {
       sessionTouched = true; // the session has an owner now
     }
-    if (state.queue !== prev.queue || state.order !== prev.order) {
+    if (planChanged) {
+      // Editing the plan here is acting here: this tab speaks again.
+      yieldedToOtherTab = false;
       if (queueSaveTimer == null) {
         queueSaveTimer = window.setTimeout(() => {
           queueSaveTimer = null;
@@ -1021,19 +1679,23 @@ if (typeof window !== "undefined") {
   });
 
   const flushSession = () => {
-    // Sleep, tab close, refresh: the playhead must be current, and the
-    // server writes must survive the tab — keepalive carries them out.
+    // Sleep, tab close, refresh: pending writes must land, and the server
+    // writes must survive the tab — keepalive carries them out. Pending
+    // writes only: an idle tab that changed nothing has nothing to say,
+    // and writing its stale playhead on hide rewound the tab that was
+    // actually playing.
     if (queueSaveTimer != null) {
       window.clearTimeout(queueSaveTimer);
       queueSaveTimer = null;
       writeQueueSnapshot(true);
     }
+    const pending = playheadSaveTimer != null || playheadDirty;
     if (playheadSaveTimer != null) {
       window.clearTimeout(playheadSaveTimer);
       playheadSaveTimer = null;
     }
     playheadDirty = false;
-    writePlayhead(false, true);
+    if (pending || (audio != null && !audio.paused)) writePlayhead(false, true);
   };
   window.addEventListener("pagehide", flushSession);
   document.addEventListener("visibilitychange", () => {
@@ -1071,34 +1733,55 @@ export function trackIsUnverified(track: Track | null | undefined): boolean {
   return track != null && unverifiedRows.has(track);
 }
 
-function restoreLocalSession(): void {
-  if (typeof localStorage === "undefined") return;
-  let queue: Track[] = [];
-  let order: number[] = [];
-  let origin: QueueOrigin | null = null;
+/** The local queue snapshot, in either shape — or null when there is
+    none worth restoring (missing, corrupt, or any row unreadable). */
+function readLocalQueue(): {
+  queue: Track[];
+  order: number[];
+  origin: QueueOrigin | null;
+  legacy: boolean;
+} | null {
+  let parsed: unknown;
   try {
     const raw = localStorage.getItem(QUEUE_KEY);
-    if (!raw) return;
-    const parsed = JSON.parse(raw) as {
-      queue?: unknown;
-      order?: unknown;
-      origin?: unknown;
-    };
-    if (!Array.isArray(parsed.queue) || !Array.isArray(parsed.order)) return;
-    queue = parsed.queue as Track[];
-    order = parsed.order as number[];
-    origin = parseOrigin(parsed.origin);
+    if (!raw) return null;
+    parsed = JSON.parse(raw);
   } catch {
-    return; // corrupt snapshot: start clean
+    return null; // corrupt snapshot: start clean
   }
+  if (parsed == null || typeof parsed !== "object") return null;
+  const p = parsed as { v?: unknown; rows?: unknown; queue?: unknown; order?: unknown; origin?: unknown };
+  let rows: (Track | null)[];
+  let legacy = false;
+  if (p.v === LOCAL_QUEUE_VERSION && Array.isArray(p.rows)) {
+    rows = (p.rows as unknown[]).map(fromCompactRow);
+  } else if (Array.isArray(p.queue)) {
+    // v1.5.0's whole-object snapshot.
+    legacy = true;
+    rows = (p.queue as unknown[]).map((t) =>
+      t != null && typeof t === "object" ? restoredTrack(t as Record<string, unknown>) : null,
+    );
+  } else {
+    return null;
+  }
+  if (rows.length === 0 || rows.some((t) => t == null)) return null;
+  const queue = rows as Track[];
+  let order = Array.isArray(p.order) ? (p.order as unknown[]) : [];
   if (
-    queue.length === 0 ||
-    queue.some((t) => t == null || typeof t.id !== "number" || typeof t.title !== "string")
-  )
-    return;
-  if (order.length !== queue.length || order.some((i) => !Number.isInteger(i) || i < 0 || i >= queue.length)) {
+    order.length !== queue.length ||
+    order.some((i) => !Number.isInteger(i) || (i as number) < 0 || (i as number) >= queue.length) ||
+    new Set(order).size !== order.length
+  ) {
     order = queue.map((_, i) => i);
   }
+  return { queue, order: order as number[], origin: parseOrigin(p.origin), legacy };
+}
+
+function restoreLocalSession(): void {
+  if (typeof localStorage === "undefined") return;
+  const snapshot = readLocalQueue();
+  if (snapshot == null) return;
+  const { queue, order, origin, legacy } = snapshot;
   let orderPos = 0;
   let position = 0;
   try {
@@ -1132,6 +1815,9 @@ function restoreLocalSession(): void {
     position: Math.min(position, track.duration || position),
     duration: track.duration || 0,
   });
+  // The first load after the upgrade migrates v1.5.0's snapshot to the
+  // compact shape — locally only; the server already holds this plan.
+  if (legacy) writeLocalQueue();
   syncWindowTitle();
 }
 
@@ -1161,12 +1847,7 @@ function parseOrigin(raw: unknown): QueueOrigin | null {
 /** A reachable-but-empty answer clears the session — including the local
     snapshot keys, or the next reload resurrects the same ghosts. */
 function clearLocalSession(): void {
-  try {
-    localStorage.removeItem(QUEUE_KEY);
-    localStorage.removeItem(PLAYHEAD_KEY);
-  } catch {
-    // best-effort, like every write here
-  }
+  clearLocalKeys();
   setStateRestoring({
     queue: [],
     order: [],
@@ -1179,13 +1860,25 @@ function clearLocalSession(): void {
   syncWindowTitle();
 }
 
+/** The boot-time adoption was refused (401: Login is on and this browser
+    isn't signed in yet). It runs again once sign-in lands. */
+let adoptionAwaitingAuth = false;
+/** The server never answered: an `online` event is worth another try. */
+let adoptionAwaitingNetwork = false;
+
 async function adoptServerSession(attempt = 0): Promise<void> {
   const result: ServerQueueState | undefined = await fetchServerQueue();
   if (result == null) return; // defensive: a broken transport layer
+  if (result.status === "unauthorized") {
+    adoptionAwaitingAuth = true;
+    return;
+  }
   if (result.status === "unreachable") {
     // A restarting server gets two quiet retries — 8 s and 24 s — before
-    // the local layer is left in charge for the outage. Rows stay
-    // unvouchable (text, not links) until an answer arrives.
+    // the local layer is left in charge for the outage (an `online` event
+    // tries once more). Rows stay unvouchable (text, not links) until an
+    // answer arrives.
+    adoptionAwaitingNetwork = true;
     if (attempt < 2) {
       window.setTimeout(
         () => void adoptServerSession(attempt + 1),
@@ -1194,6 +1887,7 @@ async function adoptServerSession(attempt = 0): Promise<void> {
     }
     return;
   }
+  adoptionAwaitingNetwork = false;
   if (sessionTouched) return; // this browser's session already began
   if (result.status === "empty") {
     // The server answered and its truth is "nothing is playing" —
@@ -1229,10 +1923,22 @@ async function adoptServerSession(attempt = 0): Promise<void> {
   syncWindowTitle();
 }
 
+/** Sign-in landed (or the status says Login is off): adopt the server's
+    session now — the boot-time attempt was refused before this browser
+    had a session cookie. A no-op unless that attempt was refused. */
+export function resumeServerAdoption(): void {
+  if (!adoptionAwaitingAuth) return;
+  adoptionAwaitingAuth = false;
+  void adoptServerSession();
+}
+
 restoreLocalSession();
 if (typeof window !== "undefined") {
+  window.addEventListener("online", () => {
+    if (adoptionAwaitingNetwork) void adoptServerSession(2);
+  });
   // The adoption must not race the persist middleware's own rehydration
-  // write (volume/shuffle/repeat land in a microtask after store creation):
+  // write (shuffle/repeat land in a microtask after store creation):
   // queue behind it when it hasn't finished yet.
   if (usePlayerStore.persist.hasHydrated()) {
     void adoptServerSession();

@@ -4,16 +4,22 @@
 
 import { useState } from "react";
 
+import { artworkUrl } from "../lib/artwork";
+
 interface AmbienceProps {
   artworkId?: number | null;
   /** "banner" hugs a view's header and dissolves before the content. */
   variant?: "banner";
 }
 
-export function Ambience({ artworkId, variant }: AmbienceProps) {
-  const [failed, setFailed] = useState(false);
+/** The wash is blurred past recognition: a small render is all it needs. */
+const AMBIENCE_PX = 128;
 
-  if (artworkId == null || failed) return null;
+export function Ambience({ artworkId, variant }: AmbienceProps) {
+  // Per artwork id: one failed cover must not hide every later one.
+  const [failedId, setFailedId] = useState<number | null>(null);
+
+  if (artworkId == null || failedId === artworkId) return null;
 
   return (
     <div
@@ -22,9 +28,9 @@ export function Ambience({ artworkId, variant }: AmbienceProps) {
     >
       <img
         className="ambience__img"
-        src={`/api/artwork/${artworkId}`}
+        src={artworkUrl(artworkId, AMBIENCE_PX)}
         alt=""
-        onError={() => setFailed(true)}
+        onError={() => setFailedId(artworkId)}
       />
     </div>
   );

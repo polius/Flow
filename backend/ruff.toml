@@ -1,0 +1,19 @@
+# Lint only (CI runs `ruff check`); the code isn't auto-formatted.
+target-version = "py314"
+line-length = 120
+
+[lint]
+# Ruff's classic defaults (pyflakes + the syntax/statement pycodestyle
+# groups) plus bugbear for likely bugs. Style-only families stay off.
+select = ["E4", "E7", "E9", "F", "B"]
+ignore = [
+    "B904", # raise … from inside except: HTTPException re-raises are intentional
+    "B905", # zip(strict=): dev scripts only
+    "B008", # FastAPI's Depends()/Query() defaults
+]
+
+[lint.per-file-ignores]
+# Pre-existing findings, kept out of the first CI gate. Delete each entry
+# once the line is cleaned up.
+"app/routers/editing.py" = ["F841"]
+"tests/test_corrupt_files.py" = ["F401"]

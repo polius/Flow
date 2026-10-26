@@ -1,15 +1,21 @@
 version: 2
+# Patch and minor bumps come in separate groups, so a held-back one (see
+# dependabot-automerge.yml: 0.x minors and new base-image versions wait
+# for review) doesn't hold up the patches.
 updates:
-  # Python backend dependencies (backend/requirements.txt)
+  # Python backend dependencies: requirements.in is the input,
+  # requirements.txt the hash-locked compile of it.
   - package-ecosystem: "pip"
     directory: "/backend"
     schedule:
       interval: "daily"
     groups:
-      pip-minor-and-patch:
+      pip-patch:
+        update-types:
+          - "patch"
+      pip-minor:
         update-types:
           - "minor"
-          - "patch"
 
   # Frontend dependencies (frontend/package-lock.json)
   - package-ecosystem: "npm"
@@ -17,12 +23,14 @@ updates:
     schedule:
       interval: "daily"
     groups:
-      npm-minor-and-patch:
+      npm-patch:
+        update-types:
+          - "patch"
+      npm-minor:
         update-types:
           - "minor"
-          - "patch"
 
-  # Container base image (Dockerfile)
+  # Base images (Dockerfile, pinned by tag and digest)
   - package-ecosystem: "docker"
     directory: "/"
     schedule:
@@ -33,7 +41,7 @@ updates:
           - "minor"
           - "patch"
 
-  # GitHub Actions used by the workflows
+  # GitHub Actions used by the workflows (pinned by commit SHA)
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
