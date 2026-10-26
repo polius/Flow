@@ -20,9 +20,12 @@ export function SearchView() {
 
   const { data, isFetching } = useQuery({
     queryKey: ["search", urlQuery],
-    queryFn: async () => {
+    // The field updates the URL as the user types (debounced in the top
+    // bar): a query the next one overtook is aborted, not left to land.
+    queryFn: async ({ signal }) => {
       const { data } = await api.GET("/api/search", {
         params: { query: { q: urlQuery } },
+        signal,
       });
       return data;
     },

@@ -21,6 +21,7 @@ import { useQuery } from "@tanstack/react-query";
 
 import { api } from "../api/client";
 import { useAppVersion } from "../api/system";
+import { useDebouncedValue } from "../lib/debounce";
 import { fmtCount, scanProgressFraction, scanStatusLabel } from "../lib/format";
 import { useMediaQuery } from "../lib/media";
 import { useScanStore } from "../stores/scan";
@@ -375,16 +376,20 @@ function SearchZone({
   const [activeIdx, setActiveIdx] = useState(-1);
   const zoneRef = useRef<HTMLDivElement>(null);
 
+  // One request per pause in typing, not per keystroke — and a request
+  // the next query overtook is aborted (the signal), not left to land.
+  const settledQ = useDebouncedValue(q, DEBOUNCE_MS);
   const search = useQuery({
-    queryKey: ["search", q],
-    queryFn: async () => {
+    queryKey: ["search", settledQ],
+    queryFn: async ({ signal }) => {
       const { data } = await api.GET("/api/search", {
-        params: { query: { q } },
+        params: { query: { q: settledQ } },
+        signal,
       });
       return data;
     },
     // On /search the page below IS the results — the panel stays shut.
-    enabled: q.length > 0 && open && pathname !== "/search",
+    enabled: settledQ.length > 0 && open && pathname !== "/search",
     placeholderData: (prev) => prev,
   });
 
