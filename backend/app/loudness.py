@@ -78,3 +78,14 @@ def analyze_file(path: Path) -> float | None:
 
 def clamp_gain(gain_db: float) -> float:
     return round(min(MAX_GAIN_DB, max(MIN_GAIN_DB, gain_db)), 1)
+
+
+# ReplayGain 2 track gains bring a track to −18 LUFS; Sound Check plays at
+# TARGET_LUFS. Stored as-is, tagged tracks played ~4 dB quieter than the
+# analyzed ones next to them.
+REPLAYGAIN_REFERENCE_LUFS = -18.0
+
+
+def gain_from_replaygain(rg_db: float) -> float:
+    """A ReplayGain tag value re-referenced to the Sound Check target."""
+    return clamp_gain(rg_db + (TARGET_LUFS - REPLAYGAIN_REFERENCE_LUFS))

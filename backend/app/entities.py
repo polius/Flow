@@ -2,18 +2,50 @@
 
 from __future__ import annotations
 
+import unicodedata
+
+
+def name_key(name: str) -> str:
+    """The lookup key for artist names and album titles: NFC + full Unicode
+    casefold. `COLLATE NOCASE` only folds ASCII, so "Beyoncé", its NFD
+    spelling and "BEYONCÉ" would otherwise be three artists."""
+    return unicodedata.normalize("NFC", name.strip()).casefold()
+
+
+def _clean(name: str | None) -> str | None:
+    if not name or not name.strip():
+        return None
+    return unicodedata.normalize("NFC", name.strip())
+
 
 def find_or_create_artist(conn, name: str | None) -> int | None:
     """Resolve an artist name to a row id; empty names map to NULL."""
-    if not name or not name.strip():
+    name = _clean(name)
+    if name is None:
         return None
-    name = name.strip()
+    key = name_key(name)
+    # Lowest id wins among rows sharing a key (pre-key duplicates from older
+    # releases), so the choice is stable across scans.
     row = conn.execute(
-        "SELECT id FROM artists WHERE name = ? COLLATE NOCASE", (name,)
+        "SELECT id FROM artists WHERE name_key = ? ORDER BY id LIMIT 1", (key,)
     ).fetchone()
+    if row is None:
+        # A row not yet backfilled (written by an older release) still
+        # matches the old way; `name` is UNIQUE NOCASE, so inserting past it
+        # would fail anyway.
+        row = conn.execute(
+            "SELECT id, name FROM artists WHERE name = ? COLLATE NOCASE", (name,)
+        ).fetchone()
+        if row is not None:
+            conn.execute(
+                "UPDATE artists SET name_key = ? WHERE id = ? AND name_key IS NULL",
+                (name_key(row["name"]), row["id"]),
+            )
     if row:
         return row["id"]
-    cur = conn.execute("INSERT INTO artists (name) VALUES (?)", (name,))
+    cur = conn.execute(
+        "INSERT INTO artists (name, name_key) VALUES (?, ?)", (name, key)
+    )
     return int(cur.lastrowid)
 
 
@@ -21,30 +53,65 @@ def find_or_create_album(
     conn, title: str | None, artist_id: int | None, year: int | None
 ) -> int | None:
     """Resolve (title, album artist) to an album row, backfilling the year."""
-    if not title or not title.strip():
+    title = _clean(title)
+    if title is None:
         return None
-    title = title.strip()
+    key = name_key(title)
     row = conn.execute(
-        "SELECT id, year FROM albums "
-        "WHERE title = ? COLLATE NOCASE AND artist_id IS ?",
-        (title, artist_id),
+        "SELECT id, year FROM albums WHERE title_key = ? AND artist_id IS ? "
+        "ORDER BY id LIMIT 1",
+        (key, artist_id),
     ).fetchone()
+    if row is None:
+        row = conn.execute(
+            "SELECT id, year, title FROM albums "
+            "WHERE title = ? COLLATE NOCASE AND artist_id IS ? AND title_key IS NULL "
+            "ORDER BY id LIMIT 1",
+            (title, artist_id),
+        ).fetchone()
+        if row is not None:
+            conn.execute(
+                "UPDATE albums SET title_key = ? WHERE id = ?",
+                (name_key(row["title"]), row["id"]),
+            )
     if row:
         if row["year"] is None and year is not None:
             conn.execute("UPDATE albums SET year = ? WHERE id = ?", (year, row["id"]))
         return row["id"]
     cur = conn.execute(
-        "INSERT INTO albums (title, artist_id, year) VALUES (?, ?, ?)",
-        (title, artist_id, year),
+        "INSERT INTO albums (title, title_key, artist_id, year) VALUES (?, ?, ?, ?)",
+        (title, key, artist_id, year),
     )
     return int(cur.lastrowid)
 
 
+def backfill_name_keys(conn) -> int:
+    """Fill name_key / title_key for rows that have none (migration 003
+    can't compute NFC/casefold in SQL). Idempotent and cheap once done —
+    both scans hit the key index. Returns the number of rows filled; the
+    caller commits."""
+    filled = 0
+    for table, column, key_column in (
+        ("artists", "name", "name_key"),
+        ("albums", "title", "title_key"),
+    ):
+        rows = conn.execute(
+            f"SELECT id, {column} AS name FROM {table} WHERE {key_column} IS NULL"  # noqa: S608
+        ).fetchall()
+        for row in rows:
+            conn.execute(
+                f"UPDATE {table} SET {key_column} = ? WHERE id = ?",  # noqa: S608
+                (name_key(row["name"] or ""), row["id"]),
+            )
+        filled += len(rows)
+    return filled
+
+
 def find_or_create_genre(conn, name: str | None) -> int | None:
     """Resolve a genre name to a row id; empty names map to NULL."""
-    if not name or not name.strip():
+    name = _clean(name)
+    if name is None:
         return None
-    name = name.strip()
     row = conn.execute(
         "SELECT id FROM genres WHERE name = ? COLLATE NOCASE", (name,)
     ).fetchone()
