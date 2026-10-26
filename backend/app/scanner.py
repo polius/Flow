@@ -134,7 +134,7 @@ class LibraryScanner:
             "items": parsed.get("items", []),
         }
 
-    def start_scan(self, trigger: str) -> bool:
+    def start_scan(self, trigger: str, full: bool = False) -> bool:
         """Kick off a background scan. False if one is already running
         (including the post-scan loudness phase — the index it follows is
         already correct, and the next scan re-runs whatever it missed)."""

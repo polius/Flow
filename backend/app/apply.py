@@ -8,7 +8,7 @@ from app.entities import find_or_create_album, find_or_create_artist, find_or_cr
 from app.scanner import Edited
 
 UNDO_KEY = "bulk_undo"
-UNDO_LIMIT = 20_000  # entries; a full-library apply fits with room to spare
+UNDO_LIMIT = 100_000  # entries; above it the change keeps no undo at all
 
 # The row an apply needs: the overlay-relevant columns plus the artist/album
 # NAMES (undo entries store names — an emptied entity's row gets pruned and
@@ -34,13 +34,25 @@ class FieldError(ValueError):
     it being raised BEFORE any commit for all-or-nothing semantics."""
 
 
-def apply_field_changes(conn, track, fields: dict) -> dict:
+def apply_field_changes(
+    conn,
+    track,
+    fields: dict,
+    *,
+    propagate: bool = True,
+    sibling_undo: list[dict] | None = None,
+) -> dict:
     """Resolve `fields` against one track row into UPDATE columns.
 
     A key's presence in `fields` means "apply it"; absence leaves the column
     untouched. `track` needs title, artist_id, album_id, album_artist_id,
     track_no, year, artwork_id, user_edited. Empty result = nothing would
     change; raises FieldError on invalid values.
+
+    An album-artist change also rewrites the album's other tracks; their
+    previous values are appended to `sibling_undo` (undo entries) when
+    given. `propagate=False` (undo replay) touches this track only — each
+    sibling carries its own undo entry.
     """
     edited = Edited(track["user_edited"])
     columns: dict = {}
@@ -80,11 +92,32 @@ def apply_field_changes(conn, track, fields: dict) -> dict:
         columns["track_no"] = track_no or None
         edited |= Edited.TRACK_NO
 
+    if "album_artist" in fields:
+        # The album artist is the album's identity. Alone, it moves the
+        # album row AND every track in it (each flagged, so a rescan can't
+        # resolve the siblings back to their tag value and split the album);
+        # every view that reads the album reads the same answer. With a new
+        # album title in the same edit, the track is re-grouped instead
+        # (below) and no existing album moves. An empty value clears.
+        artist_id = find_or_create_artist(conn, fields["album_artist"])
+        columns["album_artist_id"] = artist_id
+        if "album" not in fields and track["album_id"] is not None:
+            conn.execute(
+                "UPDATE albums SET artist_id = ? WHERE id = ?",
+                (artist_id, track["album_id"]),
+            )
+            if propagate:
+                _pin_album_siblings(conn, track, artist_id, sibling_undo)
+        edited |= Edited.ALBUM_ARTIST
+
     if "album" in fields:
-        # Re-groups this track only. The album keeps the track's album
-        # artist (that follows tags); a fresh album inherits facts.
+        # Re-groups this track only, under its album artist — the one this
+        # same edit sets, when it sets one; a fresh album inherits facts.
         columns["album_id"] = find_or_create_album(
-            conn, fields["album"], track["album_artist_id"], track["year"]
+            conn,
+            fields["album"],
+            columns.get("album_artist_id", track["album_artist_id"]),
+            track["year"],
         )
         artwork_id = track["artwork_id"]
         if columns["album_id"] is not None and artwork_id is not None:
@@ -93,19 +126,6 @@ def apply_field_changes(conn, track, fields: dict) -> dict:
                 (artwork_id, columns["album_id"]),
             )
         edited |= Edited.ALBUM
-
-    if "album_artist" in fields:
-        # The album artist is the album's identity: setting it pins the
-        # track's overlay value AND moves the album row, so every view that
-        # reads the album reads the same answer. An empty value clears both.
-        artist_id = find_or_create_artist(conn, fields["album_artist"])
-        columns["album_artist_id"] = artist_id
-        if track["album_id"] is not None:
-            conn.execute(
-                "UPDATE albums SET artist_id = ? WHERE id = ?",
-                (artist_id, track["album_id"]),
-            )
-        edited |= Edited.ALBUM_ARTIST
 
     if "favorite" in fields and fields["favorite"] is not None:
         favorite = int(bool(fields["favorite"]))
@@ -150,18 +170,62 @@ def apply_field_changes(conn, track, fields: dict) -> dict:
     return columns
 
 
+def _pin_album_siblings(conn, track, artist_id: int | None, sibling_undo) -> None:
+    """Give every other track of `track`'s album the new album artist, flagged."""
+    siblings = conn.execute(
+        "SELECT t.id, t.user_edited, aar.name AS album_artist_name FROM tracks t "
+        "LEFT JOIN artists aar ON aar.id = t.album_artist_id "
+        "WHERE t.album_id = ? AND t.id != ? AND t.album_artist_id IS NOT ?",
+        (track["album_id"], track["id"], artist_id),
+    ).fetchall()
+    for sib in siblings:
+        conn.execute(
+            "UPDATE tracks SET album_artist_id = ?, user_edited = ? WHERE id = ?",
+            (artist_id, int(Edited(sib["user_edited"]) | Edited.ALBUM_ARTIST), sib["id"]),
+        )
+        if sibling_undo is not None:
+            sibling_undo.append(
+                {
+                    "id": sib["id"],
+                    "fields": {"album_artist": sib["album_artist_name"] or ""},
+                    "user_edited": sib["user_edited"],
+                }
+            )
+
+
+# Fields whose change can leave an artist/album/genre row unreferenced —
+# only these need an orphan prune afterwards.
+ENTITY_FIELDS = frozenset({"artist", "album", "album_artist", "genre"})
+
+
 # One-generation undo: the last bulk apply stores each touched track's
 # PREVIOUS values in the same wire vocabulary, so undo re-applies them
-# through the exact same code path (re-setting the overlay bits — the
-# result is a value the user chose, which is what the bit means).
+# through the exact same code path, then restores the previous
+# `user_edited` bits (an undone edit must not leave the track pinned
+# against future tag changes). Entries written before the bits were
+# recorded simply keep the re-applied bits.
 
 
-def store_undo(conn, entries: list[dict]) -> None:
+def store_undo(conn, entries: list[dict]) -> bool:
+    """Replace the undo generation. One entry per track — the first wins,
+    since it holds the value from before this change touched the track.
+    Too large a change keeps no generation (never a silently partial one);
+    returns whether one was stored."""
+    seen: set[int] = set()
+    unique = []
+    for entry in entries:
+        if entry["id"] not in seen:
+            seen.add(entry["id"])
+            unique.append(entry)
+    if len(unique) > UNDO_LIMIT:
+        conn.execute("DELETE FROM settings WHERE key = ?", (UNDO_KEY,))
+        return False
     conn.execute(
         "INSERT INTO settings (key, value) VALUES (?, ?) "
         "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
-        (UNDO_KEY, json.dumps({"entries": entries[:UNDO_LIMIT]})),
+        (UNDO_KEY, json.dumps({"entries": unique})),
     )
+    return True
 
 
 def pop_undo(conn) -> list[dict]:

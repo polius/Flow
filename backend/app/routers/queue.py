@@ -5,16 +5,16 @@ from __future__ import annotations
 import json
 import random
 import sqlite3
-from datetime import datetime, timezone
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Query, Request
 
 from app.db import retry_locked
+from app.routers.common import TxRoute, chunks as _chunks, utcnow as _now
 from app.routers.library import (
+    TRACK_FILTER_FROM,
     TRACK_SELECT,
-    TRACK_SORTS,
-    _directed,
     track_filter_where,
+    track_order_by,
     track_out,
 )
 from app.schemas import (
@@ -23,10 +23,11 @@ from app.schemas import (
     QueuePlayheadOut,
     QueuePlayIn,
     QueuePutIn,
+    QueuePutMinimalOut,
     QueueSnapshot,
 )
 
-router = APIRouter(tags=["queue"])
+router = APIRouter(tags=["queue"], route_class=TxRoute)
 
 # The queue's tracks, carrying their queue position and track id. Same row
 # shape as TRACK_SELECT plus the two queue columns — track_out ignores them.
@@ -41,10 +42,6 @@ _QUEUE_SELECT = TRACK_SELECT.replace(
 )
 
 
-def _now() -> str:
-    return datetime.now(timezone.utc).isoformat()
-
-
 def _write_transaction(conn: sqlite3.Connection, fn):
     """Run a queue write, retrying with backoff while the database is busy.
 
@@ -54,9 +51,16 @@ def _write_transaction(conn: sqlite3.Connection, fn):
     return retry_locked(conn, fn, deadline=20.0)
 
 
-def _chunks(seq: list, size: int):
-    for i in range(0, len(seq), size):
-        yield seq[i : i + size]
+def _existing_ids(conn: sqlite3.Connection, ids: list[int]) -> set[int]:
+    existing: set[int] = set()
+    unique = list(dict.fromkeys(ids))
+    for chunk in _chunks(unique, 500):
+        marks = ",".join("?" for _ in chunk)
+        rows = conn.execute(
+            f"SELECT id FROM tracks WHERE id IN ({marks})", chunk
+        ).fetchall()
+        existing.update(r["id"] for r in rows)
+    return existing
 
 
 def _load_state(conn: sqlite3.Connection) -> sqlite3.Row:
@@ -223,13 +227,7 @@ def play_queue(request: Request, body: QueuePlayIn) -> QueueSnapshot:
 
     if body.track_ids is not None:
         wanted = list(dict.fromkeys(body.track_ids))  # dedupe, keep order
-        existing: set[int] = set()
-        for chunk in _chunks(wanted, 500):
-            marks = ",".join("?" for _ in chunk)
-            rows = conn.execute(
-                f"SELECT id FROM tracks WHERE id IN ({marks})", chunk
-            ).fetchall()
-            existing.update(r["id"] for r in rows)
+        existing = _existing_ids(conn, wanted)
         missing = len(wanted) - len(existing)
         if missing:
             raise HTTPException(
@@ -247,14 +245,11 @@ def play_queue(request: Request, body: QueuePlayIn) -> QueueSnapshot:
             favorite=body.favorite,
             genre_id=body.genre_id,
         )
-        desc = body.dir == "desc"
-        order_sql = TRACK_SORTS.get(body.sort, TRACK_SORTS["title"])
+        # The grid's exact ORDER BY over the joins every sort may read
+        # ("curate" orders by the album artist).
         rows = conn.execute(
-            f"SELECT t.id FROM tracks t "
-            f"LEFT JOIN artists ar ON ar.id = t.artist_id "
-            f"LEFT JOIN albums al ON al.id = t.album_id {clause} "
-            f"ORDER BY {_directed(order_sql, desc)}, "
-            f"t.title COLLATE NOCASE {'DESC' if desc else ''}",
+            f"SELECT t.id {TRACK_FILTER_FROM} {clause} "
+            f"ORDER BY {track_order_by(body.sort, body.dir == 'desc')}",
             params,
         ).fetchall()
         ids = [r["id"] for r in rows]
@@ -280,10 +275,40 @@ def play_queue(request: Request, body: QueuePlayIn) -> QueueSnapshot:
     return _read_snapshot(conn)
 
 
-@router.put("/api/queue", response_model=QueueSnapshot)
-def put_queue(request: Request, body: QueuePutIn) -> QueueSnapshot:
+def _drop_unknown(
+    track_ids: list[int], order: list[int], order_pos: int, existing: set[int]
+) -> tuple[list[int], list[int], int]:
+    """Remove entries whose track no longer exists, remapping the play order
+    and the playhead the same way GET's healing does: the current entry
+    keeps pointing at itself; a dropped current entry clamps in place."""
+    keep = [i for i, tid in enumerate(track_ids) if tid in existing]
+    if len(keep) == len(track_ids):
+        return track_ids, order, order_pos
+    new_index = {old: new for new, old in enumerate(keep)}
+    new_order = [new_index[o] for o in order if o in new_index]
+    current = order[order_pos] if 0 <= order_pos < len(order) else None
+    if current is not None and current in new_index:
+        new_pos = new_order.index(new_index[current])
+    elif order_pos == -1 or not new_order:
+        new_pos = -1
+    else:
+        new_pos = min(order_pos, len(new_order) - 1)
+    return [track_ids[i] for i in keep], new_order, new_pos
+
+
+@router.put("/api/queue", response_model=QueueSnapshot | QueuePutMinimalOut)
+def put_queue(
+    request: Request,
+    body: QueuePutIn,
+    minimal: bool = Query(
+        False,
+        description="Answer with {updated_at, count} instead of echoing the whole snapshot.",
+    ),
+) -> QueueSnapshot | QueuePutMinimalOut:
     """The client's plan mirror: whole-snapshot replace with a client-built
-    play order. A malformed order is a 422, never a corrupted server copy."""
+    play order. A malformed order is a 422, never a corrupted server copy.
+    Track ids a scan has removed since the client loaded them are dropped
+    (a foreign-key failure here once left the database locked)."""
     conn = request.app.state.db.connect()
     n = len(body.track_ids)
     if sorted(body.order) != list(range(n)):
@@ -293,19 +318,30 @@ def put_queue(request: Request, body: QueuePutIn) -> QueueSnapshot:
     order_pos = body.order_pos
     if order_pos < -1 or order_pos >= max(n, 1):
         order_pos = min(max(order_pos, -1), n - 1)
-    _write_transaction(
-        conn,
-        lambda: _write_snapshot(
+    track_ids, order, order_pos = body.track_ids, body.order, order_pos
+
+    def _apply() -> str:
+        # Checked inside the retried unit, so a replay after a scan's lock
+        # window re-checks against what the scan left.
+        ids, play_order, pos = _drop_unknown(
+            track_ids, order, order_pos, _existing_ids(conn, track_ids)
+        )
+        result["count"] = len(ids)
+        return _write_snapshot(
             conn,
-            track_ids=body.track_ids,
-            order=body.order,
-            order_pos=order_pos,
+            track_ids=ids,
+            order=play_order,
+            order_pos=pos,
             position=max(0.0, body.position),
             # The origin rides the mirror unchanged: queue edits never
             # rewrite where the queue came from.
             origin=body.origin,
-        ),
-    )
+        )
+
+    result: dict = {}
+    updated_at = _write_transaction(conn, _apply)
+    if minimal:
+        return QueuePutMinimalOut(updated_at=updated_at, count=result["count"])
     return _read_snapshot(conn)
 
 

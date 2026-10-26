@@ -16,11 +16,15 @@ from app.schemas import (
     TrackListOut,
     TrackOut,
 )
+from app.routers.common import (
+    DEFAULT_LIMIT,
+    MAX_QUERY,
+    TxRoute,
+    clamp_page,
+    like_pattern,
+)
 
-router = APIRouter(tags=["library"])
-
-DEFAULT_LIMIT = 200
-MAX_LIMIT = 1000
+router = APIRouter(tags=["library"], route_class=TxRoute)
 
 TRACK_SORTS = {
     "title": "t.title COLLATE NOCASE",
@@ -85,11 +89,6 @@ JOIN tracks t ON t.id = tg.track_id
 """
 
 
-def _like(term: str) -> str:
-    """Escape LIKE wildcards in user input."""
-    return f"%{term.replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_')}%"
-
-
 def _directed(order_sql: str, desc: bool) -> str:
     """Apply one direction to every term of a whitelisted ORDER BY expression
     (nulls-first clauses flip with it: DESC is the full inverse of asc)."""
@@ -97,8 +96,15 @@ def _directed(order_sql: str, desc: bool) -> str:
     return ", ".join(f"{t} DESC" for t in terms) if desc else ", ".join(terms)
 
 
-def _clamp(limit: int, offset: int) -> tuple[int, int]:
-    return min(max(limit, 1), MAX_LIMIT), max(offset, 0)
+def track_order_by(sort: str, desc: bool) -> str:
+    """The full ORDER BY for a track listing: the whitelisted sort, the
+    title tie-breaker, and the id last so paging over equal keys ("Intro"
+    ×40) never repeats or skips a row."""
+    order = TRACK_SORTS.get(sort, TRACK_SORTS["title"])
+    direction = " DESC" if desc else ""
+    return (
+        f"{_directed(order, desc)}, t.title COLLATE NOCASE{direction}, t.id{direction}"
+    )
 
 
 TRACK_SELECT = """
@@ -115,6 +121,16 @@ LEFT JOIN artists ar ON ar.id = t.artist_id
 LEFT JOIN albums al ON al.id = t.album_id
 LEFT JOIN artists aar ON aar.id = al.artist_id
 LEFT JOIN artists aar2 ON aar2.id = t.album_artist_id
+"""
+
+# The joins every filter (`track_filter_where`) and sort (`TRACK_SORTS`,
+# whose "curate" reads aar) may reference, without TRACK_SELECT's columns —
+# for counts and id-only resolutions (queue play, bulk apply).
+TRACK_FILTER_FROM = """
+FROM tracks t
+LEFT JOIN artists ar ON ar.id = t.artist_id
+LEFT JOIN albums al ON al.id = t.album_id
+LEFT JOIN artists aar ON aar.id = al.artist_id
 """
 
 # Album-level problems expressed over track rows, so the grid and the bulk
@@ -151,7 +167,7 @@ def track_filter_where(
             "(t.title LIKE ? ESCAPE '\\' OR ar.name LIKE ? ESCAPE '\\' "
             "OR al.title LIKE ? ESCAPE '\\')"
         )
-        params += [_like(q), _like(q), _like(q)]
+        params += [like_pattern(q), like_pattern(q), like_pattern(q)]
     if artist_id is not None:
         where.append(
             "(t.artist_id = ? OR t.id IN "
@@ -209,7 +225,7 @@ def track_out(row) -> TrackOut:
 @router.get("/api/tracks", response_model=TrackListOut)
 def list_tracks(
     request: Request,
-    q: str | None = None,
+    q: str | None = Query(None, max_length=MAX_QUERY),
     artist_id: int | None = None,
     album_id: int | None = None,
     review: str | None = None,
@@ -221,7 +237,7 @@ def list_tracks(
     offset: int = Query(0, ge=0),
 ) -> TrackListOut:
     conn = request.app.state.db.connect()
-    limit, offset = _clamp(limit, offset)
+    limit, offset = clamp_page(limit, offset)
 
     clause, params = track_filter_where(
         q=q,
@@ -232,18 +248,12 @@ def list_tracks(
         genre_id=genre_id,
     )
 
-    desc = dir == "desc"
-    order = TRACK_SORTS.get(sort, TRACK_SORTS["title"])
-
     total = conn.execute(
-        f"SELECT COUNT(*) AS c FROM tracks t "
-        f"LEFT JOIN artists ar ON ar.id = t.artist_id "
-        f"LEFT JOIN albums al ON al.id = t.album_id {clause}",
-        params,
+        f"SELECT COUNT(*) AS c {TRACK_FILTER_FROM} {clause}", params
     ).fetchone()["c"]
     rows = conn.execute(
-        f"{TRACK_SELECT} {clause} ORDER BY {_directed(order, desc)}, "
-        f"t.title COLLATE NOCASE {'DESC' if desc else ''} LIMIT ? OFFSET ?",
+        f"{TRACK_SELECT} {clause} ORDER BY {track_order_by(sort, dir == 'desc')} "
+        f"LIMIT ? OFFSET ?",
         [*params, limit, offset],
     ).fetchall()
     return TrackListOut(
@@ -263,21 +273,21 @@ def get_track(request: Request, track_id: int) -> TrackOut:
 @router.get("/api/albums", response_model=AlbumListOut)
 def list_albums(
     request: Request,
-    q: str | None = None,
+    q: str | None = Query(None, max_length=MAX_QUERY),
     sort: str = "title",
     dir: str = "asc",
     limit: int = Query(DEFAULT_LIMIT, ge=1),
     offset: int = Query(0, ge=0),
 ) -> AlbumListOut:
     conn = request.app.state.db.connect()
-    limit, offset = _clamp(limit, offset)
+    limit, offset = clamp_page(limit, offset)
 
     where, params = [], []
     if q:
         where.append(
             "(al.title LIKE ? ESCAPE '\\' OR ar.name LIKE ? ESCAPE '\\')"
         )
-        params += [_like(q), _like(q)]
+        params += [like_pattern(q), like_pattern(q)]
     clause = f"WHERE {' AND '.join(where)}" if where else ""
 
     base = (
@@ -294,7 +304,7 @@ def list_albums(
         f"SELECT al.id, al.title, al.year, al.artwork_id, al.cover_artwork_id, "
         f"ar.name AS artist, al.artist_id, COUNT(t.id) AS track_count, "
         f"MAX(t.played_at) AS played_at "
-        f"{base} {clause} GROUP BY al.id ORDER BY {directed}, al.title COLLATE NOCASE "
+        f"{base} {clause} GROUP BY al.id ORDER BY {directed}, al.title COLLATE NOCASE, al.id "
         f"LIMIT ? OFFSET ?",
         [*params, limit, offset],
     ).fetchall()
@@ -362,19 +372,19 @@ def get_album(request: Request, album_id: int) -> AlbumDetail:
 @router.get("/api/artists", response_model=ArtistListOut)
 def list_artists(
     request: Request,
-    q: str | None = None,
+    q: str | None = Query(None, max_length=MAX_QUERY),
     sort: str = "name",
     dir: str = "asc",
     limit: int = Query(DEFAULT_LIMIT, ge=1),
     offset: int = Query(0, ge=0),
 ) -> ArtistListOut:
     conn = request.app.state.db.connect()
-    limit, offset = _clamp(limit, offset)
+    limit, offset = clamp_page(limit, offset)
 
     where, params = [], []
     if q:
         where.append("ar.name LIKE ? ESCAPE '\\'")
-        params.append(_like(q))
+        params.append(like_pattern(q))
     clause = f"WHERE {' AND '.join(where)}" if where else ""
 
     total = conn.execute(
@@ -396,7 +406,7 @@ def list_artists(
         f"(SELECT COUNT(*) FROM albums al WHERE al.artist_id = ar.id) AS album_count, "
         f"{credited_count} AS track_count "
         f"FROM artists ar {clause} "
-        f"ORDER BY {directed}, ar.name COLLATE NOCASE LIMIT ? OFFSET ?",
+        f"ORDER BY {directed}, ar.name COLLATE NOCASE, ar.id LIMIT ? OFFSET ?",
         [*params, limit, offset],
     ).fetchall()
     return ArtistListOut(
@@ -482,7 +492,7 @@ def get_artist(request: Request, artist_id: int) -> ArtistDetail:
 @router.get("/api/genres", response_model=GenreListOut)
 def list_genres(
     request: Request,
-    q: str | None = None,
+    q: str | None = Query(None, max_length=MAX_QUERY),
     sort: str = "name",
     dir: str = "asc",
     limit: int = Query(DEFAULT_LIMIT, ge=1),
@@ -490,12 +500,12 @@ def list_genres(
 ) -> GenreListOut:
     """Genre browse list: grouped track tags with representative cover art."""
     conn = request.app.state.db.connect()
-    limit, offset = _clamp(limit, offset)
+    limit, offset = clamp_page(limit, offset)
 
     where, params = ["1 = 1"], []
     if q:
         where.append("g.name LIKE ? ESCAPE '\\'")
-        params.append(_like(q))
+        params.append(like_pattern(q))
     clause = f"WHERE {' AND '.join(where)}"
 
     total = conn.execute(
@@ -518,7 +528,7 @@ def list_genres(
         f"  WHERE tg2.genre_id = g.id AND t2.artwork_id IS NOT NULL "
         f"  ORDER BY t2.added_at DESC LIMIT 1) AS artwork_id "
         f"{GENRE_BASE} {clause} "
-        f"GROUP BY g.id ORDER BY {directed}, g.name COLLATE NOCASE "
+        f"GROUP BY g.id ORDER BY {directed}, g.name COLLATE NOCASE, g.id "
         f"LIMIT ? OFFSET ?",
         [*params, limit, offset],
     ).fetchall()

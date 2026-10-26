@@ -158,6 +158,35 @@ def test_mosaic_artwork_ids_follow_playlist_order(client, library):
     assert detail["track_count"] == len(tracks)
 
 
+def test_listing_mosaics_per_playlist_in_one_pass(client, music):
+    """The listing builds every card's mosaic in one query; each card still
+    gets its own first four covers, in playlist order, art-less tracks
+    skipped."""
+    for i in range(6):
+        make_mp3(
+            music / "art" / f"{i}.mp3", title=f"Art {i}", artist="Artist",
+            picture=b"\xff\xd8\xff" + bytes([i + 1]) * 32,
+        )
+    client.app.state.scanner.run_scan("test")
+    by_title = {t["title"]: t for t in _tracks(client)}
+    art = [by_title[f"Art {i}"] for i in range(6)]
+    assert len({t["artwork_id"] for t in art}) == 6
+
+    first = client.post("/api/playlists", json={"name": "A"}).json()["id"]
+    second = client.post("/api/playlists", json={"name": "B"}).json()["id"]
+    client.post("/api/playlists", json={"name": "C"})  # empty
+    order = [art[5], by_title["Alpha"], art[0], art[3], art[1], art[2]]
+    client.post(f"/api/playlists/{first}/tracks", json={"track_ids": [t["id"] for t in order]})
+    client.post(f"/api/playlists/{second}/tracks", json={"track_ids": [art[4]["id"]]})
+
+    cards = {p["name"]: p for p in client.get("/api/playlists").json()["items"]}
+    assert cards["A"]["artwork_ids"] == [t["artwork_id"] for t in (art[5], art[0], art[3], art[1])]
+    assert cards["B"]["artwork_ids"] == [art[4]["artwork_id"]]
+    assert cards["C"]["artwork_ids"] == []
+    detail = client.get(f"/api/playlists/{first}").json()
+    assert detail["artwork_ids"] == cards["A"]["artwork_ids"]
+
+
 def test_track_deletion_cascades_out_of_playlists(client, library):
     pid = client.post("/api/playlists", json={"name": "Cascades"}).json()["id"]
     tracks = _tracks(client)

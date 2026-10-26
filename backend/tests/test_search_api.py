@@ -55,3 +55,16 @@ def test_search_escapes_like_wildcards(client, library):
 
     out = client.get("/api/search", params={"q": "100 Perc"}).json()
     assert [t["title"] for t in out["tracks"]] == ["100 Percent"]
+
+
+def test_search_tracks_carry_every_track_field(client, library):
+    """Search used to build TrackOut by hand and leave fields at their
+    defaults; it must answer exactly what the track endpoint does."""
+    track = client.get("/api/tracks", params={"q": "lust"}).json()["items"][0]
+    client.patch(f"/api/tracks/{track['id']}", json={"genre": "Rock"})
+    client.patch("/api/queue", json={"played_track_id": track["id"]})
+
+    full = client.get(f"/api/tracks/{track['id']}").json()
+    found = client.get("/api/search", params={"q": "lust"}).json()["tracks"][0]
+    assert found == full
+    assert found["genre"] == "Rock" and found["played_at"] and found["added_at"]
