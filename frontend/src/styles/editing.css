@@ -534,9 +534,10 @@ textarea.inlineedit__input {
 
 .tracksheet {
   position: absolute;
-  left: 8px;
-  right: 8px;
-  bottom: 8px;
+  left: calc(8px + env(safe-area-inset-left, 0px));
+  right: calc(8px + env(safe-area-inset-right, 0px));
+  /* Clear of the home indicator in the installed app (viewport-fit=cover). */
+  bottom: calc(8px + env(safe-area-inset-bottom, 0px));
   padding: 6px 6px 8px;
   border-radius: var(--radius-l);
   border: 1px solid var(--separator);
@@ -765,6 +766,9 @@ textarea.inlineedit__input {
   display: flex;
   flex-direction: column;
   width: min(380px, 92vw);
+  /* Edge-to-edge panel: clear of the status bar and home indicator. */
+  padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px)
+    env(safe-area-inset-bottom, 0px) 0;
   background: var(--bg-elevated);
   border-left: 1px solid var(--separator);
   box-shadow: -12px 0 40px rgba(0, 0, 0, 0.18);

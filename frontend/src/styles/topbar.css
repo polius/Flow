@@ -11,7 +11,11 @@
   display: flex;
   align-items: center;
   gap: 16px;
-  padding: 10px 20px;
+  /* viewport-fit=cover (index.html): the bar grows by the status-bar /
+     notch insets so the installed app is never letterboxed or clipped. */
+  padding: calc(10px + env(safe-area-inset-top, 0px))
+    calc(20px + env(safe-area-inset-right, 0px)) 10px
+    calc(20px + env(safe-area-inset-left, 0px));
   background: var(--bg-canvas);
   border-bottom: 1px solid var(--separator);
 }

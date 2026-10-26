@@ -902,6 +902,9 @@
   z-index: var(--z-modal);
   display: flex;
   flex-direction: column;
+  /* A full-screen sheet: clear of notch, status bar and home indicator. */
+  padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px)
+    env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
   background: var(--bg-canvas);
   animation: orgsheet-in var(--dur-normal) var(--ease-out);
 }

@@ -54,14 +54,27 @@
     background-color var(--dur-fast) var(--ease-out);
 }
 
+/* Safe areas: index.html opts into viewport-fit=cover, so the takeover
+   pads itself clear of the notch, the status bar and the home indicator
+   (env() reads 0 everywhere else); its corner buttons follow the inset. */
+.nowplaying {
+  padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px)
+    env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
+}
+
+.nowplaying__close,
+.nowplaying__queuebtn {
+  top: calc(18px + env(safe-area-inset-top, 0px));
+}
+
 .nowplaying__close {
-  left: 20px;
+  left: calc(20px + env(safe-area-inset-left, 0px));
 }
 
 /* The queue entry on narrow windows — the drawer's side-by-side home
    can't fit, so the queue sheet slides up behind this button. */
 .nowplaying__queuebtn {
-  right: 20px;
+  right: calc(20px + env(safe-area-inset-right, 0px));
 }
 
 .nowplaying__close:hover,
@@ -163,6 +176,30 @@
   align-items: center;
   gap: 10px;
   width: 100%;
+}
+
+/* Phones: the mini bar hides its times (player.css), but the takeover is
+   where you look for them — elapsed and remaining sit in small type
+   under a full-width scrubber, the iOS Music layout. */
+@media (max-width: 640px) {
+  .nowplaying__progress {
+    flex-wrap: wrap;
+    row-gap: 2px;
+  }
+
+  .nowplaying__progress .player__scrubber {
+    order: -1;
+    flex: 1 0 100%;
+  }
+
+  .nowplaying__progress .player__time {
+    display: block;
+    min-width: 0;
+  }
+
+  .nowplaying__progress .player__time:last-child {
+    margin-left: auto;
+  }
 }
 
 /* ---- Add to Playlist: the transport's quiet footnote ----
