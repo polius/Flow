@@ -12,7 +12,7 @@ import {
   useUpdatePlaylist,
   useUploadPlaylistCover,
 } from "../api/mutations";
-import { AddTracksDialog } from "../components/AddTracksDialog";
+import { AddTracksDialog } from "../components/LazyAddTracksDialog";
 import { CollectionActions } from "../components/CollectionActions";
 import { CoverEdit } from "../components/CoverEdit";
 import { EmptyState } from "../components/EmptyState";

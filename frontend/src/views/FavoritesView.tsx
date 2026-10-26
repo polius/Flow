@@ -13,7 +13,7 @@ import { EmptyState } from "../components/EmptyState";
 import { LoadingState } from "../components/LoadingState";
 import { IconHeart, IconPlay, IconShuffle } from "../components/icons";
 import { fmtCount } from "../lib/format";
-import { usePlayerStore } from "../stores/player";
+import { beginPlayRequest, usePlayerStore } from "../stores/player";
 
 /* Favorites is a curated list — no sort menu. The order is the drag-written
    manual one (favorite_position 1..n, persisted server-side); a search
@@ -78,6 +78,8 @@ export function FavoritesView() {
         playTracks(tracks, index, viewOrigin);
         return;
       }
+      // A request a newer play overtook is dropped (see TracksView).
+      const isCurrent = beginPlayRequest();
       void playByFilter({
         q: q || undefined,
         favorite: true,
@@ -86,6 +88,7 @@ export function FavoritesView() {
         start: index,
         origin: viewOrigin,
       }).then((snapshot) => {
+        if (!isCurrent()) return;
         if (snapshot) {
           playSnapshot(snapshot);
           return;
@@ -96,6 +99,7 @@ export function FavoritesView() {
           dir: "asc",
           favorite: true,
         }).then((full) => {
+          if (!isCurrent()) return;
           const list = full.length > 0 ? full : tracks;
           playTracks(list, Math.min(index, list.length - 1), viewOrigin);
         });
@@ -103,12 +107,6 @@ export function FavoritesView() {
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [playTracks, playSnapshot, tracks, total, q],
-  );
-
-  const contextLoader = useCallback(
-    () =>
-      fetchAllTracks({ q: q || undefined, sort: "favorite", dir: "asc", favorite: true }),
-    [q],
   );
 
   // Shuffle the whole filter server-side — never a truncated queue. Shuffle
@@ -120,6 +118,7 @@ export function FavoritesView() {
     setShuffling(true);
     const start = Math.floor(Math.random() * total);
     usePlayerStore.getState().setShuffle(true);
+    const isCurrent = beginPlayRequest();
     void playByFilter({
       q: q || undefined,
       favorite: true,
@@ -130,6 +129,7 @@ export function FavoritesView() {
       origin: viewOrigin,
     })
       .then((snapshot) => {
+        if (!isCurrent()) return;
         if (snapshot) {
           playSnapshot(snapshot);
           return;
@@ -141,7 +141,7 @@ export function FavoritesView() {
           favorite: true,
         }).then((full) => {
           const list = full.length > 0 ? full : tracks;
-          if (list.length === 0) return;
+          if (list.length === 0 || !isCurrent()) return;
           playTracks(list, Math.min(start, list.length - 1), viewOrigin);
         });
       })
@@ -262,7 +262,6 @@ export function FavoritesView() {
             tracks={tracks}
             onNearEnd={handleNearEnd}
             onPlay={playFromHere}
-            contextLoader={contextLoader}
             onMove={move}
             reorderable={reorderable}
           />

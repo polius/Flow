@@ -67,14 +67,39 @@ export async function logout(): Promise<void> {
   await fetch("/api/auth/logout", { method: "POST" });
 }
 
-/** Turn login on, change the password, or turn it off (null). */
-export async function setPassword(password: string | null): Promise<void> {
+/** Minimum length for a NEW password (sign-in still accepts older,
+    shorter ones). */
+export const MIN_PASSWORD_LENGTH = 8;
+
+export type SetPasswordFailure =
+  | "unauthenticated"
+  | "wrong-current-password"
+  | "rate-limited"
+  | "failed";
+
+/** Turn login on, change the password, or turn it off (null). Changing or
+    turning off needs the current password: a stolen session or an
+    unlocked device alone can't lock the owner out. */
+export async function setPassword(
+  password: string | null,
+  currentPassword?: string,
+): Promise<void> {
   const res = await fetch("/api/auth/password", {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ password }),
+    body: JSON.stringify({
+      password,
+      ...(currentPassword != null ? { current_password: currentPassword } : {}),
+    }),
   });
   if (res.ok) return;
-  if (res.status === 401) throw new Error("unauthenticated");
-  throw new Error(res.status === 429 ? "rate-limited" : "failed");
+  const failure: SetPasswordFailure =
+    res.status === 401
+      ? "unauthenticated"
+      : res.status === 403
+        ? "wrong-current-password"
+        : res.status === 429
+          ? "rate-limited"
+          : "failed";
+  throw new Error(failure);
 }

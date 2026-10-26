@@ -211,6 +211,23 @@
   --scrubber-rest: var(--control-border);
 }
 
+/* ---- volume (desktop) ----
+   The bar's right column: mute toggle + a short level slider, pushed to
+   the trailing edge. The fill rides the same background-image layer as
+   the scrubber. */
+.player__volume {
+  justify-self: end;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: min(150px, 100%);
+}
+
+.player__volumeslider {
+  flex: 1;
+  min-width: 0;
+}
+
 /* ---- phone mini bar ----
    Below the phone breakpoint the bar becomes the iOS mini-player: one row —
    artwork · title/artist · prev/play/next — with the scrubber as a
@@ -274,7 +291,8 @@
     height: 38px;
   }
 
-  .player__btn--secondary {
+  .player__btn--secondary,
+  .player__volume {
     display: none;
   }
 }

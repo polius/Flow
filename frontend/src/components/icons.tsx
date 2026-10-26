@@ -335,3 +335,33 @@ export function IconEyeOff(props: IconProps) {
     </Icon>
   );
 }
+
+/* Volume: a speaker with sound waves; muted swaps the waves for a cross. */
+export function IconVolume(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M4 9.5h3.2L11.5 6v12l-4.3-3.5H4z" />
+      <path d="M15 9.2a4 4 0 0 1 0 5.6" />
+      <path d="M17.6 6.6a7.6 7.6 0 0 1 0 10.8" />
+    </Icon>
+  );
+}
+
+export function IconVolumeMute(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M4 9.5h3.2L11.5 6v12l-4.3-3.5H4z" />
+      <path d="m15.5 9.5 5 5" />
+      <path d="m20.5 9.5-5 5" />
+    </Icon>
+  );
+}
+
+/* Sleep timer — a crescent moon. */
+export function IconMoon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M19.5 14.6A7.8 7.8 0 0 1 9.4 4.5a7.8 7.8 0 1 0 10.1 10.1Z" />
+    </Icon>
+  );
+}

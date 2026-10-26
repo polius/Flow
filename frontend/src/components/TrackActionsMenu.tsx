@@ -9,7 +9,7 @@ import { useLocation, useNavigate } from "react-router";
 
 import { useToggleFavorite } from "../api/mutations";
 import { useMediaQuery } from "../lib/media";
-import { usePlayerStore } from "../stores/player";
+import { beginPlayRequest, usePlayerStore } from "../stores/player";
 import { useUiStore } from "../stores/ui";
 import { Artwork } from "./Artwork";
 import {
@@ -83,8 +83,17 @@ export function TrackActionsMenu() {
   }, [pathname, close]);
 
   if (request == null) return null;
-  const { track, x, y, context, contextLoader, origin, removeFromPlaylist, selection } =
-    request;
+  const {
+    track,
+    x,
+    y,
+    context,
+    contextLoader,
+    playFrom,
+    origin,
+    removeFromPlaylist,
+    selection,
+  } = request;
   // A right-click on a row inside a live selection acts on the WHOLE
   // selection: the verbs file, queue, and play every selected track,
   // not just the row under the pointer. Otherwise the row stands alone.
@@ -101,22 +110,27 @@ export function TrackActionsMenu() {
   // context still plays. The origin rides along when the invoking
   // surface knows what it is — a hand-built context just stays manual.
   const playInContext = () => {
+    if (playFrom) {
+      playFrom();
+      return;
+    }
     const base = context ?? [track];
     if (!contextLoader) {
       play(base, Math.max(0, base.findIndex((t) => t.id === track.id)), origin);
       return;
     }
+    // A newer play started while the loader ran wins (claimed in the click).
+    const isCurrent = beginPlayRequest();
     void contextLoader()
-      .then((full) =>
-        play(
-          full.length > 0 ? full : base,
-          Math.max(0, (full.length > 0 ? full : base).findIndex((t) => t.id === track.id)),
-          origin,
-        ),
-      )
-      .catch(() =>
-        play(base, Math.max(0, base.findIndex((t) => t.id === track.id)), origin),
-      );
+      .then((full) => {
+        if (!isCurrent()) return;
+        const list = full.length > 0 ? full : base;
+        play(list, Math.max(0, list.findIndex((t) => t.id === track.id)), origin);
+      })
+      .catch(() => {
+        if (!isCurrent()) return;
+        play(base, Math.max(0, base.findIndex((t) => t.id === track.id)), origin);
+      });
   };
 
   const items = (

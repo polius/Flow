@@ -1,19 +1,36 @@
-import { useEffect, useLayoutEffect, useRef } from "react";
+import { lazy, Suspense, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Navigate, Outlet, useLocation } from "react-router";
 
 import { useAuthStatus } from "../api/auth";
-import { ensureScanSync } from "../api/scanSync";
+import { ensureScanSync, stopScanSync } from "../api/scanSync";
 import { useGlobalShortcuts } from "../lib/shortcuts";
 import { AddToPlaylistDialog } from "./AddToPlaylistDialog";
-import { GetInfoPanel } from "./GetInfoPanel";
 import { NowPlaying } from "./NowPlaying";
-import { OrganizeSheet } from "./OrganizeSheet";
 import { PlayerBar } from "./PlayerBar";
 import { TopBar } from "./TopBar";
 import { TrackActionsMenu } from "./TrackActionsMenu";
 import { UndoToast } from "./UndoToast";
+import { resumeServerAdoption } from "../stores/player";
 import { useUiStore } from "../stores/ui";
 import "../styles/shell.css";
+
+/* Organize and Get Info are tasks most visits never open: their code (and
+   Organize's stylesheet) loads on first open, then stays mounted exactly
+   as before. */
+const OrganizeSheet = lazy(() =>
+  import("./OrganizeSheet").then((m) => ({ default: m.OrganizeSheet })),
+);
+const GetInfoPanel = lazy(() =>
+  import("./GetInfoPanel").then((m) => ({ default: m.GetInfoPanel })),
+);
+
+/** True from the first time `flag` is true: a lazy surface mounts on
+    first open and is never torn down again. */
+function useOpenedOnce(flag: boolean): boolean {
+  const [opened, setOpened] = useState(flag);
+  if (flag && !opened) setOpened(true);
+  return opened || flag;
+}
 
 export function AppShell() {
   const focusSearch = useUiStore((s) => s.focusSearch);
@@ -22,10 +39,23 @@ export function AppShell() {
   useGlobalShortcuts();
 
   const { data: authStatus } = useAuthStatus();
+  const organizeMounted = useOpenedOnce(useUiStore((s) => s.organizeOpen));
+  const getInfoMounted = useOpenedOnce(useUiStore((s) => s.getInfoTrackId != null));
 
+  // The API answers only a signed-in browser (or anyone, with Login off):
+  // the scan stream and the server-queue adoption wait for that. Opened
+  // before sign-in, the stream died on its 401 for good, and the queue
+  // adoption gave up.
+  const apiOpen =
+    authStatus != null && (!authStatus.enabled || authStatus.authenticated);
   useEffect(() => {
+    if (!apiOpen) {
+      stopScanSync();
+      return;
+    }
     ensureScanSync();
-  }, []);
+    resumeServerAdoption();
+  }, [apiOpen]);
 
   // The canvas is one shared scroll container across views, so an offset from
   // one section would leak into the next — the new view could land mid-list
@@ -72,11 +102,19 @@ export function AppShell() {
         </main>
         <PlayerBar />
       </div>
-      <GetInfoPanel />
+      {getInfoMounted && (
+        <Suspense fallback={null}>
+          <GetInfoPanel />
+        </Suspense>
+      )}
       <TrackActionsMenu />
       <AddToPlaylistDialog />
       <UndoToast />
-      <OrganizeSheet />
+      {organizeMounted && (
+        <Suspense fallback={null}>
+          <OrganizeSheet />
+        </Suspense>
+      )}
       <NowPlaying />
     </div>
   );

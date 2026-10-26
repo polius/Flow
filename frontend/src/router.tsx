@@ -7,11 +7,9 @@ import { ArtistDetailView } from "./views/ArtistDetailView";
 import { ArtistsView } from "./views/ArtistsView";
 import { FavoritesView } from "./views/FavoritesView";
 import { HomeView } from "./views/HomeView";
-import { LoginView } from "./views/LoginView";
 import { PlaylistDetailView } from "./views/PlaylistDetailView";
 import { PlaylistsView } from "./views/PlaylistsView";
 import { SearchView } from "./views/SearchView";
-import { SettingsView } from "./views/SettingsView";
 import { TracksView } from "./views/TracksView";
 import { useEffect } from "react";
 import { useUiStore } from "./stores/ui";
@@ -31,7 +29,11 @@ function OrganizeRedirect() {
 export const router = createBrowserRouter([
   // Sign-in stands alone: no shell, no nav, nothing to interact with but
   // the password. It renders only when Login is on (the guard inside).
-  { path: "/login", element: <LoginView /> },
+  // Login and Settings load on first visit — most sessions never see them.
+  {
+    path: "/login",
+    lazy: async () => ({ Component: (await import("./views/LoginView")).LoginView }),
+  },
   {
     element: <AppShell />,
     children: [
@@ -48,7 +50,12 @@ export const router = createBrowserRouter([
       { path: "/playlists", element: <PlaylistsView /> },
       { path: "/playlists/:playlistId", element: <PlaylistDetailView /> },
       { path: "/search", element: <SearchView /> },
-      { path: "/settings", element: <SettingsView /> },
+      {
+        path: "/settings",
+        lazy: async () => ({
+          Component: (await import("./views/SettingsView")).SettingsView,
+        }),
+      },
     ],
   },
 ]);

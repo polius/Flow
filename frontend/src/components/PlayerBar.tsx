@@ -4,6 +4,7 @@
 import { Link } from "react-router";
 
 import type { Track } from "../api/types";
+import { isIOS } from "../lib/platform";
 import { trackIsUnverified, useCurrentTrack, usePlayerStore } from "../stores/player";
 import { useUiStore } from "../stores/ui";
 import { Artwork } from "./Artwork";
@@ -13,6 +14,8 @@ import {
   IconPrev,
   IconRepeat,
   IconShuffle,
+  IconVolume,
+  IconVolumeMute,
 } from "./icons";
 import { PlayPauseButton, Scrubber, TransportButton } from "./transport";
 import "../styles/player.css";
@@ -42,6 +45,42 @@ function TrackLine({ track }: { track: Track | null }) {
         )}
       </span>
     </>
+  );
+}
+
+/* Desktop volume: mute toggle + level slider in the bar's right column.
+   Not rendered on iOS, where element volume is ignored and loudness is
+   hardware-only; hidden on the phone mini bar. The level persists in this
+   browser (flow.player.volume). */
+function VolumeControl() {
+  const volume = usePlayerStore((s) => s.volume);
+  const muted = usePlayerStore((s) => s.muted);
+  const setVolume = usePlayerStore((s) => s.setVolume);
+  const toggleMute = usePlayerStore((s) => s.toggleMute);
+  const level = muted ? 0 : volume;
+  const pct = Math.round(level * 100);
+  return (
+    <div className="player__volume">
+      <TransportButton label="Mute" active={muted} secondary onClick={toggleMute}>
+        {level === 0 ? <IconVolumeMute size={16} /> : <IconVolume size={16} />}
+      </TransportButton>
+      <input
+        type="range"
+        className="range player__volumeslider"
+        min={0}
+        max={1}
+        step={0.01}
+        value={level}
+        aria-label="Volume"
+        aria-valuetext={`${pct}%`}
+        style={{
+          backgroundImage: `linear-gradient(to right,
+            var(--text-tertiary) 0% ${pct}%,
+            var(--scrubber-rest, var(--bg-active)) ${pct}% 100%)`,
+        }}
+        onChange={(e) => setVolume(Number(e.target.value))}
+      />
+    </div>
   );
 }
 
@@ -112,6 +151,8 @@ export function PlayerBar() {
           <Scrubber />
         </div>
       </div>
+
+      {!isIOS && <VolumeControl />}
     </footer>
   );
 }
