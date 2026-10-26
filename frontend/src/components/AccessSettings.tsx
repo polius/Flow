@@ -2,21 +2,24 @@
 
    Off by default — Flow opens freely until the owner sets a password.
    When on, this browser keeps its session; every other device signs in
-   again after a password change. The editor expands inline beneath its
-   row — no modal, no ceremony. */
+   again after a password change. Changing the password or turning login
+   off asks for the current one first: a borrowed session alone can't
+   lock the owner out. The editor expands inline beneath its row — no
+   modal, no ceremony. */
 
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 
 import {
   AUTH_STATUS_KEY,
   logout,
+  MIN_PASSWORD_LENGTH,
   setPassword as savePassword,
   useAuthStatus,
 } from "../api/auth";
 import { IconEye, IconEyeOff } from "./icons";
 
-type EditorMode = "idle" | "enable" | "change";
+type EditorMode = "idle" | "enable" | "change" | "off";
 type Pending = "save" | "signout" | "off" | null;
 
 export function AccessSettings() {
@@ -24,34 +27,34 @@ export function AccessSettings() {
   const queryClient = useQueryClient();
 
   const [mode, setMode] = useState<EditorMode>("idle");
+  const [current, setCurrent] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [reveal, setReveal] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [currentError, setCurrentError] = useState<string | null>(null);
   const [pending, setPending] = useState<Pending>(null);
-  const [confirmingOff, setConfirmingOff] = useState(false);
-  const offTimer = useRef<number | null>(null);
 
-  const valid = password.length >= 4 && password === confirm;
+  const needsCurrent = mode === "change" || mode === "off";
+  const needsNew = mode === "enable" || mode === "change";
+  const valid =
+    (!needsCurrent || current.length > 0) &&
+    (!needsNew || (password.length >= MIN_PASSWORD_LENGTH && password === confirm));
   const mismatch = confirm.length > 0 && password !== confirm;
-
-  // Two-step Turn Off: arming is always undone by doing anything else.
-  const disarm = () => setConfirmingOff(false);
-
-  useEffect(
-    () => () => {
-      if (offTimer.current != null) window.clearTimeout(offTimer.current);
-    },
-    [],
-  );
 
   const reset = () => {
     setMode("idle");
+    setCurrent("");
     setPassword("");
     setConfirm("");
     setReveal(false);
     setError(null);
-    disarm();
+    setCurrentError(null);
+  };
+
+  const open = (next: EditorMode) => {
+    reset();
+    setMode(next);
   };
 
   const onFail = (err: Error) => {
@@ -61,6 +64,12 @@ export function AccessSettings() {
         enabled: true,
         authenticated: false,
       });
+      return;
+    }
+    if (err.message === "wrong-current-password") {
+      // Said right where the mistake is; the field clears for a retry.
+      setCurrentError("Current password is incorrect.");
+      setCurrent("");
       return;
     }
     setError(
@@ -73,8 +82,9 @@ export function AccessSettings() {
   const save = async () => {
     setPending("save");
     setError(null);
+    setCurrentError(null);
     try {
-      await savePassword(password);
+      await savePassword(password, mode === "change" ? current : undefined);
       // Saved — and this browser is signed in with the new password.
       queryClient.setQueryData(AUTH_STATUS_KEY, {
         enabled: true,
@@ -91,8 +101,9 @@ export function AccessSettings() {
   const turnOff = async () => {
     setPending("off");
     setError(null);
+    setCurrentError(null);
     try {
-      await savePassword(null);
+      await savePassword(null, current);
       queryClient.setQueryData(AUTH_STATUS_KEY, {
         enabled: false,
         authenticated: false,
@@ -103,6 +114,11 @@ export function AccessSettings() {
     } finally {
       setPending(null);
     }
+  };
+
+  const submit = () => {
+    if (!valid || pending != null) return;
+    void (mode === "off" ? turnOff() : save());
   };
 
   const signOut = async () => {
@@ -119,17 +135,138 @@ export function AccessSettings() {
     }
   };
 
-  const armOrTurnOff = () => {
-    if (confirmingOff) {
-      void turnOff();
-      return;
-    }
-    setConfirmingOff(true);
-    if (offTimer.current != null) window.clearTimeout(offTimer.current);
-    offTimer.current = window.setTimeout(() => setConfirmingOff(false), 4000);
-  };
-
   const editorOpen = mode !== "idle";
+
+  const editor = editorOpen && (
+    <div
+      className="settings-row settings-row--skipped access-editor"
+      onKeyDown={(e) => {
+        if (e.key === "Escape" && pending == null) reset();
+      }}
+    >
+      {needsCurrent && (
+        <label className="access-field">
+          <input
+            type={reveal ? "text" : "password"}
+            value={current}
+            onChange={(e) => {
+              setCurrentError(null);
+              setCurrent(e.target.value);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && mode === "off") submit();
+            }}
+            placeholder="Current password"
+            aria-label="Current password"
+            aria-invalid={currentError != null}
+            aria-describedby={currentError != null ? "access-current-error" : undefined}
+            autoComplete="current-password"
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
+            maxLength={128}
+            autoFocus
+            disabled={pending != null}
+          />
+          <button
+            type="button"
+            className="access-reveal"
+            onClick={() => setReveal((v) => !v)}
+            aria-label={reveal ? "Hide passwords" : "Show passwords"}
+            aria-pressed={reveal}
+            disabled={pending != null}
+          >
+            {reveal ? <IconEyeOff size={15} /> : <IconEye size={15} />}
+          </button>
+        </label>
+      )}
+      {currentError && (
+        <p id="access-current-error" className="access-editor__error" role="alert">
+          {currentError}
+        </p>
+      )}
+      {needsNew && (
+        <>
+          <label className="access-field">
+            <input
+              type={reveal ? "text" : "password"}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="New password"
+              aria-label="New password"
+              autoComplete="new-password"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
+              maxLength={128}
+              autoFocus={!needsCurrent}
+              disabled={pending != null}
+            />
+            {!needsCurrent && (
+              <button
+                type="button"
+                className="access-reveal"
+                onClick={() => setReveal((v) => !v)}
+                aria-label={reveal ? "Hide passwords" : "Show passwords"}
+                aria-pressed={reveal}
+                disabled={pending != null}
+              >
+                {reveal ? <IconEyeOff size={15} /> : <IconEye size={15} />}
+              </button>
+            )}
+          </label>
+          <label className="access-field">
+            <input
+              type={reveal ? "text" : "password"}
+              value={confirm}
+              onChange={(e) => setConfirm(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") submit();
+              }}
+              placeholder="Reenter password"
+              aria-label="Reenter password"
+              autoComplete="new-password"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
+              maxLength={128}
+              disabled={pending != null}
+            />
+          </label>
+          {mismatch && (
+            <p className="access-editor__error" role="alert">
+              Passwords don’t match.
+            </p>
+          )}
+        </>
+      )}
+      <p className="access-editor__note">
+        {mode === "enable"
+          ? `At least ${MIN_PASSWORD_LENGTH} characters. This becomes the password Flow asks for — keep it somewhere safe.`
+          : mode === "change"
+            ? `At least ${MIN_PASSWORD_LENGTH} characters. This device stays signed in; every other device signs in again.`
+            : "Enter the current password to turn Login off. Flow will then open without asking for one."}
+      </p>
+      <div className="access-editor__actions">
+        <button
+          type="button"
+          className="btn"
+          onClick={reset}
+          disabled={pending != null}
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          className="btn--primary"
+          onClick={submit}
+          disabled={!valid || pending != null}
+        >
+          {mode === "enable" ? "Turn On" : mode === "off" ? "Turn Off" : "Save"}
+        </button>
+      </div>
+    </div>
+  );
 
   return (
     <div className="settings-group">
@@ -152,10 +289,8 @@ export function AccessSettings() {
               <button
                 type="button"
                 className="btn settings-row__action"
-                onClick={() => {
-                  disarm();
-                  setMode(editorOpen ? "idle" : "change");
-                }}
+                onClick={() => (mode === "change" ? reset() : open("change"))}
+                aria-expanded={mode === "change"}
                 disabled={pending != null}
               >
                 Change Password
@@ -165,10 +300,7 @@ export function AccessSettings() {
             <button
               type="button"
               className="btn settings-row__action"
-              onClick={() => {
-                disarm();
-                setMode("enable");
-              }}
+              onClick={() => open("enable")}
               disabled={pending != null}
             >
               Turn On
@@ -177,93 +309,7 @@ export function AccessSettings() {
         </span>
       </div>
 
-      {editorOpen && (
-        <div
-          className="settings-row settings-row--skipped access-editor"
-          onKeyDown={(e) => {
-            if (e.key === "Escape" && pending == null) reset();
-          }}
-        >
-          <label className="access-field">
-            <input
-              type={reveal ? "text" : "password"}
-              value={password}
-              onChange={(e) => {
-                disarm();
-                setPassword(e.target.value);
-              }}
-              placeholder="New password"
-              aria-label="New password"
-              autoComplete="new-password"
-              autoCapitalize="none"
-              autoCorrect="off"
-              spellCheck={false}
-              maxLength={128}
-              autoFocus
-              disabled={pending != null}
-            />
-            <button
-              type="button"
-              className="access-reveal"
-              onClick={() => setReveal((v) => !v)}
-              aria-label={reveal ? "Hide passwords" : "Show passwords"}
-              aria-pressed={reveal}
-              disabled={pending != null}
-            >
-              {reveal ? <IconEyeOff size={15} /> : <IconEye size={15} />}
-            </button>
-          </label>
-          <label className="access-field">
-            <input
-              type={reveal ? "text" : "password"}
-              value={confirm}
-              onChange={(e) => {
-                disarm();
-                setConfirm(e.target.value);
-              }}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && valid && pending == null) void save();
-              }}
-              placeholder="Reenter password"
-              aria-label="Reenter password"
-              autoComplete="new-password"
-              autoCapitalize="none"
-              autoCorrect="off"
-              spellCheck={false}
-              maxLength={128}
-              disabled={pending != null}
-            />
-          </label>
-          {mismatch && (
-            <p className="access-editor__error" role="alert">
-              Passwords don’t match.
-            </p>
-          )}
-          <p className="access-editor__note">
-            {mode === "enable"
-              ? "At least 4 characters. This becomes the password Flow asks for — keep it somewhere safe."
-              : "This device stays signed in; every other device signs in again."}
-          </p>
-          <div className="access-editor__actions">
-            <button
-              type="button"
-              className="btn"
-              onClick={reset}
-              disabled={pending != null}
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              className="btn--primary"
-              onClick={() => void save()}
-              disabled={!valid || pending != null}
-            >
-              {mode === "enable" ? "Turn On" : "Save"}
-            </button>
-          </div>
-        </div>
-      )}
+      {mode !== "off" && editor}
 
       {status?.enabled && (
         <>
@@ -297,14 +343,15 @@ export function AccessSettings() {
               <button
                 type="button"
                 className="btn settings-row__action"
-                onClick={armOrTurnOff}
-                onBlur={() => setConfirmingOff(false)}
+                onClick={() => (mode === "off" ? reset() : open("off"))}
+                aria-expanded={mode === "off"}
                 disabled={pending != null}
               >
-                {confirmingOff ? "Confirm" : "Turn Off"}
+                Turn Off
               </button>
             </span>
           </div>
+          {mode === "off" && editor}
         </>
       )}
 
