@@ -195,10 +195,10 @@ export function TracksView() {
             {/* In flight, an empty fixed-height slot — never a formatted
                 zero: a fresh visit (or a genre/filter switch) must not
                 flash "0 songs" before the count is measured. */}
-            {query.isPending
+            {query.data === undefined
               ? "\u00A0"
               : genreName
-                ? `${fmtCount(total)} ${total === 1 ? "track" : "tracks"} in “${genreName}”`
+                ? `${fmtCount(total)} ${total === 1 ? "song" : "songs"} in “${genreName}”`
                 : q
                   ? `${fmtCount(total)} ${total === 1 ? "match" : "matches"} for “${q}”`
                   : `${fmtCount(total)} ${total === 1 ? "song" : "songs"}`}
@@ -211,7 +211,7 @@ export function TracksView() {
             value={sort}
             dir={dir}
             onChange={(key, nextDir) => onSort(key as TrackSortKey, nextDir)}
-            label="Sort tracks"
+            label="Sort songs"
           />
           <button
             type="button"

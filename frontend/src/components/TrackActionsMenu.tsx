@@ -254,7 +254,7 @@ export function TrackActionsMenu() {
         <span className="trackmenu__identitytitle">{track.title}</span>
         <span className="trackmenu__identitysub">
           {targets.length > 1
-            ? `${targets.length} tracks selected`
+            ? `${targets.length} songs selected`
             : track.artist ?? " "}
         </span>
       </div>
