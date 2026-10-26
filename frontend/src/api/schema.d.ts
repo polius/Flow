@@ -418,6 +418,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/favorites/bulk": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Bulk Favorite
+         * @description Set or clear the favorite flag on many tracks in one write; unknown ids are ignored.
+         */
+        post: operations["bulk_favorite_api_favorites_bulk_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/review/summary": {
         parameters: {
             query?: never;
@@ -868,6 +888,18 @@ export interface components {
             /** Artwork Id */
             artwork_id?: number | null;
         };
+        /** FavoriteBulkIn */
+        FavoriteBulkIn: {
+            /** Track Ids */
+            track_ids: number[];
+            /** Favorite */
+            favorite: boolean;
+        };
+        /** FavoriteBulkOut */
+        FavoriteBulkOut: {
+            /** Updated */
+            updated: number;
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -912,6 +944,8 @@ export interface components {
         PasswordIn: {
             /** Password */
             password: string | null;
+            /** Current Password */
+            current_password?: string | null;
         };
         /** PlaylistCreate */
         PlaylistCreate: {
@@ -1147,6 +1181,13 @@ export interface components {
              */
             position: number;
             origin?: components["schemas"]["QueueOrigin"] | null;
+        };
+        /** QueuePutMinimalOut */
+        QueuePutMinimalOut: {
+            /** Updated At */
+            updated_at: string;
+            /** Count */
+            count: number;
         };
         /**
          * QueueSnapshot
@@ -1509,7 +1550,9 @@ export interface operations {
     };
     trigger_scan_api_scan_post: {
         parameters: {
-            query?: never;
+            query?: {
+                full?: boolean;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -2163,6 +2206,39 @@ export interface operations {
             };
         };
     };
+    bulk_favorite_api_favorites_bulk_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FavoriteBulkIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FavoriteBulkOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     review_summary_api_review_summary_get: {
         parameters: {
             query?: never;
@@ -2544,7 +2620,9 @@ export interface operations {
     };
     get_artwork_api_artwork__artwork_id__get: {
         parameters: {
-            query?: never;
+            query?: {
+                s?: number | null;
+            };
             header?: never;
             path: {
                 artwork_id: number;
@@ -2595,7 +2673,9 @@ export interface operations {
     };
     put_queue_api_queue_put: {
         parameters: {
-            query?: never;
+            query?: {
+                minimal?: boolean;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -2612,7 +2692,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["QueueSnapshot"];
+                    "application/json": components["schemas"]["QueueSnapshot"] | components["schemas"]["QueuePutMinimalOut"];
                 };
             };
             /** @description Validation Error */
