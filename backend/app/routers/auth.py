@@ -12,9 +12,10 @@ import time
 from fastapi import APIRouter, HTTPException, Request, Response
 
 from app import auth
+from app.routers.common import TxRoute
 from app.schemas import AuthStatus, LoginIn, PasswordIn
 
-router = APIRouter(tags=["auth"])
+router = APIRouter(tags=["auth"], route_class=TxRoute)
 
 
 def _issue_cookie(request: Request, response: Response, conn) -> None:
@@ -82,12 +83,20 @@ def set_password(
     (password: null).
 
     When login is already on, the middleware requires a session to reach
-    here — Settings changes come from a signed-in browser. Turning login
-    on issues this browser its session immediately, so the person who
+    here — Settings changes come from a signed-in browser — and changing or
+    disabling also needs the current password, so a stolen session (or an
+    unlocked device) can't lock the owner out or switch login off. Turning
+    login on issues this browser its session immediately, so the person who
     enabled it isn't locked out by their own next click.
     """
     conn = request.app.state.db.connect()
     current = auth.get_password_hash(conn)
+
+    if current is not None and not auth.verify_password(
+        body.current_password or "", current
+    ):
+        time.sleep(0.3)  # same guessing cost as the login endpoint
+        raise HTTPException(status_code=403, detail="Current password is incorrect.")
 
     if body.password is None:
         auth.set_password_hash(conn, None)

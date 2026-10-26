@@ -6,6 +6,18 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
+# Request caps (S11): free text and id lists are bounded so one request
+# can't make the server parse or hold an unbounded payload. Generous for
+# real data — tag values, a whole-library selection or queue.
+MAX_TEXT = 1000
+MAX_LONG_TEXT = 10_000
+MAX_IDS = 200_000
+MAX_FAVORITE_IDS = 50_000
+
+
+def _text():
+    return Field(None, max_length=MAX_TEXT)
+
 
 class ScanStatus(BaseModel):
     state: Literal["idle", "scanning"]
@@ -34,10 +46,6 @@ class SettingsOut(BaseModel):
     counts: LibraryCounts
 
 
-class ScanTriggered(BaseModel):
-    state: Literal["scanning"]
-
-
 class ScanErrorEntry(BaseModel):
     path: str
     reason: str
@@ -57,15 +65,20 @@ class AuthStatus(BaseModel):
 
 
 class LoginIn(BaseModel):
+    # No minimum beyond 1: passwords set before the 8-character rule must
+    # still sign in.
     password: str = Field(min_length=1, max_length=128)
 
 
 class PasswordIn(BaseModel):
     """`password: null` turns login OFF; a string turns it on or replaces it.
     The field is required (never defaulted) so an absent key is a 422, not
-    an accidental disable."""
+    an accidental disable. When a password is already set, changing or
+    disabling it needs `current_password` — a stolen session alone can't
+    lock the owner out or switch login off."""
 
-    password: str | None = Field(..., min_length=4, max_length=128)
+    password: str | None = Field(..., min_length=8, max_length=128)
+    current_password: str | None = Field(None, max_length=128)
 
 
 # ---- System --------------------------------------------------------------------
@@ -216,13 +229,13 @@ class TrackPatch(BaseModel):
     `user_edited` bit so rescans preserve them. `album_artist` pins a
     compilation's identity (empty string clears it); `genre` replaces the
     track's tag genres with the one named (empty clears)."""
-    title: str | None = None
-    artist: str | None = None
-    album_artist: str | None = None
-    album: str | None = None
+    title: str | None = _text()
+    artist: str | None = _text()
+    album_artist: str | None = _text()
+    album: str | None = _text()
     track_no: int | None = None
     favorite: bool | None = None
-    genre: str | None = None
+    genre: str | None = _text()
 
 
 # ---- Organize view: bulk apply + review --------------------------------------
@@ -237,29 +250,45 @@ class BulkApplyIn(BaseModel):
     explicit null clears the track number; empty artist/album strings clear
     the reference; 0 normalizes to null. `favorite` is intentionally not a
     bulk field."""
-    track_ids: list[int] | None = None
-    q: str | None = None
+    track_ids: list[int] | None = Field(None, max_length=MAX_IDS)
+    q: str | None = _text()
     artist_id: int | None = None
     album_id: int | None = None
-    review: str | None = None
-    except_ids: list[int] = []
-    title: str | None = None
-    artist: str | None = None
-    album_artist: str | None = None
-    album: str | None = None
+    review: str | None = Field(None, max_length=64)
+    except_ids: list[int] = Field([], max_length=MAX_IDS)
+    title: str | None = _text()
+    artist: str | None = _text()
+    album_artist: str | None = _text()
+    album: str | None = _text()
     track_no: int | None = None
-    genre: str | None = None
+    genre: str | None = _text()
 
 
 class BulkApplyOut(BaseModel):
     applied: int
+    # False when the change was too large to keep an undo generation for
+    # (the previous generation is dropped rather than left pointing at an
+    # older edit). Absent from older servers; the client treats it as true.
+    undo_available: bool = True
 
 
 class TrackReorderIn(BaseModel):
     """Organize drag-reorder: the album's tracks in their new order. Each
     track's number is rewritten to its position in the list (1..n) and
     flagged user-edited, so a rescan preserves it."""
-    track_ids: list[int]
+    track_ids: list[int] = Field(max_length=MAX_IDS)
+
+
+class FavoritesBulkIn(BaseModel):
+    """Love or unlove many tracks in one request. Unknown ids are ignored;
+    loving appends to the Favorites manual order in the order given."""
+    track_ids: list[int] = Field(max_length=MAX_FAVORITE_IDS)
+    favorite: bool
+
+
+class FavoritesBulkOut(BaseModel):
+    # Tracks whose favorite state actually changed.
+    updated: int
 
 
 class AlbumRef(BaseModel):
@@ -319,23 +348,23 @@ class PlaylistDetail(PlaylistSummary):
 
 
 class PlaylistCreate(BaseModel):
-    name: str
-    description: str | None = None
+    name: str = Field(max_length=MAX_TEXT)
+    description: str | None = Field(None, max_length=MAX_LONG_TEXT)
 
 
 class PlaylistUpdate(BaseModel):
-    name: str | None = None
-    description: str | None = None
+    name: str | None = _text()
+    description: str | None = Field(None, max_length=MAX_LONG_TEXT)
     # Null resets the custom cover back to the track mosaic.
     cover_artwork_id: int | None = None
 
 
 class PlaylistTracksIn(BaseModel):
-    track_ids: list[int]
+    track_ids: list[int] = Field(max_length=MAX_IDS)
 
 
 class PlaylistOrderIn(BaseModel):
-    track_ids: list[int]
+    track_ids: list[int] = Field(max_length=MAX_IDS)
 
 
 # ---- Search --------------------------------------------------------------------
@@ -358,8 +387,8 @@ class QueueOrigin(BaseModel):
     label — nothing renders."""
 
     kind: Literal["album", "artist", "playlist", "filter", "shuffle-all", "manual"]
-    label: str | None = None
-    href: str | None = None
+    label: str | None = _text()
+    href: str | None = Field(None, max_length=2048)
 
 
 class QueueSnapshot(BaseModel):
@@ -388,15 +417,15 @@ class QueuePlayIn(BaseModel):
     there instead. `origin` is the caller's declaration of what this view
     IS (the client knows; the server records it)."""
 
-    track_ids: list[int] | None = None
-    q: str | None = None
+    track_ids: list[int] | None = Field(None, max_length=MAX_IDS)
+    q: str | None = _text()
     artist_id: int | None = None
     album_id: int | None = None
-    review: str | None = None
+    review: str | None = Field(None, max_length=64)
     favorite: bool | None = None
     genre_id: int | None = None
-    sort: str = "title"
-    dir: str = "asc"
+    sort: str = Field("title", max_length=64)
+    dir: str = Field("asc", max_length=8)
     start: int = 0
     shuffle: bool = False
     origin: QueueOrigin | None = None
@@ -407,13 +436,23 @@ class QueuePutIn(BaseModel):
     source of UI truth and PUTs its whole queue when the plan changes.
     `order` must be a permutation of 0..n-1 into `track_ids`. `origin`
     rides along unchanged — queue edits never rewrite where the queue came
-    from."""
+    from. Track ids a scan removed since the client loaded them are dropped
+    (with their order entries), never a failed write."""
 
-    track_ids: list[int]
-    order: list[int]
+    track_ids: list[int] = Field(max_length=MAX_IDS)
+    order: list[int] = Field(max_length=MAX_IDS)
     order_pos: int
     position: float = 0
     origin: QueueOrigin | None = None
+
+
+class QueuePutMinimalOut(BaseModel):
+    """PUT /api/queue?minimal=1 — the mirror's acknowledgement without
+    echoing every row back (a 20k-track queue is megabytes of TrackOut)."""
+
+    updated_at: str
+    # Entries stored (after unknown ids were dropped).
+    count: int
 
 
 class QueuePatchIn(BaseModel):

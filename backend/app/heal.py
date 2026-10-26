@@ -43,5 +43,10 @@ def main() -> None:
     print("Run Rescan (Settings → Library) to reprocess them through repair.")
 
 
+def run_startup_heal(db) -> None:
+    """Startup hook (R10). Stub: the scanner/repair side provides the real one."""
+    return None
+
+
 if __name__ == "__main__":
     main()
