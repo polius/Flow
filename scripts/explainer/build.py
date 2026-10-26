@@ -88,7 +88,7 @@ def main():
     ap.add_argument("--preview", default=None,
                     help="comma-separated timestamps: write stills to preview/ and stop")
     ap.add_argument("--poster", default=None,
-                    help="timestamp: rewrite the README thumbnail and stop")
+                    help="timestamp: write a still with a play button to preview/poster.png and stop")
     args = ap.parse_args()
     capture_py = os.path.join(HERE, "capture.py")
 

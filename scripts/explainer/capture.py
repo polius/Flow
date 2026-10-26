@@ -57,7 +57,7 @@ def init_page(page, timeline):
 
 def capture_poster(pw, port, timeline, t, scale, out):
     """One still, downscaled exactly like the video encode, with the README play
-    affordance layered on top (used for assets/video-poster).
+    affordance layered on top: a thumbnail for wherever the video is linked.
 
     No film grain: it exists to mask banding in *motion*, and as a PNG it would
     triple the file size for nothing.
@@ -92,8 +92,8 @@ def main():
     ap.add_argument("--poster", default=None,
                     help="timestamp -> a 1080p still with a play button (README thumbnail)")
     ap.add_argument("--poster-out",
-                    default=os.path.join(HERE, "..", "..", "assets", "video-poster.png"),
-                    help="where --poster writes (defaults to assets/video-poster.png)")
+                    default=os.path.join(HERE, "preview", "poster.png"),
+                    help="where --poster writes (defaults to preview/poster.png)")
     ap.add_argument("--cues", default=None,
                     help="write the scenes' sound-effect cue list to this JSON file and stop")
     ap.add_argument("--frames", default=None, help="start:end frame range")

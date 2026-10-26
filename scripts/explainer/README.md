@@ -116,11 +116,14 @@ To look at stills while iterating on the visuals (fast, 1×, no encode):
 .venv/bin/python capture.py --preview 9.5,17,38      # -> preview/*.png
 ```
 
-To regenerate the README thumbnail:
+A still with a play button, for a thumbnail wherever the video is linked:
 
 ```sh
-./make.sh --poster 6.2                                # -> assets/video-poster.png
+./make.sh --poster 6.2                                # -> preview/poster.png
 ```
+
+The README's own poster (`assets/video-poster.png`) is a screenshot of the
+real app, not a frame of the film.
 
 ---
 
