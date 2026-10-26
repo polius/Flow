@@ -1,9 +1,10 @@
 /* Shared server mutations: optimistic cache updates + invalidate on settle.
    The player queue is patched in place so a playing track's heart stays live. */
 
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, type QueryClient, type QueryKey } from "@tanstack/react-query";
 
 import { api } from "./client";
+import { invalidateLibrary } from "./queryClient";
 import type {
   AlbumDetail,
   ArtistDetail,
@@ -15,77 +16,145 @@ import type {
 import { usePlayerStore } from "../stores/player";
 import { useUiStore } from "../stores/ui";
 
-/** Apply `fn` to a track wherever it sits inside the common response shapes. */
-function patchEverywhere(
-  queryClient: ReturnType<typeof useQueryClient>,
-  trackId: number,
-  fn: (track: Track) => Track,
-): void {
-  queryClient.setQueriesData<unknown>({ queryKey: ["tracks"] }, (data: unknown) =>
-    patchTracksIn(data, trackId, fn),
-  );
-  queryClient.setQueriesData<unknown>({ queryKey: ["album"] }, (data: unknown) =>
-    patchTracksIn(data, trackId, fn),
-  );
-  queryClient.setQueriesData<unknown>({ queryKey: ["artist"] }, (data: unknown) =>
-    patchTracksIn(data, trackId, fn),
-  );
-  queryClient.setQueriesData<unknown>({ queryKey: ["playlist"] }, (data: unknown) =>
-    patchTracksIn(data, trackId, fn),
-  );
-  queryClient.setQueriesData<unknown>({ queryKey: ["search"] }, (data: unknown) =>
-    patchTracksIn(data, trackId, fn),
-  );
-  usePlayerStore.setState((s) => ({
-    queue: s.queue.map((t) => (t.id === trackId ? fn(t) : t)),
-  }));
+/** Every cache family that can hold track rows. */
+const TRACK_CACHES: QueryKey[] = [["tracks"], ["album"], ["artist"], ["playlist"], ["search"]];
+
+/** `fn` over the rows of `list` whose id is in `ids`. The same array comes
+    back when no row changed — identity is what tells React, the cache and
+    the queue mirror that nothing happened. */
+function patchList<T>(list: T[], ids: ReadonlySet<number>, fn: (track: Track) => Track): T[] {
+  let out: T[] | null = null;
+  for (let i = 0; i < list.length; i++) {
+    const t = list[i] as unknown;
+    if (t == null || typeof t !== "object" || !ids.has((t as Track).id)) continue;
+    const next = fn(t as Track);
+    if (next === t) continue;
+    out ??= list.slice();
+    out[i] = next as T;
+  }
+  return out ?? list;
 }
 
-function patchTracksIn(
+/** Apply `fn` to the matching tracks inside the common response shapes:
+    flat lists (`items` / `tracks`) and infinite lists (`pages[].items`).
+    Untouched data keeps its identity. */
+export function patchTracksIn(
   data: unknown,
-  trackId: number,
+  ids: ReadonlySet<number>,
   fn: (track: Track) => Track,
 ): unknown {
   if (data == null || typeof data !== "object") return data;
-  const next = { ...(data as Record<string, unknown>) };
-  let touched = false;
+  const src = data as Record<string, unknown>;
+  let next: Record<string, unknown> | null = null;
   for (const key of ["items", "tracks"]) {
-    const list = next[key];
-    if (Array.isArray(list)) {
-      next[key] = list.map((t: unknown) =>
-        t && typeof t === "object" && (t as Track).id === trackId
-          ? fn(t as Track)
-          : t,
-      );
-      touched = true;
+    const list = src[key];
+    if (!Array.isArray(list)) continue;
+    const patched = patchList(list as unknown[], ids, fn);
+    if (patched !== list) {
+      next ??= { ...src };
+      next[key] = patched;
     }
   }
-  return touched ? next : data;
+  // Infinite lists (Tracks, Favorites): { pages: [{ items, … }], pageParams }.
+  if (Array.isArray(src.pages)) {
+    const pages = src.pages as unknown[];
+    const patched = pages.map((page) => patchTracksIn(page, ids, fn));
+    if (patched.some((page, i) => page !== pages[i])) {
+      next ??= { ...src };
+      next.pages = patched;
+    }
+  }
+  return next ?? data;
 }
 
-/** One favorite toggle, shared by the hook and the undo closure: optimistic
-    patch everywhere, server call, rollback + refetch on failure. */
-function applyFavorite(
-  queryClient: ReturnType<typeof useQueryClient>,
-  trackId: number,
-  favorite: boolean,
+/** Apply `fn` to the given tracks wherever they sit: every track cache
+    and the player queue — one pass over each, whatever the selection
+    size. A queue with no matching row keeps its identity: no full-queue
+    PUT, no re-centered queue panel. */
+function patchTracks(
+  queryClient: QueryClient,
+  ids: ReadonlySet<number>,
+  fn: (track: Track) => Track,
 ): void {
-  patchEverywhere(queryClient, trackId, (t) => ({ ...t, favorite }));
-  void api
-    .PATCH("/api/tracks/{track_id}", {
-      params: { path: { track_id: trackId } },
-      body: { favorite },
-    })
-    .then(() => {
-      void queryClient.invalidateQueries({ queryKey: ["tracks"] });
-    })
-    .catch(() => {
-      // Roll back on failure; refetch tells the truth.
-      patchEverywhere(queryClient, trackId, (t) => ({
-        ...t,
-        favorite: !favorite,
-      }));
+  for (const queryKey of TRACK_CACHES) {
+    queryClient.setQueriesData<unknown>({ queryKey }, (data: unknown) =>
+      patchTracksIn(data, ids, fn),
+    );
+  }
+  usePlayerStore.setState((s) => {
+    const queue = patchList(s.queue, ids, fn);
+    return queue === s.queue ? s : { queue };
+  });
+}
+
+/** The bulk endpoint's per-request cap. */
+const BULK_FAVORITE_MAX = 50_000;
+
+async function writeFavorites(ids: number[], favorite: boolean): Promise<boolean> {
+  try {
+    if (ids.length === 1) {
+      const { response } = await api.PATCH("/api/tracks/{track_id}", {
+        params: { path: { track_id: ids[0] } },
+        body: { favorite },
+      });
+      return response.ok;
+    }
+    for (let i = 0; i < ids.length; i += BULK_FAVORITE_MAX) {
+      const { response } = await api.POST("/api/favorites/bulk", {
+        body: { track_ids: ids.slice(i, i + BULK_FAVORITE_MAX), favorite },
+      });
+      if (!response.ok) return false;
+    }
+    return true;
+  } catch {
+    return false; // offline: the network threw before any status existed
+  }
+}
+
+/** One favorite write for any number of tracks, shared by the row heart,
+    the selection bar, and every undo: one optimistic pass, one request
+    (the bulk endpoint past a single track), an exact rollback when the
+    server says no — openapi-fetch resolves 4xx/5xx instead of throwing,
+    so the status is checked, not caught — and one refetch: only the
+    Favorites list changes membership; every other list already shows the
+    patched heart. Resolves to whether the write landed. */
+async function setFavorites(
+  queryClient: QueryClient,
+  tracks: Track[],
+  favorite: boolean,
+): Promise<boolean> {
+  if (tracks.length === 0) return true;
+  const ids = new Set(tracks.map((t) => t.id));
+  // What each row was before: a mixed selection rolls back to its mix.
+  const before = new Map(tracks.map((t) => [t.id, t.favorite]));
+  // A refetch already in flight would land over the optimistic patch with
+  // pre-write rows. Cancel those (only those — cancelling a first load
+  // would strand its skeleton) and re-ask once the write has settled.
+  const inFlight = TRACK_CACHES.flatMap((queryKey) =>
+    queryClient
+      .getQueryCache()
+      .findAll({ queryKey })
+      .filter((q) => q.state.fetchStatus === "fetching" && q.state.data !== undefined),
+  );
+  await Promise.all(
+    inFlight.map((q) => queryClient.cancelQueries({ queryKey: q.queryKey, exact: true })),
+  );
+  patchTracks(queryClient, ids, (t) => (t.favorite === favorite ? t : { ...t, favorite }));
+  const ok = await writeFavorites([...ids], favorite);
+  if (!ok) {
+    patchTracks(queryClient, ids, (t) => {
+      const was = before.get(t.id);
+      return was == null || t.favorite === was ? t : { ...t, favorite: was };
     });
+    useUiStore.getState().showUndoNotice({
+      message: "Couldn’t update Favorites. Try again.",
+    });
+  }
+  for (const q of inFlight) {
+    void queryClient.invalidateQueries({ queryKey: q.queryKey, exact: true });
+  }
+  void queryClient.invalidateQueries({ queryKey: ["tracks", "favorites"] });
+  return ok;
 }
 
 export function useToggleFavorite() {
@@ -93,41 +162,46 @@ export function useToggleFavorite() {
   const showUndoNotice = useUiStore((s) => s.showUndoNotice);
   return (track: Track) => {
     const favorite = !track.favorite;
-    applyFavorite(queryClient, track.id, favorite);
-    // Un-favoriting is a removal: offer Undo at once; favoriting is a
-    // gain and stays quiet. The undo rides the same toggle path, so the
-    // optimistic patch and the server call can't diverge.
-    if (!favorite) {
-      showUndoNotice({
-        message: `Removed “${track.title}” from Favorites`,
-        undo: async () => {
-          applyFavorite(queryClient, track.id, true);
-        },
-      });
-    }
+    void setFavorites(queryClient, [track], favorite).then((ok) => {
+      // Un-favoriting is a removal: offer Undo once it landed; favoriting
+      // is a gain and stays quiet. The undo rides the same write path, so
+      // the optimistic patch and the server call can't diverge.
+      if (ok && !favorite) {
+        showUndoNotice({
+          message: `Removed “${track.title}” from Favorites`,
+          undo: async () => {
+            await setFavorites(queryClient, [{ ...track, favorite: false }], true);
+          },
+        });
+      }
+    });
   };
 }
 
-/** Batch favorite from the selection bar: one undo toast restores the
-    whole batch; favoriting stays quiet. Each track rides the same
-    applyFavorite the row heart uses, so queue and caches stay in step.
-    Deliberately N single PATCHes at selection scale, not a new endpoint. */
+/** Batch favorite from the selection bar: one optimistic pass, one bulk
+    request, one undo toast for the whole batch; favoriting stays quiet. */
 export function useSetFavoriteMany() {
   const queryClient = useQueryClient();
   const showUndoNotice = useUiStore((s) => s.showUndoNotice);
   return (tracks: Track[], favorite: boolean) => {
     if (tracks.length === 0) return;
-    for (const t of tracks) applyFavorite(queryClient, t.id, favorite);
-    if (!favorite) {
-      const label =
-        tracks.length === 1 ? `“${tracks[0].title}”` : `${tracks.length} tracks`;
-      showUndoNotice({
-        message: `Removed ${label} from Favorites`,
-        undo: async () => {
-          for (const t of tracks) applyFavorite(queryClient, t.id, true);
-        },
-      });
-    }
+    void setFavorites(queryClient, tracks, favorite).then((ok) => {
+      if (ok && !favorite) {
+        const label =
+          tracks.length === 1 ? `“${tracks[0].title}”` : `${tracks.length} tracks`;
+        showUndoNotice({
+          message: `Removed ${label} from Favorites`,
+          undo: async () => {
+            // Restore exactly the rows that were favorites before.
+            await setFavorites(
+              queryClient,
+              tracks.filter((t) => t.favorite).map((t) => ({ ...t, favorite: false })),
+              true,
+            );
+          },
+        });
+      }
+    });
   };
 }
 
@@ -139,15 +213,8 @@ export function usePatchTrack() {
       body: patch,
     });
     if (response.ok) {
-      void queryClient.invalidateQueries({ queryKey: ["tracks"] });
-      void queryClient.invalidateQueries({ queryKey: ["album"] });
-      void queryClient.invalidateQueries({ queryKey: ["artist"] });
-      void queryClient.invalidateQueries({ queryKey: ["playlist"] });
-      void queryClient.invalidateQueries({ queryKey: ["playlists"] });
-      void queryClient.invalidateQueries({ queryKey: ["search"] });
-      void queryClient.invalidateQueries({ queryKey: ["genres"] });
-      // Regrouping can change every review count.
-      void queryClient.invalidateQueries({ queryKey: ["review"] });
+      // A rename can move any list, grid, count or review group.
+      invalidateLibrary(queryClient);
       return true;
     }
     return false;
@@ -161,14 +228,7 @@ export function useBulkApply() {
   return async (body: BulkApplyIn): Promise<number | null> => {
     const { data, response } = await api.POST("/api/tracks/bulk", { body });
     if (!response.ok || !data) return null;
-    void queryClient.invalidateQueries({ queryKey: ["tracks"] });
-    void queryClient.invalidateQueries({ queryKey: ["album"] });
-    void queryClient.invalidateQueries({ queryKey: ["artist"] });
-    void queryClient.invalidateQueries({ queryKey: ["playlist"] });
-    void queryClient.invalidateQueries({ queryKey: ["playlists"] });
-    void queryClient.invalidateQueries({ queryKey: ["search"] });
-    void queryClient.invalidateQueries({ queryKey: ["genres"] });
-    void queryClient.invalidateQueries({ queryKey: ["review"] });
+    invalidateLibrary(queryClient);
     return data.applied;
   };
 }
@@ -183,14 +243,7 @@ export function useUndoTrackEdit() {
   return async (): Promise<number | null> => {
     const { data, response } = await api.POST("/api/tracks/bulk/undo");
     if (!response.ok || !data) return null;
-    void queryClient.invalidateQueries({ queryKey: ["tracks"] });
-    void queryClient.invalidateQueries({ queryKey: ["album"] });
-    void queryClient.invalidateQueries({ queryKey: ["artist"] });
-    void queryClient.invalidateQueries({ queryKey: ["playlist"] });
-    void queryClient.invalidateQueries({ queryKey: ["playlists"] });
-    void queryClient.invalidateQueries({ queryKey: ["search"] });
-    void queryClient.invalidateQueries({ queryKey: ["genres"] });
-    void queryClient.invalidateQueries({ queryKey: ["review"] });
+    invalidateLibrary(queryClient);
     if (data.applied > 0) {
       showUndoNotice({
         message: `Restored ${data.applied.toLocaleString()} ${data.applied === 1 ? "track" : "tracks"}`,
@@ -299,16 +352,21 @@ export function useRemoveFromPlaylist() {
         track_count: remaining.length,
       };
     });
-    const { response } = await api.DELETE(
-      "/api/playlists/{playlist_id}/tracks/{track_id}",
-      { params: { path: { playlist_id: playlistId, track_id: trackId } } },
-    );
-    // The caller offers Undo only when the removal landed; a failure
-    // surfaces through this throw and the invalidate below resyncs the row.
-    if (!response.ok) throw new Error("Failed to remove track from playlist");
-    void queryClient.invalidateQueries({ queryKey: ["playlists"] });
-    void queryClient.invalidateQueries({ queryKey: ["playlist", playlistId] });
-    void queryClient.invalidateQueries({ queryKey: ["search"] });
+    try {
+      const { response } = await api.DELETE(
+        "/api/playlists/{playlist_id}/tracks/{track_id}",
+        { params: { path: { playlist_id: playlistId, track_id: trackId } } },
+      );
+      // The caller offers Undo only when the removal landed; a failure
+      // surfaces through this throw.
+      if (!response.ok) throw new Error("Failed to remove track from playlist");
+    } finally {
+      // Landed or not, the server's list is the truth: a failed removal
+      // must put the optimistically dropped row back.
+      void queryClient.invalidateQueries({ queryKey: ["playlists"] });
+      void queryClient.invalidateQueries({ queryKey: ["playlist", playlistId] });
+      void queryClient.invalidateQueries({ queryKey: ["search"] });
+    }
   };
 }
 
