@@ -21,6 +21,10 @@ export interface TrackMenuRequest {
   y: number;
   context?: Track[];
   contextLoader?: () => Promise<Track[]>;
+  /** The invoking table's own row-click play for this track. When set,
+      the menu's Play uses it — paged views play the whole view in one
+      server request, exactly like the row click. */
+  playFrom?: () => void;
   origin?: QueueOrigin | null;
   removeFromPlaylist?: () => void;
   /** The invoking table's live selection, when the right-clicked row is

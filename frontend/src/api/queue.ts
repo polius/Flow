@@ -7,10 +7,11 @@ import type { QueueOrigin, QueueSnapshot, Track } from "./types";
 
 export type ServerQueueSnapshot = QueueSnapshot;
 
-/** The three things GET /api/queue can tell the restore path. */
+/** The things GET /api/queue can tell the restore path. */
 export type ServerQueueState =
   | { status: "session"; snapshot: QueueSnapshot }
   | { status: "empty" } // reachable; no stored session (first run, or reset)
+  | { status: "unauthorized" } // Login is on and this browser isn't signed in yet
   | { status: "unreachable" }; // no answer — the server cannot vouch either way
 
 /** GET /api/queue — the stored session. A 200 with no items is a real
@@ -19,6 +20,9 @@ export type ServerQueueState =
 export async function fetchServerQueue(): Promise<ServerQueueState> {
   try {
     const { data, response } = await api.GET("/api/queue");
+    // Refused, not silent: the restore waits for sign-in instead of
+    // burning its retries against a wall.
+    if (response.status === 401) return { status: "unauthorized" };
     // An erroring server (4xx/5xx) is not a real answer — it cannot vouch
     // for the library either way, so the local layer stays in charge.
     if (!response.ok) return { status: "unreachable" };
@@ -70,7 +74,10 @@ export async function playByFilter(params: {
 /** PUT /api/queue — mirror the client's plan. Never throws: persistence
     is best-effort by contract. The origin rides along so the server's
     copy keeps saying "Playing from …" after every plan change.
-    `keepalive` lets the pagehide flush survive tab close. */
+    `keepalive` lets the pagehide flush survive tab close. `?minimal=1`
+    asks for `{updated_at, count}` back instead of the whole snapshot —
+    the mirror never reads the echo, and a 20k-row TrackOut list per edit
+    was megabytes for nothing. */
 export function saveServerQueue(
   snapshot: {
     tracks: Track[];
@@ -83,6 +90,10 @@ export function saveServerQueue(
 ): void {
   void api
     .PUT("/api/queue", {
+      params: { query: { minimal: true } },
+      // The contract spells the flag `1` (a bool or an int param reads it
+      // alike); the default serializer would send `true`.
+      querySerializer: () => "minimal=1",
       body: {
         track_ids: snapshot.tracks.map((t) => t.id),
         order: snapshot.order,

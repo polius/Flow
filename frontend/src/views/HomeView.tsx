@@ -12,7 +12,7 @@ import { FirstRun, FirstScan } from "../components/Onboarding";
 import { IconPause, IconPlay, IconShuffle } from "../components/icons";
 import { PlaylistArt } from "../components/PlaylistArt";
 import { fmtCount, fmtDuration, scanStatusLabel } from "../lib/format";
-import { trackIsUnverified, usePlayerStore } from "../stores/player";
+import { beginPlayRequest, trackIsUnverified, usePlayerStore } from "../stores/player";
 import { useScanStore } from "../stores/scan";
 
 /* Its own component so the 4Hz playhead doesn't re-render the whole Home. */
@@ -126,14 +126,17 @@ function ShuffleAll({ count }: { count: number }) {
     const start = Math.floor(Math.random() * count);
     const origin: QueueOrigin = { kind: "shuffle-all", label: "Everything, shuffled" };
     usePlayerStore.getState().setShuffle(true);
+    // A newer play started while the server shuffles wins.
+    const isCurrent = beginPlayRequest();
     void playByFilter({ sort: "title", dir: "asc", shuffle: true, start, origin })
       .then((snapshot) => {
+        if (!isCurrent()) return;
         if (snapshot) {
           playSnapshot(snapshot);
           return;
         }
         return fetchAllTracks({ sort: "title", dir: "asc" }).then((all) => {
-          if (all.length === 0) return;
+          if (all.length === 0 || !isCurrent()) return;
           playTracks(all, Math.min(start, all.length - 1), origin);
         });
       })

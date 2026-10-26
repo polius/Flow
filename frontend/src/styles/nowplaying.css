@@ -222,6 +222,27 @@
   }
 }
 
+/* Sleep timer: the same pill; a running timer wears the active fill, and
+   its menu opens upward from the pill (the stage's bottom edge is near). */
+.nowplaying__sleep {
+  position: relative;
+  display: inline-flex;
+}
+
+.nowplaying__addto--on {
+  color: var(--text-primary);
+  background: var(--bg-active);
+  font-variant-numeric: tabular-nums;
+}
+
+.nowplaying__sleepmenu {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  translate: -50% 0;
+  min-width: 180px;
+}
+
 /* Touch: the pill keeps its ~30px drawing but its hit area reaches the
    44pt HIG floor with invisible slop — the top bar's technique. Vertical
    slop stays 8px: 8px of clearance remains above (the scrubber owns its

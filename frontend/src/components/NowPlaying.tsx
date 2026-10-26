@@ -26,6 +26,7 @@ import {
   IconShuffle,
 } from "./icons";
 import { QueuePanel } from "./QueuePanel";
+import { SleepTimer } from "./SleepTimer";
 import { PlayPauseButton, Scrubber, TransportButton } from "./transport";
 import { useModalFocus } from "../lib/focus";
 import "../styles/nowplaying.css";
@@ -223,29 +224,33 @@ export function NowPlaying() {
               <div className="nowplaying__progress">
                 <Scrubber />
               </div>
-              {/* The transport's quiet footnote, now a pair: the favorite
-                  toggle and the filing pill — a state and an action at the
-                  same tier. Hidden while the track is unverified, like the
-                  text names above. */}
-              {verified && (
-                <div className="nowplaying__actions">
-                  <FavoriteButton
-                    track={track}
-                    circled
-                    className="nowplaying__fav"
-                    size={15}
-                  />
-                  <button
-                    type="button"
-                    className="nowplaying__addto"
-                    onClick={() => openAddToPlaylist([track])}
-                    aria-haspopup="dialog"
-                  >
-                    <IconPlaylistAdd size={13} />
-                    Add to Playlist
-                  </button>
-                </div>
-              )}
+              {/* The transport's quiet footnote: the favorite toggle and
+                  the filing pill — a state and an action at the same tier
+                  (hidden while the track is unverified, like the text
+                  names above) — and the sleep timer, which needs no
+                  vouching. */}
+              <div className="nowplaying__actions">
+                {verified && (
+                  <>
+                    <FavoriteButton
+                      track={track}
+                      circled
+                      className="nowplaying__fav"
+                      size={15}
+                    />
+                    <button
+                      type="button"
+                      className="nowplaying__addto"
+                      onClick={() => openAddToPlaylist([track])}
+                      aria-haspopup="dialog"
+                    >
+                      <IconPlaylistAdd size={13} />
+                      Add to Playlist
+                    </button>
+                  </>
+                )}
+                <SleepTimer />
+              </div>
             </div>
           </div>
         ) : (

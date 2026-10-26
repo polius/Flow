@@ -164,13 +164,19 @@ export function VirtualTrackTable({
         y,
         context: tracks,
         contextLoader,
+        // The menu's Play is the row click: one whole-view play request,
+        // never a page-by-page fetch of the filter.
+        playFrom: () => {
+          const index = tracks.indexOf(track);
+          onPlay(index >= 0 ? index : tracks.findIndex((t) => t.id === track.id));
+        },
         selection:
           selection.count > 0 && selection.ids.has(track.id)
             ? selection.selectedTracks
             : undefined,
       }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [openTrackMenu, tracks, contextLoader, selection.ids, selection.selectedTracks],
+    [openTrackMenu, tracks, contextLoader, onPlay, selection.ids, selection.selectedTracks],
   );
 
   /* Drag-to-reorder: the shared rowDrag gesture. The displacement

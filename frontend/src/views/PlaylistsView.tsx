@@ -8,7 +8,7 @@ import {
   useDeletePlaylist,
 } from "../api/mutations";
 import { CreatePlaylistDialog } from "../components/CreatePlaylistDialog";
-import { AddTracksDialog } from "../components/AddTracksDialog";
+import { AddTracksDialog } from "../components/LazyAddTracksDialog";
 import { EmptyState } from "../components/EmptyState";
 import { LoadingState } from "../components/LoadingState";
 import {
@@ -23,7 +23,7 @@ import {
 } from "../components/icons";
 import { PlaylistArt } from "../components/PlaylistArt";
 import { fmtCount, fmtMinutes } from "../lib/format";
-import { usePlayerStore } from "../stores/player";
+import { beginPlayRequest, usePlayerStore } from "../stores/player";
 import "../styles/library.css";
 import "../styles/editing.css";
 
@@ -157,6 +157,9 @@ function PlaylistCard({ playlist }: { playlist: PlaylistSummary }) {
   // must never sit disabled waiting on that fetch: a disabled play is a
   // dead tap AND the arrow cursor the action pair must never show.
   const play = async () => {
+    // Claimed inside the click: unlocks audio before the await (iOS), and
+    // a newer play started meanwhile wins.
+    const isCurrent = beginPlayRequest();
     const resolved =
       detail ??
       (await queryClient.fetchQuery({
@@ -164,7 +167,7 @@ function PlaylistCard({ playlist }: { playlist: PlaylistSummary }) {
         queryFn: fetchDetail,
       }));
     const list = resolved?.tracks ?? [];
-    if (list.length > 0) playTracks(list, 0, origin);
+    if (list.length > 0 && isCurrent()) playTracks(list, 0, origin);
   };
   const shuffle = () => {
     if (tracks.length === 0) return;

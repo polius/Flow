@@ -14,7 +14,7 @@ import { LoadingState } from "../components/LoadingState";
 import { useReviewCount } from "../components/ReviewStrip";
 import { IconOrganize, IconTracks } from "../components/icons";
 import { fmtCount } from "../lib/format";
-import { usePlayerStore } from "../stores/player";
+import { beginPlayRequest, usePlayerStore } from "../stores/player";
 import { useUiStore } from "../stores/ui";
 
 /* Full-library view, windowed: pages of 1000 stream in behind the
@@ -116,12 +116,16 @@ export function TracksView() {
   // there is no page for the queue to be truncated to. When everything is
   // already local, play instantly; a failed POST falls back to the
   // client-side whole-view fetch.
+  // The row menu's "Play" runs this same path (one request, not a
+  // page-by-page fetch). A slow request that a newer play overtook is
+  // dropped — it must not replace the queue the user started since.
   const playFromHere = useCallback(
     (index: number) => {
       if (tracks.length >= total) {
         playTracks(tracks, index, viewOrigin);
         return;
       }
+      const isCurrent = beginPlayRequest();
       void playByFilter({
         q: q || undefined,
         genreId: genreId ?? undefined,
@@ -130,6 +134,7 @@ export function TracksView() {
         start: index,
         origin: viewOrigin,
       }).then((snapshot) => {
+        if (!isCurrent()) return;
         if (snapshot) {
           playSnapshot(snapshot);
           return;
@@ -140,6 +145,7 @@ export function TracksView() {
           sort,
           dir,
         }).then((full) => {
+          if (!isCurrent()) return;
           const list = full.length > 0 ? full : tracks;
           playTracks(list, Math.min(index, list.length - 1), viewOrigin);
         });
@@ -147,12 +153,6 @@ export function TracksView() {
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [playTracks, playSnapshot, tracks, total, q, genreName, genreId, sort, dir],
-  );
-
-  // The row menu's "Play" resolves the same whole view.
-  const contextLoader = useCallback(
-    () => fetchAllTracks({ q: q || undefined, genreId: genreId ?? undefined, sort, dir }),
-    [q, genreId, sort, dir],
   );
 
   const handleNearEnd = useCallback(() => {
@@ -248,7 +248,6 @@ export function TracksView() {
             tracks={tracks}
             onNearEnd={handleNearEnd}
             onPlay={playFromHere}
-            contextLoader={contextLoader}
           />
         </>
       )}
