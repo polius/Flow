@@ -5,15 +5,9 @@
    A quiet fade on mount is the "view transition" the design allows — subtle,
    short, ease-out; no movement. Skipped under prefers-reduced-motion via the
    global override in base.css. */
-@keyframes view-in {
-  from {
-    opacity: 0;
-  }
-}
-
 .view {
   padding: 34px 40px 48px;
-  animation: view-in var(--dur-normal) var(--ease-out);
+  animation: fade-in var(--dur-normal) var(--ease-out);
 }
 
 /* Phones: 40px side padding is desktop chrome; iOS-scale insets give
@@ -103,7 +97,7 @@
   margin-bottom: 20px;
   border-radius: var(--radius-l);
   background: var(--bg-inset);
-  color: var(--text-tertiary);
+  color: var(--text-muted);
 }
 
 .empty-state__title {
@@ -180,7 +174,7 @@
   height: 64px;
   border-radius: var(--radius-l);
   background: var(--bg-inset);
-  color: var(--text-tertiary);
+  color: var(--text-muted);
 }
 
 /* The one moving thing: a quiet monochrome arc while the first scan
@@ -324,7 +318,7 @@
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  color: var(--text-tertiary);
+  color: var(--text-muted);
 }
 
 .settings-row {
@@ -545,7 +539,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--text-tertiary);
+  color: var(--text-muted);
   transition: color var(--dur-fast) var(--ease-out);
 }
 
@@ -629,12 +623,12 @@
   padding: 6px 12px;
   border-radius: 999px;
   background: var(--bg-inset);
-  color: var(--text-tertiary);
+  color: var(--text-muted);
 }
 
 .scanerrors__filter:focus-within {
   background: var(--bg-active);
-  box-shadow: inset 0 0 0 1px var(--control-border);
+  box-shadow: inset 0 0 0 1px var(--control-border-strong);
 }
 
 .scanerrors__filter input {
@@ -659,7 +653,7 @@
   width: 16px;
   height: 16px;
   border-radius: 50%;
-  color: var(--text-tertiary);
+  color: var(--text-muted);
 }
 
 .scanerrors__filterclear:hover {
@@ -678,7 +672,7 @@
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: var(--text-tertiary);
+  color: var(--text-muted);
 }
 
 .scanerrors__list {
@@ -727,14 +721,14 @@
 .scanerrors__note {
   margin: 0;
   font-size: var(--text-caption);
-  color: var(--text-tertiary);
+  color: var(--text-muted);
 }
 
 /* The dialog the top-bar pill opens mid-scan. */
 .scanerrors__scrim {
   position: fixed;
   inset: 0;
-  z-index: calc(var(--z-modal) - 1);
+  z-index: var(--z-scrim);
   background: rgba(0, 0, 0, 0.18);
 }
 
@@ -753,16 +747,10 @@
   border: 1px solid var(--separator);
   border-radius: var(--radius-l);
   background: var(--bg-elevated);
-  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.32);
-  animation: scanerrors-in var(--dur-fast) var(--ease-out);
+  box-shadow: var(--shadow-dialog);
+  animation: dialog-in var(--dur-fast) var(--ease-out);
 }
 
-@keyframes scanerrors-in {
-  from {
-    opacity: 0;
-    transform: translate(-50%, calc(-50% + 6px));
-  }
-}
 
 .scanerrors__dialoghead {
   display: flex;

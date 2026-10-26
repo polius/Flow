@@ -300,7 +300,7 @@
   position: fixed;
   left: 0;
   top: 0;
-  z-index: calc(var(--z-modal) + 10);
+  z-index: var(--z-popover);
   border: 1px solid var(--separator);
   background: var(--bg-elevated);
   box-shadow:
@@ -335,7 +335,7 @@
 }
 
 .inlineedit__placeholder {
-  color: var(--text-tertiary);
+  color: var(--text-muted);
   font-style: italic;
 }
 
@@ -349,7 +349,7 @@
   border: 1px solid var(--control-border);
   border-radius: var(--radius-s);
   background: var(--bg-elevated);
-  outline: 2px solid color-mix(in srgb, var(--text-primary) 25%, transparent);
+  outline: 2px solid var(--ring-subtle);
   outline-offset: -1px;
 }
 
@@ -364,7 +364,7 @@ textarea.inlineedit__input {
    (base.css) as a 2px red border instead. */
 .inlineedit__input:focus,
 .inlineedit__input:focus-visible {
-  outline: 2px solid color-mix(in srgb, var(--text-primary) 25%, transparent);
+  outline: 2px solid var(--ring-subtle);
   outline-offset: -1px;
 }
 
@@ -375,7 +375,7 @@ textarea.inlineedit__input {
    sheet's layer, where DOM order would bury it underneath. */
 .trackmenu {
   position: fixed;
-  z-index: calc(var(--z-modal) + 10);
+  z-index: var(--z-popover);
   min-width: 200px;
   max-width: 240px;
   max-height: 60vh;
@@ -384,16 +384,10 @@ textarea.inlineedit__input {
   border-radius: var(--radius-m);
   border: 1px solid var(--separator);
   background: var(--bg-elevated);
-  box-shadow: 0 10px 34px rgba(0, 0, 0, 0.24);
-  animation: menu-in var(--dur-fast) var(--ease-out);
+  box-shadow: var(--shadow-popover);
+  animation: pop-in var(--dur-fast) var(--ease-out);
 }
 
-@keyframes menu-in {
-  from {
-    opacity: 0;
-    transform: scale(0.97) translateY(2px);
-  }
-}
 
 /* The row action menu (TrackActionsMenu) is positioned by the component —
    viewport-clamped so a right-click near an edge never clips. */
@@ -494,7 +488,7 @@ textarea.inlineedit__input {
 .trackmenu__empty {
   padding: 7px 10px;
   font-size: var(--text-small);
-  color: var(--text-tertiary);
+  color: var(--text-muted);
 }
 
 /* ---- row action sheet (phones) ---------------------------------------------
@@ -506,7 +500,7 @@ textarea.inlineedit__input {
   inset: 0;
   /* Same layer rule as .trackmenu: the sheet opens FROM surfaces that are
      themselves modal (the Organize sheet) and must paint above them. */
-  z-index: calc(var(--z-modal) + 10);
+  z-index: var(--z-popover);
   background: rgba(0, 0, 0, 0.28);
   animation: tracksheet-fade var(--dur-fast) var(--ease-out);
 }
@@ -633,7 +627,7 @@ textarea.inlineedit__input {
 }
 
 .album-card .playlistart {
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+  box-shadow: var(--shadow-card);
 }
 
 /* ---- view header actions --------------------------------------------------- */
@@ -724,7 +718,7 @@ textarea.inlineedit__input {
 
 .searchplaylists__meta {
   font-size: var(--text-small);
-  color: var(--text-tertiary);
+  color: var(--text-muted);
   font-variant-numeric: tabular-nums;
 }
 
@@ -737,7 +731,7 @@ textarea.inlineedit__input {
 .getinfo__scrim {
   position: fixed;
   inset: 0;
-  z-index: calc(var(--z-modal) + 5);
+  z-index: var(--z-dialog);
   background: rgba(0, 0, 0, 0.18);
 }
 
@@ -746,7 +740,7 @@ textarea.inlineedit__input {
   top: 0;
   right: 0;
   bottom: 0;
-  z-index: calc(var(--z-modal) + 5);
+  z-index: var(--z-dialog);
   display: flex;
   flex-direction: column;
   width: min(380px, 92vw);
@@ -825,7 +819,7 @@ textarea.inlineedit__input {
 .getinfo__format {
   margin-top: 2px;
   font-size: var(--text-caption);
-  color: var(--text-tertiary);
+  color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
@@ -836,7 +830,7 @@ textarea.inlineedit__input {
 .getinfo__path {
   margin-top: 4px;
   font-size: var(--text-caption);
-  color: var(--text-tertiary);
+  color: var(--text-muted);
   overflow-wrap: anywhere;
   user-select: all;
 }
@@ -866,12 +860,12 @@ textarea.inlineedit__input {
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: var(--text-tertiary);
+  color: var(--text-muted);
 }
 
 .getinfo__input {
   padding: 8px 10px;
-  border: 1px solid var(--control-border);
+  border: 1px solid var(--control-border-strong);
   border-radius: var(--radius-s);
   background: var(--bg-canvas);
   font-size: var(--text-regular);
@@ -883,13 +877,13 @@ textarea.inlineedit__input {
    error state here — focus is the border-color change only. */
 .getinfo__input:focus,
 .getinfo__input:focus-visible {
-  border-color: color-mix(in srgb, var(--text-primary) 40%, transparent);
+  border-color: var(--text-secondary);
   outline: none;
 }
 
 .getinfo__hint {
   font-size: var(--text-caption);
-  color: var(--text-tertiary);
+  color: var(--text-muted);
 }
 
 .getinfo__actions {
@@ -922,7 +916,7 @@ textarea.inlineedit__input {
 .addtracks__scrim {
   position: fixed;
   inset: 0;
-  z-index: calc(var(--z-modal) + 4);
+  z-index: var(--z-dialog-scrim);
   background: rgba(0, 0, 0, 0.18);
 }
 
@@ -932,7 +926,7 @@ textarea.inlineedit__input {
   left: 50%;
   transform: translate(-50%, -50%);
   /* Matches its scrim's tier — see .addtracks__scrim. */
-  z-index: calc(var(--z-modal) + 5);
+  z-index: var(--z-dialog);
   display: flex;
   flex-direction: column;
   width: min(620px, 94vw);
@@ -941,8 +935,8 @@ textarea.inlineedit__input {
   background: var(--bg-elevated);
   border: 1px solid var(--separator);
   border-radius: var(--radius-l);
-  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.32);
-  animation: manage-in var(--dur-normal) var(--ease-out);
+  box-shadow: var(--shadow-dialog);
+  animation: dialog-in var(--dur-normal) var(--ease-out);
 }
 
 .addtracks__head {
@@ -1009,19 +1003,19 @@ textarea.inlineedit__input {
   gap: 9px;
   margin: 0 22px 12px;
   padding: 9px 12px;
-  border: 1px solid var(--control-border);
+  border: 1px solid var(--control-border-strong);
   border-radius: var(--radius-m);
   background: var(--bg-canvas);
   transition: border-color var(--dur-fast) var(--ease-out);
 }
 
 .addtracks__search:focus-within {
-  border-color: color-mix(in srgb, var(--text-primary) 40%, transparent);
+  border-color: var(--text-secondary);
 }
 
 .addtracks__searchicon {
   display: flex;
-  color: var(--text-tertiary);
+  color: var(--text-muted);
 }
 
 .addtracks__searchinput {
@@ -1034,7 +1028,7 @@ textarea.inlineedit__input {
 }
 
 .addtracks__searchinput::placeholder {
-  color: var(--text-tertiary);
+  color: var(--text-muted);
 }
 
 /* Focus is carried by the wrapper's border — never the global
@@ -1057,7 +1051,7 @@ textarea.inlineedit__input {
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: var(--text-tertiary);
+  color: var(--text-muted);
 }
 
 .addtracks__bulk {
@@ -1136,7 +1130,7 @@ textarea.inlineedit__input {
 
 .addtracks__placeholdersub {
   font-size: var(--text-small);
-  color: var(--text-tertiary);
+  color: var(--text-muted);
 }
 
 .addtracks__row {
@@ -1169,7 +1163,7 @@ textarea.inlineedit__input {
   justify-content: center;
   width: 18px;
   height: 18px;
-  border: 1.5px solid var(--control-border);
+  border: 1.5px solid var(--control-border-strong);
   border-radius: 50%;
   color: var(--bg-elevated);
   transition: background var(--dur-fast) var(--ease-out),
@@ -1177,7 +1171,7 @@ textarea.inlineedit__input {
 }
 
 .addtracks__row:hover .addtracks__box {
-  border-color: var(--text-tertiary);
+  border-color: var(--text-secondary);
 }
 
 .addtracks__row--selected .addtracks__box {
@@ -1187,7 +1181,7 @@ textarea.inlineedit__input {
 
 .addtracks__row--in .addtracks__box {
   border-color: transparent;
-  color: var(--text-tertiary);
+  color: var(--text-muted);
 }
 
 .addtracks__names {
@@ -1217,7 +1211,7 @@ textarea.inlineedit__input {
 .addtracks__duration {
   font-size: var(--text-small);
   font-variant-numeric: tabular-nums;
-  color: var(--text-tertiary);
+  color: var(--text-muted);
 }
 
 .addtracks__inplaylist {
@@ -1333,7 +1327,7 @@ textarea.inlineedit__input {
   width: 14px;
   height: 14px;
   border-radius: 50%;
-  color: var(--text-tertiary);
+  color: var(--text-muted);
 }
 
 .chip__x:hover {
@@ -1354,7 +1348,7 @@ textarea.inlineedit__input {
   left: 50%;
   bottom: calc(var(--player-height) + 14px);
   transform: translateX(-50%);
-  z-index: calc(var(--z-modal) + 5);
+  z-index: var(--z-dialog);
   display: flex;
   align-items: center;
   gap: 14px;
@@ -1363,7 +1357,7 @@ textarea.inlineedit__input {
   border: 1px solid var(--separator);
   border-radius: 999px;
   background: var(--bg-elevated);
-  box-shadow: 0 10px 34px rgba(0, 0, 0, 0.24);
+  box-shadow: var(--shadow-popover);
   animation: undotoast-in var(--dur-normal) var(--ease-out);
 }
 
@@ -1418,7 +1412,7 @@ textarea.inlineedit__input {
      this dialog from inside it, and the takeover paints last in AppShell
      at the base tier. Same tier the GetInfo panel earned for the same
      reason; its scrim rides one step below (see .addtracks__scrim). */
-  z-index: calc(var(--z-modal) + 5);
+  z-index: var(--z-dialog);
 }
 
 .addto__head {
@@ -1530,7 +1524,7 @@ textarea.inlineedit__input {
 .addto__nameinput {
   width: 100%;
   padding: 11px 14px;
-  border: 1px solid var(--control-border);
+  border: 1px solid var(--control-border-strong);
   border-radius: var(--radius-s);
   background: var(--bg-canvas);
   font-size: var(--text-body);
@@ -1544,7 +1538,7 @@ textarea.inlineedit__input {
    touches. */
 .addto__nameinput:focus,
 .addto__nameinput:focus-visible {
-  border-color: color-mix(in srgb, var(--text-primary) 40%, transparent);
+  border-color: var(--text-secondary);
   outline: none;
 }
 
@@ -1582,7 +1576,7 @@ textarea.inlineedit__input {
 }
 
 .addto__coverbutton:hover {
-  border-color: color-mix(in srgb, var(--text-primary) 40%, transparent);
+  border-color: var(--text-secondary);
   color: var(--text-secondary);
 }
 
@@ -1689,7 +1683,7 @@ textarea.inlineedit__input {
   margin-left: auto;
   padding-left: 14px;
   font-size: var(--text-caption);
-  color: var(--text-tertiary);
+  color: var(--text-muted);
   font-variant-numeric: tabular-nums;
 }
 

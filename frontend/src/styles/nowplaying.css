@@ -126,7 +126,7 @@
 .nowplaying__album {
   margin: 3px 0 0;
   font-size: var(--text-small);
-  color: var(--text-tertiary);
+  color: var(--text-muted);
 }
 
 /* The artist and album names are doors, styled as today's text —
@@ -139,7 +139,7 @@
 .nowplaying__origin {
   margin: 10px 0 0;
   font-size: var(--text-caption);
-  color: var(--text-tertiary);
+  color: var(--text-muted);
 }
 
 .nowplaying__controls {
@@ -366,7 +366,7 @@
 /* Position in the queue — the "you are here" of the full list. */
 .queue__count {
   font-size: var(--text-small);
-  color: var(--text-tertiary);
+  color: var(--text-muted);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
@@ -376,7 +376,7 @@
 .queue__origin {
   margin: -4px 20px 8px;
   font-size: var(--text-caption);
-  color: var(--text-tertiary);
+  color: var(--text-muted);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -397,7 +397,7 @@
   height: 33px;
   padding: 0 10px;
   font-size: var(--text-caption);
-  color: var(--text-tertiary);
+  color: var(--text-muted);
   user-select: none;
 }
 
@@ -516,7 +516,7 @@
 .queue__time {
   font-size: var(--text-caption);
   font-variant-numeric: tabular-nums;
-  color: var(--text-tertiary);
+  color: var(--text-muted);
   transition: opacity var(--dur-fast) var(--ease-out);
 }
 
@@ -615,7 +615,7 @@
   position: fixed;
   left: 0;
   top: 0;
-  z-index: calc(var(--z-modal) + 10);
+  z-index: var(--z-popover);
   display: grid;
   grid-template-columns: 38px minmax(0, 1fr) auto;
   align-items: center;

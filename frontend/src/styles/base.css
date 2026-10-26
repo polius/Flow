@@ -140,6 +140,33 @@ a {
   opacity: var(--ambience-wash);
 }
 
+/* Shared entrances — one per kind of arrival, so a menu, a popover and
+   a dialog enter the same way everywhere:
+     fade-in    a view or a status line appearing in place
+     pop-in     menus and popovers growing from their anchor
+     dialog-in  centered dialogs (top/left 50% + translate(-50%, -50%)) —
+                the keyframe restates the centering translate, or the
+                dialog would start off-center and snap */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: scale(0.97) translateY(2px);
+  }
+}
+
+@keyframes dialog-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, calc(-50% + 6px));
+  }
+}
+
 /* Motion restraint: users who ask for less motion get the states
    without the transitions. */
 @media (prefers-reduced-motion: reduce) {
