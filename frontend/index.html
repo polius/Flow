@@ -2,9 +2,12 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- viewport-fit=cover: the installed app draws edge to edge, and the
+         chrome pads itself with env(safe-area-inset-*) — without it every
+         inset reads 0 and the app is letterboxed on notched phones. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="color-scheme" content="light dark" />
-    <!-- §2.7: readable tab, installable app. The theme-color rides each
+    <!-- A readable tab and an installable app. The theme-color rides each
          ramp so the browser chrome matches the app's own tokens. -->
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="alternate icon" type="image/png" href="/icons/icon-192.png" />
@@ -12,7 +15,7 @@
     <link rel="manifest" href="/manifest.webmanifest" />
     <meta name="theme-color" media="(prefers-color-scheme: light)" content="#f5f5f7" />
     <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#161618" />
-    <!-- §2.8: the standard name alongside the legacy tag (which stays for
+    <!-- The standard name alongside the legacy tag (which stays for
          older iOS) — the old one alone logs a deprecation on every load. -->
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -20,7 +23,8 @@
     <meta name="apple-mobile-web-app-title" content="Flow" />
     <title>Flow</title>
     <script>
-      // Set the theme ramp before first paint (§8.6) — mirrors lib/theme.ts.
+      // Set the theme ramp before first paint, so a dark-mode load never
+      // flashes light — mirrors lib/theme.ts.
       try {
         var stored = JSON.parse(localStorage.getItem("flow.ui") || "{}");
         var mode = stored.state ? stored.state.themeMode : null;

@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { api } from "../api/client";
 import { fmtCount, fmtDateTime, scanStatusLabel } from "../lib/format";
 import { isIOS } from "../lib/platform";
+import { openShortcutSheet } from "../lib/shortcuts";
 import { usePlayerStore } from "../stores/player";
 import { useScanStore } from "../stores/scan";
 import { useUiStore, type ThemeMode } from "../stores/ui";
@@ -75,13 +76,37 @@ export function SettingsView() {
             <div className="settings-row">
               <span className="settings-row__label">Theme</span>
               <span className="settings-row__value">
-                <div className="segmented" role="radiogroup" aria-label="Theme">
+                {/* A radiogroup is ONE Tab stop (roving tabindex): the
+                    checked option holds it, and the arrows choose — the
+                    native radio grammar. */}
+                <div
+                  className="segmented"
+                  role="radiogroup"
+                  aria-label="Theme"
+                  onKeyDown={(e) => {
+                    const step =
+                      e.key === "ArrowRight" || e.key === "ArrowDown"
+                        ? 1
+                        : e.key === "ArrowLeft" || e.key === "ArrowUp"
+                          ? -1
+                          : 0;
+                    if (step === 0) return;
+                    e.preventDefault();
+                    const at = THEME_MODES.findIndex((m) => m.mode === themeMode);
+                    const next = (at + step + THEME_MODES.length) % THEME_MODES.length;
+                    setThemeMode(THEME_MODES[next].mode);
+                    e.currentTarget
+                      .querySelectorAll<HTMLElement>("[role=radio]")
+                      [next]?.focus();
+                  }}
+                >
                   {THEME_MODES.map(({ mode, label }) => (
                     <button
                       key={mode}
                       type="button"
                       role="radio"
                       aria-checked={themeMode === mode}
+                      tabIndex={themeMode === mode ? 0 : -1}
                       className={`segmented__item${themeMode === mode ? " segmented__item--active" : ""}`}
                       onClick={() => setThemeMode(mode)}
                     >
@@ -89,6 +114,22 @@ export function SettingsView() {
                     </button>
                   ))}
                 </div>
+              </span>
+            </div>
+            {/* The "?" sheet's pointer door — a shortcut list nobody can
+                find is no help. */}
+            <div className="settings-row">
+              <span className="settings-row__label">Keyboard shortcuts</span>
+              <span className="settings-row__value">
+                Press <kbd className="settings-row__kbd">?</kbd> anywhere
+                <button
+                  type="button"
+                  className="btn settings-row__action"
+                  onClick={openShortcutSheet}
+                  aria-haspopup="dialog"
+                >
+                  Show
+                </button>
               </span>
             </div>
           </div>
@@ -101,16 +142,15 @@ export function SettingsView() {
               <span className="settings-row__label">Contents</span>
               <span className="settings-row__value">
                 {counts
-                  ? `${fmtCount(counts.tracks)} tracks · ${fmtCount(counts.albums)} albums · ${fmtCount(counts.artists)} artists · ${fmtCount(counts.playlists)} playlists`
-                  : "…"}
+                  ? `${fmtCount(counts.tracks)} songs · ${fmtCount(counts.albums)} albums · ${fmtCount(counts.artists)} artists · ${fmtCount(counts.playlists)} playlists`
+                  : "Counting…"}
               </span>
             </div>
             <div className="settings-row">
               <span className="settings-row__label">
+                {/* Visual progress; the shell's Announcer speaks start/end. */}
                 {scanning ? (
-                  <span aria-live="polite">
-                    {scan ? scanStatusLabel(scan) : "Scanning…"}
-                  </span>
+                  <span>{scan ? scanStatusLabel(scan) : "Scanning…"}</span>
                 ) : (
                   "Last scan"
                 )}
@@ -132,7 +172,7 @@ export function SettingsView() {
                 spot the mess; this row serves the maintenance mindset. Both
                 call openOrganize() and read the same review-summary cache —
                 never add state or copy that isn't shared. */}
-            <div className="settings-row">
+            <div className="settings-row settings-row--stack">
               <span className="settings-row__label">
                 Organize
                 <span className="settings-row__hint">
@@ -183,25 +223,30 @@ export function SettingsView() {
           {!isIOS && (
             <div className="settings-group">
               <h2>Playback</h2>
-              <div className="settings-row">
+              <div className="settings-row settings-row--stack">
                 <span className="settings-row__label">
-                  Normalize volume
-                  <span className="settings-row__hint">
+                  <span id="settings-normalize-label">Normalize volume</span>
+                  <span className="settings-row__hint" id="settings-normalize-hint">
                     Balances soft and loud songs, creating a more uniform
                     listening experience. Loudness is measured during the scan;
-                    tracks without a measurement play at their own level.
+                    songs without a measurement play at their own level.
                   </span>
                 </span>
                 <span className="settings-row__value">
+                  {/* Named by the row title, described by its hint; the
+                      visible On/Off is decoration — aria-checked carries
+                      the state (a switch named "On" said nothing). */}
                   <button
                     type="button"
                     role="switch"
                     aria-checked={soundcheck}
+                    aria-labelledby="settings-normalize-label"
+                    aria-describedby="settings-normalize-hint"
                     className={`settingstoggle${soundcheck ? " settingstoggle--on" : ""}`}
                     onClick={() => setSoundcheck(!soundcheck)}
                   >
                     <span className="settingstoggle__knob" aria-hidden="true" />
-                    <span className="settingstoggle__label">
+                    <span className="settingstoggle__label" aria-hidden="true">
                       {soundcheck ? "On" : "Off"}
                     </span>
                   </button>

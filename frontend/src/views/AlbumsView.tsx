@@ -5,6 +5,7 @@ import { useSearchParams } from "react-router";
 import { api } from "../api/client";
 import { AlbumCard } from "../components/AlbumCard";
 import { EmptyState } from "../components/EmptyState";
+import { ErrorState } from "../components/ErrorState";
 import { LoadingState } from "../components/LoadingState";
 import { SortMenu, type SortOption } from "../components/SortMenu";
 import { IconAlbums } from "../components/icons";
@@ -27,7 +28,7 @@ export function AlbumsView() {
   const sort = SORT_KEYS.has(urlSort) ? urlSort : "title";
   const dir = searchParams.get("dir") === "desc" ? "desc" : "asc";
 
-  const { data } = useQuery({
+  const { data, isError, refetch } = useQuery({
     queryKey: ["albums", q, sort, dir],
     queryFn: async () => {
       const { data } = await api.GET("/api/albums", {
@@ -59,11 +60,14 @@ export function AlbumsView() {
       <div className="view__head">
         <div>
           <h1 className="view__title">Albums</h1>
-          <p className="view__subtitle">
-            {q
-              ? `${fmtCount(albums.length)} ${albums.length === 1 ? "match" : "matches"} for "${q}"`
-              : `${fmtCount(albums.length)} ${albums.length === 1 ? "album" : "albums"}`}
-          </p>
+          {/* No count until there is one: a failed load is not "0 albums". */}
+          {data !== undefined && (
+            <p className="view__subtitle">
+              {q
+                ? `${fmtCount(albums.length)} ${albums.length === 1 ? "match" : "matches"} for “${q}”`
+                : `${fmtCount(albums.length)} ${albums.length === 1 ? "album" : "albums"}`}
+            </p>
+          )}
         </div>
         <div className="view__actions">
           <SortMenu
@@ -75,7 +79,9 @@ export function AlbumsView() {
           />
         </div>
       </div>
-      {data === undefined ? (
+      {data === undefined && isError ? (
+        <ErrorState what="albums" retry={refetch} />
+      ) : data === undefined ? (
         <LoadingState variant="grid" />
       ) : albums.length === 0 ? (
         <EmptyState

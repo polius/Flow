@@ -4,10 +4,11 @@
    don't exist on touch. The heart stays as a STATE indicator; the ACTION
    lives here, where it's always reachable. */
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { useLocation, useNavigate } from "react-router";
 
 import { useToggleFavorite } from "../api/mutations";
+import { useModalFocus } from "../lib/focus";
 import { useMediaQuery } from "../lib/media";
 import { beginPlayRequest, usePlayerStore } from "../stores/player";
 import { useUiStore } from "../stores/ui";
@@ -44,6 +45,25 @@ export function TrackActionsMenu() {
   const navigate = useNavigate();
 
   const open = request != null;
+
+  // Keyboard path (the row's "…" button, Shift+F10, the ContextMenu key):
+  // focus lands on the first item, Tab stays inside, and closing hands
+  // focus back to whatever opened the menu. ↑/↓ walk the items.
+  useModalFocus(panelRef, open);
+  const onMenuKeyDown = (e: ReactKeyboardEvent) => {
+    if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+    const panel = panelRef.current;
+    if (!panel) return;
+    const items = [...panel.querySelectorAll<HTMLElement>("[role=menuitem]")];
+    if (items.length === 0) return;
+    e.preventDefault();
+    const at = items.indexOf(document.activeElement as HTMLElement);
+    const next =
+      e.key === "ArrowDown"
+        ? (at + 1) % items.length
+        : (at <= 0 ? items.length : at) - 1;
+    items[next].focus();
+  };
 
   // Menu lifecycle: outside tap, Esc, navigation. Registered like every
   // other menu — contextMenuOpen tells Esc precedence and the global
@@ -137,6 +157,7 @@ export function TrackActionsMenu() {
     <>
       <button
         type="button"
+        role="menuitem"
         className="trackmenu__item"
         onClick={act(playInContext)}
       >
@@ -145,6 +166,7 @@ export function TrackActionsMenu() {
       </button>
       <button
         type="button"
+        role="menuitem"
         className="trackmenu__item"
         onClick={act(() => playNextMany(targets))}
       >
@@ -153,6 +175,7 @@ export function TrackActionsMenu() {
       </button>
       <button
         type="button"
+        role="menuitem"
         className="trackmenu__item"
         onClick={act(() => addToQueue(targets))}
       >
@@ -161,6 +184,7 @@ export function TrackActionsMenu() {
       </button>
       <button
         type="button"
+        role="menuitem"
         className="trackmenu__item"
         onClick={act(() => openAddToPlaylist(targets))}
       >
@@ -178,6 +202,7 @@ export function TrackActionsMenu() {
       {track.album_id != null && (
         <button
           type="button"
+          role="menuitem"
           className="trackmenu__item"
           onClick={act(() => navigate(`/albums/${track.album_id}`))}
         >
@@ -188,6 +213,7 @@ export function TrackActionsMenu() {
       {track.artist_id != null && (
         <button
           type="button"
+          role="menuitem"
           className="trackmenu__item"
           onClick={act(() => navigate(`/artists/${track.artist_id}`))}
         >
@@ -198,6 +224,7 @@ export function TrackActionsMenu() {
       <div className="trackmenu__separator" role="separator" />
       <button
         type="button"
+        role="menuitem"
         className="trackmenu__item"
         onClick={act(() => toggleFavorite(track))}
       >
@@ -210,6 +237,7 @@ export function TrackActionsMenu() {
       </button>
       <button
         type="button"
+        role="menuitem"
         className="trackmenu__item"
         onClick={act(() => openGetInfo(track.id))}
       >
@@ -221,6 +249,7 @@ export function TrackActionsMenu() {
           <div className="trackmenu__separator" role="separator" />
           <button
             type="button"
+            role="menuitem"
             className="trackmenu__item trackmenu__item--danger"
             onClick={act(removeFromPlaylist)}
           >
@@ -239,7 +268,7 @@ export function TrackActionsMenu() {
         <span className="trackmenu__identitytitle">{track.title}</span>
         <span className="trackmenu__identitysub">
           {targets.length > 1
-            ? `${targets.length} tracks selected`
+            ? `${targets.length} songs selected`
             : track.artist ?? " "}
         </span>
       </div>
@@ -254,6 +283,7 @@ export function TrackActionsMenu() {
           className="tracksheet"
           role="menu"
           aria-label={`Actions for ${track.title}`}
+          onKeyDown={onMenuKeyDown}
         >
           <span className="tracksheet__grabber" aria-hidden="true" />
           {identity}
@@ -275,6 +305,7 @@ export function TrackActionsMenu() {
       role="menu"
       aria-label={`Actions for ${track.title}`}
       style={{ left, top }}
+      onKeyDown={onMenuKeyDown}
     >
       {identity}
       {items}

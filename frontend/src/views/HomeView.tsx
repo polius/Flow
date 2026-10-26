@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router";
 
@@ -7,9 +7,10 @@ import { playByFilter } from "../api/queue";
 import type { QueueOrigin } from "../api/types";
 import { AlbumCard } from "../components/AlbumCard";
 import { Artwork } from "../components/Artwork";
+import { ErrorState } from "../components/ErrorState";
 import { LoadingState } from "../components/LoadingState";
 import { FirstRun, FirstScan } from "../components/Onboarding";
-import { IconPause, IconPlay, IconShuffle } from "../components/icons";
+import { IconChevronDown, IconPause, IconPlay, IconShuffle } from "../components/icons";
 import { PlaylistArt } from "../components/PlaylistArt";
 import { fmtCount, fmtDuration, scanStatusLabel } from "../lib/format";
 import { beginPlayRequest, trackIsUnverified, usePlayerStore } from "../stores/player";
@@ -28,7 +29,7 @@ function ContinueListening() {
   const stateBit = isPlaying ? null : `Paused at ${fmtDuration(position)}`;
   const nextBit =
     upNext > 0
-      ? `${fmtCount(upNext)} ${upNext === 1 ? "track" : "tracks"} up next`
+      ? `${fmtCount(upNext)} ${upNext === 1 ? "song" : "songs"} up next`
       : null;
 
   return (
@@ -86,6 +87,88 @@ function ContinueListening() {
   );
 }
 
+/* One Home shelf: a titled, horizontally scrolling row of cards (a wrapping
+   grid on phones, where touch swipes it). A mouse has no horizontal wheel
+   and the scrollbars stay invisible until hovered, so on devices with
+   hover the head carries ‹ › buttons that page the row; each disables at
+   its end. */
+function Shelf({
+  title,
+  more,
+  children,
+}: {
+  title: string;
+  more?: { to: string; label: string };
+  children: ReactNode;
+}) {
+  const rowRef = useRef<HTMLDivElement>(null);
+  const [edges, setEdges] = useState({ start: true, end: true });
+
+  const measure = useCallback(() => {
+    const el = rowRef.current;
+    if (!el) return;
+    setEdges({
+      start: el.scrollLeft <= 1,
+      end: el.scrollLeft + el.clientWidth >= el.scrollWidth - 1,
+    });
+  }, []);
+
+  useEffect(() => {
+    measure();
+    const el = rowRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [measure]);
+
+  const page = (dir: 1 | -1) => {
+    const el = rowRef.current;
+    if (!el) return;
+    el.scrollBy({ left: dir * el.clientWidth * 0.85, behavior: "smooth" });
+  };
+
+  return (
+    <section className="libsection" aria-label={title}>
+      <div className="libsection__head">
+        <h2>{title}</h2>
+        <div className="libsection__tail">
+          {more && (
+            <Link to={more.to} className="libsection__more">
+              {more.label}
+            </Link>
+          )}
+          {!(edges.start && edges.end) && (
+            <span className="shelf__nav">
+              <button
+                type="button"
+                className="shelf__btn"
+                aria-label={`Scroll ${title} back`}
+                disabled={edges.start}
+                onClick={() => page(-1)}
+              >
+                <IconChevronDown size={14} className="shelf__chev shelf__chev--back" />
+              </button>
+              <button
+                type="button"
+                className="shelf__btn"
+                aria-label={`Scroll ${title} forward`}
+                disabled={edges.end}
+                onClick={() => page(1)}
+              >
+                <IconChevronDown size={14} className="shelf__chev shelf__chev--fwd" />
+              </button>
+            </span>
+          )}
+        </div>
+      </div>
+      <div ref={rowRef} className="covergrid covergrid--home" onScroll={measure}>
+        {children}
+      </div>
+    </section>
+  );
+}
+
 function RecentlyPlayed() {
   const { data } = useQuery({
     queryKey: ["albums", "recently-played"],
@@ -99,16 +182,11 @@ function RecentlyPlayed() {
   const albums = (data?.items ?? []).filter((a) => a.played_at != null);
   if (albums.length === 0) return null;
   return (
-    <div className="libsection">
-      <div className="libsection__head">
-        <h2>Recently played</h2>
-      </div>
-      <div className="covergrid covergrid--home">
-        {albums.map((album) => (
-          <AlbumCard key={album.id} album={album} />
-        ))}
-      </div>
-    </div>
+    <Shelf title="Recently played">
+      {albums.map((album) => (
+        <AlbumCard key={album.id} album={album} />
+      ))}
+    </Shelf>
   );
 }
 
@@ -153,7 +231,7 @@ function ShuffleAll({ count }: { count: number }) {
         className="shufflecard"
         onClick={shuffleEverything}
         disabled={busy}
-        aria-label={`Shuffle all ${fmtCount(count)} tracks`}
+        aria-label={`Shuffle all ${fmtCount(count)} songs`}
       >
         <span className="shufflecard__tile" aria-hidden="true">
           <IconShuffle size={20} />
@@ -161,7 +239,7 @@ function ShuffleAll({ count }: { count: number }) {
         <span className="shufflecard__meta">
           <span className="shufflecard__title">{busy ? "Shuffling…" : "Everything, shuffled"}</span>
           <span className="shufflecard__sub">
-            {fmtCount(count)} tracks · the whole library, in random order
+            {fmtCount(count)} songs · the whole library, in random order
           </span>
         </span>
       </button>
@@ -173,7 +251,11 @@ export function HomeView() {
   const scan = useScanStore((s) => s.status);
   const scanning = scan?.state === "scanning";
 
-  const { data: settings } = useQuery({
+  const {
+    data: settings,
+    isError: settingsFailed,
+    refetch: refetchSettings,
+  } = useQuery({
     queryKey: ["settings"],
     queryFn: async () => {
       const { data } = await api.GET("/api/settings");
@@ -206,22 +288,19 @@ export function HomeView() {
   const recentAlbums = recent?.items ?? [];
 
   const summary = counts
-    ? `${fmtCount(counts.tracks)} tracks · ${fmtCount(counts.albums)} albums · ${fmtCount(counts.artists)} artists`
+    ? `${fmtCount(counts.tracks)} ${counts.tracks === 1 ? "song" : "songs"} · ${fmtCount(counts.albums)} ${counts.albums === 1 ? "album" : "albums"} · ${fmtCount(counts.artists)} ${counts.artists === 1 ? "artist" : "artists"}`
     : null;
 
   return (
     <section className={`view${hasLibrary ? "" : " view--fill"}`}>
-      {/* FirstRun / FirstScan carry their own title, so the Home chrome —
+      {/* FirstRun / FirstScan carry their own h1, so the Home chrome —
           title and subtitle — steps aside when the library is empty. */}
       {hasLibrary && <h1 className="view__title">Home</h1>}
-      {hasLibrary &&
-        (scanning ? (
-          <p className="view__subtitle" aria-live="polite">
-            {scan && scanStatusLabel(scan)}
-          </p>
-        ) : (
-          <p className="view__subtitle">{summary}</p>
-        ))}
+      {hasLibrary && (
+        // Visual progress only: the shell's Announcer speaks the scan's
+        // start and end, never each tick.
+        <p className="view__subtitle">{scanning && scan ? scanStatusLabel(scan) : summary}</p>
+      )}
 
       {hasLibrary && <ContinueListening />}
 
@@ -232,56 +311,47 @@ export function HomeView() {
       )}
 
       {hasLibrary && recentAlbums.length > 0 && (
-        <div className="libsection">
-          <div className="libsection__head">
-            <h2>Recently added</h2>
-            <Link to="/albums" className="libsection__more">
-              Show all
-            </Link>
-          </div>
-          <div className="covergrid covergrid--home">
-            {recentAlbums.map((album) => (
-              <AlbumCard key={album.id} album={album} />
-            ))}
-          </div>
-        </div>
+        // "Show all" keeps the shelf's order: Albums opens sorted by
+        // recently added, not by title.
+        <Shelf
+          title="Recently added"
+          more={{ to: "/albums?sort=recent&dir=desc", label: "Show all" }}
+        >
+          {recentAlbums.map((album) => (
+            <AlbumCard key={album.id} album={album} />
+          ))}
+        </Shelf>
       )}
 
       {hasLibrary && (playlistsData?.items.length ?? 0) > 0 && (
-        <div className="libsection">
-          <div className="libsection__head">
-            <h2>Playlists</h2>
-            <Link to="/playlists" className="libsection__more">
-              Show all
+        <Shelf title="Playlists" more={{ to: "/playlists", label: "Show all" }}>
+          {playlistsData!.items.map((playlist) => (
+            <Link key={playlist.id} to={`/playlists/${playlist.id}`} className="album-card">
+              {/* The artwrap carries the art→title margin every album-card
+                  grid relies on. */}
+              <span className="album-card__artwrap">
+                <PlaylistArt
+                  artworkIds={playlist.artwork_ids}
+                  coverArtworkId={playlist.cover_artwork_id}
+                  size={180}
+                  radius="m"
+                  className="album-card__art"
+                />
+              </span>
+              <span className="album-card__title">{playlist.name}</span>
+              <span className="album-card__meta">
+                {fmtCount(playlist.track_count)} song{playlist.track_count === 1 ? "" : "s"}
+              </span>
             </Link>
-          </div>
-          <div className="covergrid covergrid--home">
-            {playlistsData!.items.map((playlist) => (
-              <Link key={playlist.id} to={`/playlists/${playlist.id}`} className="album-card">
-                {/* The artwrap carries the art→title margin every album-card
-                    grid relies on. */}
-                <span className="album-card__artwrap">
-                  <PlaylistArt
-                    artworkIds={playlist.artwork_ids}
-                    coverArtworkId={playlist.cover_artwork_id}
-                    size={180}
-                    radius="m"
-                    className="album-card__art"
-                  />
-                </span>
-                <span className="album-card__title">{playlist.name}</span>
-                <span className="album-card__meta">
-                  {fmtCount(playlist.track_count)} track{playlist.track_count === 1 ? "" : "s"}
-                </span>
-              </Link>
-            ))}
-          </div>
-        </div>
+          ))}
+        </Shelf>
       )}
 
       {!hasLibrary &&
         (scanning ? (
           <FirstScan scan={scan} />
+        ) : settings === undefined && settingsFailed ? (
+          <ErrorState what="your library" retry={refetchSettings} />
         ) : settings === undefined ? (
           <LoadingState variant="rows" />
         ) : (

@@ -14,6 +14,7 @@ import type { Track } from "../api/types";
 import { fmtDuration } from "../lib/format";
 import { isRowDragActive } from "../lib/rowDrag";
 import {
+  IconEllipsis,
   IconHeart,
   IconHeartFill,
   IconMinus,
@@ -86,6 +87,13 @@ interface TrackRowProps {
     index: number,
     e: { metaKey: boolean; ctrlKey: boolean; altKey: boolean; shiftKey: boolean },
   ) => boolean;
+  /** Grid semantics: the row's DOM id (the table's aria-activedescendant
+      points here while the keyboard cursor is on it) and its 1-based
+      position among the grid's rows, header included. */
+  rowId?: string;
+  ariaRowIndex?: number;
+  /** Part of the table's live selection (aria-selected). */
+  selected?: boolean;
 }
 
 export function TrackRow({
@@ -97,6 +105,9 @@ export function TrackRow({
   isPlaying,
   extraClassName,
   style,
+  rowId,
+  ariaRowIndex,
+  selected,
   onActivate,
   onTitlePlay,
   onTogglePlay,
@@ -244,6 +255,14 @@ export function TrackRow({
     if (open !== swipeOpen) onSwipeOpenChange?.(open);
   };
 
+  // The phone second line: whatever the hidden columns would have said.
+  const subline =
+    variant === "album"
+      ? null
+      : variant === "artist"
+        ? track.album
+        : [track.artist, track.album].filter(Boolean).join(" · ") || null;
+
   const classes = [
     "trackrow",
     `trackrow--${variant}`,
@@ -260,6 +279,9 @@ export function TrackRow({
       className={classes}
       style={style}
       role="row"
+      id={rowId}
+      aria-rowindex={ariaRowIndex}
+      aria-selected={selected ? true : undefined}
       // Keyboard-cursor anchor: the table scrolls the cursor row into
       // view by this index; the playlist wrapper keeps its own data-idx for
       // the pointer gestures. Wrapper-less reorderable rows (Favorites)
@@ -313,20 +335,24 @@ export function TrackRow({
       onTouchEnd={onTouchEnd}
       onTouchCancel={onTouchEnd}
     >
-      <span className="trackrow__index" aria-hidden="true">
+      {/* Every direct child is a gridcell: the table head's columnheaders
+          line up one-to-one, so a screen reader can announce "Artist,
+          Afterglow" while moving across a row. */}
+      <span className="trackrow__index" role="gridcell">
         {/* The playing marker (shared with the queue drawer): accent bars
             replace the number, frozen while paused; hover swaps them for
             the play/pause glyph below. With hideIndex the number never
-            renders — the slot is the play affordance's. */}
+            renders — the slot is the play affordance's. The number and
+            the bars are visual; the Play button carries the name. */}
         {isCurrent && (
-          <span className={`trackrow__eq eq${isPlaying ? "" : " eq--paused"}`}>
+          <span className={`trackrow__eq eq${isPlaying ? "" : " eq--paused"}`} aria-hidden="true">
             <span />
             <span />
             <span />
           </span>
         )}
         {!hideIndex && (
-          <span className="trackrow__num">
+          <span className="trackrow__num" aria-hidden="true">
             {variant === "album" ? track.track_no ?? index + 1 : index + 1}
           </span>
         )}
@@ -343,9 +369,15 @@ export function TrackRow({
           {isCurrent && isPlaying ? <IconPause size={15} /> : <IconPlay size={15} />}
         </button>
       </span>
-      <span className="trackrow__title">{track.title}</span>
+      <span className="trackrow__title" role="gridcell">
+        <span className="trackrow__titletext">{track.title}</span>
+        {/* Phones drop the artist/album columns; this second line keeps
+            "who and from what" under the title instead (hidden — visually
+            and to screen readers — wherever the columns show). */}
+        {subline && <span className="trackrow__subline">{subline}</span>}
+      </span>
       {variant !== "album" && (
-        <span className="trackrow__secondary">
+        <span className="trackrow__secondary" role="gridcell">
           {track.artist_id != null ? (
             <Link to={`/artists/${track.artist_id}`} onClick={(e) => e.stopPropagation()}>
               {track.artist}
@@ -356,7 +388,7 @@ export function TrackRow({
         </span>
       )}
       {variant !== "artist" && variant !== "album" && (
-        <span className="trackrow__secondary trackrow__album">
+        <span className="trackrow__secondary trackrow__album" role="gridcell">
           {track.album_id != null ? (
             <Link to={`/albums/${track.album_id}`} onClick={(e) => e.stopPropagation()}>
               {track.album}
@@ -366,12 +398,33 @@ export function TrackRow({
           )}
         </span>
       )}
-      <span className="trackrow__time">{fmtDuration(track.duration)}</span>
-      <span className="trackrow__heart">
+      <span className="trackrow__time" role="gridcell">
+        <span className="trackrow__duration">{fmtDuration(track.duration)}</span>
+        {/* The keyboard (and plain-pointer) door to the row menu: revealed
+            on hover, on focus, and on the keyboard-cursor row — the same
+            menu right-click and long-press open. */}
+        {onTrackMenu && (
+          <button
+            type="button"
+            className="trackrow__more"
+            aria-label={`More actions for ${track.title}`}
+            aria-haspopup="menu"
+            title="More"
+            onClick={(e) => {
+              e.stopPropagation();
+              const r = e.currentTarget.getBoundingClientRect();
+              onTrackMenu(track, r.left, r.bottom + 4);
+            }}
+          >
+            <IconEllipsis size={15} />
+          </button>
+        )}
+      </span>
+      <span className="trackrow__heart" role="gridcell">
         <button
           type="button"
           className={`trackrow__heartbtn${track.favorite ? " trackrow__heartbtn--on" : ""}`}
-          aria-label={track.favorite ? "Remove from favorites" : "Add to favorites"}
+          aria-label={track.favorite ? "Remove from Favorites" : "Add to Favorites"}
           title={track.favorite ? "Favorited" : "Favorite"}
           onClick={(e) => {
             e.stopPropagation();
@@ -382,7 +435,7 @@ export function TrackRow({
         </button>
       </span>
       {onRemove && (
-        <span className="trackrow__remove">
+        <span className="trackrow__remove" role="gridcell">
           <button
             type="button"
             className="trackrow__removebtn"
@@ -416,10 +469,13 @@ export function TrackRow({
       data-idx={dataIdx}
       role="presentation"
     >
-      {/* The action lives behind the content; the row slides left over it. */}
-      <span className="trackrow__swipeaction">
+      {/* The action lives behind the content; the row slides left over it.
+          Touch-only: kept out of the accessibility tree and the Tab order
+          (the row's own remove cell and its menu carry the same action). */}
+      <span className="trackrow__swipeaction" aria-hidden="true">
         <button
           type="button"
+          tabIndex={-1}
           className="trackrow__swipedelete"
           onClick={(e) => {
             e.stopPropagation();

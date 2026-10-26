@@ -11,7 +11,11 @@
   display: flex;
   align-items: center;
   gap: 16px;
-  padding: 10px 20px;
+  /* viewport-fit=cover (index.html): the bar grows by the status-bar /
+     notch insets so the installed app is never letterboxed or clipped. */
+  padding: calc(10px + env(safe-area-inset-top, 0px))
+    calc(20px + env(safe-area-inset-right, 0px)) 10px
+    calc(20px + env(safe-area-inset-left, 0px));
   background: var(--bg-canvas);
   border-bottom: 1px solid var(--separator);
 }
@@ -91,14 +95,9 @@
   color: var(--text-secondary);
   white-space: nowrap;
   overflow: hidden;
-  animation: scan-in var(--dur-fast) var(--ease-out);
+  animation: fade-in var(--dur-fast) var(--ease-out);
 }
 
-@keyframes scan-in {
-  from {
-    opacity: 0;
-  }
-}
 
 .topbar__scan-text {
   overflow: hidden;
@@ -194,7 +193,7 @@
   padding: 7px 14px;
   border-radius: 999px;
   background: var(--bg-inset);
-  color: var(--text-tertiary);
+  color: var(--text-muted);
   transition:
     background var(--dur-fast) var(--ease-out),
     box-shadow var(--dur-fast) var(--ease-out);
@@ -204,7 +203,7 @@
    never the accent (chrome is near-monochrome). */
 .topbar__search:focus-within {
   background: var(--bg-active);
-  box-shadow: inset 0 0 0 1px var(--control-border);
+  box-shadow: inset 0 0 0 1px var(--control-border-strong);
 }
 
 /* Text inputs always match :focus-visible, so the global accent ring
@@ -239,7 +238,7 @@
 }
 
 .topbar__input::placeholder {
-  color: var(--text-tertiary);
+  color: var(--text-muted);
 }
 
 .topbar__input::-webkit-search-cancel-button {
@@ -286,7 +285,7 @@
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: var(--text-tertiary);
+  color: var(--text-muted);
 }
 
 .suggest__item {
@@ -340,7 +339,7 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   font-size: var(--text-small);
-  color: var(--text-tertiary);
+  color: var(--text-muted);
 }
 
 .suggest__avatar {
@@ -350,7 +349,7 @@
   border-radius: 50%;
   overflow: hidden;
   background: var(--bg-inset);
-  color: var(--text-tertiary);
+  color: var(--text-muted);
 }
 
 .suggest__avatar .artwork {
@@ -511,7 +510,7 @@
   border-radius: var(--radius-m);
   border: 1px solid var(--separator);
   background: var(--bg-elevated);
-  box-shadow: 0 10px 34px rgba(0, 0, 0, 0.24);
+  box-shadow: var(--shadow-popover);
   transform-origin: top right;
   animation: sheet-in var(--dur-fast) var(--ease-out);
 }

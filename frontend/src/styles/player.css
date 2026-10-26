@@ -12,7 +12,8 @@
   grid-template-columns: minmax(180px, 1.4fr) minmax(0, 1.6fr) minmax(150px, 1.4fr);
   align-items: center;
   gap: 24px;
-  padding: 0 20px;
+  padding: 0 calc(20px + env(safe-area-inset-right, 0px)) 0
+    calc(20px + env(safe-area-inset-left, 0px));
   background: var(--bg-player);
   -webkit-backdrop-filter: blur(var(--player-blur));
   backdrop-filter: blur(var(--player-blur));
@@ -142,15 +143,30 @@
   background: var(--bg-active);
 }
 
+/* The fill alone is a 9% tint — too faint to carry "on" by itself
+   (non-text contrast wants 3:1). A full-ink dot under the glyph is the
+   unambiguous marker, the way Apple Music marks an active mode. */
+.player__btn--active::after {
+  content: "";
+  position: absolute;
+  bottom: -7px;
+  left: 50%;
+  width: 4px;
+  height: 4px;
+  margin-left: -2px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
 .player__btn--active:hover:not(:disabled) {
   color: var(--text-primary);
 }
 
 .player__badge {
   position: absolute;
-  top: -2px;
-  right: -4px;
-  font-size: 8px;
+  top: -4px;
+  right: -5px;
+  font-size: var(--text-caption);
   font-weight: 700;
   line-height: 1;
 }
@@ -187,7 +203,7 @@
   flex: none;
   font-size: var(--text-caption);
   font-variant-numeric: tabular-nums;
-  color: var(--text-tertiary);
+  color: var(--text-muted);
   min-width: 34px;
 }
 
@@ -242,7 +258,8 @@
     /* 4px top inset keeps the row clear of the seek box pinned above it;
        the bottom floor lifts the row clear of the home indicator (the
        bar's own height already includes the safe-area inset). */
-    padding: 4px 12px max(env(safe-area-inset-bottom, 0px), 8px);
+    padding: 4px calc(12px + env(safe-area-inset-right, 0px))
+      max(env(safe-area-inset-bottom, 0px), 8px) calc(12px + env(safe-area-inset-left, 0px));
   }
 
   .player__meta {
@@ -294,6 +311,22 @@
   .player__btn--secondary,
   .player__volume {
     display: none;
+  }
+}
+
+/* Touch: every transport button answers a centered 44px hit area (the
+   44pt floor) whatever its drawn size — 30px on tablets, 36–38px in the
+   phone mini player. The row gaps (18px / 10px) keep neighbours' slop
+   from overlapping. */
+@media (hover: none) and (pointer: coarse) {
+  .player__btn::before {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 44px;
+    height: 44px;
+    transform: translate(-50%, -50%);
   }
 }
 

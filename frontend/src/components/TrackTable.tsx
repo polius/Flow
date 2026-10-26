@@ -7,12 +7,13 @@
    shared useRowDragReorder hook — optimistic, with the server call as
    the source of truth. */
 
-import { useEffect, useRef, useState } from "react";
-import type { KeyboardEvent as ReactKeyboardEvent } from "react";
+import { useEffect, useId, useRef, useState } from "react";
+import type { KeyboardEvent as ReactKeyboardEvent, ReactNode } from "react";
 
 import type { QueueOrigin, Track } from "../api/types";
 import { useSetFavoriteMany, useToggleFavorite } from "../api/mutations";
-import { useRowCursor } from "../lib/rowCursor";
+import { announce } from "../lib/announce";
+import { rowMenuPoint, useRowCursor } from "../lib/rowCursor";
 import { useRowDragReorder } from "../lib/rowDrag";
 import { useTrackSelection } from "../lib/selection";
 import { isInteractiveControl } from "../lib/shortcuts";
@@ -41,6 +42,11 @@ interface TrackTableProps {
       instead, the way the playing row already does. One prop, not a
       fork of the table. */
   hideIndex?: boolean;
+  /** The column head (a <TrackTableHead>), rendered as the grid's first
+      row so its columnheaders name the cells below. */
+  head?: ReactNode;
+  /** What this list is, for screen readers: "Songs on Afterglow". */
+  label?: string;
 }
 
 export function TrackTable({
@@ -51,8 +57,14 @@ export function TrackTable({
   onMove,
   onRemoveTrack,
   hideIndex,
+  head,
+  label = "Songs",
 }: TrackTableProps) {
   const tableRef = useRef<HTMLDivElement>(null);
+  // Row ids for aria-activedescendant; the head (when present) is row 1.
+  const gridId = useId();
+  const rowId = (index: number) => `${gridId}-row-${index}`;
+  const rowIndexBase = head != null ? 2 : 1;
 
   // Swipe-to-remove: one revealed row at a time, per table.
   const [openSwipeId, setOpenSwipeId] = useState<number | null>(null);
@@ -72,10 +84,23 @@ export function TrackTable({
     if (track != null && track.id === current?.id) return;
     play(index);
   };
-  const { cursor, onKeyDown: onCursorKeyDown } = useRowCursor(
-    tracks.length,
-    activateAt,
-  );
+  const reorderable = (variant === "playlist" || variant === "album") && onMove != null;
+  const { cursor, onKeyDown: onCursorKeyDown } = useRowCursor(tracks.length, activateAt, {
+    // Shift+F10 / ContextMenu: the same menu right-click opens.
+    onMenu: (index) => {
+      const track = tracks[index];
+      if (!track) return;
+      const { x, y } = rowMenuPoint(tableRef.current, index);
+      trackMenu(track, x, y);
+    },
+    // Alt+↑/↓: the drag-free reorder (WCAG 2.5.7), the queue's grammar.
+    onMove: reorderable
+      ? (from, to) => {
+          onMove?.(from, to);
+          announce(`${tracks[from]?.title ?? "Song"} moved to position ${to + 1}.`);
+        }
+      : undefined,
+  });
   /* While a selection is live, Enter plays the last-selected row (in
      the table's whole context). Everything else, cursor included,
      belongs to the cursor grammar. */
@@ -168,8 +193,6 @@ export function TrackTable({
      arc; the table only wears its states. Album rows have no swipe wrapper,
      so their displacement rides the row itself via `style`. */
 
-  const reorderable = (variant === "playlist" || variant === "album") && onMove != null;
-
   const { drag, offsetFor, handlers } = useRowDragReorder({
     containerRef: tableRef,
     enabled: reorderable,
@@ -187,6 +210,9 @@ export function TrackTable({
       hideIndex={hideIndex}
       isCurrent={current?.id === track.id}
       isPlaying={isPlaying}
+      rowId={rowId(index)}
+      ariaRowIndex={index + rowIndexBase}
+      selected={selection.ids.has(track.id)}
       extraClassName={
         [
           drag?.from === index ? "trackrow--dragging" : "",
@@ -224,21 +250,44 @@ export function TrackTable({
     />
   ));
 
+  /* The grid: ONE focusable element holding the head row and the body.
+     Focus stays on it while the cursor moves; aria-activedescendant names
+     the cursor row so a screen reader follows the arrows. A keyboard
+     ContextMenu press on the grid itself (no row control focused) opens
+     the cursor row's menu instead of the browser's. */
   return (
     <>
       <div
-        ref={tableRef}
-        className={`tracktable tracktable--${variant}${reorderable ? " tracktable--reorderable" : ""}${drag ? " tracktable--dragging" : ""}`}
-        role="table"
-        aria-label="Tracks"
+        className="tracklist"
+        role="grid"
+        aria-label={label}
+        aria-rowcount={tracks.length + rowIndexBase - 1}
+        aria-activedescendant={cursor != null ? rowId(cursor) : undefined}
+        aria-multiselectable={true}
         tabIndex={0}
         onKeyDown={onTableKeyDown}
-        {...handlers}
-        // Native image/link drag would hijack the press — the table's only
-        // drag is the reorder gesture.
-        onDragStart={(e) => e.preventDefault()}
+        onContextMenu={(e) => {
+          if (e.target !== e.currentTarget) return;
+          e.preventDefault();
+          if (cursor != null) {
+            const track = tracks[cursor];
+            const { x, y } = rowMenuPoint(tableRef.current, cursor);
+            if (track) trackMenu(track, x, y);
+          }
+        }}
       >
-        {rows}
+        {head}
+        <div
+          ref={tableRef}
+          className={`tracktable tracktable--${variant}${reorderable ? " tracktable--reorderable" : ""}${drag ? " tracktable--dragging" : ""}`}
+          role="rowgroup"
+          {...handlers}
+          // Native image/link drag would hijack the press — the table's only
+          // drag is the reorder gesture.
+          onDragStart={(e) => e.preventDefault()}
+        >
+          {rows}
+        </div>
       </div>
       {selectionBar}
     </>

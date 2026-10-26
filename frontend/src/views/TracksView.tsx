@@ -10,6 +10,7 @@ import { SortMenu, type SortOption } from "../components/SortMenu";
 import { TrackTableHead, type TrackSortKey } from "../components/TrackTableHead";
 import { VirtualTrackTable } from "../components/VirtualTrackTable";
 import { EmptyState } from "../components/EmptyState";
+import { ErrorState } from "../components/ErrorState";
 import { LoadingState } from "../components/LoadingState";
 import { useReviewCount } from "../components/ReviewStrip";
 import { IconOrganize, IconTracks } from "../components/icons";
@@ -194,10 +195,10 @@ export function TracksView() {
             {/* In flight, an empty fixed-height slot — never a formatted
                 zero: a fresh visit (or a genre/filter switch) must not
                 flash "0 songs" before the count is measured. */}
-            {query.isPending
+            {query.data === undefined
               ? "\u00A0"
               : genreName
-                ? `${fmtCount(total)} ${total === 1 ? "track" : "tracks"} in “${genreName}”`
+                ? `${fmtCount(total)} ${total === 1 ? "song" : "songs"} in “${genreName}”`
                 : q
                   ? `${fmtCount(total)} ${total === 1 ? "match" : "matches"} for “${q}”`
                   : `${fmtCount(total)} ${total === 1 ? "song" : "songs"}`}
@@ -210,7 +211,7 @@ export function TracksView() {
             value={sort}
             dir={dir}
             onChange={(key, nextDir) => onSort(key as TrackSortKey, nextDir)}
-            label="Sort tracks"
+            label="Sort songs"
           />
           <button
             type="button"
@@ -229,12 +230,14 @@ export function TracksView() {
           </button>
         </div>
       </div>
-      {query.isPending ? (
+      {query.data === undefined && query.isError ? (
+        <ErrorState what="your songs" retry={query.refetch} />
+      ) : query.isPending ? (
         <LoadingState variant="rows" />
       ) : tracks.length === 0 ? (
         <EmptyState
           icon={<IconTracks size={26} />}
-          title={q ? `No tracks match “${q}”` : "No tracks yet"}
+          title={q ? `No songs match “${q}”` : "No songs yet"}
           hint={
             q
               ? "Try a different word, or search everything from the Search view."
@@ -243,8 +246,9 @@ export function TracksView() {
         />
       ) : (
         <>
-          <TrackTableHead sort={sort} dir={dir} onSort={onSort} />
           <VirtualTrackTable
+            head={<TrackTableHead sort={sort} dir={dir} onSort={onSort} />}
+            label={genreName ? `Songs in ${genreName}` : q ? `Songs matching “${q}”` : "All songs"}
             tracks={tracks}
             onNearEnd={handleNearEnd}
             onPlay={playFromHere}

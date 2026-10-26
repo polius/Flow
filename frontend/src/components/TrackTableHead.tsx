@@ -62,39 +62,55 @@ export function TrackTableHead({
     else onSort(key, "asc");
   };
 
+  // Rendered inside the table's grid (the `head` prop), as its first row:
+  // one columnheader per row cell, so every cell has a name. Sortable
+  // columns keep a real <button> INSIDE the columnheader — a button
+  // wearing role=columnheader stops being announced as a button.
   return (
-    <div className={`trackhead trackhead--${variant}`} role="row" style={style}>
-      <span className="trackhead__index" aria-hidden="true">
-        #
+    <div
+      className={`trackhead trackhead--${variant}`}
+      role="row"
+      aria-rowindex={1}
+      style={style}
+    >
+      <span className="trackhead__index" role="columnheader">
+        <span aria-hidden="true">#</span>
+        <span className="sr-only">Number</span>
       </span>
       {VARIANT_COLUMNS[variant].map((key) => {
         const { label, className } = byKey[key];
         return onSort ? (
-          <button
+          <span
             key={key}
-            type="button"
             role="columnheader"
             aria-sort={sort === key ? (dir === "asc" ? "ascending" : "descending") : "none"}
-            className={`trackhead__sort ${className}`}
-            onClick={() => click(key)}
+            className={`trackhead__cell ${className}`}
           >
-            {label}
-            {arrow(key)}
-          </button>
+            <button type="button" className="trackhead__sort" onClick={() => click(key)}>
+              {label}
+              {arrow(key)}
+            </button>
+          </span>
         ) : (
           <span key={key} role="columnheader" className={`trackhead__sort ${className}`}>
             {label}
           </span>
         );
       })}
-      <span className="trackhead__time" aria-hidden="true">
+      <span className="trackhead__time" role="columnheader">
         Time
       </span>
-      <span className="trackhead__heart" aria-hidden="true" />
+      <span className="trackhead__heart" role="columnheader">
+        <span className="sr-only">Favorite</span>
+      </span>
       {/* Playlist rows carry a second hover slot (remove); the head keeps
-          the column honest with an empty span of its own. Own class so the
+          the column honest with a header of its own. Own class so the
           touch sweep can fold it away with the row's slot. */}
-      {variant === "playlist" && <span className="trackhead__remove" aria-hidden="true" />}
+      {variant === "playlist" && (
+        <span className="trackhead__remove" role="columnheader">
+          <span className="sr-only">Remove</span>
+        </span>
+      )}
     </div>
   );
 }

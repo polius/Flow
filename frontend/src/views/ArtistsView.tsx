@@ -4,6 +4,7 @@ import { Link, useSearchParams } from "react-router";
 
 import { api } from "../api/client";
 import { EmptyState } from "../components/EmptyState";
+import { ErrorState } from "../components/ErrorState";
 import { LoadingState } from "../components/LoadingState";
 import { ArtistPortrait } from "../components/ArtistPortrait";
 import { SortMenu, type SortOption } from "../components/SortMenu";
@@ -25,7 +26,7 @@ export function ArtistsView() {
   const sort = SORT_KEYS.has(urlSort) ? urlSort : "name";
   const dir = searchParams.get("dir") === "desc" ? "desc" : "asc";
 
-  const { data } = useQuery({
+  const { data, isError, refetch } = useQuery({
     queryKey: ["artists", q, sort, dir],
     queryFn: async () => {
       const { data } = await api.GET("/api/artists", {
@@ -58,11 +59,13 @@ export function ArtistsView() {
       <div className="view__head">
         <div>
           <h1 className="view__title">Artists</h1>
-          <p className="view__subtitle">
-            {q
-              ? `${fmtCount(total)} ${total === 1 ? "match" : "matches"} for “${q}”`
-              : `${fmtCount(total)} ${total === 1 ? "artist" : "artists"}`}
-          </p>
+          {data !== undefined && (
+            <p className="view__subtitle">
+              {q
+                ? `${fmtCount(total)} ${total === 1 ? "match" : "matches"} for “${q}”`
+                : `${fmtCount(total)} ${total === 1 ? "artist" : "artists"}`}
+            </p>
+          )}
         </div>
         <div className="view__actions">
           <SortMenu
@@ -74,7 +77,9 @@ export function ArtistsView() {
           />
         </div>
       </div>
-      {data === undefined ? (
+      {data === undefined && isError ? (
+        <ErrorState what="artists" retry={refetch} />
+      ) : data === undefined ? (
         <LoadingState variant="rows" />
       ) : artists.length === 0 ? (
         <EmptyState

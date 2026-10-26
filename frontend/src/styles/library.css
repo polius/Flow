@@ -11,19 +11,79 @@
   margin-top: 24px;
 }
 
+/* Home shelves scroll sideways. A horizontal scroller clips vertically
+   too, so the row keeps 48px of headroom for the card's upward "…" menu —
+   pulled back under the section head by an equal negative margin, so the
+   headroom never reads as a gap. The scroller box then overlaps the head;
+   it lets clicks through to it (pointer-events) and the cards take them
+   back. */
 @media (min-width: 641px) {
   .covergrid--home {
     display: flex;
     gap: 0;
-    margin-top: 0;
+    margin-top: -48px;
     padding-top: 48px;
     overflow-x: auto;
+    pointer-events: none;
+  }
+
+  .covergrid--home > * {
+    pointer-events: auto;
   }
 
   .covergrid--home .album-card {
     flex: 0 0 168px;
     margin-right: 20px;
   }
+}
+
+/* Shelf paging: ‹ › in the section head, only where a pointer hovers —
+   touch swipes the row, and phones wrap it into a grid anyway. */
+.libsection__tail {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.shelf__nav {
+  display: none;
+  gap: 6px;
+}
+
+@media (hover: hover) and (min-width: 641px) {
+  .shelf__nav {
+    display: inline-flex;
+  }
+}
+
+.shelf__btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--bg-inset);
+  color: var(--text-secondary);
+  transition: color var(--dur-fast) var(--ease-out),
+    background-color var(--dur-fast) var(--ease-out);
+}
+
+.shelf__btn:hover:not(:disabled) {
+  background: var(--bg-active);
+  color: var(--text-primary);
+}
+
+.shelf__btn:disabled {
+  opacity: 0.4;
+}
+
+.shelf__chev--back {
+  transform: rotate(90deg);
+}
+
+.shelf__chev--fwd {
+  transform: rotate(-90deg);
 }
 
 .album-card {
@@ -48,7 +108,7 @@
   height: auto;
   display: block;
   aspect-ratio: 1;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+  box-shadow: var(--shadow-card);
 }
 
 /* Card art slots must be fluid, but two components hard-code an inline
@@ -243,7 +303,7 @@
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: var(--text-tertiary);
+  color: var(--text-muted);
 }
 
 .detailhead__title {
@@ -312,7 +372,7 @@
 }
 
 .detailhead__artbutton:focus-visible {
-  outline: 2px solid color-mix(in srgb, var(--text-primary) 40%, transparent);
+  outline: 2px solid var(--ring-subtle);
   outline-offset: 2px;
 }
 
@@ -396,7 +456,7 @@
 
 /* The grid's 34px monogram would read as a stamp at 220px. */
 .detailhead__art--round .artistcard__monogram {
-  font-size: 64px;
+  font-size: var(--text-display);
 }
 
 .detailhead__meta {
@@ -582,7 +642,7 @@
   position: relative;
   display: flex;
   justify-content: center;
-  color: var(--text-tertiary);
+  color: var(--text-muted);
   font-variant-numeric: tabular-nums;
 }
 
@@ -637,9 +697,68 @@
 }
 
 .trackrow__time {
+  position: relative;
   text-align: right;
   font-variant-numeric: tabular-nums;
   color: var(--text-secondary);
+}
+
+/* The row's "…" (the keyboard and plain-pointer door to the row menu)
+   overlays the duration: revealed on hover, on its own focus, and on the
+   keyboard-cursor row; the duration steps back while it shows. Touch has
+   long-press and no hover, so the button stays out of the way there. */
+.trackrow__more {
+  position: absolute;
+  top: 50%;
+  right: -4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  margin-top: -13px;
+  border-radius: 50%;
+  color: var(--text-secondary);
+  opacity: 0;
+  transition: opacity var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out);
+}
+
+.trackrow__duration {
+  transition: opacity var(--dur-fast) var(--ease-out);
+}
+
+.trackrow:hover .trackrow__more,
+.trackrow--cursor .trackrow__more,
+.trackrow__more:focus-visible {
+  opacity: 1;
+}
+
+.trackrow:hover .trackrow__duration,
+.trackrow--cursor .trackrow__duration,
+.trackrow__time:focus-within .trackrow__duration {
+  opacity: 0;
+}
+
+.trackrow__more:hover {
+  color: var(--text-primary);
+  background: var(--bg-active);
+}
+
+@media (hover: none) {
+  .trackrow__more {
+    display: none;
+  }
+
+  .trackrow:hover .trackrow__duration,
+  .trackrow--cursor .trackrow__duration {
+    opacity: 1;
+  }
+}
+
+/* The phone second line ("artist · album") — see the phone block below. */
+.trackrow__subline {
+  display: none;
 }
 
 /* Current track — the queue drawer's quiet grammar: a soft
@@ -666,7 +785,7 @@
 /* The keyboard cursor: the Organize grid's exact outline grammar,
    inherited — one visual language for "the row the keyboard is on". */
 .trackrow--cursor {
-  outline: 1.5px solid color-mix(in srgb, var(--text-primary) 35%, transparent);
+  outline: 1.5px solid var(--ring-subtle);
   outline-offset: -1.5px;
 }
 
@@ -744,7 +863,7 @@
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: var(--text-tertiary);
+  color: var(--text-muted);
   text-align: center;
 }
 
@@ -760,7 +879,7 @@
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: var(--text-tertiary);
+  color: var(--text-muted);
   text-align: left;
   transition: color var(--dur-fast) var(--ease-out);
 }
@@ -776,13 +895,20 @@ button.trackhead__sort:hover {
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: var(--text-tertiary);
+  color: var(--text-muted);
   text-align: right;
 }
 
+/* A sortable columnheader wraps its button (the header names the
+   column, the button sorts it); the wrapper is the grid item. */
+.trackhead__cell {
+  display: flex;
+  min-width: 0;
+}
+
 /* The active column reads as ink; its arrow points at the direction. */
-.trackhead__sort[aria-sort="ascending"],
-.trackhead__sort[aria-sort="descending"] {
+.trackhead__cell[aria-sort="ascending"] .trackhead__sort,
+.trackhead__cell[aria-sort="descending"] .trackhead__sort {
   color: var(--text-primary);
 }
 
@@ -818,10 +944,34 @@ button.trackhead__sort:hover {
 
   .trackrow {
     gap: 10px;
+    /* Two lines and the 44pt touch floor: 54px rows (VirtualTrackTable
+       mirrors the number for its fixed-height window). */
+    min-height: 54px;
+  }
+
+  .tracktable--virtual .trackrow {
+    height: 54px;
   }
 
   .trackrow__secondary {
     display: none;
+  }
+
+  /* The columns are gone, so the title cell says who and from what on a
+     second line — a title alone ("Afterglow") is not enough to pick a song. */
+  .trackrow__titletext,
+  .trackrow__subline {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .trackrow__subline {
+    margin-top: 1px;
+    font-size: var(--text-small);
+    font-weight: 400;
+    color: var(--text-secondary);
   }
 
   .trackrow--album,
@@ -976,7 +1126,7 @@ button.trackhead__sort:hover {
 .artistrow__counts {
   font-size: var(--text-small);
   font-weight: 400;
-  color: var(--text-tertiary);
+  color: var(--text-muted);
   font-variant-numeric: tabular-nums;
 }
 
@@ -1032,7 +1182,7 @@ button.trackhead__sort:hover {
   justify-content: center;
   width: 100%;
   height: 100%;
-  font-size: 34px;
+  font-size: var(--text-large-title);
   font-weight: 600;
   letter-spacing: var(--tracking-tight);
   color: var(--text-secondary);
@@ -1055,7 +1205,7 @@ button.trackhead__sort:hover {
   text-overflow: ellipsis;
   white-space: nowrap;
   font-size: var(--text-small);
-  color: var(--text-tertiary);
+  color: var(--text-muted);
   font-variant-numeric: tabular-nums;
 }
 
@@ -1067,7 +1217,7 @@ button.trackhead__sort:hover {
   }
 
   .artistcard__monogram {
-    font-size: 26px;
+    font-size: var(--text-title);
   }
 }
 

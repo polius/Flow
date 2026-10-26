@@ -6,13 +6,15 @@
    sees the canvas scroll and would render a frozen first window with blank
    space below it. */
 
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import type { KeyboardEvent as ReactKeyboardEvent } from "react";
+import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
+import type { KeyboardEvent as ReactKeyboardEvent, ReactNode } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 
 import type { Track } from "../api/types";
 import { useSetFavoriteMany, useToggleFavorite } from "../api/mutations";
-import { useRowCursor } from "../lib/rowCursor";
+import { announce } from "../lib/announce";
+import { useMediaQuery } from "../lib/media";
+import { rowMenuPoint, useRowCursor } from "../lib/rowCursor";
 import { useRowDragReorder } from "../lib/rowDrag";
 import { useTrackSelection } from "../lib/selection";
 import { isInteractiveControl } from "../lib/shortcuts";
@@ -23,8 +25,12 @@ import "../styles/editing.css";
 import { SelectionBar } from "./SelectionBar";
 import { TrackRow } from "./TrackRow";
 
-/* .trackrow: 7px padding × 2 + one 24px line → fixed-height rows by design. */
+/* .trackrow: 7px padding × 2 + one 24px line → fixed-height rows by design.
+   Phones stack title over "artist · album" in a 54px row (library.css
+   mirrors both numbers on .tracktable--virtual .trackrow). */
 const ROW_HEIGHT = 38;
+const ROW_HEIGHT_PHONE = 54;
+const PHONE_MQ = "(max-width: 640px)";
 const OVERSCAN = 12;
 /** Start the next page this many rows before the loaded end runs out. */
 const PREFETCH_ROWS = 200;
@@ -47,6 +53,11 @@ interface VirtualTrackTableProps {
       loaded and the view isn't narrowed by a search filter — a drag
       against a subset would re-point the unshown rows' positions. */
   reorderable?: boolean;
+  /** The column head (a <TrackTableHead>), rendered as the grid's first
+      row so its columnheaders name the cells below. */
+  head?: ReactNode;
+  /** What this list is, for screen readers: "All songs", "Favorite songs". */
+  label?: string;
 }
 
 export function VirtualTrackTable({
@@ -56,8 +67,15 @@ export function VirtualTrackTable({
   contextLoader,
   onMove,
   reorderable = false,
+  head,
+  label = "Songs",
 }: VirtualTrackTableProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const gridId = useId();
+  const rowId = (index: number) => `${gridId}-row-${index}`;
+  const rowIndexBase = head != null ? 2 : 1;
+  const phone = useMediaQuery(PHONE_MQ);
+  const rowHeight = phone ? ROW_HEIGHT_PHONE : ROW_HEIGHT;
   const [scrollEl, setScrollEl] = useState<HTMLElement | null>(null);
   const current = useCurrentTrack();
   const isPlaying = usePlayerStore((s) => s.isPlaying);
@@ -75,9 +93,13 @@ export function VirtualTrackTable({
   const virtualizer = useVirtualizer({
     count: tracks.length,
     getScrollElement: () => scrollEl,
-    estimateSize: () => ROW_HEIGHT,
+    estimateSize: () => rowHeight,
     overscan: OVERSCAN,
   });
+  // Crossing the phone breakpoint changes every row's height: re-measure.
+  useEffect(() => {
+    virtualizer.measure();
+  }, [rowHeight, virtualizer]);
 
   const endIndex = virtualizer.range?.endIndex ?? -1;
   useEffect(() => {
@@ -95,10 +117,25 @@ export function VirtualTrackTable({
     if (track != null && track.id === current?.id) return;
     play(index);
   };
-  const { cursor, onKeyDown: onCursorKeyDown } = useRowCursor(
-    tracks.length,
-    activateAt,
-  );
+  const canDrag = reorderable && onMove != null;
+  const { cursor, onKeyDown: onCursorKeyDown } = useRowCursor(tracks.length, activateAt, {
+    // Shift+F10 / ContextMenu: the same menu right-click opens.
+    onMenu: (index) => openMenuAt(index),
+    // Alt+↑/↓ (Favorites): the drag-free reorder, under the same rule as
+    // the drag — only while the whole list is loaded and unfiltered.
+    onMove: canDrag
+      ? (from, to) => {
+          onMove?.(from, to);
+          announce(`${tracks[from]?.title ?? "Song"} moved to position ${to + 1}.`);
+        }
+      : undefined,
+  });
+  const openMenuAt = (index: number) => {
+    const track = tracks[index];
+    if (!track) return;
+    const { x, y } = rowMenuPoint(containerRef.current, index);
+    trackMenu(track, x, y);
+  };
   useEffect(() => {
     if (cursor == null || cursor < 0 || cursor >= tracks.length) return;
     virtualizer.scrollToIndex(cursor, { align: "auto" });
@@ -183,7 +220,6 @@ export function VirtualTrackTable({
      rides each row's translateY — the virtualizer's `item.start` plus the
      row's drag offset — so parting neighbors and the gap read exactly like
      the playlist table's. */
-  const canDrag = reorderable && onMove != null;
   const { drag, offsetFor, handlers } = useRowDragReorder({
     containerRef,
     enabled: canDrag,
@@ -191,53 +227,73 @@ export function VirtualTrackTable({
     onMove: (from, to) => onMove?.(from, to),
   });
 
+  /* The grid (see TrackTable): one focusable element around the head and
+     the windowed body; aria-rowcount/aria-rowindex tell a screen reader
+     the true size and position even though only ~30 rows exist in the DOM. */
   return (
     <>
       <div
-        ref={containerRef}
-        className={`tracktable tracktable--all tracktable--virtual${
-          canDrag ? " tracktable--reorderable" : ""
-        }${drag ? " tracktable--dragging" : ""}`}
-        role="table"
-        aria-label="Tracks"
+        className="tracklist"
+        role="grid"
+        aria-label={label}
+        aria-rowcount={tracks.length + rowIndexBase - 1}
+        aria-activedescendant={cursor != null ? rowId(cursor) : undefined}
+        aria-multiselectable={true}
         tabIndex={0}
         onKeyDown={onTableKeyDown}
-        style={{ height: virtualizer.getTotalSize() }}
-        {...handlers}
+        onContextMenu={(e) => {
+          if (e.target !== e.currentTarget) return;
+          e.preventDefault();
+          if (cursor != null) openMenuAt(cursor);
+        }}
       >
-        {virtualizer.getVirtualItems().map((item) => {
-          const track = tracks[item.index];
-          if (!track) return null;
-          return (
-            <TrackRow
-              key={track.id}
-              track={track}
-              index={item.index}
-              variant="all"
-              isCurrent={current?.id === track.id}
-              isPlaying={isPlaying}
-              extraClassName={
-                [
-                  cursor === item.index ? "trackrow--cursor" : "",
-                  selection.ids.has(track.id) ? "trackrow--selected" : "",
-                  drag?.from === item.index ? "trackrow--dragging" : "",
-                ]
-                  .filter(Boolean)
-                  .join(" ") || undefined
-              }
-              style={{
-                transform: `translateY(${item.start + offsetFor(item.index)}px)`,
-              }}
-              dataIdx={canDrag ? item.index : undefined}
-              onActivate={play}
-              onTitlePlay={playFromTitle}
-              onTogglePlay={togglePlay}
-              onToggleFavorite={toggleFavorite}
-              onTrackMenu={trackMenu}
-              onSelectClick={selection.onRowClick}
-            />
-          );
-        })}
+        {head}
+        <div
+          ref={containerRef}
+          className={`tracktable tracktable--all tracktable--virtual${
+            canDrag ? " tracktable--reorderable" : ""
+          }${drag ? " tracktable--dragging" : ""}`}
+          role="rowgroup"
+          style={{ height: virtualizer.getTotalSize() }}
+          {...handlers}
+        >
+          {virtualizer.getVirtualItems().map((item) => {
+            const track = tracks[item.index];
+            if (!track) return null;
+            return (
+              <TrackRow
+                key={track.id}
+                track={track}
+                index={item.index}
+                variant="all"
+                isCurrent={current?.id === track.id}
+                isPlaying={isPlaying}
+                rowId={rowId(item.index)}
+                ariaRowIndex={item.index + rowIndexBase}
+                selected={selection.ids.has(track.id)}
+                extraClassName={
+                  [
+                    cursor === item.index ? "trackrow--cursor" : "",
+                    selection.ids.has(track.id) ? "trackrow--selected" : "",
+                    drag?.from === item.index ? "trackrow--dragging" : "",
+                  ]
+                    .filter(Boolean)
+                    .join(" ") || undefined
+                }
+                style={{
+                  transform: `translateY(${item.start + offsetFor(item.index)}px)`,
+                }}
+                dataIdx={canDrag ? item.index : undefined}
+                onActivate={play}
+                onTitlePlay={playFromTitle}
+                onTogglePlay={togglePlay}
+                onToggleFavorite={toggleFavorite}
+                onTrackMenu={trackMenu}
+                onSelectClick={selection.onRowClick}
+              />
+            );
+          })}
+        </div>
       </div>
       {selectionBar}
     </>

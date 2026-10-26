@@ -5,8 +5,10 @@ import { useAuthStatus } from "../api/auth";
 import { ensureScanSync, stopScanSync } from "../api/scanSync";
 import { useGlobalShortcuts } from "../lib/shortcuts";
 import { AddToPlaylistDialog } from "./AddToPlaylistDialog";
+import { Announcer } from "./Announcer";
 import { NowPlaying } from "./NowPlaying";
 import { PlayerBar } from "./PlayerBar";
+import { ShortcutSheet } from "./ShortcutSheet";
 import { TopBar } from "./TopBar";
 import { TrackActionsMenu } from "./TrackActionsMenu";
 import { UndoToast } from "./UndoToast";
@@ -110,6 +112,8 @@ export function AppShell() {
       <TrackActionsMenu />
       <AddToPlaylistDialog />
       <UndoToast />
+      <Announcer />
+      <ShortcutSheet />
       {organizeMounted && (
         <Suspense fallback={null}>
           <OrganizeSheet />
