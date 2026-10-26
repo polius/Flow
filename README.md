@@ -175,7 +175,9 @@ Before a new version upgrades the database, Flow also saves a copy of it in `flo
 docker compose pull && docker compose up -d
 ```
 
-Images are tagged by version (`1.6.0`), minor (`1.6`), and major (`1`), so you can pin `poliuscorp/flow:1` to get fixes but not breaking changes. To roll back, set the previous version's tag in `docker-compose.yml` and run `docker compose up -d` again. Database changes are additive, so the older version still runs on upgraded data. To restore older data instead, stop the container and put back a backup or the automatic pre-upgrade copy.
+Images are tagged by version (`1.6.0`), minor (`1.6`), and major (`1`), so you can pin `poliuscorp/flow:1` to get fixes but not breaking changes. To roll back, set the previous version's tag in `docker-compose.yml` and run `docker compose up -d` again. Database changes are additive, so the older version still runs on upgraded data (you may need to sign in again). To restore older data instead, stop the container and put back a backup or the automatic pre-upgrade copy.
+
+On its first start after an upgrade, Flow re-checks files an older version may have indexed with the wrong format and repairs them in the background. ReplayGain values read from tags are corrected as files are rescanned; to refresh them all at once, run a full rescan with `POST /api/scan?full=1`.
 
 ## Configuration
 
@@ -188,7 +190,7 @@ All settings are optional environment variables.
 | `PUID`, `PGID` | `1000` | User and group the app runs as. They need read access to the music folder. |
 | `FLOW_TRUSTED_PROXIES` | – | Reverse proxy addresses or CIDRs, comma-separated. Client addresses are read from `X-Forwarded-For` for requests from these. |
 | `FLOW_WATCHER` | `auto` | How new files are noticed: `native` (filesystem events), `polling` (periodic checks), or `auto` to choose. Use `polling` if changes go unnoticed, for example on network shares. |
-| `FLOW_POLL_INTERVAL` | – | Seconds between checks in polling mode. Longer intervals let NAS disks spin down. |
+| `FLOW_POLL_INTERVAL` | `60` | Seconds between checks in polling mode. Longer intervals let NAS disks spin down. |
 | `FLOW_WATCH_DEBOUNCE` | `2` | Seconds to wait for file changes to settle before scanning. |
 | `FLOW_REPAIR` | `on` | `off` stops Flow making repaired copies of files whose tags can't be read. |
 | `FLOW_AUTO_HEAL` | `on` | `off` skips the check on start that finds files an older version indexed wrongly and queues them for repair. |
