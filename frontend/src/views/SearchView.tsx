@@ -65,6 +65,7 @@ export function SearchView() {
                 more={{ to: `/tracks?q=${encodeURIComponent(urlQuery)}`, label: "Show all in Tracks" }}
               />
               <TrackTable
+                label={`Songs matching “${urlQuery}”`}
                 tracks={results.tracks}
                 variant="all"
                 // Results lead with the play affordance, not an ordinal — a

@@ -246,8 +246,9 @@ export function TracksView() {
         />
       ) : (
         <>
-          <TrackTableHead sort={sort} dir={dir} onSort={onSort} />
           <VirtualTrackTable
+            head={<TrackTableHead sort={sort} dir={dir} onSort={onSort} />}
+            label={genreName ? `Songs in ${genreName}` : q ? `Songs matching “${q}”` : "All songs"}
             tracks={tracks}
             onNearEnd={handleNearEnd}
             onPlay={playFromHere}

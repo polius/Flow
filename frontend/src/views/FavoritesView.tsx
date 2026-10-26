@@ -260,8 +260,9 @@ export function FavoritesView() {
         />
       ) : (
         <>
-          <TrackTableHead />
           <VirtualTrackTable
+            head={<TrackTableHead />}
+            label="Favorite songs"
             tracks={tracks}
             onNearEnd={handleNearEnd}
             onPlay={playFromHere}

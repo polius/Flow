@@ -201,8 +201,9 @@ export function AlbumDetailView() {
         </div>
       </header>
 
-      <TrackTableHead variant="album" />
       <TrackTable
+        head={<TrackTableHead variant="album" />}
+        label={`Songs on ${album.title}`}
         tracks={album.tracks}
         variant="album"
         origin={{ kind: "album", label: album.title, href: `/albums/${album.id}` }}

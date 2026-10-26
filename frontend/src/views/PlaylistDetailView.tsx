@@ -258,8 +258,9 @@ export function PlaylistDetailView() {
         />
       ) : (
         <>
-          <TrackTableHead variant="playlist" />
           <TrackTable
+            head={<TrackTableHead variant="playlist" />}
+            label={`Songs in ${playlist.name}`}
             tracks={playlist.tracks}
             variant="playlist"
             origin={playlistOrigin}

@@ -711,6 +711,19 @@
   color: var(--text-primary);
 }
 
+/* Touch: the 24px remove disc answers a centered 44px hit area. */
+@media (hover: none) and (pointer: coarse) {
+  .queue__remove::before {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 44px;
+    height: 44px;
+    transform: translate(-50%, -50%);
+  }
+}
+
 /* Time yields to the remove button on hover. */
 .queue__row:hover .queue__time {
   opacity: 0;

@@ -69,6 +69,27 @@
   color: var(--text-primary);
 }
 
+/* Touch: the 26px row buttons keep their look but grow an invisible,
+   centered 44px hit area (the 44pt floor) — the favbtn slop technique,
+   sized absolutely so it never depends on the button's own box. */
+@media (hover: none) and (pointer: coarse) {
+  .trackrow__heartbtn,
+  .trackrow__removebtn {
+    position: relative;
+  }
+
+  .trackrow__heartbtn::before,
+  .trackrow__removebtn::before {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 44px;
+    height: 44px;
+    transform: translate(-50%, -50%);
+  }
+}
+
 /* The action menu's favorite row shows the filled heart at full ink when the
    track is already loved — same state language as the row heart. */
 .trackmenu__heart--on {

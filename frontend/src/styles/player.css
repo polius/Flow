@@ -294,6 +294,22 @@
   }
 }
 
+/* Touch: every transport button answers a centered 44px hit area (the
+   44pt floor) whatever its drawn size — 30px on tablets, 36–38px in the
+   phone mini player. The row gaps (18px / 10px) keep neighbours' slop
+   from overlapping. */
+@media (hover: none) and (pointer: coarse) {
+  .player__btn::before {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 44px;
+    height: 44px;
+    transform: translate(-50%, -50%);
+  }
+}
+
 /* Play/pause glyph crossfade — 150ms ease-out. */
 .transport-glyph {
   position: relative;

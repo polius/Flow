@@ -697,9 +697,68 @@
 }
 
 .trackrow__time {
+  position: relative;
   text-align: right;
   font-variant-numeric: tabular-nums;
   color: var(--text-secondary);
+}
+
+/* The row's "…" (the keyboard and plain-pointer door to the row menu)
+   overlays the duration: revealed on hover, on its own focus, and on the
+   keyboard-cursor row; the duration steps back while it shows. Touch has
+   long-press and no hover, so the button stays out of the way there. */
+.trackrow__more {
+  position: absolute;
+  top: 50%;
+  right: -4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  margin-top: -13px;
+  border-radius: 50%;
+  color: var(--text-secondary);
+  opacity: 0;
+  transition: opacity var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out);
+}
+
+.trackrow__duration {
+  transition: opacity var(--dur-fast) var(--ease-out);
+}
+
+.trackrow:hover .trackrow__more,
+.trackrow--cursor .trackrow__more,
+.trackrow__more:focus-visible {
+  opacity: 1;
+}
+
+.trackrow:hover .trackrow__duration,
+.trackrow--cursor .trackrow__duration,
+.trackrow__time:focus-within .trackrow__duration {
+  opacity: 0;
+}
+
+.trackrow__more:hover {
+  color: var(--text-primary);
+  background: var(--bg-active);
+}
+
+@media (hover: none) {
+  .trackrow__more {
+    display: none;
+  }
+
+  .trackrow:hover .trackrow__duration,
+  .trackrow--cursor .trackrow__duration {
+    opacity: 1;
+  }
+}
+
+/* The phone second line ("artist · album") — see the phone block below. */
+.trackrow__subline {
+  display: none;
 }
 
 /* Current track — the queue drawer's quiet grammar: a soft
@@ -840,9 +899,16 @@ button.trackhead__sort:hover {
   text-align: right;
 }
 
+/* A sortable columnheader wraps its button (the header names the
+   column, the button sorts it); the wrapper is the grid item. */
+.trackhead__cell {
+  display: flex;
+  min-width: 0;
+}
+
 /* The active column reads as ink; its arrow points at the direction. */
-.trackhead__sort[aria-sort="ascending"],
-.trackhead__sort[aria-sort="descending"] {
+.trackhead__cell[aria-sort="ascending"] .trackhead__sort,
+.trackhead__cell[aria-sort="descending"] .trackhead__sort {
   color: var(--text-primary);
 }
 
@@ -878,10 +944,34 @@ button.trackhead__sort:hover {
 
   .trackrow {
     gap: 10px;
+    /* Two lines and the 44pt touch floor: 54px rows (VirtualTrackTable
+       mirrors the number for its fixed-height window). */
+    min-height: 54px;
+  }
+
+  .tracktable--virtual .trackrow {
+    height: 54px;
   }
 
   .trackrow__secondary {
     display: none;
+  }
+
+  /* The columns are gone, so the title cell says who and from what on a
+     second line — a title alone ("Afterglow") is not enough to pick a song. */
+  .trackrow__titletext,
+  .trackrow__subline {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .trackrow__subline {
+    margin-top: 1px;
+    font-size: var(--text-small);
+    font-weight: 400;
+    color: var(--text-secondary);
   }
 
   .trackrow--album,
