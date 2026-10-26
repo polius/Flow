@@ -61,9 +61,7 @@ Then open http://localhost:8080 in your browser.
 
 On first start, a `flow/` folder is created next to the compose file, with a `music/` subfolder where you can add your music files.
 
-> Root-owned host folders (common on NAS) work as-is: the container prepares its data folder on start and then runs unprivileged — no manual `chown` needed.
->
-> The app runs as uid/gid `1000:1000`. If your music belongs to another user (Synology is often `1026:100`, Unraid `99:100`), set `PUID` and `PGID` to match. If the music folder isn't readable, the log says so on start.
+> If your music belongs to another user (Synology is often `1026:100`, Unraid `99:100`), set `PUID` and `PGID` to match. If Flow can't read the music folder, the log says so on start.
 
 ## Adding music
 
