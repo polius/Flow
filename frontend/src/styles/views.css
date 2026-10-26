@@ -134,6 +134,31 @@
   text-decoration-thickness: 2px;
 }
 
+/* The way forward under an empty or error state: Try Again, Back to
+   Albums, Go to Home. */
+.empty-state__action,
+.route-error__actions {
+  margin-top: 20px;
+}
+
+/* The root error page stands alone (the shell may be what failed): it
+   centers itself on the bare canvas. */
+.route-error {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100%;
+  padding: 24px 16px;
+  background: var(--bg-canvas);
+}
+
+.route-error__actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
 /* ---- first-run onboarding --------------------------------------------------
    An empty library is the first thing a new owner sees. The centered hero +
    numbered steps below carry the setup story; 560px is the app's content

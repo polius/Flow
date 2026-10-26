@@ -10,6 +10,7 @@ import type { QueueOrigin } from "../api/types";
 import { VirtualTrackTable } from "../components/VirtualTrackTable";
 import { TrackTableHead } from "../components/TrackTableHead";
 import { EmptyState } from "../components/EmptyState";
+import { ErrorState } from "../components/ErrorState";
 import { LoadingState } from "../components/LoadingState";
 import { IconHeart, IconPlay, IconShuffle } from "../components/icons";
 import { fmtCount } from "../lib/format";
@@ -208,8 +209,8 @@ export function FavoritesView() {
             {/* While the query is in flight the nbsp holds the line box — no
                 layout shift, and no "0 songs" flash before the count is
                 measured. */}
-            {query.isPending
-              ? "\u00A0"
+            {query.data === undefined
+              ?"\u00A0"
               : q
                 ? `${fmtCount(total)} ${total === 1 ? "match" : "matches"} for “${q}”`
                 : `${fmtCount(total)} ${total === 1 ? "song" : "songs"} you’ve loved`}
@@ -243,7 +244,9 @@ export function FavoritesView() {
           )}
         </div>
       </div>
-      {query.isPending ? (
+      {query.data === undefined && query.isError ? (
+        <ErrorState what="your favorites" retry={query.refetch} />
+      ) : query.isPending ? (
         <LoadingState variant="rows" />
       ) : tracks.length === 0 ? (
         <EmptyState

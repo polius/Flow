@@ -10,6 +10,7 @@ import { SortMenu, type SortOption } from "../components/SortMenu";
 import { TrackTableHead, type TrackSortKey } from "../components/TrackTableHead";
 import { VirtualTrackTable } from "../components/VirtualTrackTable";
 import { EmptyState } from "../components/EmptyState";
+import { ErrorState } from "../components/ErrorState";
 import { LoadingState } from "../components/LoadingState";
 import { useReviewCount } from "../components/ReviewStrip";
 import { IconOrganize, IconTracks } from "../components/icons";
@@ -229,12 +230,14 @@ export function TracksView() {
           </button>
         </div>
       </div>
-      {query.isPending ? (
+      {query.data === undefined && query.isError ? (
+        <ErrorState what="your songs" retry={query.refetch} />
+      ) : query.isPending ? (
         <LoadingState variant="rows" />
       ) : tracks.length === 0 ? (
         <EmptyState
           icon={<IconTracks size={26} />}
-          title={q ? `No tracks match “${q}”` : "No tracks yet"}
+          title={q ? `No songs match “${q}”` : "No songs yet"}
           hint={
             q
               ? "Try a different word, or search everything from the Search view."

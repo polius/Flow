@@ -11,19 +11,79 @@
   margin-top: 24px;
 }
 
+/* Home shelves scroll sideways. A horizontal scroller clips vertically
+   too, so the row keeps 48px of headroom for the card's upward "…" menu —
+   pulled back under the section head by an equal negative margin, so the
+   headroom never reads as a gap. The scroller box then overlaps the head;
+   it lets clicks through to it (pointer-events) and the cards take them
+   back. */
 @media (min-width: 641px) {
   .covergrid--home {
     display: flex;
     gap: 0;
-    margin-top: 0;
+    margin-top: -48px;
     padding-top: 48px;
     overflow-x: auto;
+    pointer-events: none;
+  }
+
+  .covergrid--home > * {
+    pointer-events: auto;
   }
 
   .covergrid--home .album-card {
     flex: 0 0 168px;
     margin-right: 20px;
   }
+}
+
+/* Shelf paging: ‹ › in the section head, only where a pointer hovers —
+   touch swipes the row, and phones wrap it into a grid anyway. */
+.libsection__tail {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.shelf__nav {
+  display: none;
+  gap: 6px;
+}
+
+@media (hover: hover) and (min-width: 641px) {
+  .shelf__nav {
+    display: inline-flex;
+  }
+}
+
+.shelf__btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--bg-inset);
+  color: var(--text-secondary);
+  transition: color var(--dur-fast) var(--ease-out),
+    background-color var(--dur-fast) var(--ease-out);
+}
+
+.shelf__btn:hover:not(:disabled) {
+  background: var(--bg-active);
+  color: var(--text-primary);
+}
+
+.shelf__btn:disabled {
+  opacity: 0.4;
+}
+
+.shelf__chev--back {
+  transform: rotate(90deg);
+}
+
+.shelf__chev--fwd {
+  transform: rotate(-90deg);
 }
 
 .album-card {

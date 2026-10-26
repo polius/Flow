@@ -1,4 +1,4 @@
-import { createBrowserRouter, useNavigate } from "react-router";
+import { createBrowserRouter, useNavigate, type RouteObject } from "react-router";
 
 import { AppShell } from "./components/AppShell";
 import { AlbumDetailView } from "./views/AlbumDetailView";
@@ -8,6 +8,7 @@ import { ArtistsView } from "./views/ArtistsView";
 import { FavoritesView } from "./views/FavoritesView";
 import { HomeView } from "./views/HomeView";
 import { LoginView } from "./views/LoginView";
+import { NotFoundView, RouteErrorView } from "./views/NotFoundView";
 import { PlaylistDetailView } from "./views/PlaylistDetailView";
 import { PlaylistsView } from "./views/PlaylistsView";
 import { SearchView } from "./views/SearchView";
@@ -28,12 +29,17 @@ function OrganizeRedirect() {
   return null;
 }
 
-export const router = createBrowserRouter([
+/* The route table, exported bare so tests can mount it in a memory router.
+   Both top-level routes carry the root errorElement: a render error
+   anywhere below lands on a calm page with a reload, never on the
+   router's developer screen. */
+export const routes: RouteObject[] = [
   // Sign-in stands alone: no shell, no nav, nothing to interact with but
   // the password. It renders only when Login is on (the guard inside).
-  { path: "/login", element: <LoginView /> },
+  { path: "/login", element: <LoginView />, errorElement: <RouteErrorView /> },
   {
     element: <AppShell />,
+    errorElement: <RouteErrorView />,
     children: [
       { path: "/", element: <HomeView /> },
       { path: "/albums", element: <AlbumsView /> },
@@ -49,6 +55,10 @@ export const router = createBrowserRouter([
       { path: "/playlists/:playlistId", element: <PlaylistDetailView /> },
       { path: "/search", element: <SearchView /> },
       { path: "/settings", element: <SettingsView /> },
+      // Anything else is an in-app 404: the shell (player, queue) stays.
+      { path: "*", element: <NotFoundView /> },
     ],
   },
-]);
+];
+
+export const router = createBrowserRouter(routes);

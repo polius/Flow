@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useNavigate, useParams } from "react-router";
+import { Link, useNavigate, useParams } from "react-router";
 
 import { api } from "../api/client";
 import type { PlaylistDetail as PlaylistDetailT, QueueOrigin, Track } from "../api/types";
@@ -16,6 +16,7 @@ import { AddTracksDialog } from "../components/AddTracksDialog";
 import { CollectionActions } from "../components/CollectionActions";
 import { CoverEdit } from "../components/CoverEdit";
 import { EmptyState } from "../components/EmptyState";
+import { ErrorState } from "../components/ErrorState";
 import { InlineEdit } from "../components/InlineEdit";
 import { LoadingState } from "../components/LoadingState";
 import { IconPlaylists, IconPlus, IconTrash } from "../components/icons";
@@ -80,26 +81,42 @@ export function PlaylistDetailView() {
   const [adding, setAdding] = useState(false);
   const queryClient = useQueryClient();
 
-  const { data: playlist } = useQuery({
+  const { data: playlist, isError, refetch } = useQuery({
     queryKey: ["playlist", playlistId],
     queryFn: async () => {
       const { data, response } = await api.GET("/api/playlists/{playlist_id}", {
         params: { path: { playlist_id: playlistId } },
       });
-      if (!response.ok) return null;
+      // Only a 404 means "not found"; anything else is retryable.
+      if (response.status === 404) return null;
+      if (!response.ok) throw new Error(`playlist ${playlistId}: HTTP ${response.status}`);
       return data;
     },
     enabled: Number.isFinite(playlistId),
   });
 
-  if (playlist === null) {
+  if (playlist === null || !Number.isFinite(playlistId)) {
     return (
       <section className="view">
         <EmptyState
           icon={<IconPlaylists size={26} />}
           title="Playlist not found"
           hint="It may have been deleted."
+          action={
+            <Link to="/playlists" className="btn empty-state__action">
+              Back to Playlists
+            </Link>
+          }
+          headingLevel={1}
         />
+      </section>
+    );
+  }
+
+  if (playlist === undefined && isError) {
+    return (
+      <section className="view">
+        <ErrorState what="this playlist" retry={refetch} />
       </section>
     );
   }

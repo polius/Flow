@@ -14,6 +14,7 @@ import { Artwork } from "../components/Artwork";
 import { CollectionActions } from "../components/CollectionActions";
 import { CoverEdit } from "../components/CoverEdit";
 import { EmptyState } from "../components/EmptyState";
+import { ErrorState } from "../components/ErrorState";
 import { LoadingState } from "../components/LoadingState";
 import { IconAlbums, IconArtists } from "../components/icons";
 import { coverChangeNotice, coverRemovalNotice } from "../lib/coverUndo";
@@ -33,26 +34,43 @@ export function AlbumDetailView() {
   const updateAlbum = useUpdateAlbum();
   const showUndoNotice = useUiStore((s) => s.showUndoNotice);
 
-  const { data: album } = useQuery({
+  const { data: album, isError, refetch } = useQuery({
     queryKey: ["album", albumId],
     queryFn: async () => {
       const { data, response } = await api.GET("/api/albums/{album_id}", {
         params: { path: { album_id: albumId } },
       });
-      if (!response.ok) return null;
+      // Only a 404 means "not found"; any other failure is an error the
+      // view offers to retry — a 500 must not claim the album is gone.
+      if (response.status === 404) return null;
+      if (!response.ok) throw new Error(`album ${albumId}: HTTP ${response.status}`);
       return data;
     },
     enabled: Number.isFinite(albumId),
   });
 
-  if (album === null) {
+  if (album === null || !Number.isFinite(albumId)) {
     return (
       <section className="view">
         <EmptyState
           icon={<IconAlbums size={26} />}
           title="Album not found"
           hint="It may have been removed during a library rescan."
+          action={
+            <Link to="/albums" className="btn empty-state__action">
+              Back to Albums
+            </Link>
+          }
+          headingLevel={1}
         />
+      </section>
+    );
+  }
+
+  if (album === undefined && isError) {
+    return (
+      <section className="view">
+        <ErrorState what="this album" retry={refetch} />
       </section>
     );
   }
@@ -74,7 +92,7 @@ export function AlbumDetailView() {
       album.artist
     ),
     album.year != null ? album.year : null,
-    `${album.track_count} track${album.track_count === 1 ? "" : "s"}`,
+    `${album.track_count} song${album.track_count === 1 ? "" : "s"}`,
     fmtMinutes(album.duration_total),
   ].filter(Boolean);
 

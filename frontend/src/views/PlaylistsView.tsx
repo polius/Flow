@@ -10,6 +10,7 @@ import {
 import { CreatePlaylistDialog } from "../components/CreatePlaylistDialog";
 import { AddTracksDialog } from "../components/AddTracksDialog";
 import { EmptyState } from "../components/EmptyState";
+import { ErrorState } from "../components/ErrorState";
 import { LoadingState } from "../components/LoadingState";
 import {
   IconEllipsis,
@@ -30,7 +31,7 @@ import "../styles/editing.css";
 export function PlaylistsView() {
   const [creating, setCreating] = useState(false);
 
-  const { data } = useQuery({
+  const { data, isError, refetch } = useQuery({
     queryKey: ["playlists"],
     queryFn: async () => {
       const { data } = await api.GET("/api/playlists", { params: { query: { limit: 1000 } } });
@@ -45,9 +46,11 @@ export function PlaylistsView() {
       <header className="view__head">
         <div>
           <h1 className="view__title">Playlists</h1>
-          <p className="view__subtitle">
-            {fmtCount(playlists.length)} {playlists.length === 1 ? "playlist" : "playlists"}
-          </p>
+          {data !== undefined && (
+            <p className="view__subtitle">
+              {fmtCount(playlists.length)} {playlists.length === 1 ? "playlist" : "playlists"}
+            </p>
+          )}
         </div>
         <button
           type="button"
@@ -60,7 +63,9 @@ export function PlaylistsView() {
 
       {creating && <CreatePlaylistDialog onClose={() => setCreating(false)} />}
 
-      {data === undefined ? (
+      {data === undefined && isError ? (
+        <ErrorState what="playlists" retry={refetch} />
+      ) : data === undefined ? (
         <LoadingState variant="grid" />
       ) : playlists.length === 0 ? (
         <EmptyState

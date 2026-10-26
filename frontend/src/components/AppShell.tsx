@@ -5,6 +5,7 @@ import { useAuthStatus } from "../api/auth";
 import { ensureScanSync } from "../api/scanSync";
 import { useGlobalShortcuts } from "../lib/shortcuts";
 import { AddToPlaylistDialog } from "./AddToPlaylistDialog";
+import { Announcer } from "./Announcer";
 import { GetInfoPanel } from "./GetInfoPanel";
 import { NowPlaying } from "./NowPlaying";
 import { OrganizeSheet } from "./OrganizeSheet";
@@ -76,6 +77,7 @@ export function AppShell() {
       <TrackActionsMenu />
       <AddToPlaylistDialog />
       <UndoToast />
+      <Announcer />
       <OrganizeSheet />
       <NowPlaying />
     </div>
