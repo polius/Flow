@@ -1,5 +1,5 @@
 # Runtime dependencies only — pinned for reproducible images.
-fastapi==0.150.0
+fastapi==0.161.1
 python-multipart==0.0.32
 uvicorn==0.54.0
 mutagen==1.48.1
