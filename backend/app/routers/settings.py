@@ -5,9 +5,10 @@ from __future__ import annotations
 from fastapi import APIRouter, Request
 
 from app import config
+from app.routers.common import TxRoute
 from app.schemas import LibraryCounts, ScanStatus, SettingsOut
 
-router = APIRouter(tags=["settings"])
+router = APIRouter(tags=["settings"], route_class=TxRoute)
 
 
 @router.get("/api/settings", response_model=SettingsOut)

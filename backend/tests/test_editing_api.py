@@ -431,3 +431,136 @@ def test_favorite_patch_leaves_undo_generation_alone(client, library):
     assert client.get(f"/api/tracks/{track['id']}").json()["title"] == "Loose"
     # The favorite rode its own path and is untouched by the metadata undo.
     assert client.get(f"/api/tracks/{track['id']}").json()["favorite"] is True
+
+
+# ---- album artist moves the whole album; undo restores the overlay bits ----
+
+
+def _rescan_all(client, library):
+    import os
+
+    for path in library.rglob("*.mp3"):
+        st = path.stat()
+        os.utime(path, (st.st_atime, st.st_mtime + 5))
+    client.app.state.scanner.run_scan("test")
+
+
+def _user_edited(client, track_id: int) -> int:
+    conn = client.app.state.db.connect()
+    return conn.execute(
+        "SELECT user_edited FROM tracks WHERE id = ?", (track_id,)
+    ).fetchone()["user_edited"]
+
+
+def test_album_artist_edit_keeps_the_album_whole_across_rescans(client, library):
+    """The audit's repro: Get Info sets one track's album artist; the album
+    row moves, and a rescan used to resolve the siblings back by tag and
+    split the album (Pump/Aero ×1 + Pump/Various Artists ×2)."""
+    first, second = _track(client, "First"), _track(client, "Second")
+    client.patch(f"/api/tracks/{first['id']}", json={"album_artist": "Various Artists"})
+
+    sibling = client.get(f"/api/tracks/{second['id']}").json()
+    assert sibling["album_artist"] == "Various Artists"
+    _rescan_all(client, library)
+
+    albums = client.get("/api/albums").json()["items"]
+    pump = [a for a in albums if a["title"] == "Pump"]
+    assert len(pump) == 1
+    assert pump[0]["artist"] == "Various Artists" and pump[0]["track_count"] == 2
+
+    # One undo restores both tracks and the album, unpinned.
+    assert client.post("/api/tracks/bulk/undo").status_code == 200
+    for tid in (first["id"], second["id"]):
+        assert client.get(f"/api/tracks/{tid}").json()["album_artist"] == "Aerosmith"
+        assert _user_edited(client, tid) == 0
+    pump = [a for a in client.get("/api/albums").json()["items"] if a["title"] == "Pump"]
+    assert [a["artist"] for a in pump] == ["Aerosmith"]
+
+
+def test_album_and_album_artist_together_regroup_under_the_new_artist(client, library):
+    """Both fields in one edit: the new album resolves under the NEW album
+    artist, and the old album row stays where it was."""
+    first, second = _track(client, "First"), _track(client, "Second")
+    out = client.patch(
+        f"/api/tracks/{first['id']}",
+        json={"album": "Pump Live", "album_artist": "Various Artists"},
+    ).json()
+    assert out["album"] == "Pump Live"
+    assert out["album_artist"] == "Various Artists"
+
+    albums = {a["title"]: a for a in client.get("/api/albums").json()["items"]}
+    assert albums["Pump Live"]["artist"] == "Various Artists"
+    assert albums["Pump"]["artist"] == "Aerosmith"
+    # Track and album agree; the sibling never moved.
+    assert out["album_id"] == albums["Pump Live"]["id"]
+    assert client.get(f"/api/tracks/{second['id']}").json()["album_id"] == albums["Pump"]["id"]
+
+
+def test_undo_restores_the_previous_overlay_bits(client, library):
+    """Undoing a bulk edit must not leave the tracks pinned against future
+    tag changes."""
+    first, second = _track(client, "First"), _track(client, "Second")
+    client.patch(f"/api/tracks/{first['id']}", json={"title": "Kept edit"})
+    client.post(
+        "/api/tracks/bulk", json={"track_ids": [first["id"], second["id"]], "artist": "Oops"}
+    )
+    client.post("/api/tracks/bulk/undo")
+
+    from app.scanner import Edited
+
+    assert _user_edited(client, first["id"]) == int(Edited.TITLE)
+    assert _user_edited(client, second["id"]) == 0
+    # Tags drive the unpinned track again on the next rescan.
+    _rescan_all(client, library)
+    assert client.get(f"/api/tracks/{second['id']}").json()["artist"] == "Aerosmith"
+    assert client.get(f"/api/tracks/{first['id']}").json()["title"] == "Kept edit"
+
+
+def test_too_large_an_edit_keeps_no_partial_undo(client, library, monkeypatch):
+    from app import apply
+
+    monkeypatch.setattr(apply, "UNDO_LIMIT", 1)
+    ids = [_track(client, "First")["id"], _track(client, "Second")["id"]]
+    out = client.post("/api/tracks/bulk", json={"track_ids": ids, "title": "Same"}).json()
+    assert out == {"applied": 2, "undo_available": False}
+    assert client.post("/api/tracks/bulk/undo").status_code == 404
+
+
+def test_title_edits_skip_the_orphan_prune(client, library, monkeypatch):
+    from app.routers import editing
+
+    calls = []
+    monkeypatch.setattr(editing, "prune_orphans", lambda conn: calls.append(1))
+    track = _track(client, "Loose")
+    client.patch(f"/api/tracks/{track['id']}", json={"title": "Renamed"})
+    client.patch(f"/api/tracks/{track['id']}", json={"favorite": True})
+    assert calls == []
+    client.patch(f"/api/tracks/{track['id']}", json={"artist": "Someone"})
+    assert calls == [1]
+
+
+# ---- bulk favorites ----
+
+
+def test_bulk_favorite_and_unfavorite(client, library):
+    ids = [_track(client, t)["id"] for t in ("Second", "First", "Loose")]
+    client.patch(f"/api/tracks/{ids[2]}", json={"favorite": True})
+
+    out = client.post(
+        "/api/favorites/bulk", json={"track_ids": [*ids, 987_654], "favorite": True}
+    )
+    assert out.status_code == 200
+    assert out.json() == {"updated": 2}  # Loose was already loved; unknown ignored
+
+    favs = client.get(
+        "/api/tracks", params={"favorite": True, "sort": "favorite"}
+    ).json()["items"]
+    # Appended after the existing favorite, in the order given.
+    assert [t["id"] for t in favs] == [ids[2], ids[0], ids[1]]
+
+    out = client.post("/api/favorites/bulk", json={"track_ids": ids[:2], "favorite": False})
+    assert out.json() == {"updated": 2}
+    favs = client.get("/api/tracks", params={"favorite": True}).json()["items"]
+    assert [t["id"] for t in favs] == [ids[2]]
+    # Hearts never join the edit undo generation.
+    assert client.get("/api/review/summary").json()["undo_available"] is False

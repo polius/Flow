@@ -48,3 +48,13 @@ REPAIR = os.environ.get("FLOW_REPAIR", "on").strip().lower() not in {"off", "0",
 WATCHER_MODE = os.environ.get("FLOW_WATCHER", "auto")
 POLL_INTERVAL = float(os.environ.get("FLOW_POLL_INTERVAL", "5.0"))
 WATCH_DEBOUNCE = float(os.environ.get("FLOW_WATCH_DEBOUNCE", "2.0"))
+
+# Login bootstrap. FLOW_PASSWORD seeds the login password at boot when none
+# is set (never overwrites one chosen in Settings), so a fresh install isn't
+# open to whoever arrives first. FLOW_RESET_PASSWORD=1 is the recovery path:
+# at boot it clears the password and every session (then FLOW_PASSWORD, if
+# also set, becomes the new password).
+PASSWORD = os.environ.get("FLOW_PASSWORD") or None
+RESET_PASSWORD = os.environ.get("FLOW_RESET_PASSWORD", "").strip().lower() in {
+    "1", "true", "yes", "on",
+}

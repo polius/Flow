@@ -2,18 +2,20 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
-import queue
-from collections.abc import Iterator
+from collections.abc import AsyncIterator
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
+from starlette.concurrency import run_in_threadpool
 
 from app.events import ScanBus
+from app.routers.common import TxRoute
 from app.schemas import ScanErrorEntry, ScanErrorLog
 from app.scanner import LibraryScanner
 
-router = APIRouter(tags=["scan"])
+router = APIRouter(tags=["scan"], route_class=TxRoute)
 
 KEEPALIVE_SECONDS = 15.0
 
@@ -23,24 +25,28 @@ def _sse(event: dict) -> str:
 
 
 @router.get("/api/scan", summary="Scan progress event stream (SSE)")
-def scan_events(request: Request) -> StreamingResponse:
+async def scan_events(request: Request) -> StreamingResponse:
+    """Every app tab holds one of these open, so the stream lives on the
+    event loop and costs no worker thread while it waits — a sync generator
+    parked in a blocking get() held one of the shared pool's 40 threads per
+    tab, and enough tabs froze every endpoint, the healthcheck included."""
     bus: ScanBus = request.app.state.scan_bus
     scanner: LibraryScanner = request.app.state.scanner
 
-    def event_stream() -> Iterator[str]:
-        q = bus.subscribe()
+    async def event_stream() -> AsyncIterator[str]:
+        # Subscribed inside the generator so a client gone before the first
+        # byte never leaves a subscription behind.
+        sub = bus.subscribe(asyncio.get_running_loop())
         try:
-            # Snapshot first, so a page reload shows current state instantly.
-            yield _sse(scanner.current_state_event())
+            # Snapshot first, so a page reload shows current state instantly
+            # (a settings read — off the loop).
+            yield _sse(await run_in_threadpool(scanner.current_state_event))
             while True:
-                try:
-                    event = q.get(timeout=KEEPALIVE_SECONDS)
-                    yield _sse(event)
-                except queue.Empty:
-                    # Comment line keeps proxies from idling out the stream.
-                    yield ": keepalive\n\n"
+                event = await sub.get(KEEPALIVE_SECONDS)
+                # Comment line keeps proxies from idling out the stream.
+                yield _sse(event) if event is not None else ": keepalive\n\n"
         finally:
-            bus.unsubscribe(q)
+            bus.unsubscribe(sub)
 
     return StreamingResponse(
         event_stream(),
@@ -66,8 +72,15 @@ def scan_error_log(request: Request) -> ScanErrorLog:
     summary="Trigger a library rescan",
     status_code=202,
 )
-def trigger_scan(request: Request) -> dict:
+def trigger_scan(
+    request: Request,
+    full: bool = Query(
+        False,
+        description="Re-read every file's tags, not just the ones whose "
+        "size or mtime changed (for taggers that preserve timestamps).",
+    ),
+) -> dict:
     scanner: LibraryScanner = request.app.state.scanner
-    if not scanner.start_scan(trigger="manual"):
+    if not scanner.start_scan(trigger="manual", full=full):
         raise HTTPException(status_code=409, detail="Scan already running")
     return {"state": "scanning"}
