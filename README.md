@@ -166,21 +166,15 @@ server {
 
 ## Backups
 
-Everything Flow creates lives in `flow/data/`: the database (`flow.db`, plus `flow.db-wal` and `flow.db-shm` while it runs) and repaired copies of damaged files. Your music folder is never modified.
+Everything Flow creates lives in `flow/data/`. Your music folder is never modified.
 
-The database is written continuously, so don't copy it while Flow is running. Either stop the container first:
+To back it up, stop the container first, since the database is written while Flow runs:
 
 ```bash
 docker compose stop && cp -a flow/data flow-data-backup && docker compose start
 ```
 
-or take a consistent copy while it runs (needs `sqlite3` on the host):
-
-```bash
-sqlite3 flow/data/flow.db "VACUUM INTO 'flow-backup.db'"
-```
-
-Before a new version upgrades the database, Flow also saves a copy of it in `flow/data/backups/`, keeping the last three.
+Before a new version upgrades the database, Flow also saves a copy in `flow/data/backups/`.
 
 ## Upgrading
 
