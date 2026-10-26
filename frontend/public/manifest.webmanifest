@@ -1,6 +1,7 @@
 {
   "name": "Flow",
   "short_name": "Flow",
+  "id": "/",
   "description": "Your own music, streamed from your own folder. No uploads, no accounts — just your library, played well.",
   "start_url": "/",
   "scope": "/",

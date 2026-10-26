@@ -6,7 +6,7 @@
    password-manager and error wiring (D19). */
 
 import "@testing-library/jest-dom/vitest";
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -29,6 +29,7 @@ vi.mock("../api/queue", () => ({
 import { api } from "../api/client";
 import type { Track } from "../api/types";
 import { ShortcutSheet } from "../components/ShortcutSheet";
+import { initHomeIcon } from "../lib/homeIcon";
 import { usePlayerStore } from "../stores/player";
 import { useUiStore } from "../stores/ui";
 import { LoginView } from "../views/LoginView";
@@ -187,16 +188,63 @@ describe("settings controls", () => {
   it("the theme radiogroup is one Tab stop and the arrows choose", () => {
     useUiStore.setState({ themeMode: "system" });
     render(wrap(<SettingsView />));
-    const radios = screen.getAllByRole("radio");
+    const group = screen.getByRole("radiogroup", { name: "Theme" });
+    const radios = within(group).getAllByRole("radio");
     expect(radios.map((r) => r.tabIndex)).toEqual([0, -1, -1]);
     radios[0].focus();
     act(() => {
       fireEvent.keyDown(radios[0], { key: "ArrowRight" });
     });
     expect(useUiStore.getState().themeMode).toBe("light");
-    expect(document.activeElement).toBe(screen.getByRole("radio", { name: "Light" }));
+    expect(document.activeElement).toBe(within(group).getByRole("radio", { name: "Light" }));
     fireEvent.keyDown(document.activeElement!, { key: "ArrowLeft" });
     fireEvent.keyDown(document.activeElement!, { key: "ArrowLeft" });
     expect(useUiStore.getState().themeMode).toBe("dark");
+  });
+
+  it("Rescan stays incremental; Rescan all asks for a full scan", () => {
+    const post = vi
+      .spyOn(api, "POST")
+      .mockResolvedValue({ data: undefined, response: new Response(null, { status: 202 }) });
+    render(wrap(<SettingsView />));
+    fireEvent.click(screen.getByRole("button", { name: "Rescan" }));
+    expect(post).toHaveBeenLastCalledWith("/api/scan", { parseAs: "text" });
+    const all = screen.getByRole("button", { name: "Rescan all" });
+    expect(all).toHaveAccessibleDescription(/rebuilds repaired copies/);
+    fireEvent.click(all);
+    expect(post).toHaveBeenLastCalledWith("/api/scan", {
+      params: { query: { full: true } },
+      parseAs: "text",
+    });
+  });
+
+  it("the Home Screen icon choice swaps the icon links the phone reads", () => {
+    // Light is the default and comes first; the page ships with its links.
+    expect(useUiStore.getInitialState().homeIcon).toBe("light");
+    useUiStore.setState({ homeIcon: "light" });
+    document.head.insertAdjacentHTML(
+      "beforeend",
+      '<link rel="apple-touch-icon" href="/icons/apple-touch-icon-light.png">' +
+        '<link rel="manifest" href="/manifest-light.webmanifest">',
+    );
+    initHomeIcon();
+    render(wrap(<SettingsView />));
+    const group = screen.getByRole("radiogroup", { name: "Home Screen icon" });
+    expect(group).toHaveAccessibleDescription(/Home Screen/);
+    expect(within(group).getAllByRole("radio").map((r) => r.textContent)).toEqual([
+      "Light",
+      "Dark",
+    ]);
+    const touch = () => document.querySelector('link[rel="apple-touch-icon"]')!.getAttribute("href");
+    const manifest = () => document.querySelector('link[rel="manifest"]')!.getAttribute("href");
+
+    fireEvent.click(within(group).getByRole("radio", { name: "Dark" }));
+    expect(useUiStore.getState().homeIcon).toBe("dark");
+    expect(touch()).toBe("/icons/apple-touch-icon.png");
+    expect(manifest()).toBe("/manifest.webmanifest");
+
+    fireEvent.click(within(group).getByRole("radio", { name: "Light" }));
+    expect(touch()).toBe("/icons/apple-touch-icon-light.png");
+    expect(manifest()).toBe("/manifest-light.webmanifest");
   });
 });

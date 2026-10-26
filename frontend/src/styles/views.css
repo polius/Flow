@@ -453,6 +453,23 @@
     color var(--dur-fast) var(--ease-out);
 }
 
+/* An option with a picture (the Home Screen icon's tiles): the image
+   leads the label, sized to the caption line like an inline glyph. */
+.segmented__item:has(.segmented__img) {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding-left: 6px;
+}
+
+.segmented__img {
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  /* The light tile on a light row needs an edge to read as a tile. */
+  box-shadow: 0 0 0 0.5px var(--separator);
+}
+
 .segmented__item:hover {
   color: var(--text-primary);
 }

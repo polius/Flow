@@ -9,6 +9,9 @@ import type { QueueOrigin, Track } from "../api/types";
 /** "system" follows prefers-color-scheme; light/dark are manual overrides. */
 export type ThemeMode = "system" | "light" | "dark";
 
+/** The tile color of the icon a phone gets from "Add to Home Screen". */
+export type HomeIcon = "dark" | "light";
+
 /** A track action menu request. `origin` is what the queue's "Playing
     from" becomes if the menu's Play starts playback from here.
     `removeFromPlaylist` is set when the row came from a playlist; the
@@ -84,6 +87,9 @@ interface UiState {
   /** Theme override; default follows the OS. */
   themeMode: ThemeMode;
   setThemeMode: (mode: ThemeMode) => void;
+  /** Which app icon this device installs; light is the default. */
+  homeIcon: HomeIcon;
+  setHomeIcon: (icon: HomeIcon) => void;
   /** The undo toast: destructive-but-recoverable actions land here — one
       notice at a time, single-generation. Recoverable notices carry
       `undo`; stream-error skips use the same quiet pill without it. */
@@ -121,6 +127,8 @@ export const useUiStore = create<UiState>()(
       setQueueDragOpen: (queueDragOpen) => set({ queueDragOpen }),
       themeMode: "system",
       setThemeMode: (themeMode) => set({ themeMode }),
+      homeIcon: "light",
+      setHomeIcon: (homeIcon) => set({ homeIcon }),
       undoNotice: null,
       showUndoNotice: (notice) =>
         set({ undoNotice: { ...notice, id: ++undoNonce } }),
@@ -133,6 +141,7 @@ export const useUiStore = create<UiState>()(
       name: "flow.ui",
       partialize: (s) => ({
         themeMode: s.themeMode,
+        homeIcon: s.homeIcon,
       }),
     },
   ),

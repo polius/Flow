@@ -4,6 +4,7 @@ import { createRoot } from "react-dom/client";
 import { RouterProvider } from "react-router";
 
 import { queryClient } from "./api/queryClient";
+import { initHomeIcon } from "./lib/homeIcon";
 import { initTheme } from "./lib/theme";
 import { router } from "./router";
 import "./styles/tokens.css";
@@ -13,6 +14,7 @@ import "./styles/views.css";
 
 // Resolve the theme before the first paint.
 initTheme();
+initHomeIcon();
 
 // The offline shell: registered in production only — dev runs under
 // Vite HMR, where a service worker would only lie about freshness. An

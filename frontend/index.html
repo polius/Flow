@@ -11,8 +11,8 @@
          ramp so the browser chrome matches the app's own tokens. -->
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="alternate icon" type="image/png" href="/icons/icon-192.png" />
-    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
-    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon-light.png" />
+    <link rel="manifest" href="/manifest-light.webmanifest" />
     <meta name="theme-color" media="(prefers-color-scheme: light)" content="#f5f5f7" />
     <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#161618" />
     <!-- The standard name alongside the legacy tag (which stays for
@@ -33,6 +33,15 @@
           ((mode === null || mode === "system") &&
             matchMedia("(prefers-color-scheme: dark)").matches);
         document.documentElement.dataset.theme = dark ? "dark" : "light";
+        // The chosen Home Screen icon — mirrors lib/homeIcon.ts.
+        if (stored.state && stored.state.homeIcon === "dark") {
+          document
+            .querySelector('link[rel="apple-touch-icon"]')
+            .setAttribute("href", "/icons/apple-touch-icon.png");
+          document
+            .querySelector('link[rel="manifest"]')
+            .setAttribute("href", "/manifest.webmanifest");
+        }
       } catch (e) {
         document.documentElement.dataset.theme = "light";
       }
