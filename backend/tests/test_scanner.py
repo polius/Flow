@@ -366,11 +366,11 @@ def test_scan_requested_during_scan_is_queued_not_dropped(music, scanner, monkey
     release = threading.Event()
     real = scanner._reconcile
 
-    def slow_reconcile(trigger, full=False):
+    def slow_reconcile(trigger, full=False, **kwargs):
         runs.append((trigger, full))
         if len(runs) == 1:
             assert release.wait(5)
-        real(trigger, full=full)
+        real(trigger, full=full, **kwargs)
 
     monkeypatch.setattr(scanner, "_reconcile", slow_reconcile)
     make_mp3(music / "01.mp3", title="T")
@@ -393,9 +393,9 @@ def test_queued_scan_interrupts_and_then_resumes_analysis(
     events: list[str] = []
     real = scanner._reconcile
 
-    def recording_reconcile(trigger, full=False):
+    def recording_reconcile(trigger, full=False, **kwargs):
         events.append(f"reconcile:{trigger}")
-        real(trigger, full=full)
+        real(trigger, full=full, **kwargs)
 
     def fake_analyze(path):
         events.append(f"analyze:{path.name}")
@@ -419,6 +419,51 @@ def test_queued_scan_interrupts_and_then_resumes_analysis(
     gains = [r["gain_db"] for r in conn.execute("SELECT gain_db FROM tracks")]
     assert gains == [-3.0, -3.0, -3.0]
     assert scanner.current_state_event()["state"] == "idle"
+
+
+@pytest.mark.parametrize("measurable", [True, False])
+def test_scan_with_analysis_goes_idle_once(music, db, monkeypatch, measurable):
+    """Reconcile → loudness pass is one scan to the UI: an idle between
+    them flashed "Last scan" before "Analyzing audio… 0/1"."""
+    from app.scanner import LibraryScanner
+
+    states: list[tuple[str, str | None]] = []
+
+    class RecordingBus:
+        def publish(self, event: dict) -> None:
+            states.append((event["state"], event["phase"]))
+
+    scanner = LibraryScanner(db, music, RecordingBus())
+    make_mp3(music / "01.mp3", title="T")
+    monkeypatch.setattr("app.scanner.ffmpeg_available", lambda: True)
+    monkeypatch.setattr(
+        "app.scanner.analyze_file", lambda path: -3.0 if measurable else None
+    )
+    scanner.start_scan("manual")
+    _wait_idle(scanner)
+
+    assert [s for s, _ in states].count("idle") == 1
+    assert states[-1] == ("idle", None)
+    assert ("scanning", "analyze") in states
+
+
+def test_scan_without_analysis_still_goes_idle(music, db, monkeypatch):
+    from app.scanner import LibraryScanner
+
+    states: list[str] = []
+
+    class RecordingBus:
+        def publish(self, event: dict) -> None:
+            states.append(event["state"])
+
+    scanner = LibraryScanner(db, music, RecordingBus())
+    make_mp3(music / "01.mp3", title="T")
+    monkeypatch.setattr("app.scanner.ffmpeg_available", lambda: False)
+    scanner.start_scan("manual")
+    _wait_idle(scanner)
+
+    assert states[-1] == "idle"
+    assert states.count("idle") == 1
 
 
 # ---- edits made during a scan win (B5) ----

@@ -8,7 +8,12 @@ import sys
 import threading
 from pathlib import Path
 
-from watchdog.events import FileSystemEvent, FileSystemEventHandler
+from watchdog.events import (
+    EVENT_TYPE_CLOSED_NO_WRITE,
+    EVENT_TYPE_OPENED,
+    FileSystemEvent,
+    FileSystemEventHandler,
+)
 from watchdog.observers import Observer
 from watchdog.observers.polling import PollingObserver
 
@@ -38,6 +43,13 @@ class _DebouncingHandler(FileSystemEventHandler):
         self._schedule = schedule
 
     def on_any_event(self, event: FileSystemEvent) -> None:
+        # Reads change nothing. inotify reports them (watchdog ≥ 2.3), and
+        # Flow reads the library itself — the loudness pass's ffmpeg, the
+        # stream endpoint, a full rescan's tag reads — so treating a read
+        # as a change rescans in a loop (a track ffmpeg can't measure is
+        # re-opened by every pass, forever).
+        if event.event_type in (EVENT_TYPE_OPENED, EVENT_TYPE_CLOSED_NO_WRITE):
+            return
         for path in (event.src_path, getattr(event, "dest_path", None)):
             if not path:
                 continue

@@ -10,6 +10,14 @@ from pathlib import Path
 
 import pytest
 
+from watchdog.events import (
+    FileClosedEvent,
+    FileClosedNoWriteEvent,
+    FileCreatedEvent,
+    FileModifiedEvent,
+    FileOpenedEvent,
+)
+
 import app.watcher as watcher
 from app.watcher import LibraryWatcher, mount_fstype
 from tests.audio_fixtures import make_mp3
@@ -38,6 +46,24 @@ MOUNTINFO = "\n".join(
 )
 def test_mount_fstype(path, fstype):
     assert mount_fstype(Path(path), MOUNTINFO) == fstype
+
+
+@pytest.mark.parametrize(
+    ("event", "schedules"),
+    [
+        (FileOpenedEvent("/m/a.flac"), False),
+        (FileClosedNoWriteEvent("/m/a.flac"), False),
+        (FileModifiedEvent("/m/a.flac"), True),
+        (FileClosedEvent("/m/a.flac"), True),
+        (FileCreatedEvent("/m/.DS_Store"), False),
+    ],
+)
+def test_reads_never_schedule_a_scan(event, schedules):
+    """Flow's own reads (ffmpeg's loudness pass, streaming) arrive as
+    open/close-nowrite events — scheduling on them rescanned in a loop."""
+    calls = []
+    watcher._DebouncingHandler(lambda: calls.append(1)).on_any_event(event)
+    assert bool(calls) is schedules
 
 
 @pytest.mark.parametrize(

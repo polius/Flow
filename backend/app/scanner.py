@@ -261,13 +261,22 @@ class LibraryScanner:
         try:
             while True:
                 try:
-                    self._reconcile(trigger, full=full)
+                    # One idle per run: the reconcile stays "scanning" so
+                    # the UI doesn't flash "Last scan" between it and the
+                    # loudness pass (the UI refreshes its lists when the
+                    # analyze phase starts).
+                    self._reconcile(trigger, full=full, settle=False)
                     # Sound Check pass — after the index is correct, and only
                     # when no follow-up is waiting (the follow-up comes
                     # first; analysis resumes after it). Skips itself when
                     # ffmpeg is absent; yields to a queued scan mid-pass.
-                    if not self._interrupt.is_set():
-                        self._analyze_gains()
+                    if (
+                        not self._interrupt.is_set()
+                        and self._analyze_gains()
+                        and self._state["state"] == "scanning"
+                    ):
+                        # Nothing to analyze: the pass published no idle.
+                        self._set_state(state="idle", phase=None)
                 except Exception:  # noqa: BLE001 - a scan must never take the app down
                     log.exception("Scan crashed")
                     self._recover_after_crash()
@@ -311,7 +320,9 @@ class LibraryScanner:
 
     # -- reconcile ---------------------------------------------------------
 
-    def _reconcile(self, trigger: str, full: bool = False) -> None:
+    def _reconcile(self, trigger: str, full: bool = False, settle: bool = True) -> None:
+        """`settle=False` leaves the published state "scanning" at the end —
+        the scan thread settles it once its loudness pass is done."""
         log.info(
             "Scan started (trigger=%s, full=%s, root=%s)", trigger, full, self._music
         )
@@ -354,7 +365,7 @@ class LibraryScanner:
                 f" — scan skipped removals; {len(db_rows)} tracks kept untouched"
             )
             self._error_log = [{"path": "(library root)", "reason": reason}]
-            self._set_state(state="idle", phase=None, errors=1)
+            self._set_state(**_settled(settle), errors=1)
             conn.execute(
                 "INSERT INTO settings (key, value) VALUES ('scan_mount_guard', '1') "
                 "ON CONFLICT(key) DO UPDATE SET value = '1'"
@@ -535,9 +546,7 @@ class LibraryScanner:
         conn.commit()
         artstore.reset()
         self._sweep_repairs(conn, unindexed)
-        self._set_state(
-            state="idle", phase=None, current=total, total=total, errors=errors
-        )
+        self._set_state(**_settled(settle), current=total, total=total, errors=errors)
         log.info(
             "Scan finished (trigger=%s): %d new/changed, %d moves, %d removed, %d errors",
             trigger, len(new_files) + len(changed), len(moves) + len(retags),
@@ -1015,8 +1024,7 @@ class LibraryScanner:
                 _settings_upsert(conn, "scan_current", str(processed))
             conn.commit()
         log.info("Loudness analysis finished (%d/%d measured)", analyzed, total)
-        # The scan is only done when the UI says so: re-publish idle (the
-        # reconcile phase published its own idle before this pass ran).
+        # The scan is only done when the UI says so.
         errors = self._state["errors"]
         self._persist_finish(conn, errors=errors)
         conn.commit()
@@ -1053,6 +1061,11 @@ class LibraryScanner:
             "items": self._error_log[:ERROR_LOG_LIMIT],
         }
         _settings_upsert(conn, "scan_error_log", json.dumps(payload))
+
+
+def _settled(settle: bool) -> dict:
+    """The closing state fields of a reconcile: idle, or unchanged."""
+    return {"state": "idle", "phase": None} if settle else {}
 
 
 def _float_or_none(value: str | None) -> float | None:
