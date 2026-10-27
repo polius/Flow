@@ -201,6 +201,214 @@ describe("media session", () => {
   });
 });
 
+/* The lock screen's failure modes (seen on iOS): an element that behaves
+   like the real one — play/pause flip `paused` and fire their events —
+   while the clock stays wherever the test leaves it. */
+describe("background playback", () => {
+  let visibility: DocumentVisibilityState = "visible";
+
+  beforeEach(() => {
+    visibility = "visible";
+    Object.defineProperty(document, "visibilityState", {
+      configurable: true,
+      get: () => visibility,
+    });
+  });
+
+  afterEach(() => {
+    Reflect.deleteProperty(document, "visibilityState");
+  });
+
+  function realisticElement(el: HTMLAudioElement) {
+    let paused = true;
+    Object.defineProperty(el, "paused", { configurable: true, get: () => paused });
+    el.play = vi.fn(() => {
+      paused = false;
+      el.dispatchEvent(new Event("play"));
+      return Promise.resolve();
+    });
+    el.pause = vi.fn(() => {
+      if (paused) return;
+      paused = true;
+      el.dispatchEvent(new Event("pause"));
+    });
+    const srcDesc = Object.getOwnPropertyDescriptor(HTMLMediaElement.prototype, "src")!;
+    const srcSets: string[] = [];
+    Object.defineProperty(el, "src", {
+      configurable: true,
+      get(this: HTMLMediaElement): string {
+        return srcDesc.get!.call(this) as string;
+      },
+      set(this: HTMLMediaElement, v: string) {
+        srcSets.push(v);
+        srcDesc.set!.call(this, v);
+      },
+    });
+    return srcSets;
+  }
+
+  function returnToForeground() {
+    visibility = "visible";
+    document.dispatchEvent(new Event("visibilitychange"));
+  }
+
+  it("a stream dropped while paused holds quietly: no reload, no notice", async () => {
+    const { usePlayerStore, useUiStore } = await importPlayer();
+    vi.useFakeTimers();
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const [audio] = elements;
+    const srcSets = realisticElement(audio);
+    usePlayerStore.getState().playTracks([1, 2].map(track), 0);
+    handlers.pause({ action: "pause" }); // the lock screen's Pause
+    usePlayerStore.setState({ position: 42 });
+    visibility = "hidden";
+    const loads = srcSets.length;
+
+    fail(audio, 1); // iOS aborted the paused stream in the background
+    vi.advanceTimersByTime(30_000);
+    window.dispatchEvent(new Event("online"));
+
+    expect(srcSets.length).toBe(loads); // never re-pointed in the background
+    expect(useUiStore.getState().undoNotice).toBeNull();
+    expect(usePlayerStore.getState().isPlaying).toBe(false);
+
+    // The lock screen's Play reloads at the playhead and plays.
+    handlers.play({ action: "play" });
+    expect(srcSets.length).toBe(loads + 1);
+    expect(audio.currentTime).toBe(42);
+    expect(audio.play).toHaveBeenCalledTimes(2);
+  });
+
+  it("returning to the foreground re-primes a quiet hold, still paused", async () => {
+    const { usePlayerStore } = await importPlayer();
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const [audio] = elements;
+    const srcSets = realisticElement(audio);
+    usePlayerStore.getState().playTracks([track(1)], 0);
+    handlers.pause({ action: "pause" });
+    usePlayerStore.setState({ position: 42 });
+    visibility = "hidden";
+    fail(audio, 2);
+    const loads = srcSets.length;
+
+    returnToForeground();
+
+    expect(srcSets.length).toBe(loads + 1);
+    expect(audio.currentTime).toBe(42);
+    expect(audio.play).toHaveBeenCalledTimes(1); // the original start only
+    expect(navigator.mediaSession.playbackState).toBe("paused");
+  });
+
+  it("a frozen play is un-stuck with pause/play on return to the foreground", async () => {
+    const { usePlayerStore } = await importPlayer();
+    vi.useFakeTimers();
+    const [audio] = elements;
+    realisticElement(audio);
+    usePlayerStore.getState().playTracks([track(1)], 0);
+    handlers.pause({ action: "pause" });
+    visibility = "hidden";
+
+    // The lock screen's Play: the element flips to playing, the clock
+    // never moves. Too soon for the background limit to call it.
+    handlers.play({ action: "play" });
+    vi.advanceTimersByTime(5000);
+    expect(audio.pause).toHaveBeenCalledTimes(1);
+
+    returnToForeground();
+
+    // Checked at once: the same pause/play pair the user would tap.
+    expect(audio.pause).toHaveBeenCalledTimes(2);
+    expect(audio.play).toHaveBeenCalledTimes(3);
+    expect(audio.paused).toBe(false);
+
+    // Still frozen after the un-stick: rest paused, honestly.
+    vi.advanceTimersByTime(4000);
+    expect(audio.paused).toBe(true);
+    expect(usePlayerStore.getState().isPlaying).toBe(false);
+    expect(navigator.mediaSession.playbackState).toBe("paused");
+  });
+
+  it("a frozen play in the background rests paused, so the lock screen stops lying", async () => {
+    const { usePlayerStore } = await importPlayer();
+    vi.useFakeTimers();
+    const [audio] = elements;
+    realisticElement(audio);
+    usePlayerStore.getState().playTracks([track(1)], 0);
+    handlers.pause({ action: "pause" });
+    visibility = "hidden";
+
+    handlers.play({ action: "play" });
+    expect(navigator.mediaSession.playbackState).toBe("playing");
+    vi.advanceTimersByTime(11_000);
+
+    expect(audio.paused).toBe(true);
+    expect(usePlayerStore.getState().isPlaying).toBe(false);
+    expect(navigator.mediaSession.playbackState).toBe("paused");
+    // The next Play is a real second attempt.
+    handlers.play({ action: "play" });
+    expect(audio.paused).toBe(false);
+  });
+
+  /* The sequence an iPhone logged: the lock screen's Play is blocked, the
+     background watchdog gives up — and the timers that do it first run as
+     the app comes back, a beat before visibilitychange. */
+  async function blockedPlayGivenUp() {
+    const mod = await importPlayer();
+    vi.useFakeTimers();
+    const [audio] = elements;
+    realisticElement(audio);
+    mod.usePlayerStore.getState().playTracks([track(1)], 0);
+    handlers.pause({ action: "pause" });
+    visibility = "hidden";
+    handlers.play({ action: "play" }); // iOS reports playing; the clock never moves
+    vi.advanceTimersByTime(11_000);
+    expect(audio.paused).toBe(true); // given up, honestly paused
+    return { ...mod, audio };
+  }
+
+  it("opening Flow soon after a blocked lock-screen Play starts the music", async () => {
+    const { usePlayerStore, audio } = await blockedPlayGivenUp();
+    vi.advanceTimersByTime(30_000);
+
+    returnToForeground();
+
+    expect(audio.paused).toBe(false);
+    expect(usePlayerStore.getState().isPlaying).toBe(true);
+  });
+
+  it("opening Flow long after a blocked Play stays paused", async () => {
+    const { audio } = await blockedPlayGivenUp();
+    vi.advanceTimersByTime(3 * 60_000);
+
+    returnToForeground();
+
+    expect(audio.paused).toBe(true);
+  });
+
+  it("a lock-screen Pause after a blocked Play cancels it", async () => {
+    const { audio } = await blockedPlayGivenUp();
+    handlers.pause({ action: "pause" });
+
+    returnToForeground();
+
+    expect(audio.paused).toBe(true);
+  });
+
+  it("a clock that moves is never frozen", async () => {
+    const { usePlayerStore } = await importPlayer();
+    vi.useFakeTimers();
+    const [audio] = elements;
+    realisticElement(audio);
+    usePlayerStore.getState().playTracks([track(1)], 0);
+    for (let t = 1; t <= 20; t++) {
+      audio.currentTime = t;
+      vi.advanceTimersByTime(1000);
+    }
+    expect(audio.pause).not.toHaveBeenCalled();
+    expect(audio.paused).toBe(false);
+  });
+});
+
 describe("async plays", () => {
   it("a request overtaken by a newer play is stale", async () => {
     const { usePlayerStore, beginPlayRequest } = await importPlayer();
