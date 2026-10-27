@@ -488,6 +488,7 @@ export const usePlayerStore = create<PlayerState>()(
 
       togglePlay: () => {
         if (!audio) return;
+        blockedPlayAt = null; // the user acted: nothing left to honor
         const { queue, order, orderPos, position } = get();
         if (queue.length === 0) return;
         const track = queue[order[orderPos]];
@@ -808,7 +809,11 @@ function applyGain(el: HTMLAudioElement | null, track: Track | null): void {
    a shuffle) reaches play() after an await, outside the gesture — so the
    click itself plays a few milliseconds of silence on a virgin element;
    from then on the element is ours. Desktop browsers grant the whole page
-   on the first gesture: nothing to do there but start the graph. */
+   on the first gesture: nothing to do there but start the graph.
+
+   The silence is a blob: URL, never data: — the image's CSP allows
+   `media-src 'self' blob:` only, and a refused data: load failed the
+   unlock (and left the element in an error state) in production. */
 
 let elementUnlocked = false;
 let silentSrc: string | null = null;
@@ -833,7 +838,7 @@ function silentWav(): string {
   view.setUint16(34, 8, true); // bits per sample
   ascii(36, "data");
   view.setUint32(40, samples, true);
-  silentSrc = `data:audio/wav;base64,${btoa(String.fromCharCode(...bytes))}`;
+  silentSrc = URL.createObjectURL(new Blob([bytes], { type: "audio/wav" }));
   return silentSrc;
 }
 
@@ -908,6 +913,7 @@ let intendPlay = false;
 
 function load(track: Track, autoplay: boolean, startAt?: number): void {
   if (!audio || !track) return;
+  blockedPlayAt = null; // a new load supersedes a blocked play
   const src = trackSrc(track);
   loadedSrc = src;
   intendPlay = autoplay;
@@ -1029,9 +1035,11 @@ function setupMediaSession(): void {
     if (audio == null || audio.paused) usePlayerStore.getState().togglePlay();
   });
   handle("pause", () => {
+    blockedPlayAt = null; // a Pause cancels any blocked Play still pending
     if (audio != null && !audio.paused) usePlayerStore.getState().togglePlay();
   });
   handle("stop", () => {
+    blockedPlayAt = null;
     intendPlay = false;
     audio?.pause();
   });
@@ -1173,6 +1181,14 @@ function holdForNetwork(): void {
   audio.pause();
   usePlayerStore.setState({ isPlaying: false });
   syncPositionState();
+  // Nothing was meant to be playing — a pause, then the stream dropped
+  // while the page sat in the background (iOS aborts it there). Nothing
+  // to resume, nothing to announce, and no reload: re-pointing a paused
+  // element in the background resets it, and iOS drops a reset element
+  // from the lock screen ("No content", a dead Play button). The hold
+  // stays, so the next play reloads at the playhead; returning to the
+  // foreground re-primes it (reprimeOnReturn).
+  if (!networkHold.resume) return;
   if (isOffline()) {
     if (first) {
       useUiStore.getState().showUndoNotice({
@@ -1206,6 +1222,131 @@ function resumeFromHold(): void {
   const track = currentTrack();
   if (track == null || trackSrc(track) !== hold.src) return;
   load(track, hold.resume, hold.position);
+}
+
+/** Back in the foreground with a quiet hold (the stream dropped while
+    paused): reload the track at the playhead, still paused, so the element
+    has a source and no error again — what iOS needs to list it on the lock
+    screen. The foreground is the one place a paused reload is safe. */
+function reprimeOnReturn(): void {
+  const hold = networkHold;
+  if (hold == null || hold.resume || hold.src !== loadedSrc) return;
+  const track = currentTrack();
+  if (track == null || trackSrc(track) !== hold.src) return;
+  load(track, false, hold.position);
+}
+
+/* -- frozen playback -----------------------------------------------------------
+   iOS can leave an element "playing" with no sound and a stopped clock: a
+   play that lands while the page is in the background (the lock screen's
+   Play after a pause) flips `paused`, the OS never resumes the audio, and
+   no `waiting` or `error` ever fires. The lock screen extrapolates a moving
+   timer over silence; the app shows Pause over a frozen scrubber. The clock
+   is the only witness: an element that claims to play while its
+   currentTime stands still is frozen. In the foreground a pause/play pair
+   un-sticks it — the same two taps that fix it by hand. In the background
+   (or when the un-stick didn't take) it rests honestly paused, so the
+   lock screen stops lying and its Play gets a real second attempt. The
+   background allows longer: a start there can be slow without being
+   stuck.
+
+   A freeze in the background is iOS refusing to start a paused Home Screen
+   app's audio from the lock screen (WebKit bug 243258): the Play arrives,
+   the element reports playing, and the clock never moves until the app
+   is on screen again. That Play was a real request, so opening Flow soon
+   after honors it — the music starts then. Much later, it stays paused:
+   sound out of nowhere is worse than one tap. */
+
+const FROZEN_CHECK_MS = 1000;
+const FROZEN_AFTER_MS = 3000;
+const FROZEN_HIDDEN_AFTER_MS = 10_000;
+/** How long a Play that iOS blocked in the background is still honored
+    when Flow is opened. */
+const BLOCKED_PLAY_HONOR_MS = 2 * 60_000;
+
+let frozenTimer: number | null = null;
+/** The element's clock at the last check, and when it last moved. */
+let frozenClock = -1;
+let frozenClockMovedAt = 0;
+/** One automatic un-stick per freeze: a second freeze without any
+    progress between rests paused instead of looping. */
+let unstickTried = false;
+/** When the last Play iOS blocked in the background was given up on —
+    null when there is none to honor (or the user has acted since). */
+let blockedPlayAt: number | null = null;
+
+function clearFrozenWatch(): void {
+  if (frozenTimer != null) {
+    window.clearInterval(frozenTimer);
+    frozenTimer = null;
+  }
+}
+
+function armFrozenWatch(el: HTMLAudioElement): void {
+  clearFrozenWatch();
+  frozenClock = el.currentTime;
+  frozenClockMovedAt = Date.now();
+  frozenTimer = window.setInterval(checkFrozen, FROZEN_CHECK_MS);
+}
+
+function checkFrozen(): void {
+  const el = audio;
+  if (el == null || loadedSrc == null || el.paused) {
+    clearFrozenWatch();
+    return;
+  }
+  if (el.currentTime !== frozenClock) {
+    frozenClock = el.currentTime;
+    frozenClockMovedAt = Date.now();
+    unstickTried = false;
+    return;
+  }
+  // Buffering, a failed stream and a network hold have their own paths.
+  if (stallTimer != null || networkHold != null || el.error != null) return;
+  const visible = document.visibilityState === "visible";
+  const limit = visible ? FROZEN_AFTER_MS : FROZEN_HIDDEN_AFTER_MS;
+  if (Date.now() - frozenClockMovedAt < limit) return;
+  frozenClockMovedAt = Date.now();
+  if (visible && !unstickTried) {
+    unstickTried = true;
+    el.pause();
+    void el.play().catch(() => usePlayerStore.setState({ isPlaying: false }));
+    return;
+  }
+  // iOS's timers can fire for the first time as the app comes back, a
+  // beat before visibilitychange says so: a background freeze given up on
+  // here is still honored by onReturnToForeground right after.
+  blockedPlayAt = visible ? null : Date.now();
+  intendPlay = false;
+  el.pause();
+}
+
+/** Opening Flow shortly after iOS blocked a lock-screen Play: play now —
+    the app is on screen, which is what iOS was waiting for. */
+function honorBlockedPlay(): void {
+  const at = blockedPlayAt;
+  blockedPlayAt = null;
+  if (at == null || Date.now() - at > BLOCKED_PLAY_HONOR_MS) return;
+  if (audio == null || !audio.paused || loadedSrc == null || currentTrack() == null) return;
+  intendPlay = true;
+  void audio.play().catch(() => usePlayerStore.setState({ isPlaying: false }));
+}
+
+/** Back in the foreground (or restored from the back-forward cache): the
+    OS may have dropped the lock screen's state while the page was
+    suspended, a quiet hold can re-prime, and a frozen element is checked
+    at once — a background interval may never have run. */
+function onReturnToForeground(): void {
+  recoverGraph();
+  reprimeOnReturn();
+  lastMetadataKey = "";
+  syncMediaSessionMetadata(currentTrack());
+  if (currentTrack() != null) {
+    setPlaybackState(audio != null && !audio.paused ? "playing" : "paused");
+  }
+  syncPositionState();
+  checkFrozen();
+  honorBlockedPlay();
 }
 
 /** Asks the server whether a refused stream was a dead session. */
@@ -1287,6 +1428,7 @@ for (const el of elements()) {
     syncPositionState();
     yieldedToOtherTab = false;
     tabChannel?.postMessage({ type: "playing", tab: TAB_ID });
+    armFrozenWatch(el);
     // A real start is what played_at means: sync the playhead now,
     // not on the 3 s cadence, carrying the track id so the server stamps
     // the right row even while the plan mirror is still in flight.
@@ -1296,6 +1438,8 @@ for (const el of elements()) {
     if (!live()) return;
     clearStallWatch();
     networkRetries = 0; // bytes are flowing again
+    // The clock restarts now: a buffering wait was not a freeze.
+    armFrozenWatch(el);
   });
   el.addEventListener("waiting", () => {
     if (!live() || el.paused) return;
@@ -1304,6 +1448,7 @@ for (const el of elements()) {
   el.addEventListener("pause", () => {
     if (!live()) return;
     clearStallWatch();
+    clearFrozenWatch();
     usePlayerStore.setState({ isPlaying: false });
     setPlaybackState("paused");
     syncPositionState();
@@ -1339,6 +1484,7 @@ for (const el of elements()) {
   el.addEventListener("ended", () => {
     if (!live()) return;
     clearStallWatch();
+    clearFrozenWatch();
     const state = usePlayerStore.getState();
     if (state.sleep?.kind === "track") {
       stopAfterTrack();
@@ -1414,7 +1560,9 @@ for (const el of elements()) {
 
 if (typeof window !== "undefined") {
   window.addEventListener("online", () => {
-    if (networkHold != null) {
+    // A quiet hold (paused when the stream dropped) waits for the next
+    // play or the return to the foreground — never a background reload.
+    if (networkHold?.resume) {
       networkRetries = 0;
       resumeFromHold();
     }
@@ -1703,9 +1851,10 @@ if (typeof window !== "undefined") {
       flushSession();
       return;
     }
-    // Back in the foreground: un-stick a context the OS suspended behind
-    // the page's back (see recoverGraph).
-    recoverGraph();
+    onReturnToForeground();
+  });
+  window.addEventListener("pageshow", (e) => {
+    if (e.persisted) onReturnToForeground();
   });
 }
 

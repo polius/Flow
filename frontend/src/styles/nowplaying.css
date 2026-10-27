@@ -101,6 +101,10 @@
   gap: 24px;
   min-width: 0;
   padding: 64px 44px;
+  /* The stage scrolls vertically only: overflow-y alone computes
+     overflow-x to auto, and any content a few pixels too wide turned the
+     whole stage into a sideways scroller on phones. */
+  overflow-x: hidden;
   overflow-y: auto;
 }
 
@@ -110,16 +114,32 @@
    stage: everything above the controls nudged up the moment a cover
    appeared. Scoped !important is the one way a stylesheet beats an inline
    style; object-fit: cover crops any non-square art rather than
-   distorting it. */
+   distorting it.
+
+   The edge is capped by the stage's width too (100%), not only its
+   height: on a full-height phone (the installed app, where 42vh is ~360px
+   on a 375px-wide screen) a height-only size outgrew the padded stage and
+   the stage scrolled sideways. The height follows the width through
+   aspect-ratio; a browser without it keeps the height-only square. */
 .nowplaying__art {
-  width: min(380px, 42vh) !important;
+  width: min(380px, 42vh, 100%) !important;
   height: min(380px, 42vh) !important;
   box-shadow: 0 22px 60px rgba(0, 0, 0, 0.35);
 }
 
+@supports (aspect-ratio: 1) {
+  .nowplaying__art {
+    height: auto !important;
+    aspect-ratio: 1;
+  }
+}
+
+/* Long unbroken names (a filename-like title) wrap inside the stage
+   instead of pushing it wider. */
 .nowplaying__meta {
   text-align: center;
-  max-width: 640px;
+  max-width: min(640px, 100%);
+  overflow-wrap: anywhere;
 }
 
 .nowplaying__title {
