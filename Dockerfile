@@ -14,7 +14,7 @@ COPY frontend/ ./
 RUN npm run build
 
 # ---- Stage 2: python dependencies -------------------------------------------
-FROM python:3.15-alpine@sha256:d44b1254cb92329418d164b22b20d86bbd3869d48e80e09e476531a409a728bb AS backend
+FROM python:3.15-alpine@sha256:20a82dbc2783112ddb91d1534603f802d222a3e63e593cd002eb2ac534e70211 AS backend
 RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 # requirements.txt is the hashed lock compiled from requirements.in, so
@@ -32,7 +32,7 @@ RUN set -eux; \
     python -m compileall -q -j 0 --invalidation-mode checked-hash /opt/venv/lib
 
 # ---- Stage 3: runtime --------------------------------------------------------
-FROM python:3.15-alpine@sha256:d44b1254cb92329418d164b22b20d86bbd3869d48e80e09e476531a409a728bb AS runtime
+FROM python:3.15-alpine@sha256:20a82dbc2783112ddb91d1534603f802d222a3e63e593cd002eb2ac534e70211 AS runtime
 # tini: PID 1 signal handling. bash: the start script uses `wait -n`
 # and pipefail — kept on real bash for predictability, not busybox ash.
 # ffmpeg: scan-time loudness analysis; its absence degrades gracefully —
