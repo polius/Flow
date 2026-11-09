@@ -39,7 +39,11 @@ FROM python:3.15-alpine@sha256:20a82dbc2783112ddb91d1534603f802d222a3e63e593cd00
 # tracks just play at unity gain.
 # su-exec: start.sh runs as root just long enough to prepare a root-owned
 # bind mount, then re-execs the servers as the unprivileged app user.
-RUN apk add --no-cache nginx tini bash ffmpeg su-exec \
+# apk upgrade: the pinned base image only carries the Alpine packages from
+# the day it was built, and Dependabot can't see them. Upgrading here picks
+# up security fixes without waiting for an upstream rebuild.
+RUN apk upgrade --no-cache \
+ && apk add --no-cache nginx tini bash ffmpeg su-exec \
  && addgroup -g 1000 flow \
  && adduser -D -u 1000 -G flow flow
 
