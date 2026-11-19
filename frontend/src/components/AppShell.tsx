@@ -1,8 +1,9 @@
-import { lazy, Suspense, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Navigate, Outlet, useLocation } from "react-router";
 
 import { useAuthStatus } from "../api/auth";
 import { ensureScanSync, stopScanSync } from "../api/scanSync";
+import { lazyPart } from "../lib/lazyParts";
 import { useGlobalShortcuts } from "../lib/shortcuts";
 import { Announcer } from "./Announcer";
 import { PlayerBar } from "./PlayerBar";
@@ -19,18 +20,10 @@ import "../styles/shell.css";
    open, then stay mounted exactly as before: Organize, Get Info, Now
    Playing (with the queue) and Add to Playlist. Most visits never open
    Organize or Get Info, and none needs Now Playing to show the library. */
-const OrganizeSheet = lazy(() =>
-  import("./OrganizeSheet").then((m) => ({ default: m.OrganizeSheet })),
-);
-const GetInfoPanel = lazy(() =>
-  import("./GetInfoPanel").then((m) => ({ default: m.GetInfoPanel })),
-);
-const NowPlaying = lazy(() =>
-  import("./NowPlaying").then((m) => ({ default: m.NowPlaying })),
-);
-const AddToPlaylistDialog = lazy(() =>
-  import("./AddToPlaylistDialog").then((m) => ({ default: m.AddToPlaylistDialog })),
-);
+const OrganizeSheet = lazyPart(() => import("./OrganizeSheet"), (m) => m.OrganizeSheet);
+const GetInfoPanel = lazyPart(() => import("./GetInfoPanel"), (m) => m.GetInfoPanel);
+const NowPlaying = lazyPart(() => import("./NowPlaying"), (m) => m.NowPlaying);
+const AddToPlaylistDialog = lazyPart(() => import("./AddToPlaylistDialog"), (m) => m.AddToPlaylistDialog);
 
 /** True from the first time `flag` is true: a lazy surface mounts on
     first open and is never torn down again. */
@@ -108,7 +101,6 @@ export function AppShell() {
       <div className="shell__main">
         <TopBar />
         <main ref={canvasRef} className="shell__canvas">
-          <ServerNotice />
           <Outlet />
         </main>
         <PlayerBar />
@@ -125,6 +117,7 @@ export function AppShell() {
         </Suspense>
       )}
       <UndoToast />
+      <ServerNotice />
       <Announcer />
       <ShortcutSheet />
       {organizeMounted && (

@@ -12,12 +12,23 @@ const assets = readdirSync(new URL("assets/", dist))
   .filter((f) => /\.(js|css)$/.test(f))
   .sort()
   .map((f) => `/assets/${f}`);
-const build = createHash("sha256").update(assets.join("\n")).digest("hex").slice(0, 12);
+// The page itself is part of the build: a change to index.html alone is a
+// new build too.
+const build = createHash("sha256")
+  .update(assets.join("\n"))
+  .update(readFileSync(new URL("index.html", dist)))
+  .digest("hex")
+  .slice(0, 12);
 
 const file = new URL("sw.js", dist);
-const stamped = readFileSync(file, "utf8")
-  .replace('"__FLOW_BUILD__"', JSON.stringify(build))
-  .replace('["__FLOW_PRECACHE__"]', JSON.stringify(assets));
-if (stamped.includes("__FLOW_")) throw new Error("sw.js: build placeholders not found");
+const source = readFileSync(file, "utf8");
+const placeholders = ['const BUILD = "__FLOW_BUILD__";', 'const PRECACHE = ["__FLOW_PRECACHE__"];'];
+for (const p of placeholders) {
+  if (!source.includes(p)) throw new Error(`sw.js: placeholder missing: ${p}`);
+}
+if (assets.length === 0) throw new Error("sw.js: the build has no assets to store");
+const stamped = source
+  .replace(placeholders[0], `const BUILD = ${JSON.stringify(build)};`)
+  .replace(placeholders[1], `const PRECACHE = ${JSON.stringify(assets)};`);
 writeFileSync(file, stamped);
 console.log(`sw.js stamped: build ${build}, ${assets.length} files`);

@@ -5,12 +5,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { queryClient } from "../api/queryClient";
-import { checkServer, entryOf, useServerStore } from "../lib/serverWatch";
+import { checkServer, entryOf, useServerStore, watchServer } from "../lib/serverWatch";
 
 const page = (entry: string) =>
   `<!doctype html><html><head><script type="module" crossorigin src="${entry}"></script></head></html>`;
 
-let health: () => Promise<Response>;
+let health: (init?: RequestInit) => Promise<Response>;
 let index: () => Promise<Response>;
 
 beforeEach(() => {
@@ -24,7 +24,7 @@ beforeEach(() => {
   index = () => Promise.resolve(new Response(page("/assets/index-AAAA.js"), { status: 200 }));
   vi.stubGlobal(
     "fetch",
-    vi.fn((url: string) => (url === "/api/health" ? health() : index())),
+    vi.fn((url: string, init?: RequestInit) => (url === "/api/health" ? health(init) : index())),
   );
 });
 
@@ -76,5 +76,21 @@ describe("the server watcher", () => {
     health = () => Promise.resolve(new Response("{}", { status: 200 }));
     await vi.advanceTimersByTimeAsync(5_000);
     expect(useServerStore.getState().down).toBe(false);
+  });
+
+  it("a server that hangs is found out: a request loading for seconds asks, and the ask gives up", async () => {
+    const stop = watchServer();
+    await vi.advanceTimersByTimeAsync(10); // the first look: up
+    expect(useServerStore.getState().down).toBe(false);
+    // Hangs from now on; like a real fetch, it gives up when aborted.
+    health = (init) =>
+      new Promise<Response>((_, reject) =>
+        init?.signal?.addEventListener("abort", () => reject(new DOMException("aborted", "AbortError"))),
+      );
+    queryClient.fetchQuery({ queryKey: ["hangs"], queryFn: () => new Promise(() => {}) }).catch(() => {});
+    await vi.advanceTimersByTimeAsync(6_000 + 5_000 + 10);
+    expect(useServerStore.getState().down).toBe(true);
+    stop();
+    queryClient.clear();
   });
 });

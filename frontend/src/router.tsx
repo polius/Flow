@@ -1,6 +1,7 @@
 import { createBrowserRouter, useNavigate, type RouteObject } from "react-router";
 
 import { AppShell } from "./components/AppShell";
+import { part } from "./lib/lazyParts";
 import { NotFoundView, RouteErrorView } from "./views/NotFoundView";
 import { useEffect, type ComponentType } from "react";
 import { useUiStore } from "./stores/ui";
@@ -21,7 +22,8 @@ function OrganizeRedirect() {
    for the page it opens and not for all twelve (sign-in included). After the first visit
    the service worker holds every chunk, so later switches don't wait. */
 function view<M extends Record<string, unknown>>(load: () => Promise<M>, name: keyof M) {
-  return async () => ({ Component: (await load())[name] as ComponentType });
+  const loader = part(load);
+  return async () => ({ Component: (await loader())[name] as ComponentType });
 }
 
 /* The route table, exported bare so tests can mount it in a memory router.

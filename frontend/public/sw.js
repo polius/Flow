@@ -28,11 +28,15 @@ self.addEventListener("install", (event) => {
     caches
       .open(CACHE)
       .then((cache) =>
-        // "reload": the shell must come from the server, never from an
-        // HTTP cache that may still hold the previous build's page.
-        cache.addAll(
-          [SHELL_URL, OFFLINE_URL, ...PRECACHE].map((url) => new Request(url, { cache: "reload" })),
-        ),
+        cache.addAll([
+          // "reload": the shell must come from the server, never from an
+          // HTTP cache that may still hold the previous build's page.
+          ...[SHELL_URL, OFFLINE_URL].map((url) => new Request(url, { cache: "reload" })),
+          // Hashed assets never change under their name: the copies the
+          // page already fetched (and an upgrade did not rename) come from
+          // the HTTP cache instead of the network a second time.
+          ...PRECACHE,
+        ]),
       )
       .then(() => self.skipWaiting()),
   );
@@ -67,12 +71,19 @@ self.addEventListener("fetch", (event) => {
   }
 });
 
+// A server that hangs (a sleeping NAS, a weak signal) gets this long
+// before the stored shell answers instead.
+const NAVIGATE_TIMEOUT_MS = 5000;
+
 async function navigate(req) {
   try {
-    const res = await fetch(req, { cache: "reload" });
+    const res = await Promise.race([
+      fetch(req, { cache: "reload" }),
+      new Promise((_, reject) => setTimeout(() => reject(new Error("timeout")), NAVIGATE_TIMEOUT_MS)),
+    ]);
     if (res.status < 500) return res;
   } catch {
-    // No answer at all: the stored shell below.
+    // No answer, or none in time: the stored shell below.
   }
   const cache = await caches.open(CACHE);
   return (

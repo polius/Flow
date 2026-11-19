@@ -29,6 +29,8 @@ export const settingsQuery = queryOptions({
   queryKey: ["settings"],
   queryFn: async () => {
     const { data } = await api.GET("/api/settings");
+    // A 5xx has no body: a failed load, not "no settings".
+    if (!data) throw new Error("The server didn't answer");
     return data;
   },
 });

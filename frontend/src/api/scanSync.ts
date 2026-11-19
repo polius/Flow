@@ -22,10 +22,21 @@ function seedFromSettings(): void {
   // catch-up after a reconnect or a hidden spell: events missed while
   // closed are gone. Shares the settings query (a snapshot under two
   // seconds old is used as is), so a page load asks once.
-  void queryClient.fetchQuery({ ...settingsQuery, staleTime: 2000 }).then((data) => {
-    if (data) {
-      const wasScanning = useScanStore.getState().status?.state === "scanning";
-      if (wasScanning && data.scan.state === "idle") invalidateLibrary(queryClient);
+  void queryClient
+    .fetchQuery({ ...settingsQuery, staleTime: 2000 })
+    .then((data) => {
+      // Back from a hidden spell or a reconnect: if the scan moved while
+      // the stream was closed (it started and finished, or the index
+      // became final when the loudness pass began), the lists are stale.
+      const before = useScanStore.getState().status;
+      if (
+        before != null &&
+        (before.finishedAt !== data.scan.finished_at ||
+          before.phase !== data.scan.phase ||
+          before.state !== data.scan.state)
+      ) {
+        invalidateLibrary(queryClient);
+      }
       useScanStore.getState().setStatus({
         state: data.scan.state,
         phase: data.scan.phase,
@@ -35,8 +46,11 @@ function seedFromSettings(): void {
         finishedAt: data.scan.finished_at,
         mountGuard: data.scan.mount_guard,
       });
-    }
-  });
+    })
+    .catch(() => {
+      // No snapshot (the server is away): the stream's own events, or the
+      // next reconnect, bring the state.
+    });
 }
 
 function open(): void {

@@ -10,7 +10,6 @@
    redirect. */
 
 import {
-  lazy,
   Suspense,
   useEffect,
   useMemo,
@@ -24,6 +23,7 @@ import { useQuery } from "@tanstack/react-query";
 import { api } from "../api/client";
 import { useAppVersion } from "../api/system";
 import { useDebouncedValue } from "../lib/debounce";
+import { lazyPart } from "../lib/lazyParts";
 import { fmtCount, scanProgressFraction, scanStatusLabel } from "../lib/format";
 import { useMediaQuery } from "../lib/media";
 import { useScanStore } from "../stores/scan";
@@ -50,9 +50,7 @@ import "../styles/topbar.css";
 const DEBOUNCE_MS = 200;
 
 // The skipped-files list opens from the scan pill: its code loads then.
-const ScanErrorsDialog = lazy(() =>
-  import("./ScanErrors").then((m) => ({ default: m.ScanErrorsDialog })),
-);
+const ScanErrorsDialog = lazyPart(() => import("./ScanErrors"), (m) => m.ScanErrorsDialog);
 
 interface NavEntry {
   to: string;

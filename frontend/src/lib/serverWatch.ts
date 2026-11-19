@@ -16,6 +16,17 @@ import { queryClient } from "../api/queryClient";
 
 export const UP_INTERVAL_MS = 5 * 60_000;
 export const DOWN_INTERVAL_MS = 5_000;
+/** A server that does not answer in this long counts as away (a hung
+    server must not hold the check, and the notice, forever). */
+export const CHECK_TIMEOUT_MS = 5_000;
+/** A request loading longer than this asks whether the server is there. */
+export const SLOW_MS = 6_000;
+
+function timeout(): AbortSignal {
+  const controller = new AbortController();
+  setTimeout(() => controller.abort(), CHECK_TIMEOUT_MS);
+  return controller.signal;
+}
 
 interface ServerState {
   down: boolean;
@@ -37,7 +48,7 @@ function loadedEntry(): string | null {
 
 async function reachable(): Promise<boolean> {
   try {
-    const res = await fetch("/api/health", { cache: "no-store" });
+    const res = await fetch("/api/health", { cache: "no-store", signal: timeout() });
     return res.ok;
   } catch {
     return false;
@@ -46,7 +57,7 @@ async function reachable(): Promise<boolean> {
 
 async function serverEntry(): Promise<string | null> {
   try {
-    const res = await fetch("/", { cache: "no-store" });
+    const res = await fetch("/", { cache: "no-store", signal: timeout() });
     if (!res.ok) return null;
     return entryOf(await res.text());
   } catch {
@@ -91,8 +102,18 @@ export function watchServer(): () => void {
   const onVisible = () => {
     if (document.visibilityState === "visible") now();
   };
+  // A request still loading after a few seconds is the sign of a server
+  // that hangs (a sleeping NAS) rather than one that refuses: ask then.
+  let slow: number | undefined;
   const unsubscribe = queryClient.getQueryCache().subscribe((event) => {
-    if (event.type === "updated" && event.action.type === "error") now();
+    if (event.type !== "updated") return;
+    if (event.action.type === "error") now();
+    if (event.action.type === "fetch") {
+      window.clearTimeout(slow);
+      slow = window.setTimeout(() => {
+        if (queryClient.isFetching() > 0) now();
+      }, SLOW_MS);
+    }
   });
   window.addEventListener("online", now);
   window.addEventListener("offline", now);
@@ -106,5 +127,6 @@ export function watchServer(): () => void {
     window.removeEventListener("focus", now);
     document.removeEventListener("visibilitychange", onVisible);
     window.clearTimeout(timer);
+    window.clearTimeout(slow);
   };
 }
