@@ -342,9 +342,15 @@
 }
 
 /* Settings rows.
-   One left-pinned column: removing the Keyboard section left nothing for
-   a second column — everything shares the first column, flush left, max
-   560px. */
+   One column, max 560px. On a desktop it sits centred, title included: a
+   form this narrow pinned to the left edge left most of the window empty
+   on the right. */
+@media (min-width: 641px) {
+  .view--settings {
+    --view-pad-x: max(40px, calc((100% - 560px) / 2));
+  }
+}
+
 .settings-grid {
   margin-top: 28px;
   display: grid;

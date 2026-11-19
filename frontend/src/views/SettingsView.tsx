@@ -136,7 +136,7 @@ export function SettingsView() {
   const errorCount = scan?.errors ?? 0;
 
   return (
-    <section className="view">
+    <section className="view view--settings">
       <h1 className="view__title">Settings</h1>
       <p className="view__subtitle">Appearance, access, library, and playback.</p>
 
