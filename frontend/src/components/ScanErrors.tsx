@@ -9,22 +9,32 @@ import { useQuery } from "@tanstack/react-query";
 import { api } from "../api/client";
 import { fmtCount } from "../lib/format";
 import { useModalFocus } from "../lib/focus";
+import { useScanStore } from "../stores/scan";
 import { useUiStore } from "../stores/ui";
 import { IconClose, IconSearch } from "./icons";
 import "../styles/views.css";
 
-/** One shared query for the skip log. `live` (a scan in flight) polls —
-    the log grows as the scanner walks the library. */
+/** One shared query for the skip log. While a scan runs (`live`) it
+    refetches when the scan stream reports a new skip count — the log grows
+    as the scanner walks the library — instead of polling on top of it. */
 export function useScanErrors(enabled: boolean, live = false) {
-  return useQuery({
+  const query = useQuery({
     queryKey: ["scan", "errors"],
     queryFn: async () => {
       const { data } = await api.GET("/api/scan/errors");
       return (data ?? null);
     },
     enabled,
-    refetchInterval: live ? 2000 : false,
   });
+  const skipped = useScanStore((s) => s.status?.errors);
+  const { refetch } = query;
+  const seen = useRef(skipped);
+  useEffect(() => {
+    if (!enabled || !live || skipped === seen.current) return;
+    seen.current = skipped;
+    void refetch();
+  }, [enabled, live, skipped, refetch]);
+  return query;
 }
 
 /** The filter field + list, shared by the dialog and the Settings panel. */

@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 
 import { api } from "../api/client";
+import { settingsQuery } from "../api/system";
 import { fmtCount, fmtDateTime, scanStatusLabel } from "../lib/format";
 import { HOME_ICON_FILES } from "../lib/homeIcon";
 import { isIOS } from "../lib/platform";
@@ -102,14 +103,7 @@ export function SettingsView() {
   const openOrganize = useUiStore((s) => s.openOrganize);
   const reviewCount = useReviewCount();
 
-  const { data: settings } = useQuery({
-    queryKey: ["settings"],
-    queryFn: async () => {
-      const { data } = await api.GET("/api/settings");
-      return data;
-    },
-    refetchInterval: scanning ? 2000 : false,
-  });
+  const { data: settings } = useQuery(settingsQuery);
 
   const rescan = async () => {
     // 409 (already running) is expected and harmless; SSE carries the state.

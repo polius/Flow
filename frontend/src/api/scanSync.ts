@@ -7,7 +7,8 @@
    arrive unbuffered. */
 
 import { invalidateLibrary, queryClient } from "./queryClient";
-import { api } from "./client";
+import { settingsQuery } from "./system";
+import { checkServer } from "../lib/serverWatch";
 import { statusFromEvent, useScanStore } from "../stores/scan";
 
 let source: EventSource | null = null;
@@ -18,9 +19,13 @@ const MAX_RETRY_DELAY_MS = 60_000;
 
 function seedFromSettings(): void {
   // Seed from the REST snapshot, then let the stream take over. Also the
-  // catch-up after a reconnect: events missed while closed are gone.
-  void api.GET("/api/settings").then(({ data }) => {
+  // catch-up after a reconnect or a hidden spell: events missed while
+  // closed are gone. Shares the settings query (a snapshot under two
+  // seconds old is used as is), so a page load asks once.
+  void queryClient.fetchQuery({ ...settingsQuery, staleTime: 2000 }).then((data) => {
     if (data) {
+      const wasScanning = useScanStore.getState().status?.state === "scanning";
+      if (wasScanning && data.scan.state === "idle") invalidateLibrary(queryClient);
       useScanStore.getState().setStatus({
         state: data.scan.state,
         phase: data.scan.phase,
@@ -39,10 +44,17 @@ function open(): void {
   seedFromSettings();
   const stream = new EventSource("/api/scan");
   source = stream;
+  let dropped = false;
   stream.onopen = () => {
     retryDelayMs = 2000;
+    // Back after a drop: the server may have restarted on a new build.
+    if (dropped) void checkServer();
+    dropped = false;
   };
   stream.onerror = () => {
+    // A drop is the first sign of a server restart or an outage.
+    dropped = true;
+    void checkServer();
     // CONNECTING: the browser is already retrying a dropped connection.
     // CLOSED: the server refused (401, 5xx) — reopen later ourselves.
     if (stream.readyState !== EventSource.CLOSED || source !== stream) return;
@@ -85,23 +97,41 @@ function open(): void {
   };
 }
 
-/** Start (or keep) the stream. Call once the API will answer it: signed
-    in, or Login off. Idempotent. */
-export function ensureScanSync(): void {
-  if (typeof window === "undefined" || typeof EventSource === "undefined") return;
-  wanted = true;
-  open();
-}
-
-/** Close the stream (signed out): a refused stream would only retry
-    against a 401 until sign-in starts it again. */
-export function stopScanSync(): void {
-  wanted = false;
+function close(): void {
   if (retryTimer != null) {
     window.clearTimeout(retryTimer);
     retryTimer = null;
   }
   source?.close();
   source = null;
+}
+
+/* A hidden tab holds no connection: without HTTP/2 a browser allows six
+   per site, and every open tab used to keep one for good. Shown again, the
+   tab reopens the stream and catches up from the snapshot. */
+let watchingVisibility = false;
+function onVisibility(): void {
+  if (!wanted) return;
+  if (document.visibilityState === "hidden") close();
+  else open();
+}
+
+/** Start (or keep) the stream. Call once the API will answer it: signed
+    in, or Login off. Idempotent. */
+export function ensureScanSync(): void {
+  if (typeof window === "undefined" || typeof EventSource === "undefined") return;
+  wanted = true;
+  if (!watchingVisibility) {
+    watchingVisibility = true;
+    document.addEventListener("visibilitychange", onVisibility);
+  }
+  if (document.visibilityState !== "hidden") open();
+}
+
+/** Close the stream (signed out): a refused stream would only retry
+    against a 401 until sign-in starts it again. */
+export function stopScanSync(): void {
+  wanted = false;
+  close();
   retryDelayMs = 2000;
 }

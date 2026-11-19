@@ -5,7 +5,7 @@
    app/__init__.py. The topbar badge renders it, so the label can never
    disagree with the server actually answering. */
 
-import { useQuery } from "@tanstack/react-query";
+import { queryOptions, useQuery } from "@tanstack/react-query";
 
 import { api } from "./client";
 
@@ -21,3 +21,14 @@ export function useAppVersion() {
     staleTime: Infinity,
   });
 }
+
+/** The settings snapshot (scan state, library counts, options): one query
+    shared by Home, Settings and the scan stream's catch-up, so a page load
+    asks once. */
+export const settingsQuery = queryOptions({
+  queryKey: ["settings"],
+  queryFn: async () => {
+    const { data } = await api.GET("/api/settings");
+    return data;
+  },
+});
