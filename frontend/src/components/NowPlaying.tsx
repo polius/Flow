@@ -34,6 +34,16 @@ import "../styles/nowplaying.css";
 
 const NARROW_BP = "(max-width: 940px)";
 
+/* Swipe down to close (touch): the view follows the finger once the drag
+   commits downward, closes past a third of the screen or on a flick, and
+   springs back otherwise. The drag never starts on a control (the
+   scrubber keeps its sideways drag) or inside the queue, and never while
+   the stage is scrolled. */
+const DISMISS_LOCK_PX = 10;
+const DISMISS_RATIO = 1 / 3;
+const DISMISS_FLICK_PX_MS = 0.6;
+const DISMISS_SETTLE_MS = 200;
+
 export function NowPlaying() {
   const open = useUiStore((s) => s.nowPlayingOpen);
   const close = useUiStore((s) => s.closeNowPlaying);
@@ -60,6 +70,54 @@ export function NowPlaying() {
   useModalFocus(surfaceRef, open);
 
   const handleClose = close; // closing also folds the queue sheet (ui store)
+
+  const dragRef = useRef<{ y: number; x: number; at: number; locked: boolean; dy: number } | null>(
+    null,
+  );
+  const slide = (dy: number, animate: boolean) => {
+    const el = surfaceRef.current;
+    if (!el) return;
+    el.style.transition = animate ? `transform ${DISMISS_SETTLE_MS}ms var(--ease-out)` : "none";
+    el.style.transform = dy === 0 && animate ? "" : `translateY(${dy}px)`;
+  };
+  const onTouchStart = (e: React.TouchEvent) => {
+    dragRef.current = null;
+    if (e.touches.length !== 1 || !(e.target instanceof Element)) return;
+    if (e.target.closest("button, a, input, .queue") != null) return;
+    const stage = e.target.closest<HTMLElement>(".nowplaying__stage");
+    if (stage != null && stage.scrollTop > 0) return;
+    const t = e.touches[0];
+    dragRef.current = { y: t.clientY, x: t.clientX, at: performance.now(), locked: false, dy: 0 };
+  };
+  const onTouchMove = (e: React.TouchEvent) => {
+    const d = dragRef.current;
+    if (!d) return;
+    const t = e.touches[0];
+    const dy = t.clientY - d.y;
+    const dx = t.clientX - d.x;
+    if (!d.locked) {
+      if (Math.abs(dx) > DISMISS_LOCK_PX && Math.abs(dx) > Math.abs(dy)) {
+        dragRef.current = null; // sideways: not this gesture
+        return;
+      }
+      if (dy < DISMISS_LOCK_PX) return;
+      d.locked = true;
+    }
+    d.dy = Math.max(0, dy);
+    slide(d.dy, false);
+  };
+  const onTouchEnd = () => {
+    const d = dragRef.current;
+    dragRef.current = null;
+    if (!d?.locked) return;
+    const velocity = d.dy / Math.max(performance.now() - d.at, 1);
+    if (d.dy > window.innerHeight * DISMISS_RATIO || velocity > DISMISS_FLICK_PX_MS) {
+      slide(window.innerHeight, true);
+      window.setTimeout(handleClose, DISMISS_SETTLE_MS);
+    } else {
+      slide(0, true);
+    }
+  };
 
   // Esc closes the takeover — but yields to whatever sits above it:
   // the library picker, context menus, the Get Info panel, and queue drags
@@ -108,7 +166,13 @@ export function NowPlaying() {
       role="dialog"
       aria-modal="true"
       aria-label="Now Playing"
+      onTouchStart={onTouchStart}
+      onTouchMove={onTouchMove}
+      onTouchEnd={onTouchEnd}
+      onTouchCancel={onTouchEnd}
     >
+      {/* Says "this sheet pulls down" on touch; the chevron stays. */}
+      <span className="nowplaying__grabber" aria-hidden="true" />
       <Ambience artworkId={track?.artwork_id ?? null} />
 
       <button
@@ -129,6 +193,7 @@ export function NowPlaying() {
           aria-haspopup="dialog"
           aria-controls="queue-panel"
           aria-expanded={queueOpen}
+          aria-label="Queue"
           title="Queue"
         >
           <IconQueue size={18} />

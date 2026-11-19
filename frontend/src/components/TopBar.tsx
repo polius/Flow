@@ -33,10 +33,9 @@ import { ScanErrorsDialog } from "./ScanErrors";
 import {
   IconAlbums,
   IconArtists,
-  IconClose,
   IconFlowMark,
   IconHeart,
-  IconMenu,
+  IconHome,
   IconPlay,
   IconPlaylists,
   IconSearch,
@@ -54,22 +53,27 @@ interface NavEntry {
   Icon: (props: IconProps) => ReturnType<typeof IconTracks>;
 }
 
-/* Section nav — the brand lockup is the Home affordance, so "/" is
-   not repeated here. Organize lives behind Tracks' header button (a task,
-   not a section). Settings is kept apart from the library sections,
-   mirroring the hairline break in both nav forms. */
-const NAV: NavEntry[] = [
+/* Section nav. On a desktop the brand lockup is the Home affordance, so
+   "/" joins the row only as the phone tab bar's first item (`phone`).
+   A tab bar holds five: on a phone Favorites lives in Playlists as its
+   pinned first tile, and Settings is the icon in the top bar (`desktop`).
+   Organize lives behind the Songs header button (a task, not a section). */
+interface NavItem extends NavEntry {
+  end?: boolean;
+  only?: "phone" | "desktop";
+}
+const NAV: NavItem[] = [
+  { to: "/", label: "Home", Icon: IconHome, end: true, only: "phone" },
   { to: "/tracks", label: "Songs", Icon: IconTracks },
   { to: "/albums", label: "Albums", Icon: IconAlbums },
   { to: "/artists", label: "Artists", Icon: IconArtists },
-  { to: "/favorites", label: "Favorites", Icon: IconHeart },
+  { to: "/favorites", label: "Favorites", Icon: IconHeart, only: "desktop" },
   { to: "/playlists", label: "Playlists", Icon: IconPlaylists },
 ];
 
-/* The breakpoint numbers mirror topbar.css — CSS media queries cannot
+/* The breakpoint number mirrors topbar.css — CSS media queries cannot
    read JS constants, so the two must be kept in step (tokens.css documents
    the canonical set). */
-const PHONE_BP = "(min-width: 641px)";
 const LABELED_BP = "(min-width: 1200px)";
 
 export function TopBar() {
@@ -83,15 +87,12 @@ export function TopBar() {
   const scan = useScanStore((s) => s.status);
   const scanning = scan?.state === "scanning";
   // Wide windows: the section nav wears visible labels. The only JS
-  // consumer is the tooltip — a labeled control needs no "Tracks" tooltip
-  // hovering beside the word "Tracks".
+  // consumer is the tooltip — a labeled control needs no "Songs" tooltip
+  // hovering beside the word "Songs".
   const labeledNav = useMediaQuery(LABELED_BP);
-  const [navOpen, setNavOpen] = useState(false);
   // The scan pill's error count opens the skipped-files dialog —
   // the count without the list behind it was a dead end.
   const [scanErrorsOpen, setScanErrorsOpen] = useState(false);
-  const navBtnRef = useRef<HTMLButtonElement>(null);
-  const sheetRef = useRef<HTMLDivElement>(null);
   // ⌘F skips the mount run (StrictMode re-runs effects), which would steal
   // focus on page load.
   const initialSignal = useRef(focusSignal);
@@ -120,42 +121,6 @@ export function TopBar() {
     }, DEBOUNCE_MS);
     return () => clearTimeout(handle);
   }, [text, urlQuery, pathname, setSearchParams]);
-
-  // The overflow sheet closes with its context: navigation, outside
-  // tap, Esc, or growing back past the phone breakpoint.
-  useEffect(() => {
-    setNavOpen(false);
-  }, [pathname]);
-
-  useEffect(() => {
-    if (!navOpen) return;
-    // Registered like any menu: Esc precedence and the
-    // shortcut guard defer to it while it is up.
-    useUiStore.getState().setContextMenuOpen(true);
-    const onPointerDown = (e: PointerEvent) => {
-      const t = e.target as Node;
-      // Taps inside the sheet are its items; taps on the button fall through
-      // to its own toggle — neither closes here, or the toggle double-fires.
-      if (sheetRef.current?.contains(t) || navBtnRef.current?.contains(t)) return;
-      setNavOpen(false);
-    };
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setNavOpen(false);
-    };
-    const mq = window.matchMedia(PHONE_BP);
-    const onBreakpoint = () => {
-      if (mq.matches) setNavOpen(false);
-    };
-    window.addEventListener("pointerdown", onPointerDown);
-    window.addEventListener("keydown", onKeyDown);
-    mq.addEventListener("change", onBreakpoint);
-    return () => {
-      useUiStore.getState().setContextMenuOpen(false);
-      window.removeEventListener("pointerdown", onPointerDown);
-      window.removeEventListener("keydown", onKeyDown);
-      mq.removeEventListener("change", onBreakpoint);
-    };
-  }, [navOpen]);
 
   const onKeyDown = (e: ReactKeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Escape" && text) {
@@ -228,17 +193,19 @@ export function TopBar() {
       />
 
       {/* Section nav in three forms: labeled on wide windows, the
-          icon-only row below that, and the overflow sheet on phones —
-          the CSS swaps the forms at the breakpoints. */}
+          icon-only row below that, and on phones a tab bar pinned to the
+          bottom of the screen under the mini player — the CSS swaps the
+          forms at the breakpoints. */}
       <nav className="topbar__nav" aria-label="Library">
-        {NAV.map(({ to, label, Icon }) => (
+        {NAV.map(({ to, label, Icon, end, only }) => (
           <NavLink
             key={to}
             to={to}
+            end={end}
             className={({ isActive }) =>
               `topbar__nav-item topbar__nav-item--labeled${
-                isActive ? " topbar__nav-item--active" : ""
-              }`
+                only ? ` topbar__nav-item--${only}` : ""
+              }${isActive ? " topbar__nav-item--active" : ""}`
             }
             aria-label={label}
             title={labeledNav ? undefined : label}
@@ -251,7 +218,7 @@ export function TopBar() {
         <NavLink
           to="/settings"
           className={({ isActive }) =>
-            `topbar__nav-item topbar__nav-item--labeled${
+            `topbar__nav-item topbar__nav-item--labeled topbar__nav-item--desktop${
               isActive ? " topbar__nav-item--active" : ""
             }`
           }
@@ -263,58 +230,18 @@ export function TopBar() {
         </NavLink>
       </nav>
 
-      <button
-        ref={navBtnRef}
-        type="button"
-        className={`topbar__nav-item topbar__navmenu-btn${
-          navOpen ? " topbar__navmenu-btn--open" : ""
-        }`}
-        aria-label="Library menu"
-        aria-haspopup="menu"
-        aria-expanded={navOpen}
-        aria-controls="topbar-navsheet"
-        title="Library"
-        onClick={() => setNavOpen((o) => !o)}
+      {/* Phones: Settings is the icon in the bar's corner, where the
+          section menu used to be. */}
+      <NavLink
+        to="/settings"
+        className={({ isActive }) =>
+          `topbar__nav-item topbar__settings-btn${isActive ? " topbar__nav-item--active" : ""}`
+        }
+        aria-label="Settings"
+        title="Settings"
       >
-        {navOpen ? <IconClose size={18} /> : <IconMenu size={18} />}
-      </button>
-
-      {navOpen && (
-        <div
-          ref={sheetRef}
-          id="topbar-navsheet"
-          className="topbar__sheet"
-          role="menu"
-          aria-label="Library"
-        >
-          {NAV.map(({ to, label, Icon }) => (
-            <NavLink
-              key={to}
-              to={to}
-              role="menuitem"
-              className={({ isActive }) =>
-                `topbar__sheet-item${isActive ? " topbar__sheet-item--active" : ""}`
-              }
-              onClick={() => setNavOpen(false)}
-            >
-              <Icon size={18} />
-              <span>{label}</span>
-            </NavLink>
-          ))}
-          <div className="topbar__sheet-sep" role="separator" />
-          <NavLink
-            to="/settings"
-            role="menuitem"
-            className={({ isActive }) =>
-              `topbar__sheet-item${isActive ? " topbar__sheet-item--active" : ""}`
-            }
-            onClick={() => setNavOpen(false)}
-          >
-            <IconSettings size={18} />
-            <span>Settings</span>
-          </NavLink>
-        </div>
-      )}
+        <IconSettings size={18} />
+      </NavLink>
     </header>
   );
 }

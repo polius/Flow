@@ -5,6 +5,7 @@
 import { Link } from "react-router";
 
 import type { Track } from "../api/types";
+import { useMediaQuery } from "../lib/media";
 import { isIOS } from "../lib/platform";
 import { trackIsUnverified, useCurrentTrack, usePlayerStore } from "../stores/player";
 import { useUiStore } from "../stores/ui";
@@ -56,6 +57,9 @@ export function PlayerBar() {
   const openNowPlaying = useUiStore((s) => s.openNowPlaying);
   const openQueue = useUiStore((s) => s.openQueue);
 
+  // The phone mini player is a 60px row: its cover is 40px, not 46.
+  const phone = useMediaQuery("(max-width: 640px)");
+
   const hasQueue = track != null;
 
   return (
@@ -68,7 +72,7 @@ export function PlayerBar() {
           aria-label="Open Now Playing"
           title="Now Playing (N)"
         >
-          <Artwork artworkId={track?.artwork_id ?? null} size={46} />
+          <Artwork artworkId={track?.artwork_id ?? null} size={phone ? 40 : 46} />
         </button>
         <div className="player__titles">
           <TrackLine track={track} />
@@ -120,7 +124,12 @@ export function PlayerBar() {
             <IconRepeat size={16} />
           </TransportButton>
         </div>
-        <div className="player__progress">
+        {/* The no-op click makes this strip a tap target in its own right.
+            On the phone mini bar it is an inert 24px band along the bar's
+            top edge (player.css): without a handler of its own, phone
+            browsers pass a tap that lands on it to the nearest element
+            that has one — the song row peeking out above the bar. */}
+        <div className="player__progress" onClick={() => {}}>
           <Scrubber />
         </div>
       </div>

@@ -387,6 +387,15 @@
 }
 
 /* An inline keycap in a value ("Press ? anywhere"). */
+/* A phone or tablet has no keyboard to press "?" on: the row would only
+   be words broken across lines ("Pres/s", "anywher/e") about something
+   that is not there. */
+@media (hover: none) and (pointer: coarse) {
+  .settings-row--keyboard {
+    display: none;
+  }
+}
+
 .settings-row__kbd {
   display: inline-flex;
   align-items: center;
