@@ -11,6 +11,35 @@
   margin-top: 24px;
 }
 
+/* Phones only (the tab bar has no room for Favorites): the pinned
+   Favorites tile in Playlists, and the one-tile grid that carries it
+   while there are no playlists yet. */
+.album-card--phoneonly,
+.covergrid--phoneonly {
+  display: none;
+}
+
+@media (max-width: 640px) {
+  .album-card--phoneonly {
+    display: block;
+  }
+
+  .covergrid--phoneonly {
+    display: grid;
+  }
+}
+
+/* The tile's art: a quiet inset square with the heart, in the shape and
+   radius of a cover. */
+.album-card__art.favoritestile {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-m);
+  background: var(--bg-inset);
+  color: var(--text-secondary);
+}
+
 /* Home shelves scroll sideways. A horizontal scroller clips vertically
    too, so the row keeps 48px of headroom for the card's upward "…" menu —
    pulled back under the section head by an equal negative margin, so the

@@ -4,6 +4,7 @@
 import { Link } from "react-router";
 
 import type { Track } from "../api/types";
+import { useMediaQuery } from "../lib/media";
 import { isIOS } from "../lib/platform";
 import { trackIsUnverified, useCurrentTrack, usePlayerStore } from "../stores/player";
 import { useUiStore } from "../stores/ui";
@@ -95,6 +96,9 @@ export function PlayerBar() {
   const cycleRepeat = usePlayerStore((s) => s.cycleRepeat);
   const openNowPlaying = useUiStore((s) => s.openNowPlaying);
 
+  // The phone mini player is a 60px row: its cover is 40px, not 46.
+  const phone = useMediaQuery("(max-width: 640px)");
+
   const hasQueue = track != null;
 
   return (
@@ -107,7 +111,7 @@ export function PlayerBar() {
           aria-label="Open Now Playing"
           title="Now Playing"
         >
-          <Artwork artworkId={track?.artwork_id ?? null} size={46} />
+          <Artwork artworkId={track?.artwork_id ?? null} size={phone ? 40 : 46} />
         </button>
         <div className="player__titles">
           <TrackLine track={track} />

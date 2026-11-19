@@ -14,6 +14,7 @@ import { ErrorState } from "../components/ErrorState";
 import { LoadingState } from "../components/LoadingState";
 import {
   IconEllipsis,
+  IconHeartFill,
   IconNext,
   IconPlay,
   IconPlaylists,
@@ -68,19 +69,57 @@ export function PlaylistsView() {
       ) : data === undefined ? (
         <LoadingState variant="grid" />
       ) : playlists.length === 0 ? (
-        <EmptyState
-          icon={<IconPlaylists size={26} />}
-          title="No playlists yet"
-          hint="Create a playlist and drag songs in — reorder them any time."
-        />
+        <>
+          <div className="covergrid covergrid--phoneonly">
+            <FavoritesTile />
+          </div>
+          <EmptyState
+            icon={<IconPlaylists size={26} />}
+            title="No playlists yet"
+            hint="Create a playlist and drag songs in — reorder them any time."
+          />
+        </>
       ) : (
         <div className="covergrid">
+          <FavoritesTile />
           {playlists.map((playlist) => (
             <PlaylistCard key={playlist.id} playlist={playlist} />
           ))}
         </div>
       )}
     </section>
+  );
+}
+
+/* Phones only: the tab bar holds five sections, so Favorites lives here
+   as the pinned first tile — the playlist Flow keeps for you. It keeps
+   its own address. */
+function FavoritesTile() {
+  const { data: count } = useQuery({
+    queryKey: ["tracks", "favorites", "count"],
+    queryFn: async () => {
+      const { data } = await api.GET("/api/tracks", {
+        params: { query: { favorite: true, limit: 1 } },
+      });
+      return data?.total ?? null;
+    },
+  });
+  return (
+    <div className="album-card album-card--phoneonly">
+      <div className="album-card__artwrap">
+        <Link to="/favorites" className="album-card__artlink" aria-label="Favorites">
+          <span className="album-card__art favoritestile" aria-hidden="true">
+            <IconHeartFill size={44} />
+          </span>
+        </Link>
+      </div>
+      <Link to="/favorites" className="album-card__title">
+        Favorites
+      </Link>
+      <div className="album-card__meta">
+        {count == null ? "\u00A0" : `${fmtCount(count)} ${count === 1 ? "song" : "songs"}`}
+      </div>
+    </div>
   );
 }
 
