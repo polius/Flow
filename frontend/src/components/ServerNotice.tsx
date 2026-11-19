@@ -29,7 +29,7 @@ export function ServerNotice() {
           <span className="servernotice__msg">
             {shown === "down"
               ? "Can’t reach your server. Flow will reconnect when it’s back."
-              : "Flow was updated."}
+              : "Flow was updated"}
           </span>
           {shown === "updated" && (
             <button
