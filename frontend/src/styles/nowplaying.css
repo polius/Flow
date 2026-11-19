@@ -1079,8 +1079,8 @@
    Under the transport, three rows centred in the column:
    - the scrubber, with elapsed and total time under its two ends;
    - the volume, centred and half as wide, a quiet glyph at each end;
-   - the song's actions as borderless glyphs spread evenly across the
-     width, muted at rest, a soft fill under the pointer, full ink and a
+   - the song's actions as borderless glyphs grouped in the centre,
+     muted at rest, a soft fill under the pointer, full ink and a
      soft circle when on. A running sleep timer adds its time beside
      the moon.
    No hairline outlines anywhere: outlined pills read as web chrome. A
@@ -1094,6 +1094,7 @@
      (1280×680) must not scroll more than it did before. */
   .nowplaying__controls {
     gap: 14px;
+    margin-top: 12px; /* more air between the song's names and the transport */
   }
 
   .nowplaying__progress {
@@ -1149,11 +1150,9 @@
   }
 
   .nowplaying__actions {
-    display: grid;
-    grid-auto-flow: column;
-    grid-auto-columns: 1fr;
-    justify-items: center;
-    gap: 0;
+    display: flex;
+    justify-content: center;
+    gap: 28px;
   }
 
   .nowplaying__actions .nowplaying__fav,
