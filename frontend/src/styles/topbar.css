@@ -573,6 +573,45 @@
     margin-right: 16px;
   }
 
+  /* The field is squeezed between the logo and the Settings icon, and a
+     panel as narrow as the field cut nine suggestions in ten. Here the
+     panel pins to the screen edges instead, and each suggestion takes two
+     lines: the name, then who it is by. */
+  .suggest {
+    position: fixed;
+    top: calc(env(safe-area-inset-top, 0px) + 58px);
+    left: calc(env(safe-area-inset-left, 0px) + 8px);
+    right: calc(env(safe-area-inset-right, 0px) + 8px);
+    max-height: 72vh;
+  }
+
+  .suggest__item {
+    grid-template-columns: 28px minmax(0, 1fr);
+    column-gap: 12px;
+    row-gap: 1px;
+    min-height: 52px;
+  }
+
+  /* The cover (or the artist's round portrait) spans both lines. */
+  .suggest__item > :first-child {
+    grid-row: 1 / span 2;
+  }
+
+  .suggest__name {
+    grid-column: 2;
+    align-self: end;
+  }
+
+  .suggest__meta {
+    grid-column: 2;
+    align-self: start;
+  }
+
+  /* Touch has no hover or arrow keys to reveal it: the row is the target. */
+  .suggest__play {
+    display: none;
+  }
+
   .topbar__scan {
     display: none;
   }
