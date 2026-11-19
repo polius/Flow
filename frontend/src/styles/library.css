@@ -1050,11 +1050,20 @@ button.trackhead__sort:hover {
     opacity: 0;
   }
 
-  /* The action pair is always visible — touch has no hover to reveal it. */
+  /* Covers are left alone on touch: no hover exists to reveal the action
+     pair, and showing it for good put two buttons on every cover of every
+     grid. A tap opens the album, where Play is the first button; a long
+     press opens the card's menu as a sheet (CardMenu.tsx). The hold must
+     not raise the browser's own link preview or start a text selection. */
   .album-card__play,
   .album-card__more {
-    opacity: 1;
-    transform: none;
+    display: none;
+  }
+
+  .album-card__artlink {
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
   }
 
   /* Swipe owns removal on touch: the inline minus folds away, and

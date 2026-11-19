@@ -7,6 +7,8 @@ import type { PlaylistSummary, QueueOrigin } from "../api/types";
 import {
   useDeletePlaylist,
 } from "../api/mutations";
+import { CardMenu } from "../components/CardMenu";
+import { inCardSheet, useCardLongPress } from "../lib/cardMenu";
 import { CreatePlaylistDialog } from "../components/CreatePlaylistDialog";
 import { AddTracksDialog } from "../components/LazyAddTracksDialog";
 import { EmptyState } from "../components/EmptyState";
@@ -165,7 +167,7 @@ function PlaylistCard({ playlist }: { playlist: PlaylistSummary }) {
   useEffect(() => {
     if (!menuOpen) return;
     const onPointerDown = (e: PointerEvent) => {
-      if (menuRef.current?.contains(e.target as Node)) return;
+      if (menuRef.current?.contains(e.target as Node) || inCardSheet(e.target)) return;
       setMenuOpen(false);
     };
     const onKeyDown = (e: KeyboardEvent) => {
@@ -220,10 +222,12 @@ function PlaylistCard({ playlist }: { playlist: PlaylistSummary }) {
     playTracks(tracks, start, origin);
   };
   const loading = menuOpen && detail === undefined;
+  // Touch: no buttons on the cover — a long press on it opens the menu.
+  const longPress = useCardLongPress(() => setMenuOpen(true));
 
   return (
     <div className="album-card">
-      <div className="album-card__artwrap">
+      <div className="album-card__artwrap" {...longPress}>
         <Link to={`/playlists/${playlist.id}`} className="album-card__artlink" aria-label={playlist.name}>
           <PlaylistArt
             artworkIds={playlist.artwork_ids}
@@ -259,7 +263,12 @@ function PlaylistCard({ playlist }: { playlist: PlaylistSummary }) {
             <IconEllipsis size={16} />
           </button>
           {menuOpen && (
-            <div className="trackmenu album-card__menu" role="menu" aria-label={`Actions for ${playlist.name}`}>
+            <CardMenu
+              label={`Actions for ${playlist.name}`}
+              title={playlist.name}
+              subtitle="Playlist"
+              onClose={() => setMenuOpen(false)}
+            >
               <button type="button" role="menuitem" className="trackmenu__item" onClick={act(play)}>
                 <IconPlay size={15} />
                 Play
@@ -320,7 +329,7 @@ function PlaylistCard({ playlist }: { playlist: PlaylistSummary }) {
                 <IconTrash size={15} />
                 {armed ? "Confirm Delete" : "Delete Playlist"}
               </button>
-            </div>
+            </CardMenu>
           )}
         </div>
       </div>
