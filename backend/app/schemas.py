@@ -439,6 +439,10 @@ class QueueSnapshot(BaseModel):
     position: float
     origin: QueueOrigin | None = None
     updated_at: str | None = None
+    # The switches the queue was played with (P3): a second device shows
+    # the same plan with the same Shuffle and Repeat.
+    shuffle: bool = False
+    repeat: Literal["off", "all", "one"] = "off"
 
 
 class QueuePlayIn(BaseModel):
@@ -462,6 +466,10 @@ class QueuePlayIn(BaseModel):
     start: int = 0
     shuffle: bool = False
     origin: QueueOrigin | None = None
+    # The browser making this write (P3). A whole queue (POST, PUT) makes
+    # it the device holding the queue; a playhead write from another
+    # device is refused with 409.
+    device: str | None = Field(None, max_length=64)
 
 
 class QueuePutIn(BaseModel):
@@ -477,6 +485,12 @@ class QueuePutIn(BaseModel):
     order_pos: int
     position: float = 0
     origin: QueueOrigin | None = None
+    # The browser making this write (P3). A whole queue (POST, PUT) makes
+    # it the device holding the queue; a playhead write from another
+    # device is refused with 409.
+    device: str | None = Field(None, max_length=64)
+    shuffle: bool | None = None
+    repeat: Literal["off", "all", "one"] | None = None
 
 
 class QueuePutMinimalOut(BaseModel):
@@ -498,6 +512,11 @@ class QueuePatchIn(BaseModel):
     order_pos: int | None = None
     position: float | None = None
     played_track_id: int | None = None
+    # The browser making this write (P3). A whole queue (POST, PUT) makes
+    # it the device holding the queue; a playhead write from another
+    # device is refused with 409.
+    device: str | None = Field(None, max_length=64)
+    repeat: Literal["off", "all", "one"] | None = None
 
 
 class QueuePlayheadOut(BaseModel):

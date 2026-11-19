@@ -73,6 +73,22 @@ def _load_state(conn: sqlite3.Connection) -> sqlite3.Row:
     return state
 
 
+def _hold(conn: sqlite3.Connection, device: str | None, take: bool) -> None:
+    """The queue is held by one device: the one that last sent a whole
+    queue (started one, changed it, or took it over), P3. A playhead write
+    from another device is refused with 409, so that device can say
+    "Playing on another device" instead of moving the playhead of a queue
+    it does not have. A write that names no device (an older client) is
+    let through as before; the first device to write holds a fresh one."""
+    if device is None:
+        return
+    holder = _load_state(conn)["device"]
+    if holder is not None and holder != device and not take:
+        raise HTTPException(status_code=409, detail="Playing on another device")
+    if holder != device:
+        conn.execute("UPDATE queue_state SET device = ? WHERE id = 0", (device,))
+
+
 def _read_origin(state: sqlite3.Row) -> QueueOrigin | None:
     """The stored origin, defensively parsed: a corrupt value costs the
     label, never the session (degrades to no "Playing from" line)."""
@@ -157,6 +173,8 @@ def _read_snapshot(conn: sqlite3.Connection) -> QueueSnapshot:
         position=position,
         origin=origin,
         updated_at=updated_at,
+        shuffle=bool(state["shuffle"]),
+        repeat=state["repeat"] if state["repeat"] in ("off", "all", "one") else "off",
     )
 
 
@@ -168,10 +186,16 @@ def _write_snapshot(
     order_pos: int,
     position: float,
     origin: QueueOrigin | None = None,
+    shuffle: bool | None = None,
+    repeat: str | None = None,
 ) -> str:
     """Replace the whole stored session in one transaction. Returns the
-    timestamp it wrote."""
+    timestamp it wrote. Shuffle and repeat are kept when not given."""
     updated_at = _now()
+    if shuffle is not None:
+        conn.execute("UPDATE queue_state SET shuffle = ? WHERE id = 0", (int(shuffle),))
+    if repeat is not None:
+        conn.execute("UPDATE queue_state SET repeat = ? WHERE id = 0", (repeat,))
     conn.execute("DELETE FROM queue_items")
     conn.executemany(
         "INSERT INTO queue_items (position, track_id) VALUES (?, ?)",
@@ -260,9 +284,9 @@ def play_queue(request: Request, body: QueuePlayIn) -> QueueSnapshot:
 
     play_order, order_pos = _build_order(len(ids), body.shuffle, body.start)
     _write_transaction(conn, lambda: _load_state(conn))  # seeds the singleton
-    _write_transaction(
-        conn,
-        lambda: _write_snapshot(
+    def _apply() -> str:
+        _hold(conn, body.device, take=True)  # a new queue is this device's
+        return _write_snapshot(
             conn,
             track_ids=ids,
             order=play_order,
@@ -271,8 +295,10 @@ def play_queue(request: Request, body: QueuePlayIn) -> QueueSnapshot:
             # The caller declares what this queue IS; recorded so every
             # surface can say "Playing from …".
             origin=body.origin,
-        ),
-    )
+            shuffle=body.shuffle,
+        )
+
+    _write_transaction(conn, _apply)
     return _read_snapshot(conn)
 
 
@@ -324,6 +350,8 @@ def put_queue(
     def _apply() -> str:
         # Checked inside the retried unit, so a replay after a scan's lock
         # window re-checks against what the scan left.
+        # A plan change is acting here: this device holds the queue now.
+        _hold(conn, body.device, take=True)
         ids, play_order, pos = _drop_unknown(
             track_ids, order, order_pos, _existing_ids(conn, track_ids)
         )
@@ -337,6 +365,8 @@ def put_queue(
             # The origin rides the mirror unchanged: queue edits never
             # rewrite where the queue came from.
             origin=body.origin,
+            shuffle=body.shuffle,
+            repeat=body.repeat,
         )
 
     result: dict = {}
@@ -373,6 +403,9 @@ def patch_queue(request: Request, body: QueuePatchIn) -> QueuePlayheadOut:
     updated_at = _now()
 
     def _apply() -> None:
+        _hold(conn, body.device, take=False)
+        if body.repeat is not None:
+            conn.execute("UPDATE queue_state SET repeat = ? WHERE id = 0", (body.repeat,))
         if body.played_track_id is not None:
             stamp = _now()
             stamped = conn.execute(

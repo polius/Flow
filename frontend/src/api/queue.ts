@@ -2,10 +2,40 @@
    these helpers are its mirror and its restore path. An empty answer from
    a reachable server is the truth "nothing is playing"; silence is not. */
 
+import { reportQueueConflict } from "../lib/queueConflict";
 import { api } from "./client";
 import type { QueueOrigin, QueueSnapshot, Track } from "./types";
 
 export type ServerQueueSnapshot = QueueSnapshot;
+
+/* One queue, several devices (P3). This browser's id rides every write;
+   the server refuses (409) a write from a device that no longer holds the
+   queue, and the store hears of it through the conflict handler. Tabs of
+   one browser share the id: they coordinate among themselves. */
+const DEVICE_KEY = "flow.device";
+let device: string | null = null;
+
+export function deviceId(): string {
+  if (device != null) return device;
+  try {
+    device = localStorage.getItem(DEVICE_KEY);
+    if (!device) {
+      device =
+        typeof crypto !== "undefined" && "randomUUID" in crypto
+          ? crypto.randomUUID()
+          : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+      localStorage.setItem(DEVICE_KEY, device);
+    }
+  } catch {
+    device ??= `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+  }
+  return device;
+}
+
+function heard(response: Response, acted = false): Response {
+  if (response.status === 409) reportQueueConflict(acted);
+  return response;
+}
 
 /** The things GET /api/queue can tell the restore path. */
 export type ServerQueueState =
@@ -62,6 +92,7 @@ export async function playByFilter(params: {
         ...(params.favorite ? { favorite: true } : {}),
         ...(params.genreId != null ? { genre_id: params.genreId } : {}),
         ...(params.origin ? { origin: params.origin } : {}),
+        device: deviceId(),
       },
     });
     if (!response.ok || !data || data.items.length === 0) return null;
@@ -85,6 +116,8 @@ export function saveServerQueue(
     orderPos: number;
     position: number;
     origin?: QueueOrigin | null;
+    shuffle?: boolean;
+    repeat?: "off" | "all" | "one";
   },
   keepalive = false,
 ): Promise<number | null> {
@@ -100,10 +133,14 @@ export function saveServerQueue(
         order_pos: snapshot.orderPos,
         position: snapshot.position,
         ...(snapshot.origin ? { origin: snapshot.origin } : {}),
+        ...(snapshot.shuffle != null ? { shuffle: snapshot.shuffle } : {}),
+        ...(snapshot.repeat != null ? { repeat: snapshot.repeat } : {}),
+        device: deviceId(),
       },
       ...(keepalive ? { keepalive: true } : {}),
     })
-    .then(({ data }) =>
+    .then(({ data, response }) => (heard(response), data))
+    .then((data) =>
       // How many entries the server stored: ids a scan removed are dropped.
       data != null && "count" in data ? data.count : null,
     )
@@ -124,6 +161,8 @@ export function claimServerQueue(snapshot: {
   orderPos: number;
   position: number;
   origin?: QueueOrigin | null;
+  shuffle?: boolean;
+  repeat?: "off" | "all" | "one";
 }): Promise<QueueSnapshot | null> {
   return api
     .PUT("/api/queue", {
@@ -133,6 +172,9 @@ export function claimServerQueue(snapshot: {
         order_pos: snapshot.orderPos,
         position: snapshot.position,
         ...(snapshot.origin ? { origin: snapshot.origin } : {}),
+        ...(snapshot.shuffle != null ? { shuffle: snapshot.shuffle } : {}),
+        ...(snapshot.repeat != null ? { repeat: snapshot.repeat } : {}),
+        device: deviceId(),
       },
     })
     .then(({ data }) => (data != null && "items" in data ? data : null))
@@ -147,6 +189,10 @@ export function saveServerPlayhead(
     orderPos?: number;
     position?: number;
     playedTrackId?: number;
+    /** Written right after the listener acted here: a refusal means
+        "take the queue over", not "ask". */
+    claim?: boolean;
+    repeat?: "off" | "all" | "one";
   },
   keepalive = false,
 ): void {
@@ -159,10 +205,12 @@ export function saveServerPlayhead(
           ...(patch.playedTrackId != null
             ? { played_track_id: patch.playedTrackId }
             : {}),
+          ...(patch.repeat != null ? { repeat: patch.repeat } : {}),
+          device: deviceId(),
         },
         ...(ka ? { keepalive: true } : {}),
       })
-      .then(({ response }) => response.ok)
+      .then(({ response }) => heard(response, !!patch.claim).ok)
       .catch(() => {
         // Same best-effort story as every other write here. The 3 s cadence
         // keeps the playhead converging; only the stamp needs a retry, and

@@ -1215,6 +1215,10 @@ export interface components {
             position?: number | null;
             /** Played Track Id */
             played_track_id?: number | null;
+            /** Device */
+            device?: string | null;
+            /** Repeat */
+            repeat?: ("off" | "all" | "one") | null;
         };
         /**
          * QueuePlayIn
@@ -1262,6 +1266,8 @@ export interface components {
              */
             shuffle: boolean;
             origin?: components["schemas"]["QueueOrigin"] | null;
+            /** Device */
+            device?: string | null;
         };
         /**
          * QueuePlayheadOut
@@ -1297,6 +1303,12 @@ export interface components {
              */
             position: number;
             origin?: components["schemas"]["QueueOrigin"] | null;
+            /** Device */
+            device?: string | null;
+            /** Shuffle */
+            shuffle?: boolean | null;
+            /** Repeat */
+            repeat?: ("off" | "all" | "one") | null;
         };
         /**
          * QueuePutMinimalOut
@@ -1331,6 +1343,17 @@ export interface components {
             origin?: components["schemas"]["QueueOrigin"] | null;
             /** Updated At */
             updated_at?: string | null;
+            /**
+             * Shuffle
+             * @default false
+             */
+            shuffle: boolean;
+            /**
+             * Repeat
+             * @default off
+             * @enum {string}
+             */
+            repeat: "off" | "all" | "one";
         };
         /**
          * ReviewSummary

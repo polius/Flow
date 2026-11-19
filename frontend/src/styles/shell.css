@@ -29,3 +29,50 @@
   padding-left: env(safe-area-inset-left, 0px);
   padding-right: env(safe-area-inset-right, 0px);
 }
+
+/* "Playing on another device": a pill above the player bar (and above
+   Now Playing), until the listener chooses. */
+.devicenotice-slot {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: calc(var(--player-height) + 14px);
+  z-index: var(--z-dialog);
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.devicenotice {
+  pointer-events: auto;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 6px 10px;
+  max-width: calc(100% - 32px);
+  padding: 7px 8px 7px 16px;
+  border: 1px solid var(--separator);
+  border-radius: 19px;
+  background: var(--bg-elevated);
+  box-shadow: var(--shadow-popover);
+}
+
+.devicenotice__msg {
+  font-size: var(--text-body);
+  color: var(--text-primary);
+}
+
+.devicenotice__action {
+  flex: none;
+  padding: 5px 12px;
+  border-radius: 999px;
+  font-size: var(--text-body);
+  font-weight: 600;
+  color: var(--text-primary);
+  transition: background var(--dur-fast) var(--ease-out);
+}
+
+.devicenotice__action:hover {
+  background: var(--bg-hover);
+}

@@ -17,6 +17,7 @@ import {
   saveServerQueue,
   type ServerQueueState,
 } from "../api/queue";
+import { setQueueConflictHandler } from "../lib/queueConflict";
 import type { QueueOrigin, Track } from "../api/types";
 import { isIOS } from "../lib/platform";
 import { useUiStore } from "./ui";
@@ -89,8 +90,17 @@ interface PlayerState {
   volume: number;
   muted: boolean;
   sleep: SleepTimer | null;
+  /** Another device holds the queue (its server copy refused this one's
+      write): the shell asks whether to take over or keep listening here. */
+  elsewhere: boolean;
 
   playTracks: (tracks: Track[], startIndex: number, origin?: QueueOrigin | null) => void;
+  /** Make this device the one that holds the queue (the server's copy
+      becomes this queue, at this playhead). */
+  takeOver: () => void;
+  /** Keep playing here without writing to the server, until the listener
+      acts here again (plays, skips, or changes the queue). */
+  keepListeningHere: () => void;
   /** Adopts a server-built queue: the POST /api/queue snapshot, with the
       play order and playhead already resolved whole-filter server-side.
       The store takes it wholesale and plays it; `origin` rides the
@@ -268,6 +278,7 @@ export const usePlayerStore = create<PlayerState>()(
       origin: null,
       ...readVolume(),
       sleep: null,
+      elsewhere: false,
 
       playTracks: (tracks, startIndex, origin) => {
         if (tracks.length === 0) return;
@@ -477,6 +488,7 @@ export const usePlayerStore = create<PlayerState>()(
       playAt: (orderIndex) => {
         const { order, queue } = get();
         if (orderIndex < 0 || orderIndex >= order.length) return;
+        actHere();
         playEpoch++;
         errorSkipStreak = 0;
         ensureGraph();
@@ -517,12 +529,14 @@ export const usePlayerStore = create<PlayerState>()(
         // an element a failed stream left in its error state, or one
         // waiting on the network — play means "try again now".
         if (loadedSrc == null || audio.error != null || networkHold != null) {
+          actHere();
           ensureGraph();
           resumeGraph();
           load(track, true, position);
           return;
         }
         if (audio.paused) {
+          actHere();
           ensureGraph();
           resumeGraph();
           intendPlay = true;
@@ -534,6 +548,7 @@ export const usePlayerStore = create<PlayerState>()(
       },
 
       next: () => {
+        actHere();
         errorSkipStreak = 0;
         // A press, like Play: after a reload this may be the first one, and
         // the only place the audio graph can start. Without it the song
@@ -546,6 +561,7 @@ export const usePlayerStore = create<PlayerState>()(
         if (!swapToStandby()) advance(1, false);
       },
       prev: () => {
+        actHere();
         errorSkipStreak = 0;
         ensureGraph();
         resumeGraph();
@@ -614,6 +630,18 @@ export const usePlayerStore = create<PlayerState>()(
         const modes: RepeatMode[] = ["off", "all", "one"];
         const next = modes[(modes.indexOf(get().repeat) + 1) % modes.length];
         set({ repeat: next });
+      },
+
+      takeOver: () => {
+        elsewhere = null;
+        set({ elsewhere: false });
+        // The whole plan and playhead: the server's copy becomes this one.
+        writeQueueSnapshot();
+      },
+
+      keepListeningHere: () => {
+        elsewhere = "local";
+        set({ elsewhere: false });
       },
     }),
     {
@@ -1547,6 +1575,45 @@ try {
 /** Another tab took over playback: this one stops writing its playhead. */
 let yieldedToOtherTab = false;
 
+/* One queue, several devices (P3). The server refuses a write from a
+   device that no longer holds the queue. "asking": refused, and the shell
+   asks whether to take over; "local": the listener chose to keep listening
+   here, so nothing is written to the server. Either way the next thing the
+   listener does here (play, skip, pick a song, change the queue) claims
+   the queue again — an automatic song change never does, so a device left
+   playing never silently takes the queue back. */
+let elsewhere: "asking" | "local" | null = null;
+let claimPending = false;
+
+/** The listener acted on this device: the next playhead write claims the
+    queue for it. */
+function actHere(): void {
+  claimPending = true;
+  if (elsewhere != null) {
+    elsewhere = null;
+    usePlayerStore.setState({ elsewhere: false });
+  }
+}
+
+/** Plan mirrors (PUT) waiting or on the way: the server may still hold
+    the previous plan, so a refusal meanwhile is this device's own race,
+    not another device. */
+let mirrorsInFlight = 0;
+
+setQueueConflictHandler((acted) => {
+  if (queueSaveTimer != null || mirrorsInFlight > 0) return;
+  if (acted) {
+    // The listener acted here and the queue is held elsewhere: take it
+    // over with this device's whole queue (a playhead alone would land
+    // in the other device's plan).
+    usePlayerStore.getState().takeOver();
+    return;
+  }
+  if (elsewhere === "local") return;
+  elsewhere = "asking";
+  usePlayerStore.setState({ elsewhere: true });
+});
+
 tabChannel?.addEventListener("message", (e: MessageEvent) => {
   const msg = e.data as { type?: unknown; tab?: unknown } | null;
   if (msg?.type !== "playing" || msg.tab === TAB_ID) return;
@@ -1900,8 +1967,13 @@ function writeLocalQueue(): void {
 function writeQueueSnapshot(keepalive = false): void {
   if (sessionEnded) return;
   writeLocalQueue();
-  const { queue, order, orderPos, position, origin } = usePlayerStore.getState();
-  void saveServerQueue({ tracks: queue, order, orderPos, position, origin }, keepalive);
+  const { queue, order, orderPos, position, origin, shuffle, repeat } = usePlayerStore.getState();
+  mirrorsInFlight++;
+  void Promise.resolve(
+    saveServerQueue({ tracks: queue, order, orderPos, position, origin, shuffle, repeat }, keepalive),
+  ).finally(() => {
+    mirrorsInFlight--;
+  });
 }
 
 function writePlayhead(started = false, keepalive = false): void {
@@ -1920,11 +1992,17 @@ function writePlayhead(started = false, keepalive = false): void {
   // A tab that yielded playback to another tab keeps its playhead to
   // itself: the server's copy belongs to the tab that is playing.
   if (yieldedToOtherTab) return;
+  // Another device holds the queue: nothing goes to the server until the
+  // listener acts here (which claims it).
+  const claim = claimPending;
+  claimPending = false;
+  if (elsewhere != null && !claim) return;
   const current = queue[order[orderPos]] ?? null;
   saveServerPlayhead(
     {
       orderPos,
       position,
+      ...(claim ? { claim: true } : {}),
       // The stamp rides the start-of-play sync, carrying the id —
       // never derived from the server's stored plan (a mirror PUT may
       // still be in flight there).
@@ -1965,6 +2043,11 @@ if (typeof window !== "undefined") {
     // Signed out: the element's last ticks are not the listener acting.
     // Only a new plan begins a session again.
     if (sessionEnded && !planChanged) return;
+    // Repeat travels with the queue, so a second device shows the same
+    // switch. (Shuffle changes the plan, which the mirror carries.)
+    if (state.repeat !== prev.repeat && !yieldedToOtherTab && elsewhere == null) {
+      saveServerPlayhead({ repeat: state.repeat });
+    }
     // Session identity is the plan and the playhead. Preference writes
     // (the persist middleware's rehydration, a volume nudge) don't make
     // the session owned — they must not block the server adoption.
@@ -1977,8 +2060,13 @@ if (typeof window !== "undefined") {
       sessionTouched = true; // the session has an owner now
     }
     if (planChanged) {
-      // Editing the plan here is acting here: this tab speaks again.
+      // Editing the plan here is acting here: this tab speaks again, and
+      // the plan it mirrors makes this device the one holding the queue.
       yieldedToOtherTab = false;
+      if (elsewhere != null) {
+        elsewhere = null;
+        usePlayerStore.setState({ elsewhere: false });
+      }
       sessionEnded = false;
       if (queueSaveTimer == null) {
         queueSaveTimer = window.setTimeout(() => {
@@ -2245,6 +2333,9 @@ async function adoptServerSession(attempt = 0): Promise<void> {
     isPlaying: false,
     position: Math.max(0, Math.min(position, track.duration || position)),
     duration: track.duration || 0,
+    // The switches the queue was played with (P3).
+    ...(typeof result.snapshot.shuffle === "boolean" ? { shuffle: result.snapshot.shuffle } : {}),
+    ...(result.snapshot.repeat ? { repeat: result.snapshot.repeat } : {}),
   });
   sessionEnded = false; // a session again: its edits are mirrored
   syncWindowTitle();
@@ -2259,9 +2350,17 @@ async function adoptServerSession(attempt = 0): Promise<void> {
     a scan since this browser saved them), the rows are vouched for: the
     surfaces get their links, the heart and L back. */
 async function claimSession(): Promise<void> {
-  const { queue, order, orderPos, position, origin } = usePlayerStore.getState();
+  const { queue, order, orderPos, position, origin, shuffle, repeat } = usePlayerStore.getState();
   if (queue.length === 0) return;
-  const stored = await claimServerQueue({ tracks: queue, order, orderPos, position, origin });
+  const stored = await claimServerQueue({
+    tracks: queue,
+    order,
+    orderPos,
+    position,
+    origin,
+    shuffle,
+    repeat,
+  });
   if (stored == null) return;
   // An edit made meanwhile mirrors itself, and its rows came from live
   // fetches; only the queue that was sent is reconciled.

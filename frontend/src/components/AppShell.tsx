@@ -6,6 +6,7 @@ import { ensureScanSync, stopScanSync } from "../api/scanSync";
 import { useGlobalShortcuts } from "../lib/shortcuts";
 import { AddToPlaylistDialog } from "./AddToPlaylistDialog";
 import { Announcer } from "./Announcer";
+import { DeviceNotice } from "./DeviceNotice";
 import { NowPlaying } from "./NowPlaying";
 import { PlayerBar } from "./PlayerBar";
 import { ShortcutSheet } from "./ShortcutSheet";
@@ -119,6 +120,7 @@ export function AppShell() {
       <TrackActionsMenu />
       <AddToPlaylistDialog />
       <UndoToast />
+      <DeviceNotice />
       <Announcer />
       <ShortcutSheet />
       {organizeMounted && (
