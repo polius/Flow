@@ -516,12 +516,20 @@ export const usePlayerStore = create<PlayerState>()(
 
       next: () => {
         errorSkipStreak = 0;
+        // A press, like Play: after a reload this may be the first one, and
+        // the only place the audio graph can start. Without it the song
+        // plays outside Sound Check — at full level, however loud its file.
+        // (The end-of-song advance is not a gesture and stays out of this.)
+        ensureGraph();
+        resumeGraph();
         // The preloaded next track is ready to go: start it rather than
         // throwing the buffer away and fetching it again.
         if (!swapToStandby()) advance(1, false);
       },
       prev: () => {
         errorSkipStreak = 0;
+        ensureGraph();
+        resumeGraph();
         if (get().position > 3) {
           get().seek(0);
           return;

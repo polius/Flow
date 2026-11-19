@@ -480,3 +480,79 @@ describe("volume", () => {
     expect(usePlayerStore.getState().volume).toBe(1);
   });
 });
+
+/* A Web Audio stand-in: counts contexts and records the gain each
+   element's node was last told to reach. */
+function stubAudioContext() {
+  const contexts: { gains: { value: number }[] }[] = [];
+  class FakeContext {
+    state = "running";
+    currentTime = 0;
+    destination = {};
+    gains: { value: number }[] = [];
+    constructor() {
+      contexts.push(this);
+    }
+    createMediaElementSource() {
+      return { connect() {} };
+    }
+    createGain() {
+      const gain = { value: 1 };
+      this.gains.push(gain);
+      return {
+        gain: {
+          setTargetAtTime: (value: number) => {
+            gain.value = value;
+          },
+        },
+        connect() {},
+      };
+    }
+    resume() {
+      return Promise.resolve();
+    }
+    suspend() {
+      return Promise.resolve();
+    }
+  }
+  vi.stubGlobal("AudioContext", FakeContext);
+  return contexts;
+}
+
+describe("sound check after a reload", () => {
+  const loud = (id: number): Track => ({ ...track(id), gain_db: -9 });
+
+  it("Next builds the audio graph, so the first song is normalized", async () => {
+    const contexts = stubAudioContext();
+    const { usePlayerStore } = await importPlayer();
+    // A restored session: populated store, nothing played yet, no graph.
+    usePlayerStore.setState({ queue: [track(1), loud(2)], order: [0, 1], orderPos: 0 });
+    expect(contexts).toHaveLength(0);
+
+    usePlayerStore.getState().next();
+
+    expect(elements[0].src).toContain("/api/stream/2");
+    expect(contexts).toHaveLength(1);
+    // -9 dB at full volume: the live element's node, not unity.
+    expect(contexts[0].gains[0].value).toBeCloseTo(0.355, 3);
+    // A second press does not build a second graph.
+    usePlayerStore.getState().next();
+    expect(contexts).toHaveLength(1);
+  });
+
+  it("Previous builds it too, and so does the hardware Next key", async () => {
+    let contexts = stubAudioContext();
+    let { usePlayerStore } = await importPlayer();
+    usePlayerStore.setState({ queue: [loud(1), track(2)], order: [0, 1], orderPos: 1 });
+    usePlayerStore.getState().prev();
+    expect(contexts).toHaveLength(1);
+    expect(contexts[0].gains[0].value).toBeCloseTo(0.355, 3);
+
+    contexts = stubAudioContext();
+    ({ usePlayerStore } = await importPlayer());
+    usePlayerStore.setState({ queue: [track(1), loud(2)], order: [0, 1], orderPos: 0 });
+    handlers.nexttrack({ action: "nexttrack" });
+    expect(contexts).toHaveLength(1);
+    expect(contexts[0].gains[0].value).toBeCloseTo(0.355, 3);
+  });
+});
