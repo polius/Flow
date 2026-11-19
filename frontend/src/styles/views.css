@@ -68,6 +68,25 @@
     flex-basis: 100%;
     margin-left: 0;
     justify-content: flex-start;
+    position: relative;
+  }
+
+  /* Its menus (Genre, sort) opened from their pill's right edge, which
+     put Genre's 190px menu off the left of the screen once the pills
+     moved left. In this row they open from the row's left edge instead,
+     no wider than the screen less its margins, and clear of the player
+     (a long genre list scrolls). */
+  .view__actions--row .sortmenu {
+    position: static;
+  }
+
+  .view__actions--row .sortmenu__pop {
+    left: 0;
+    right: auto;
+    max-width: calc(100vw - 32px);
+    /* Clear of the player and tab bar below (about 360px of chrome and
+       header above and below the menu at the top of the page). */
+    max-height: max(200px, calc(100dvh - 360px));
   }
 }
 
