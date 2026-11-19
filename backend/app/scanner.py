@@ -12,6 +12,7 @@ import stat
 import threading
 import time
 from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import IntFlag
@@ -145,6 +146,15 @@ class _ScanArtwork(ArtworkStore):
         if folder not in self._folder_cache:
             self._folder_cache[folder] = self._folder_artwork_id(folder)
         return self._folder_cache[folder]
+
+
+# Loudness analysis: how many ffmpeg processes run side by side.
+MAX_ANALYSIS_WORKERS = 4
+
+
+def analysis_workers() -> int:
+    """Up to four files at once, and never more than half the cores."""
+    return max(1, min(MAX_ANALYSIS_WORKERS, (os.cpu_count() or 2) // 2))
 
 
 class LibraryScanner:
@@ -764,7 +774,7 @@ class LibraryScanner:
         if existing_id is not None:
             existing = conn.execute(
                 "SELECT id, title, artist_id, album_id, album_artist_id, track_no, "
-                "media_path, user_edited FROM tracks WHERE id = ?",
+                "media_path, user_edited, mtime, size, gain_db FROM tracks WHERE id = ?",
                 (existing_id,),
             ).fetchone()
         edited = Edited(existing["user_edited"]) if existing else Edited(0)
@@ -816,6 +826,25 @@ class LibraryScanner:
                 (artwork_id, album_id),
             )
 
+        # A tag-provided ReplayGain is the free, exact loudness value
+        # (re-referenced from −18 LUFS to the Sound Check target). Without
+        # one, a file whose bytes have not changed since it was measured
+        # keeps its measurement: a full rescan re-reads tags, and used to
+        # throw away every analyzed value with them — hours of ffmpeg on a
+        # big library, every time. Anything else stays NULL for the
+        # analysis phase.
+        if parsed.replaygain_db is not None:
+            gain_db = gain_from_replaygain(parsed.replaygain_db)
+        elif (
+            existing is not None
+            and existing["gain_db"] is not None
+            and abs(existing["mtime"] - f.mtime) <= MTIME_EPS
+            and existing["size"] == f.size
+        ):
+            gain_db = existing["gain_db"]
+        else:
+            gain_db = None
+
         values = {
             "path": f.rel,
             "title": title or f.rel,
@@ -829,14 +858,7 @@ class LibraryScanner:
             "format": fmt,
             "bitrate": parsed.bitrate,
             "sample_rate": parsed.sample_rate,
-            # A tag-provided ReplayGain is the free, exact loudness value
-            # (re-referenced from −18 LUFS to the Sound Check target);
-            # otherwise it stays NULL for the analysis phase.
-            "gain_db": (
-                gain_from_replaygain(parsed.replaygain_db)
-                if parsed.replaygain_db is not None
-                else None
-            ),
+            "gain_db": gain_db,
             "mtime": f.mtime,
             "size": f.size,
             "media_path": media_path,
@@ -993,36 +1015,43 @@ class LibraryScanner:
         conn.commit()
         processed = 0
         analyzed = 0
-        for row in rows:
-            if self._interrupt.is_set():
-                log.info(
-                    "Loudness analysis paused at %d/%d for a queued scan", processed, total
-                )
-                return False
+
+        def source_of(row) -> Path:
             # Repaired tracks analyze their remuxed copy — the original's
             # bytes are what mutagen refused in the first place.
-            source = (
-                Path(row["media_path"])
-                if row["media_path"]
-                else self._music / row["path"]
-            )
-            gain = analyze_file(source)
-            # The write transaction opens at the UPDATE below and ends at
-            # the commit — ffmpeg NEVER runs inside one. A transaction held
-            # across ~25 analyses (the old batching) kept the WAL write lock
-            # for minutes and 500'd the queue mirror. `gain_db IS NULL`: a
-            # rescan may have filled it from a new tag meanwhile.
-            if gain is not None:
-                conn.execute(
-                    "UPDATE tracks SET gain_db = ? WHERE id = ? AND gain_db IS NULL",
-                    (gain, row["id"]),
-                )
-                analyzed += 1
-            processed += 1
-            self._set_state(state="scanning", phase="analyze", current=processed)
-            if processed % 25 == 0:
-                _settings_upsert(conn, "scan_current", str(processed))
-            conn.commit()
+            return Path(row["media_path"]) if row["media_path"] else self._music / row["path"]
+
+        # ffmpeg is one process per file, so several run side by side: a
+        # few at once, never more than half the cores (the server is still
+        # serving music). Files are measured a batch at a time, in order;
+        # every write stays on this thread and its connection.
+        workers = analysis_workers()
+        with ThreadPoolExecutor(max_workers=workers, thread_name_prefix="flow-gain") as pool:
+            for start in range(0, total, workers):
+                if self._interrupt.is_set():
+                    log.info(
+                        "Loudness analysis paused at %d/%d for a queued scan", processed, total
+                    )
+                    return False
+                batch = rows[start : start + workers]
+                gains = list(pool.map(analyze_file, [source_of(row) for row in batch]))
+                # The write transaction opens at the UPDATE below and ends at
+                # the commit — ffmpeg NEVER runs inside one. A transaction held
+                # across ~25 analyses (the old batching) kept the WAL write lock
+                # for minutes and 500'd the queue mirror. `gain_db IS NULL`: a
+                # rescan may have filled it from a new tag meanwhile.
+                for row, gain in zip(batch, gains):
+                    if gain is not None:
+                        conn.execute(
+                            "UPDATE tracks SET gain_db = ? WHERE id = ? AND gain_db IS NULL",
+                            (gain, row["id"]),
+                        )
+                        analyzed += 1
+                    processed += 1
+                    if processed % 25 == 0:
+                        _settings_upsert(conn, "scan_current", str(processed))
+                self._set_state(state="scanning", phase="analyze", current=processed)
+                conn.commit()
         log.info("Loudness analysis finished (%d/%d measured)", analyzed, total)
         # The scan is only done when the UI says so.
         errors = self._state["errors"]
