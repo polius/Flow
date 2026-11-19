@@ -556,15 +556,23 @@
   cursor: pointer;
 }
 
-.queue__main:focus-visible {
-  outline: 2px solid var(--text-primary);
-  outline-offset: -2px;
-}
-
 .queue__art {
   position: relative;
   width: 38px;
   height: 38px;
+}
+
+/* The cover is the row's play button (for the keyboard and assistive
+   technology; a pointer may click anywhere on the row). */
+.queue__play {
+  display: block;
+  padding: 0;
+  border-radius: var(--radius-s);
+}
+
+.queue__play:focus-visible {
+  outline: 2px solid var(--text-primary);
+  outline-offset: 2px;
 }
 
 .queue__meta {
@@ -622,12 +630,12 @@
 }
 
 .queue__row--current:hover .eq,
-.queue__main:focus-visible .eq {
+.queue__play:focus-visible .eq {
   opacity: 0;
 }
 
 .queue__row--current:hover .queue__toggle,
-.queue__main:focus-visible .queue__toggle {
+.queue__play:focus-visible .queue__toggle {
   opacity: 1;
 }
 
@@ -662,8 +670,8 @@
 
 .queue__row--played:hover .queue__art,
 .queue__row--played:hover .queue__meta,
-.queue__row--played .queue__main:focus-visible .queue__art,
-.queue__row--played .queue__main:focus-visible .queue__meta {
+.queue__row--played .queue__play:focus-visible,
+.queue__row--played .queue__main:focus-within .queue__meta {
   opacity: 1;
 }
 
