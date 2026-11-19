@@ -7,33 +7,37 @@
    global override in base.css. */
 .view {
   --view-pad-x: 40px;
-  padding: 34px var(--view-pad-x) 48px;
+  /* The right side, apart: a capped view takes its spare width there. */
+  --view-pad-right: var(--view-pad-x);
+  padding: 34px var(--view-pad-right) 48px var(--view-pad-x);
   animation: fade-in var(--dur-normal) var(--ease-out);
 }
 
 /* Song lists and detail pages keep their rows readable on a wide window:
-   the content column stops at 1200px and sits centred. Without the cap a
-   row at 1920px ran its title and its duration 1,700px apart. The cap is
-   side padding, not a max-width, so the view itself stays as wide as the
-   canvas and a full-bleed layer (the album banner) still reaches the
-   edges. Grids of covers are not capped: more room is more covers. */
+   the content column stops at 1200px. Without the cap a row at 1920px ran
+   its title and its duration 1,700px apart. The column starts where every
+   other section does (40px from the left, under the brand) and the spare
+   width goes to the right: centred, a 1920px window opened Songs 360px in
+   from the edge. The cap is padding, not a max-width, so the view itself
+   stays as wide as the canvas and a full-bleed layer (the album banner)
+   still reaches the edges. Grids of covers are not capped: more room is
+   more covers. */
 @media (min-width: 641px) {
   .view--capped {
-    --view-pad-x: max(40px, calc((100% - 1200px) / 2));
+    --view-pad-right: max(var(--view-pad-x), calc(100% - 1200px - var(--view-pad-x)));
   }
 }
 
 /* Phones: 40px side padding is desktop chrome; iOS-scale insets give
-   the content back 48px of width. The ambience banner offsets by the same
-   padding so it stays anchored to the canvas edges. */
+   the content back 48px of width. */
 @media (max-width: 640px) {
   .view {
     --view-pad-x: 16px;
-    padding: 24px var(--view-pad-x) 40px;
+    padding: 24px var(--view-pad-right) 40px var(--view-pad-x);
   }
 
   .view--ambient .ambience--banner {
-    inset: -24px calc(-1 * var(--view-pad-x)) auto;
+    inset: -24px 0 auto;
   }
 
   /* The header's action pills cannot shrink (flex: none) and carry live
@@ -71,7 +75,10 @@
 }
 
 .view--ambient .ambience--banner {
-  inset: -34px calc(-1 * var(--view-pad-x)) auto;
+  /* The view's padding box already spans the canvas: the banner reaches
+     its edges with no side offset (a negative one scrolled the page
+     sideways by the width of the padding). */
+  inset: -34px 0 auto;
   height: 480px;
   z-index: -1;
   -webkit-mask-image: linear-gradient(to bottom, black 46%, transparent 66%);
