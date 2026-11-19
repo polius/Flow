@@ -1100,6 +1100,7 @@
   .nowplaying__progress {
     flex-wrap: wrap;
     row-gap: 4px;
+    margin-top: 10px; /* 24px under the transport: the buttons breathe */
   }
 
   .nowplaying__progress .player__scrubber {
