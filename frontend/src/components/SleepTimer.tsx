@@ -93,12 +93,13 @@ export function SleepTimer({ compact = false }: { compact?: boolean }) {
           aria-haspopup="menu"
           aria-expanded={open}
           aria-label={label}
+          title={label}
           onClick={() => setOpen((o) => !o)}
         >
           <IconMoon size={13} />
-          {/* On a phone an idle timer is a moon in a circle, like the
-              favorite beside it, and a running one drops the "Sleep:"
-              prefix (nowplaying.css): the row then fits on one line. */}
+          {/* An idle timer is a moon in a circle, like the favorite
+              beside it, and a running one drops the "Sleep:" prefix
+              (nowplaying.css): the row then fits beside the volume. */}
           {sleep == null ? (
             <span className="nowplaying__pilltext">{label}</span>
           ) : (

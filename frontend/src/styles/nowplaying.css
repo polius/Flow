@@ -271,18 +271,73 @@
 
 /* The favorite toggle and the filing pill — a state and an action at
    the same tier, drawn at the same height. */
-.nowplaying__actions {
-  align-self: center;
+/* ---- the row under the scrubber ----
+   One line spanning the scrubber's width: the volume at its left edge,
+   the song's actions at its right — not two centred rows of their own
+   widths stacked under it. On a phone (no volume here) the actions sit
+   centred. */
+.nowplaying__footer {
   display: flex;
-  flex-wrap: wrap; /* four pills on a 360 px phone: a second row, not squeezed labels */
-  justify-content: center;
   align-items: center;
-  gap: 10px 12px;
+  justify-content: space-between;
+  gap: 16px;
+  width: 100%;
+}
+
+.nowplaying__footer--novolume {
+  justify-content: center;
+}
+
+.nowplaying__actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 10px;
+}
+
+.nowplaying__footer--novolume .nowplaying__actions {
+  justify-content: center;
+}
+
+/* Add to Playlist and an idle sleep timer are icons in circles, like the
+   heart, with their names in a tooltip and for assistive technology; a
+   running timer is a pill showing the time left, without the "Sleep:"
+   prefix. Labelled pills did not fit beside the volume. */
+.nowplaying__iconpill {
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  justify-content: center;
+}
+
+.nowplaying__iconpill svg {
+  width: 16px;
+  height: 16px;
+}
+
+.nowplaying__iconpill .nowplaying__pilltext,
+.nowplaying__sleepprefix {
+  display: none;
+}
+
+.nowplaying__addto {
+  min-height: 34px;
 }
 
 /* Phones: the row stays on one line, and no label breaks in two. */
 @media (max-width: 640px) {
+  .nowplaying__footer {
+    justify-content: center;
+  }
+
+  /* The bar's volume is hidden at phone widths (player.css); its empty
+     wrapper must not hold a place in the row. */
+  .nowplaying__volume {
+    display: none;
+  }
+
   .nowplaying__actions {
+    justify-content: center;
     gap: 14px;
     /* As wide as its buttons need, up to the screen less its margins,
        even where that is wider than the cover above it (a 360px phone
@@ -296,22 +351,10 @@
     white-space: nowrap;
   }
 
-  /* The sleep timer wrapped to a line of its own under the heart and
-     Add to Playlist (on a 360px phone, and on any phone once Lyrics
-     joins the row): the row is only as wide as the cover. Add to Playlist
-     and an idle sleep timer are icons in circles like the heart, and
-     a running timer shows the time left without the "Sleep:" prefix. Each
-     keeps its name for assistive technology (aria-label). */
-  .nowplaying__iconpill {
-    width: 40px;
-    height: 40px;
-    padding: 0;
-    justify-content: center;
-  }
-
-  /* Without labels the icons carry the row: 40px circles with 18px
-     icons, and the pills that keep a label (Lyrics, a running timer)
-     share the height. */
+  /* Phones: the row is all there is under the scrubber (no volume), so
+     its buttons grow to 40px with 18px icons, and the pills that keep a
+     label (Lyrics, a running timer) share the height. */
+  .nowplaying__iconpill,
   .nowplaying__actions .nowplaying__fav {
     width: 40px;
     height: 40px;
@@ -334,8 +377,13 @@
 }
 
 .nowplaying__fav {
-  width: 30px;
-  height: 30px;
+  width: 34px;
+  height: 34px;
+}
+
+.nowplaying__fav svg {
+  width: 16px;
+  height: 16px;
 }
 
 /* Where hover exists, the circle wears the pill's hover fill — two
@@ -372,11 +420,23 @@
 /* The takeover covers the player bar, so the volume rides along under
    the actions (hidden with the bar's own at phone widths, player.css). */
 .nowplaying__volume {
-  align-self: center;
+  flex: none;
 }
 
+/* The volume is the row's quiet half: a shorter track and a smaller
+   thumb than the scrubber's above it. */
 .nowplaying__volume input[type="range"].range.player__volumeslider {
-  width: 160px;
+  width: 120px;
+}
+
+.nowplaying__volume input[type="range"].range::-webkit-slider-thumb {
+  width: 10px;
+  height: 10px;
+}
+
+.nowplaying__volume input[type="range"].range::-moz-range-thumb {
+  width: 10px;
+  height: 10px;
 }
 
 /* Touch: the pill keeps its ~30px drawing but its hit area reaches the
