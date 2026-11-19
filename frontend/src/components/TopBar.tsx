@@ -20,7 +20,6 @@ import { NavLink, useLocation, useNavigate, useSearchParams } from "react-router
 import { useQuery } from "@tanstack/react-query";
 
 import { api } from "../api/client";
-import { useAppVersion } from "../api/system";
 import { useDebouncedValue } from "../lib/debounce";
 import { fmtCount, scanProgressFraction, scanStatusLabel } from "../lib/format";
 import { useMediaQuery } from "../lib/media";
@@ -60,7 +59,7 @@ interface NavEntry {
    not a section). Settings is kept apart from the library sections,
    mirroring the hairline break in both nav forms. */
 const NAV: NavEntry[] = [
-  { to: "/tracks", label: "Tracks", Icon: IconTracks },
+  { to: "/tracks", label: "Songs", Icon: IconTracks },
   { to: "/albums", label: "Albums", Icon: IconAlbums },
   { to: "/artists", label: "Artists", Icon: IconArtists },
   { to: "/favorites", label: "Favorites", Icon: IconHeart },
@@ -83,9 +82,6 @@ export function TopBar() {
   const focusSignal = useUiStore((s) => s.searchFocusSignal);
   const scan = useScanStore((s) => s.status);
   const scanning = scan?.state === "scanning";
-  // The version badge after the wordmark — whatever the serving backend
-  // says, never a second constant to keep in step.
-  const { data: version } = useAppVersion();
   // Wide windows: the section nav wears visible labels. The only JS
   // consumer is the tooltip — a labeled control needs no "Tracks" tooltip
   // hovering beside the word "Tracks".
@@ -181,10 +177,7 @@ export function TopBar() {
         <span className="topbar__brand-mark">
           <IconFlowMark size={24} />
         </span>
-        <span className="topbar__brand-name">
-          Flow
-          {version && <span className="topbar__brand-version">v{version}</span>}
-        </span>
+        <span className="topbar__brand-name">Flow</span>
       </NavLink>
 
       {/* Global scan indicator. Quiet, tabular, honest; gone the moment

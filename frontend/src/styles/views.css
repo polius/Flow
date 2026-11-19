@@ -77,6 +77,12 @@
   color: var(--text-secondary);
 }
 
+/* Play / Shuffle under a list view's title (Favorites), where the detail
+   pages keep theirs. */
+.view__collactions {
+  margin: 16px 0 6px;
+}
+
 /* Empty state: centered, quiet, instructive — never a broken-looking list. */
 .empty-state {
   display: flex;

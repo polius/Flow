@@ -69,7 +69,7 @@ export function SleepTimer({ compact = false }: { compact?: boolean }) {
     sleep == null
       ? "Sleep Timer"
       : sleep.kind === "track"
-        ? "Sleep: End of Track"
+        ? "Sleep: End of Song"
         : `Sleep: ${fmtDuration(secondsLeft ?? 0)}`;
 
   return (
@@ -128,7 +128,7 @@ export function SleepTimer({ compact = false }: { compact?: boolean }) {
             <span className="trackmenu__check" aria-hidden="true">
               {sleep?.kind === "track" && <IconCheck size={13} />}
             </span>
-            End of track
+            End of song
           </button>
           {sleep != null && (
             <button

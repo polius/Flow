@@ -53,6 +53,10 @@ interface VirtualTrackTableProps {
       loaded and the view isn't narrowed by a search filter — a drag
       against a subset would re-point the unshown rows' positions. */
   reorderable?: boolean;
+  /** No ordinal: the rows are a sortable list, not a numbered one. The
+      index slot stays empty until hover or focus shows its play glyph
+      (and the playing row its bars). */
+  hideIndex?: boolean;
   /** The column head (a <TrackTableHead>), rendered as the grid's first
       row so its columnheaders name the cells below. */
   head?: ReactNode;
@@ -67,6 +71,7 @@ export function VirtualTrackTable({
   contextLoader,
   onMove,
   reorderable = false,
+  hideIndex = false,
   head,
   label = "Songs",
 }: VirtualTrackTableProps) {
@@ -267,6 +272,8 @@ export function VirtualTrackTable({
         <div
           ref={containerRef}
           className={`tracktable tracktable--all tracktable--virtual${
+            hideIndex ? " tracktable--quietindex" : ""
+          }${
             canDrag ? " tracktable--reorderable" : ""
           }${drag ? " tracktable--dragging" : ""}`}
           role="rowgroup"
@@ -282,6 +289,7 @@ export function VirtualTrackTable({
                 track={track}
                 index={item.index}
                 variant="all"
+                hideIndex={hideIndex}
                 isCurrent={current?.id === track.id}
                 isPlaying={isPlaying}
                 rowId={rowId(item.index)}

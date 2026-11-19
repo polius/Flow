@@ -207,11 +207,11 @@ export function NowPlaying() {
                 >
                   <IconShuffle size={16} />
                 </TransportButton>
-                <TransportButton label="Previous track" hint={`${MOD_KEY}←`} onClick={prev}>
+                <TransportButton label="Previous song" hint={`${MOD_KEY}←`} onClick={prev}>
                   <IconPrev size={19} />
                 </TransportButton>
                 <PlayPauseButton isPlaying={isPlaying} />
-                <TransportButton label="Next track" hint={`${MOD_KEY}→`} onClick={next}>
+                <TransportButton label="Next song" hint={`${MOD_KEY}→`} onClick={next}>
                   <IconNext size={19} />
                 </TransportButton>
                 <TransportButton
@@ -271,7 +271,7 @@ export function NowPlaying() {
               </span>
               <h1 className="nowplaying__title">Nothing Playing</h1>
               <p className="nowplaying__hint">
-                Add tracks to the queue, then tap one to start — or play an
+                Add songs to the queue, then tap one to start — or play an
                 album or playlist anywhere in Flow.
               </p>
             </div>

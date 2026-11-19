@@ -706,12 +706,12 @@ export function QueuePanel({ onCollapse }: QueuePanelProps) {
             <div className="queue__empty">
               <p className="queue__emptytitle">Nothing queued</p>
               <p className="queue__emptyhint">
-                Play an album or playlist anywhere in Flow — or add tracks here to
+                Play an album or playlist anywhere in Flow — or add songs here to
                 line up what plays next.
               </p>
               <button type="button" className="queue__add" onClick={() => setAdding(true)}>
                 <IconPlus size={13} />
-                Add Tracks
+                Add Songs
               </button>
             </div>
           ) : (

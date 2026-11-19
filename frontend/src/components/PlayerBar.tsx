@@ -93,7 +93,7 @@ export function PlayerBar() {
             <IconShuffle size={16} />
           </TransportButton>
           <TransportButton
-            label="Previous track"
+            label="Previous song"
             hint={`${MOD_KEY}←`}
             onClick={prev}
             disabled={!hasQueue}
@@ -102,7 +102,7 @@ export function PlayerBar() {
           </TransportButton>
           <PlayPauseButton isPlaying={isPlaying} disabled={!hasQueue} />
           <TransportButton
-            label="Next track"
+            label="Next song"
             hint={`${MOD_KEY}→`}
             onClick={next}
             disabled={!hasQueue}

@@ -72,6 +72,16 @@ export function PlaylistsView() {
           icon={<IconPlaylists size={26} />}
           title="No playlists yet"
           hint="Create a playlist and drag songs in — reorder them any time."
+          action={
+            <button
+              type="button"
+              className="btn empty-state__action"
+              onClick={() => setCreating(true)}
+            >
+              <IconPlus size={15} />
+              New Playlist
+            </button>
+          }
         />
       ) : (
         <div className="covergrid">
@@ -247,7 +257,7 @@ function PlaylistCard({ playlist }: { playlist: PlaylistSummary }) {
                 disabled={loading || tracks.length === 0}
               >
                 <IconQueue size={15} />
-                Add to Queue (end)
+                Add to Queue
               </button>
               {/* A playlist is a destination, not a source: where the album
                   menu files tracks elsewhere, this one fills the playlist. */}
@@ -259,7 +269,7 @@ function PlaylistCard({ playlist }: { playlist: PlaylistSummary }) {
                 disabled={detail === undefined}
               >
                 <IconPlus size={15} />
-                Add Tracks
+                Add Songs
               </button>
               <div className="trackmenu__separator" role="separator" />
               <button

@@ -39,6 +39,8 @@ interface TrackTableHeadProps {
   style?: CSSProperties;
   /** Absent → a static head (detail views); present → sortable buttons. */
   onSort?: (key: TrackSortKey, dir: "asc" | "desc") => void;
+  /** The rows carry no ordinal (see TrackRow's hideIndex): no "#". */
+  hideIndex?: boolean;
 }
 
 export function TrackTableHead({
@@ -47,6 +49,7 @@ export function TrackTableHead({
   dir,
   style,
   onSort,
+  hideIndex,
 }: TrackTableHeadProps) {
   const arrow = (key: string) =>
     sort === key ? (
@@ -74,8 +77,14 @@ export function TrackTableHead({
       style={style}
     >
       <span className="trackhead__index" role="columnheader">
-        <span aria-hidden="true">#</span>
-        <span className="sr-only">Number</span>
+        {hideIndex ? (
+          <span className="sr-only">Play</span>
+        ) : (
+          <>
+            <span aria-hidden="true">#</span>
+            <span className="sr-only">Number</span>
+          </>
+        )}
       </span>
       {VARIANT_COLUMNS[variant].map((key) => {
         const { label, className } = byKey[key];

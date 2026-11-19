@@ -678,6 +678,16 @@
   opacity: 1;
 }
 
+/* A long sortable list (Songs, an artist's songs) has no ordinal either,
+   but a glyph on every one of its rows would be the same noise in a new
+   shape: where hover exists the slot stays empty until the pointer or the
+   keyboard is on the row. Touch keeps its glyph (the rule below). */
+@media (hover: hover) {
+  .tracktable--quietindex .trackrow--noindex:not(.trackrow--playing):not(:hover) .trackrow__play:not(:focus-visible) {
+    opacity: 0;
+  }
+}
+
 .trackrow__title {
   overflow: hidden;
   text-overflow: ellipsis;

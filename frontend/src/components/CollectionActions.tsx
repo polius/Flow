@@ -9,7 +9,14 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { QueueOrigin, Track } from "../api/types";
 import { usePlayerStore } from "../stores/player";
 import { useUiStore } from "../stores/ui";
-import { IconEllipsis, IconNext, IconPlay, IconPlus, IconQueue, IconShuffle } from "./icons";
+import {
+  IconEllipsis,
+  IconNext,
+  IconPlay,
+  IconPlaylistAdd,
+  IconQueue,
+  IconShuffle,
+} from "./icons";
 
 /** A menu action beyond the shared curation set — rendered at the menu's
     end, after a separator. Navigation is just an onSelect that routes. */
@@ -166,7 +173,7 @@ export function CollectionActions({
               }}
             >
               <IconQueue size={15} />
-              Add to Queue (end)
+              Add to Queue
             </button>
             {addToPlaylist && (
               <button
@@ -179,7 +186,7 @@ export function CollectionActions({
                   setOpen(false);
                 }}
               >
-                <IconPlus size={15} />
+                <IconPlaylistAdd size={15} />
                 Add to Playlist
               </button>
             )}

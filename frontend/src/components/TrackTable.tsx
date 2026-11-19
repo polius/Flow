@@ -40,8 +40,9 @@ interface TrackTableProps {
   /** Suppress the index column — a result set (search) has no
       meaningful ordinal, so the slot leads with the play affordance
       instead, the way the playing row already does. One prop, not a
-      fork of the table. */
-  hideIndex?: boolean;
+      fork of the table. "quiet" (a long list, where a glyph on every row
+      is its own noise) keeps the slot empty until hover or focus. */
+  hideIndex?: boolean | "quiet";
   /** The column head (a <TrackTableHead>), rendered as the grid's first
       row so its columnheaders name the cells below. */
   head?: ReactNode;
@@ -236,7 +237,7 @@ export function TrackTable({
         index={index}
         variant={variant}
         albumArtist={albumArtist}
-        hideIndex={hideIndex}
+        hideIndex={hideIndex != null && hideIndex !== false}
         isCurrent={current?.id === track.id}
         isPlaying={isPlaying}
         rowId={rowId(index)}
@@ -319,7 +320,7 @@ export function TrackTable({
         {head}
         <div
           ref={tableRef}
-          className={`tracktable tracktable--${variant}${reorderable ? " tracktable--reorderable" : ""}${drag ? " tracktable--dragging" : ""}`}
+          className={`tracktable tracktable--${variant}${reorderable ? " tracktable--reorderable" : ""}${drag ? " tracktable--dragging" : ""}${hideIndex === "quiet" ? " tracktable--quietindex" : ""}`}
           role="rowgroup"
           {...handlers}
           // Native image/link drag would hijack the press — the table's only

@@ -226,7 +226,7 @@ export function AddToPlaylistDialog() {
                     ? `“${created.name}” · ${fmtCount(tracks.length)} ${
                         tracks.length === 1 ? "track" : "tracks"
                       } added`
-                    : `“${created.name}” — but the tracks couldn't be added`}
+                    : `“${created.name}” — but the songs couldn't be added`}
                 </span>
               </div>
             </div>
@@ -307,7 +307,7 @@ export function AddToPlaylistDialog() {
                 <span className="addto__name">{playlist.name}</span>
                 <span className="addto__meta">
                   {fmtCount(playlist.track_count)}{" "}
-                  {playlist.track_count === 1 ? "track" : "tracks"}
+                  {playlist.track_count === 1 ? "song" : "songs"}
                 </span>
               </span>
             </button>
@@ -334,7 +334,7 @@ export function AddToPlaylistDialog() {
             </span>
             <span className="addto__names">
               <span className="addto__name">New Playlist</span>
-              <span className="addto__meta">Name it, then these tracks land in it</span>
+              <span className="addto__meta">Name it, then these songs land in it</span>
             </span>
           </button>
         </div>

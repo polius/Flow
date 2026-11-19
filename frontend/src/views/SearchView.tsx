@@ -65,7 +65,7 @@ export function SearchView() {
             <section className="searchgroup">
               <SectionHeader
                 title="Songs"
-                more={{ to: `/tracks?q=${encodeURIComponent(urlQuery)}`, label: "Show all in Tracks" }}
+                more={{ to: `/tracks?q=${encodeURIComponent(urlQuery)}`, label: "Show all in Songs" }}
               />
               <TrackTable
                 label={`Songs matching “${urlQuery}”`}

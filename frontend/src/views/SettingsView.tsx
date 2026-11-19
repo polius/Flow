@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 
 import { api } from "../api/client";
+import { useAppVersion } from "../api/system";
 import { fmtCount, fmtDateTime, scanStatusLabel } from "../lib/format";
 import { HOME_ICON_FILES } from "../lib/homeIcon";
 import { isIOS } from "../lib/platform";
@@ -97,6 +98,9 @@ export function SettingsView() {
   const setThemeMode = useUiStore((s) => s.setThemeMode);
   const homeIcon = useUiStore((s) => s.homeIcon);
   const setHomeIcon = useUiStore((s) => s.setHomeIcon);
+  // Whatever the serving backend says — never a second constant to keep
+  // in step. It lives here, not beside the logo on every screen.
+  const { data: version } = useAppVersion();
   const letterKeys = useUiStore((s) => s.letterKeys);
   const setLetterKeys = useUiStore((s) => s.setLetterKeys);
   const soundcheck = usePlayerStore((s) => s.soundcheck);
@@ -300,7 +304,7 @@ export function SettingsView() {
               <span className="settings-row__label">
                 Organize
                 <span className="settings-row__hint">
-                  Group tracks into albums and artists, fix metadata in bulk —
+                  Group songs into albums and artists, fix metadata in bulk —
                   edits stay in the database, your music folder is never
                   touched.
                 </span>
@@ -318,7 +322,7 @@ export function SettingsView() {
                       ? `Organize — ${reviewCount} ${reviewCount === 1 ? "item needs" : "items need"} attention`
                       : "Organize"
                   }
-                  title="Organize — group tracks into albums and artists"
+                  title="Organize — group songs into albums and artists"
                 >
                   Open
                 </button>
@@ -375,6 +379,15 @@ export function SettingsView() {
                     </span>
                   </button>
                 </span>
+              </div>
+            </div>
+          )}
+          {version && (
+            <div className="settings-group">
+              <h2>About</h2>
+              <div className="settings-row">
+                <span className="settings-row__label">Version</span>
+                <span className="settings-row__value">Flow {version}</span>
               </div>
             </div>
           )}
