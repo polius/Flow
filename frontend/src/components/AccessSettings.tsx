@@ -17,6 +17,7 @@ import {
   setPassword as savePassword,
   useAuthStatus,
 } from "../api/auth";
+import { endPlayback } from "../stores/player";
 import { IconEye, IconEyeOff } from "./icons";
 
 type EditorMode = "idle" | "enable" | "change" | "off";
@@ -125,6 +126,9 @@ export function AccessSettings() {
     setPending("signout");
     try {
       await logout();
+      // Signed out on purpose: the music stops and this browser forgets
+      // the queue.
+      endPlayback({ forget: true });
       // The shell guard takes it from here: /login on the next render.
       queryClient.setQueryData(AUTH_STATUS_KEY, {
         enabled: true,

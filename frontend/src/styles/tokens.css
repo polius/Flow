@@ -119,9 +119,9 @@
 /* ---- breakpoints: the canonical set ----
    CSS media queries cannot read custom properties, so this comment is the
    contract: every media query and every JS matchMedia constant mirrors
-   these numbers (PHONE_BP/LABELED_BP in TopBar, NARROW_BP in NowPlaying,
+   these numbers (LABELED_BP in TopBar, NARROW_BP in NowPlaying,
    SHEET_BP in TrackActionsMenu).
-     640  phone — overflow nav sheet, mini player, compact insets
+     640  phone — tab bar, mini player, compact insets
      760  the brand wordmark hides
      940  Now Playing queue → sheet
     1000  top-bar nav gains text labels (six labeled items, Settings
@@ -133,14 +133,17 @@
    (pointer: coarse)) sizes the top bar's targets to the 44pt HIG floor
    with invisible slop. */
 
-/* Phones: the mini player bar is one row — iOS-like, sized for thumbs and
-   grown by the device's bottom safe-area inset so controls sit clear of
-   the home indicator on notched iPhones (elsewhere the env reads 0 and
-   the bar is its natural 72px). The canvas and any other consumer of
-   --player-height follow the bar automatically. */
+/* Phones: the bottom chrome is two bars — the mini player (one 60px row,
+   iOS-like, sized for thumbs) over the section tab bar, which grows by the
+   device's bottom safe-area inset so its items sit clear of the home
+   indicator on notched iPhones (elsewhere the env reads 0). --player-height
+   stays "everything pinned to the bottom": the canvas and every other
+   consumer follow it automatically; the player itself sits on top of
+   --tabbar-height (player.css). */
 @media (max-width: 640px) {
   :root {
-    --player-height: calc(72px + env(safe-area-inset-bottom, 0px));
+    --tabbar-height: calc(54px + env(safe-area-inset-bottom, 0px));
+    --player-height: calc(60px + var(--tabbar-height));
   }
 }
 

@@ -9,6 +9,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from urllib.parse import urlsplit
 
+import anyio.to_thread
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -35,6 +36,9 @@ from app.routers import settings as settings_router
 from app.routers.common import TxRoute
 from app.schemas import Health
 from app.watcher import LibraryWatcher
+
+# How many requests are worked on at once (see the lifespan below).
+WORKER_THREADS = 8
 
 logging.basicConfig(
     level=os.environ.get("FLOW_LOG_LEVEL", "INFO").upper(),
@@ -162,6 +166,11 @@ def create_app() -> FastAPI:
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
+        # Sync endpoints run in worker threads, and every worker thread
+        # holds its own SQLite connection (page cache included). The
+        # library's default of 40 is sized for a busy multi-user service;
+        # one listener's bursts — a screen of covers — fit in a handful.
+        anyio.to_thread.current_default_thread_limiter().total_tokens = WORKER_THREADS
         _bootstrap(db)
         # Demo first boot writes its library before the watcher exists, so
         # generation doesn't trip watcher-triggered scans on the way in.

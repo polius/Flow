@@ -66,7 +66,7 @@ export function OrganizeSheet() {
           <div>
             <h1 className="orgsheetwrap__title">Organize</h1>
             <p className="orgsheetwrap__sub">
-              Group tracks into albums and artists. Edits live in Flow — your
+              Group songs into albums and artists. Edits live in Flow — your
               files are never touched.
             </p>
           </div>

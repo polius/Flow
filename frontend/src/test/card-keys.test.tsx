@@ -39,6 +39,13 @@ const cover = (id: number) =>
   screen.getAllByRole("link", { name: `Album ${id}` }).find((el) => el.tabIndex === 0)!;
 
 beforeEach(() => {
+  // A desktop pointer: the card's menu is the anchored popover.
+  vi.stubGlobal("matchMedia", (query: string) => ({
+    matches: false,
+    media: query,
+    addEventListener: () => {},
+    removeEventListener: () => {},
+  }));
   render(
     <QueryClientProvider client={new QueryClient()}>
       <MemoryRouter>

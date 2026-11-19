@@ -5,6 +5,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Query, Request
 
 from app.routers.common import MAX_QUERY, TxRoute, like_pattern
+from app.search import album_match, artist_match, title_starts, track_match
 from app.routers.library import ARTIST_ARTWORK_SQL, TRACK_SELECT, track_out
 from app.routers.playlists import playlist_summaries
 from app.schemas import (
@@ -25,18 +26,21 @@ def search(
     conn = request.app.state.db.connect()
     term = like_pattern(q)
 
-    # The same row shape as every other track list (genre, album artist,
-    # recency and gain included).
+    # Matching is by word (app/search.py). The same row shape as every
+    # other track list (genre, album artist, recency and gain included);
+    # titles that begin with the query lead.
+    where, params = track_match(q)
+    lead, lead_params = title_starts(q)
     tracks = [
         track_out(r)
         for r in conn.execute(
-            f"{TRACK_SELECT} "
-            "WHERE t.title LIKE ? ESCAPE '\\' OR ar.name LIKE ? ESCAPE '\\' "
-            "OR al.title LIKE ? ESCAPE '\\' "
-            "ORDER BY t.title COLLATE NOCASE, t.id LIMIT ?",
-            (term, term, term, GROUP_LIMIT),
+            f"{TRACK_SELECT} WHERE {where} "
+            f"ORDER BY {lead}, t.title COLLATE NOCASE, t.id LIMIT ?",
+            (*params, *lead_params, GROUP_LIMIT),
         ).fetchall()
     ]
+
+    where, params = album_match(q)
 
     albums = [
         AlbumSummary(
@@ -54,11 +58,13 @@ def search(
             "ar.name AS artist, al.artist_id, COUNT(t.id) AS track_count "
             "FROM albums al LEFT JOIN artists ar ON ar.id = al.artist_id "
             "LEFT JOIN tracks t ON t.album_id = al.id "
-            "WHERE al.title LIKE ? ESCAPE '\\' OR ar.name LIKE ? ESCAPE '\\' "
+            f"WHERE {where} "
             "GROUP BY al.id ORDER BY al.title COLLATE NOCASE, al.id LIMIT ?",
-            (term, term, GROUP_LIMIT),
+            (*params, GROUP_LIMIT),
         ).fetchall()
     ]
+
+    where, params = artist_match(q)
 
     artists = [
         ArtistSummary(
@@ -72,9 +78,9 @@ def search(
             f"{ARTIST_ARTWORK_SQL} AS artwork_id, "
             "(SELECT COUNT(*) FROM albums al WHERE al.artist_id = ar.id) AS album_count, "
             "(SELECT COUNT(*) FROM tracks t WHERE t.artist_id = ar.id) AS track_count "
-            "FROM artists ar WHERE ar.name LIKE ? ESCAPE '\\' "
+            f"FROM artists ar WHERE {where} "
             "ORDER BY ar.name COLLATE NOCASE, ar.id LIMIT ?",
-            (term, GROUP_LIMIT),
+            (*params, GROUP_LIMIT),
         ).fetchall()
     ]
 

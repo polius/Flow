@@ -1,11 +1,14 @@
 """The migration runner: atomic per-file transactions, a pre-migration
 backup, the newer-schema guard, and a v1.5.0 database upgrading with every
-piece of user data intact."""
+piece of user data intact. Also the connection lifecycle: one per thread,
+closed when its thread ends."""
 
 from __future__ import annotations
 
+import gc
 import json
 import sqlite3
+import threading
 
 import pytest
 
@@ -90,6 +93,58 @@ def test_v150_database_upgrades_with_all_user_data_and_a_backup(tmp_path):
     database.close_all()
 
 
+def test_v163_database_gets_a_search_index_over_its_existing_songs(tmp_path):
+    """004 builds the word index from what is already there, and from then
+    on the triggers keep it in step with any writer."""
+    path = tmp_path / "flow.db"
+    conn = sqlite3.connect(path)
+    for name in ("001_init.sql", "002_safe_artwork_mime.sql", "003_name_keys.sql"):
+        conn.executescript((MIGRATIONS / name).read_text(encoding="utf-8"))
+    conn.execute("PRAGMA user_version = 3")
+    conn.executescript(
+        """
+        INSERT INTO artists (id, name) VALUES (1, 'Beyoncé'), (2, 'Various Artists');
+        INSERT INTO albums (id, title, artist_id) VALUES (1, 'Sampler', 2);
+        INSERT INTO tracks (id, path, title, artist_id, album_id, duration, format, mtime, added_at)
+          VALUES (1, 'a.mp3', 'Halo', 1, 1, 10, 'mp3', 1, '2026-01-01T00:00:00+00:00'),
+                 (2, 'b.mp3', 'Loose Song', NULL, NULL, 10, 'mp3', 1, '2026-01-01T00:00:00+00:00');
+        """
+    )
+    conn.commit()
+    conn.close()
+
+    database = Database(path)
+    database.init()
+    conn = database.connect()
+    assert conn.execute("PRAGMA user_version").fetchone()[0] == LATEST
+
+    def found(query):
+        return [
+            r[0]
+            for r in conn.execute(
+                "SELECT rowid FROM track_search WHERE track_search MATCH ? ORDER BY rowid",
+                (query,),
+            )
+        ]
+
+    assert found('"beyonce"* "sampler"* "various"*') == [1]
+    assert found('"loose"*') == [2]
+
+    # Any writer keeps it current: a rename of the artist row, a re-pointed
+    # track, a deleted track.
+    conn.execute("UPDATE artists SET name = 'Solange' WHERE id = 1")
+    assert found('"beyonce"*') == [] and found('"solange"*') == [1]
+    conn.execute("UPDATE albums SET title = 'Mixtape' WHERE id = 1")
+    assert found('"sampler"*') == [] and found('"mixtape"*') == [1]
+    conn.execute("UPDATE tracks SET album_id = 1 WHERE id = 2")
+    assert found('"mixtape"*') == [1, 2]
+    conn.execute("DELETE FROM tracks WHERE id = 1")
+    assert found('"halo"*') == []
+    assert conn.execute("SELECT COUNT(*) FROM track_search").fetchone()[0] == 1
+    conn.rollback()
+    database.close_all()
+
+
 def test_up_to_date_database_is_left_alone(tmp_path):
     database = Database(tmp_path / "flow.db")
     database.init()
@@ -162,4 +217,42 @@ def test_only_the_newest_backups_are_kept(tmp_path, monkeypatch):
     kept = sorted(p.name for p in backups.iterdir())
     assert len(kept) == db_module.BACKUPS_KEPT
     assert "flow-v1-20200101T000000Z.db" not in kept
+    database.close_all()
+
+
+def test_a_threads_connection_is_closed_when_the_thread_ends(tmp_path):
+    """The server's worker threads come and go. Each one's connection used
+    to stay open for the life of the process: three file handles and a page
+    cache per retired thread."""
+    database = Database(tmp_path / "flow.db")
+    database.init()
+    assert database._all == []  # init closes the startup thread's own
+
+    seen: list[sqlite3.Connection] = []
+
+    def work():
+        conn = database.connect()
+        assert conn.execute("SELECT COUNT(*) FROM queue_state").fetchone()[0] == 1
+        assert database.connect() is conn  # one per thread
+        seen.append(conn)
+
+    for _ in range(5):
+        thread = threading.Thread(target=work)
+        thread.start()
+        thread.join()
+    gc.collect()
+
+    assert len(seen) == 5 and len({id(c) for c in seen}) == 5
+    assert database._all == []
+    for conn in seen:
+        with pytest.raises(sqlite3.ProgrammingError):  # closed, not just forgotten
+            conn.execute("SELECT 1")
+
+    # A live thread keeps its connection until it ends or closes it itself.
+    mine = database.connect()
+    assert database._all == [mine]
+    database.close_thread()
+    assert database._all == []
+    with pytest.raises(sqlite3.ProgrammingError):
+        mine.execute("SELECT 1")
     database.close_all()

@@ -7,13 +7,45 @@ import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 
 import { api } from "../api/client";
+import type { components } from "../api/schema";
 import { usePatchTrack, useToggleFavorite, useUndoTrackEdit } from "../api/mutations";
+import { fmtBytes, fmtDate, fmtDuration } from "../lib/format";
 import { isTextEditingTarget } from "../lib/shortcuts";
 import { useModalFocus } from "../lib/focus";
 import { Artwork } from "./Artwork";
 import { IconClose, IconHeart, IconHeartFill } from "./icons";
 import { useUiStore } from "../stores/ui";
 import "../styles/editing.css";
+
+type TrackDetail = components["schemas"]["TrackDetailOut"];
+
+/** Facts on one line, each kept whole: "1.7 MB" never breaks at its space. */
+const joinFacts = (facts: (string | null)[]): string =>
+  facts
+    .filter((fact): fact is string => Boolean(fact))
+    .map((fact) => fact.replace(/ /g, "\u00a0"))
+    .join(" · ");
+
+/** "MP3 · 3:44 · 192 kbps · 44.1 kHz · 5.4 MB" — whatever of it is known. */
+function fileFacts(track: TrackDetail): string {
+  return joinFacts([
+    track.format.toUpperCase(),
+    fmtDuration(track.duration),
+    track.bitrate ? `${Math.round(track.bitrate / 1000)} kbps` : null,
+    track.sample_rate ? `${Number((track.sample_rate / 1000).toFixed(1))} kHz` : null,
+    track.size ? fmtBytes(track.size) : null,
+  ]);
+}
+
+/** Year and disc (read-only here), then when it arrived and last played. */
+function historyFacts(track: TrackDetail): string {
+  return joinFacts([
+    track.year != null ? String(track.year) : null,
+    track.disc_no != null ? `Disc ${track.disc_no}` : null,
+    track.added_at ? `Added ${fmtDate(track.added_at)}` : null,
+    track.played_at ? `Last played ${fmtDate(track.played_at)}` : "Never played",
+  ]);
+}
 
 export function GetInfoPanel() {
   const trackId = useUiStore((s) => s.getInfoTrackId);
@@ -48,6 +80,7 @@ export function GetInfoPanel() {
     albumArtist: "",
     album: "",
     trackNo: "",
+    genre: "",
   });
   useEffect(() => {
     if (track) {
@@ -57,6 +90,7 @@ export function GetInfoPanel() {
         albumArtist: track.album_artist ?? "",
         album: track.album ?? "",
         trackNo: track.track_no != null ? String(track.track_no) : "",
+        genre: track.genre ?? "",
       });
     }
   }, [track]);
@@ -83,7 +117,8 @@ export function GetInfoPanel() {
       draft.artist !== (track.artist ?? "") ||
       draft.albumArtist !== (track.album_artist ?? "") ||
       draft.album !== (track.album ?? "") ||
-      draft.trackNo !== (track.track_no != null ? String(track.track_no) : ""));
+      draft.trackNo !== (track.track_no != null ? String(track.track_no) : "") ||
+      draft.genre !== (track.genre ?? ""));
 
   const save = async () => {
     if (!track) return;
@@ -97,6 +132,7 @@ export function GetInfoPanel() {
       ...(draft.trackNo !== (track.track_no != null ? String(track.track_no) : "")
         ? { track_no: draft.trackNo === "" ? null : Number(draft.trackNo) }
         : {}),
+      ...(draft.genre !== (track.genre ?? "") ? { genre: draft.genre } : {}),
     };
     const ok = await patchTrack(track.id, body);
     if (ok) {
@@ -161,10 +197,11 @@ export function GetInfoPanel() {
             <div className="getinfo__identity">
               <Artwork artworkId={track.artwork_id} size={96} radius="m" className="getinfo__art" />
               <div className="getinfo__identitymeta">
-                <p className="getinfo__albumname">{track.album ?? "No album"}</p>
-                <p className="getinfo__format">
-                  {track.format.toUpperCase()} · {Math.round(track.duration)}s
-                </p>
+                {/* The panel is about one song: its title leads. Then what
+                    Flow knows about the file — no raw seconds. */}
+                <p className="getinfo__songname">{track.title}</p>
+                <p className="getinfo__facts">{fileFacts(track)}</p>
+                <p className="getinfo__facts">{historyFacts(track)}</p>
                 <p className="getinfo__path" title={track.path}>
                   {track.path}
                 </p>
@@ -189,6 +226,9 @@ export function GetInfoPanel() {
             {field("Track Number", draft.trackNo, (v) => setDraft({ ...draft, trackNo: v }), {
               type: "number",
               min: 0,
+              placeholder: "None",
+            })}
+            {field("Genre", draft.genre, (v) => setDraft({ ...draft, genre: v }), {
               placeholder: "None",
             })}
 

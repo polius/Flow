@@ -83,6 +83,32 @@
   background: var(--bg-elevated);
 }
 
+/* The grabber: on touch the view pulls down to close (NowPlaying.tsx),
+   and this is what says so. Decoration — the chevron is the control. */
+.nowplaying__grabber {
+  display: none;
+}
+
+@media (hover: none) {
+  .nowplaying__grabber {
+    display: block;
+    position: absolute;
+    top: calc(8px + env(safe-area-inset-top, 0px));
+    left: 50%;
+    z-index: 1;
+    width: 38px;
+    height: 5px;
+    margin-left: -19px;
+    border-radius: 3px;
+    background: var(--text-tertiary);
+  }
+
+  /* The pull is the view's own: it must not chain into the page behind. */
+  .nowplaying__stage {
+    overscroll-behavior: contain;
+  }
+}
+
 /* ---- layout: stage + queue ------------------------------------------------ */
 
 .nowplaying__layout {
@@ -251,6 +277,19 @@
   gap: 12px;
 }
 
+/* Phones: the heart and the two pills stay on one line, and no label
+   breaks in two ("Add to / Playlist"). */
+@media (max-width: 640px) {
+  .nowplaying__actions {
+    gap: 8px;
+  }
+
+  .nowplaying__addto {
+    padding-inline: 12px;
+    white-space: nowrap;
+  }
+}
+
 .nowplaying__fav {
   width: 30px;
   height: 30px;
@@ -279,25 +318,22 @@
   }
 }
 
-/* Sleep timer: the same pill; a running timer wears the active fill, and
-   its menu opens upward from the pill (the stage's bottom edge is near). */
-.nowplaying__sleep {
-  position: relative;
-  display: inline-flex;
-}
-
+/* Sleep timer: the same pill; a running timer wears the active fill. Its
+   menu (player.css — the player bar opens the same one) opens upward. */
 .nowplaying__addto--on {
   color: var(--text-primary);
   background: var(--bg-active);
   font-variant-numeric: tabular-nums;
 }
 
-.nowplaying__sleepmenu {
-  position: absolute;
-  bottom: calc(100% + 6px);
-  left: 50%;
-  translate: -50% 0;
-  min-width: 180px;
+/* The takeover covers the player bar, so the volume rides along under
+   the actions (hidden with the bar's own at phone widths, player.css). */
+.nowplaying__volume {
+  align-self: center;
+}
+
+.nowplaying__volume input[type="range"].range.player__volumeslider {
+  width: 160px;
 }
 
 /* Touch: the pill keeps its ~30px drawing but its hit area reaches the

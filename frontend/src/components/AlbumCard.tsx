@@ -13,7 +13,16 @@ import { beginPlayRequest, usePlayerStore } from "../stores/player";
 import { useUiStore } from "../stores/ui";
 import { useCardKeys } from "../lib/cardFocus";
 import { Artwork } from "./Artwork";
-import { IconEllipsis, IconNext, IconPlay, IconPlus, IconQueue, IconShuffle } from "./icons";
+import { CardMenu } from "./CardMenu";
+import { inCardSheet, useCardLongPress } from "../lib/cardMenu";
+import {
+  IconEllipsis,
+  IconNext,
+  IconPlay,
+  IconPlaylistAdd,
+  IconQueue,
+  IconShuffle,
+} from "./icons";
 import "../styles/library.css";
 
 export function AlbumCard({ album }: { album: AlbumSummary }) {
@@ -54,7 +63,7 @@ export function AlbumCard({ album }: { album: AlbumSummary }) {
   useEffect(() => {
     if (!menuOpen) return;
     const onPointerDown = (e: PointerEvent) => {
-      if (menuRef.current?.contains(e.target as Node)) return;
+      if (menuRef.current?.contains(e.target as Node) || inCardSheet(e.target)) return;
       setMenuOpen(false);
     };
     const onKeyDown = (e: KeyboardEvent) => {
@@ -97,6 +106,8 @@ export function AlbumCard({ album }: { album: AlbumSummary }) {
     playTracks(tracks, start, origin);
   };
   const loading = menuOpen && detail === undefined;
+  // Touch: no buttons on the cover — a long press on it opens the menu.
+  const longPress = useCardLongPress(() => setMenuOpen(true));
 
   const { coverRef, onCoverKeyDown, onMenuKeyDown, onMenuBlur } = useCardKeys(
     menuOpen,
@@ -106,7 +117,7 @@ export function AlbumCard({ album }: { album: AlbumSummary }) {
 
   return (
     <div className="album-card">
-      <div className="album-card__artwrap">
+      <div className="album-card__artwrap" {...longPress}>
         <Link
           ref={coverRef}
           to={`/albums/${album.id}`}
@@ -148,10 +159,11 @@ export function AlbumCard({ album }: { album: AlbumSummary }) {
             <IconEllipsis size={16} />
           </button>
           {menuOpen && (
-            <div
-              className="trackmenu album-card__menu"
-              role="menu"
-              aria-label={`Actions for ${album.title}`}
+            <CardMenu
+              label={`Actions for ${album.title}`}
+              title={album.title}
+              subtitle={album.artist}
+              onClose={() => setMenuOpen(false)}
               onKeyDown={onMenuKeyDown}
               onBlur={onMenuBlur}
             >
@@ -181,7 +193,7 @@ export function AlbumCard({ album }: { album: AlbumSummary }) {
                 disabled={loading || tracks.length === 0}
               >
                 <IconQueue size={15} />
-                Add to Queue (end)
+                Add to Queue
               </button>
               <button
                 type="button"
@@ -190,10 +202,10 @@ export function AlbumCard({ album }: { album: AlbumSummary }) {
                 onClick={act(() => openAddToPlaylist(tracks))}
                 disabled={loading || tracks.length === 0}
               >
-                <IconPlus size={15} />
+                <IconPlaylistAdd size={15} />
                 Add to Playlist
               </button>
-            </div>
+            </CardMenu>
           )}
         </div>
       </div>

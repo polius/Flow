@@ -201,8 +201,17 @@
    reachable; the heart here is a STATE marker: loved songs stay visibly
    loved, un-loved rows stay quiet. The inline remove button is desktop's
    hover path: on touch, removal is the swipe gesture — the slot folds away
-   entirely (library.css). */
+   entirely, and the row and its head both lose the column so nothing
+   misaligns. The rule lives here, after .trackrow__remove's own display:
+   from library.css (which loads first) it lost, and the cell it meant to
+   hide wrapped onto a second grid line that made every playlist row on a
+   phone 89px tall. */
 @media (hover: none) {
+  .trackrow__remove,
+  .trackhead__remove {
+    display: none;
+  }
+
   .trackrow__heartbtn {
     opacity: 0.4;
   }
@@ -833,7 +842,7 @@ textarea.inlineedit__input {
   min-width: 0;
 }
 
-.getinfo__albumname {
+.getinfo__songname {
   font-size: var(--text-body);
   font-weight: 600;
   overflow: hidden;
@@ -841,12 +850,13 @@ textarea.inlineedit__input {
   white-space: nowrap;
 }
 
-.getinfo__format {
+/* What Flow knows about the file, as written: no capitals, so "kbps" and
+   "kHz" read as units. */
+.getinfo__facts {
   margin-top: 2px;
   font-size: var(--text-caption);
   color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  font-variant-numeric: tabular-nums;
 }
 
 /* The file's library-relative path — read-only reference, one click

@@ -21,9 +21,15 @@ describe("artworkSize", () => {
     expect(artworkSize(180, 2)).toBe(512);
   });
 
+  it("the full-screen cover on a dense screen gets the 1024 size, not the original", () => {
+    expect(artworkSize(400, 2)).toBe(1024);
+    expect(artworkSize(340, 3)).toBe(1024);
+    expect(artworkUrl(7, 400, 2)).toBe("/api/artwork/7?s=1024");
+  });
+
   it("asks for the original past the largest size", () => {
-    expect(artworkSize(400, 2)).toBeNull();
-    expect(artworkUrl(7, 400, 2)).toBe("/api/artwork/7");
+    expect(artworkSize(400, 3)).toBeNull();
+    expect(artworkUrl(7, 400, 3)).toBe("/api/artwork/7");
     expect(artworkUrl(7, 38, 2)).toBe("/api/artwork/7?s=96");
     expect(artworkUrl(7)).toBe("/api/artwork/7");
   });
