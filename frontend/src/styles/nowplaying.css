@@ -83,6 +83,32 @@
   background: var(--bg-elevated);
 }
 
+/* The grabber: on touch the view pulls down to close (NowPlaying.tsx),
+   and this is what says so. Decoration — the chevron is the control. */
+.nowplaying__grabber {
+  display: none;
+}
+
+@media (hover: none) {
+  .nowplaying__grabber {
+    display: block;
+    position: absolute;
+    top: calc(8px + env(safe-area-inset-top, 0px));
+    left: 50%;
+    z-index: 1;
+    width: 38px;
+    height: 5px;
+    margin-left: -19px;
+    border-radius: 3px;
+    background: var(--text-tertiary);
+  }
+
+  /* The pull is the view's own: it must not chain into the page behind. */
+  .nowplaying__stage {
+    overscroll-behavior: contain;
+  }
+}
+
 /* ---- layout: stage + queue ------------------------------------------------ */
 
 .nowplaying__layout {
@@ -249,6 +275,19 @@
   display: flex;
   align-items: center;
   gap: 12px;
+}
+
+/* Phones: the heart and the two pills stay on one line, and no label
+   breaks in two ("Add to / Playlist"). */
+@media (max-width: 640px) {
+  .nowplaying__actions {
+    gap: 8px;
+  }
+
+  .nowplaying__addto {
+    padding-inline: 12px;
+    white-space: nowrap;
+  }
 }
 
 .nowplaying__fav {
