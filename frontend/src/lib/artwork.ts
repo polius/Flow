@@ -4,7 +4,7 @@
    size asks for the original. */
 
 /** The sizes the server renders (it snaps any other value up). */
-export const ARTWORK_SIZES = [64, 96, 128, 256, 512] as const;
+export const ARTWORK_SIZES = [64, 96, 128, 256, 512, 1024] as const;
 
 /** The smallest server size covering `cssPx` at the screen's density, or
     null when only the original is sharp enough. */

@@ -87,6 +87,55 @@ function patchTracks(
   });
 }
 
+/** Put one freshly read row into the player queue, wherever that song
+    sits in it: the player bar, Now Playing, the tab title and the lock
+    screen all read the queue's own copy, which no query refetch reaches. */
+function patchQueueRow(row: Track): void {
+  usePlayerStore.setState((s) => {
+    const queue = patchList(s.queue, new Set([row.id]), () => row);
+    return queue === s.queue ? s : { queue };
+  });
+}
+
+/** After an edit that named no single song (a bulk apply, an undo): re-read
+    the song that is playing, so what the listener is looking at is never
+    the old name. Queued rows further down catch up on the next load. */
+async function refreshPlayingRow(): Promise<void> {
+  const { queue, order, orderPos } = usePlayerStore.getState();
+  const current = queue[order[orderPos]];
+  if (current == null) return;
+  try {
+    const { data } = await api.GET("/api/tracks/{track_id}", {
+      params: { path: { track_id: current.id } },
+    });
+    if (data != null) patchQueueRow(data);
+  } catch {
+    // Offline: the next load brings the names.
+  }
+}
+
+/** A drag-reorder that did not save must not stay on screen: the views
+    move the row at once, so on any failure — an error status or no answer
+    at all — the lists named in `refresh` are re-read (the row goes back)
+    and the listener is told. */
+async function saveOrder(
+  queryClient: QueryClient,
+  refresh: QueryKey[],
+  send: () => Promise<boolean>,
+): Promise<boolean> {
+  let ok: boolean;
+  try {
+    ok = await send();
+  } catch {
+    ok = false;
+  }
+  if (!ok) {
+    for (const queryKey of refresh) void queryClient.invalidateQueries({ queryKey });
+    useUiStore.getState().showUndoNotice({ message: "Couldn’t save the new order" });
+  }
+  return ok;
+}
+
 /** The bulk endpoint's per-request cap. */
 const BULK_FAVORITE_MAX = 50_000;
 
@@ -208,13 +257,14 @@ export function useSetFavoriteMany() {
 export function usePatchTrack() {
   const queryClient = useQueryClient();
   return async (trackId: number, patch: TrackPatch): Promise<boolean> => {
-    const { response } = await api.PATCH("/api/tracks/{track_id}", {
+    const { data, response } = await api.PATCH("/api/tracks/{track_id}", {
       params: { path: { track_id: trackId } },
       body: patch,
     });
     if (response.ok) {
       // A rename can move any list, grid, count or review group.
       invalidateLibrary(queryClient);
+      if (data != null) patchQueueRow(data);
       return true;
     }
     return false;
@@ -229,6 +279,7 @@ export function useBulkApply() {
     const { data, response } = await api.POST("/api/tracks/bulk", { body });
     if (!response.ok || !data) return null;
     invalidateLibrary(queryClient);
+    void refreshPlayingRow();
     return data.applied;
   };
 }
@@ -244,6 +295,7 @@ export function useUndoTrackEdit() {
     const { data, response } = await api.POST("/api/tracks/bulk/undo");
     if (!response.ok || !data) return null;
     invalidateLibrary(queryClient);
+    void refreshPlayingRow();
     if (data.applied > 0) {
       showUndoNotice({
         message: `Restored ${data.applied.toLocaleString()} ${data.applied === 1 ? "song" : "songs"}`,
@@ -261,11 +313,12 @@ export function useReorderTracks() {
   const queryClient = useQueryClient();
   const showUndoNotice = useUiStore((s) => s.showUndoNotice);
   const undoEdit = useUndoTrackEdit();
-  return async (trackIds: number[]): Promise<boolean> => {
-    const { data, response } = await api.POST("/api/tracks/reorder", {
-      body: { track_ids: trackIds },
-    });
-    if (response.ok) {
+  return (trackIds: number[]): Promise<boolean> =>
+    saveOrder(queryClient, [["tracks"], ["album"]], async () => {
+      const { data, response } = await api.POST("/api/tracks/reorder", {
+        body: { track_ids: trackIds },
+      });
+      if (!response.ok) return false;
       void queryClient.invalidateQueries({ queryKey: ["tracks"] });
       void queryClient.invalidateQueries({ queryKey: ["review"] });
       if ((data?.applied ?? 0) > 0) {
@@ -276,9 +329,8 @@ export function useReorderTracks() {
           },
         });
       }
-    }
-    return response.ok;
-  };
+      return true;
+    });
 }
 
 /** Favorites drag-reorder: the whole favorites list in its new order —
@@ -287,15 +339,14 @@ export function useReorderTracks() {
     couldn't know. */
 export function useReorderFavorites() {
   const queryClient = useQueryClient();
-  return async (trackIds: number[]): Promise<boolean> => {
-    const { response } = await api.POST("/api/favorites/reorder", {
-      body: { track_ids: trackIds },
+  return (trackIds: number[]): Promise<boolean> =>
+    saveOrder(queryClient, [["tracks"]], async () => {
+      const { response } = await api.POST("/api/favorites/reorder", {
+        body: { track_ids: trackIds },
+      });
+      if (response.ok) void queryClient.invalidateQueries({ queryKey: ["tracks"] });
+      return response.ok;
     });
-    if (response.ok) {
-      void queryClient.invalidateQueries({ queryKey: ["tracks"] });
-    }
-    return response.ok;
-  };
 }
 
 export function useCreatePlaylist() {
@@ -372,15 +423,15 @@ export function useRemoveFromPlaylist() {
 
 export function useReorderPlaylist() {
   const queryClient = useQueryClient();
-  return async (
-    playlistId: number,
-    trackIds: number[],
-  ): Promise<void> => {
-    await api.PUT("/api/playlists/{playlist_id}/order", {
-      params: { path: { playlist_id: playlistId } },
-      body: { track_ids: trackIds },
+  return async (playlistId: number, trackIds: number[]): Promise<void> => {
+    const ok = await saveOrder(queryClient, [["playlist", playlistId]], async () => {
+      const { response } = await api.PUT("/api/playlists/{playlist_id}/order", {
+        params: { path: { playlist_id: playlistId } },
+        body: { track_ids: trackIds },
+      });
+      return response.ok;
     });
-    void queryClient.invalidateQueries({ queryKey: ["playlist", playlistId] });
+    if (ok) void queryClient.invalidateQueries({ queryKey: ["playlist", playlistId] });
   };
 }
 

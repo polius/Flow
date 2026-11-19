@@ -344,10 +344,29 @@ export function SettingsView() {
             )}
           </div>
 
-          {/* Playback — but not on iOS: Sound Check rides the Web Audio
-              graph, and the graph is bypassed there (the OS suspends it in
-              the background, which would kill background playback). A
-              setting that can't apply must not present itself. */}
+          {/* Playback. On iOS Sound Check cannot run: it rides the Web
+              Audio graph, and the graph is bypassed there (the OS suspends
+              it in the background, which would kill background playback).
+              A switch that can't apply must not present itself — but the
+              row stays and says so, with the other thing that differs on
+              an iPhone, so nobody goes looking for a missing setting. */}
+          {isIOS && (
+            <div className="settings-group">
+              <h2>Playback</h2>
+              <div className="settings-row settings-row--stack">
+                <span className="settings-row__label">
+                  Normalize volume
+                  <span className="settings-row__hint">
+                    Not available on iPhone and iPad, and songs change with a
+                    short gap here. iOS keeps music playing with the screen
+                    off only when Flow hands it the audio untouched, one song
+                    at a time.
+                  </span>
+                </span>
+                <span className="settings-row__value">Off on this device</span>
+              </div>
+            </div>
+          )}
           {!isIOS && (
             <div className="settings-group">
               <h2>Playback</h2>
