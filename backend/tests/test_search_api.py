@@ -187,12 +187,15 @@ def test_search_index_follows_edits_and_removals(client, words):
 
 def test_search_tracks_carry_every_track_field(client, library):
     """Search used to build TrackOut by hand and leave fields at their
-    defaults; it must answer exactly what the track endpoint does."""
+    defaults; it must answer exactly what the track list does. (The
+    single-track endpoint adds the file facts Get Info shows, which rows
+    in a list do not carry.)"""
     track = client.get("/api/tracks", params={"q": "lust"}).json()["items"][0]
     client.patch(f"/api/tracks/{track['id']}", json={"genre": "Rock"})
     client.patch("/api/queue", json={"played_track_id": track["id"]})
 
-    full = client.get(f"/api/tracks/{track['id']}").json()
+    full = client.get("/api/tracks", params={"q": "lust"}).json()["items"][0]
+    assert full["id"] == track["id"]
     found = client.get("/api/search", params={"q": "lust"}).json()["tracks"][0]
     assert found == full
     assert found["genre"] == "Rock" and found["played_at"] and found["added_at"]

@@ -23,7 +23,7 @@ import {
   IconNext,
   IconPlay,
   IconPlaylistAdd,
-  IconPlus,
+  IconQueue,
 } from "./icons";
 import "../styles/editing.css";
 
@@ -179,7 +179,7 @@ export function TrackActionsMenu() {
         className="trackmenu__item"
         onClick={act(() => addToQueue(targets))}
       >
-        <IconPlus size={15} />
+        <IconQueue size={15} />
         {targets.length > 1 ? `Add ${targets.length} to Queue` : "Add to Queue"}
       </button>
       <button

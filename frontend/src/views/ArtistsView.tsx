@@ -144,8 +144,13 @@ export function ArtistsView() {
                   <span className="artistcard__name">{artist.name}</span>
                   <span className="artistcard__meta">
                     {fmtCount(artist.album_count)} album
-                    {artist.album_count === 1 ? "" : "s"} · {fmtCount(artist.track_count)}{" "}
-                    song{artist.track_count === 1 ? "" : "s"}
+                    {artist.album_count === 1 ? "" : "s"}
+                    {/* Phones have room for the first count only: with both,
+                        every card ended in "29 so…". */}
+                    <span className="artistcard__songs">
+                      {" "}
+                      · {fmtCount(artist.track_count)} song{artist.track_count === 1 ? "" : "s"}
+                    </span>
                   </span>
                 </Link>
               );

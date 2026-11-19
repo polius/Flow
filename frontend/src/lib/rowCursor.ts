@@ -51,6 +51,9 @@ export function useRowCursor(
 ): {
   cursor: number | null;
   onKeyDown: (e: KeyboardEvent) => void;
+  /** Puts the cursor on a row the pointer just clicked, so the arrows
+      and Enter continue from there. */
+  setCursor: (index: number) => void;
 } {
   const [cursor, setCursor] = useState<number | null>(null);
 
@@ -90,6 +93,8 @@ export function useRowCursor(
       setCursor(to);
       return;
     }
+    // Shift+↑/↓ is the volume, everywhere: the cursor lets it pass.
+    if (e.shiftKey && (e.key === "ArrowUp" || e.key === "ArrowDown")) return;
     const move = (next: number) => {
       e.preventDefault();
       setCursor(Math.max(0, Math.min(last, next)));
@@ -122,5 +127,5 @@ export function useRowCursor(
     }
   };
 
-  return { cursor, onKeyDown };
+  return { cursor, onKeyDown, setCursor };
 }

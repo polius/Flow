@@ -215,34 +215,34 @@ export function FavoritesView() {
                 : `${fmtCount(total)} ${total === 1 ? "song" : "songs"} you’ve loved`}
           </p>
         </div>
-        <div className="view__actions">
-          {total > 0 && (
-            <button
-              type="button"
-              className="view__action"
-              onClick={shuffleAll}
-              disabled={shuffling}
-              aria-label="Shuffle favorites"
-              title="Shuffle all favorites"
-            >
-              <IconShuffle size={13} />
-              Shuffle
-            </button>
-          )}
-          {tracks.length > 0 && (
-            <button
-              type="button"
-              className="view__action view__action--play"
-              onClick={() => playFromHere(0)}
-              aria-label="Play favorites"
-              title="Play all favorites"
-            >
-              <IconPlay size={13} />
-              Play
-            </button>
-          )}
-        </div>
       </div>
+      {/* Play, then Shuffle, under the title: where every album, artist
+          and playlist page puts them. */}
+      {total > 0 && (
+        <div className="collactions view__collactions">
+          <button
+            type="button"
+            className="btn--primary"
+            onClick={() => playFromHere(0)}
+            disabled={tracks.length === 0}
+            aria-label="Play favorites"
+          >
+            <IconPlay size={15} />
+            Play
+          </button>
+          <button
+            type="button"
+            className="view__action"
+            onClick={shuffleAll}
+            disabled={shuffling}
+            aria-label="Shuffle favorites"
+            title="Shuffle all favorites"
+          >
+            <IconShuffle size={15} />
+            Shuffle
+          </button>
+        </div>
+      )}
       {query.data === undefined && query.isError ? (
         <ErrorState what="your favorites" retry={query.refetch} />
       ) : query.isPending ? (

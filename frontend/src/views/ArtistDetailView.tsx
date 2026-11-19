@@ -172,7 +172,8 @@ export function ArtistDetailView() {
           {/* context stays the WHOLE list, so every visible row plays in the
               artist's full context even while collapsed. */}
           <TrackTable
-            head={<TrackTableHead variant="artist" />}
+            head={<TrackTableHead variant="artist" hideIndex />}
+            hideIndex="quiet"
             label={`Songs by ${artist.name}`}
             tracks={visibleSongs}
             variant="artist"

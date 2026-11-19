@@ -109,7 +109,10 @@ export function AppShell() {
   // ⌘F / Ctrl+F focuses the top-bar search field from anywhere.
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "f") {
+      if ((e.metaKey || e.ctrlKey) && !e.altKey && !e.shiftKey && e.key.toLowerCase() === "f") {
+        // Pressed again from the search field itself, the key goes to
+        // the browser: its own find-in-page is one more press away.
+        if (document.activeElement?.closest?.(".topbar__search") != null) return;
         e.preventDefault();
         focusSearch();
       }

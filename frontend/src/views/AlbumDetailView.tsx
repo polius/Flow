@@ -206,6 +206,7 @@ export function AlbumDetailView() {
         label={`Songs on ${album.title}`}
         tracks={album.tracks}
         variant="album"
+        albumArtist={album.artist}
         origin={{ kind: "album", label: album.title, href: `/albums/${album.id}` }}
         onMove={reorderable ? move : undefined}
       />

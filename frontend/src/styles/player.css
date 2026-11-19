@@ -9,7 +9,7 @@
   /* Sides outweigh the center but stay equal to each other, so the
      transport sits dead-centered and the title gets room before it
      ellipsizes (the old 1fr/2.4fr/1fr split starved it). */
-  grid-template-columns: minmax(180px, 1.4fr) minmax(0, 1.6fr) minmax(150px, 1.4fr);
+  grid-template-columns: minmax(180px, 1.4fr) minmax(0, 1.6fr) minmax(138px, 1.4fr);
   align-items: center;
   gap: 24px;
   padding: 0 calc(20px + env(safe-area-inset-right, 0px)) 0
@@ -227,27 +227,66 @@
   --scrubber-rest: var(--control-border);
 }
 
-/* ---- volume (desktop) ----
-   The bar's right column: mute toggle + a short level slider, pushed to
-   the trailing edge. The fill rides the same background-image layer as
-   the scrubber. */
-.player__volume {
+/* ---- the right column (desktop) ----
+   Sleep timer · queue · volume · open Now Playing, pushed to the trailing
+   edge. Everything here has a first-class home in Now Playing, so the
+   phone mini bar drops the whole group. */
+.player__side {
   justify-self: end;
   display: flex;
   align-items: center;
-  gap: 8px;
-  width: min(150px, 100%);
+  gap: 6px;
+  min-width: 0;
 }
 
-.player__volumeslider {
-  flex: 1;
-  min-width: 0;
+/* Volume: mute toggle + a short level slider. The fill rides the same
+   background-image layer as the scrubber. */
+.player__volume {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Out-specifies the base .range rule's width: 100%. */
+input[type="range"].range.player__volumeslider {
+  flex: none;
+  width: 96px;
+}
+
+/* Between the phone and tablet breakpoints the column keeps its four
+   buttons and gives the slider's room back to the title and transport. */
+@media (max-width: 940px) {
+  .player__side .player__volumeslider {
+    display: none;
+  }
+}
+
+/* Sleep timer: the menu opens upward from its button — the pill in Now
+   Playing (centered) or the moon in this bar (pinned to its right edge). */
+.nowplaying__sleep {
+  position: relative;
+  display: inline-flex;
+}
+
+.nowplaying__sleepmenu {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  translate: -50% 0;
+  min-width: 180px;
+}
+
+.nowplaying__sleep--bar .nowplaying__sleepmenu {
+  bottom: calc(100% + 14px);
+  left: auto;
+  right: -8px;
+  translate: none;
 }
 
 /* ---- phone mini bar ----
    Below the phone breakpoint the bar becomes the iOS mini-player: one row —
-   artwork · title/artist · prev/play/next — with the scrubber as a
-   full-width hairline straddling the bar's top edge. Everything that has a
+   artwork · title/artist · prev/play/next — with progress as a
+   full-width hairline along the bar's top edge. Everything that has a
    first-class home in Now Playing (shuffle, repeat, volume, time labels)
    leaves the mini bar; the artwork thumb opens that view. */
 
@@ -255,11 +294,12 @@
   .player {
     display: flex;
     gap: 12px;
-    /* 4px top inset keeps the row clear of the seek box pinned above it;
-       the bottom floor lifts the row clear of the home indicator (the
-       bar's own height already includes the safe-area inset). */
-    padding: 4px calc(12px + env(safe-area-inset-right, 0px))
-      max(env(safe-area-inset-bottom, 0px), 8px) calc(12px + env(safe-area-inset-left, 0px));
+    /* The bar sits on the section tab bar (topbar.css), which owns the
+       home-indicator inset; --player-height is the pair's total. */
+    bottom: var(--tabbar-height);
+    height: 60px;
+    padding: 2px calc(12px + env(safe-area-inset-right, 0px)) 0
+      calc(12px + env(safe-area-inset-left, 0px));
   }
 
   .player__meta {
@@ -288,6 +328,43 @@
     background-size: 100% 3px;
   }
 
+  /* The mini bar shows progress and does not take seeks: a live 24px
+     scrubber across its top edge caught thumbs aimed at Play or at the
+     last row of a list and jumped the song, and its thumb hung half off
+     the screen at 0:00. Here the bar's own scrubber is a 2px line with no
+     thumb and no pointer events; seeking is one tap away in Now Playing,
+     whose scrubber keeps the rule above.
+
+     The strip keeps the old scrubber's 24px box and swallows what lands
+     on it. Without it a thumb on the bar's edge is handed by the phone's
+     browser to the nearest tappable thing — the row peeking out above
+     the bar — and starts that song. (cursor: pointer is what makes a
+     plain element count as tappable for that; touch shows no cursor.) */
+  .player .player__progress {
+    top: -12px;
+    height: 24px;
+    cursor: pointer;
+  }
+
+  .player input[type="range"].range.player__scrubber {
+    height: 2px;
+    padding: 0;
+    background-size: 100% 2px;
+    pointer-events: none;
+  }
+
+  .player input[type="range"].range.player__scrubber::-webkit-slider-thumb {
+    width: 0;
+    height: 0;
+    box-shadow: none;
+  }
+
+  .player input[type="range"].range.player__scrubber::-moz-range-thumb {
+    width: 0;
+    height: 0;
+    box-shadow: none;
+  }
+
   .player__time {
     display: none;
   }
@@ -309,7 +386,8 @@
   }
 
   .player__btn--secondary,
-  .player__volume {
+  .player__volume,
+  .player__side {
     display: none;
   }
 }

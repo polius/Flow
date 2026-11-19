@@ -99,6 +99,18 @@ describe("shortcut sheet", () => {
     expect(dialog).toHaveAttribute("aria-modal", "true");
     expect(dialog).toContainElement(document.activeElement as HTMLElement);
     expect(screen.getByText("Love or unlove the playing song")).toBeInTheDocument();
+    // Every key the app answers to is in the list.
+    for (const does of [
+      "Mute",
+      "Shuffle on or off",
+      "Repeat: off, all, one",
+      "Volume up or down",
+      "Open or close the queue",
+      "Open or close Now Playing",
+      "Jump to that tenth of the song",
+      "Playlists",
+    ])
+      expect(screen.getByText(does)).toBeInTheDocument();
     // While it is up it owns the keyboard like any picker.
     expect(useUiStore.getState().pickerOpen).toBe(true);
 

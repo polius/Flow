@@ -7,6 +7,7 @@
    surfaces own the keyboard until dismissed. */
 
 import { useEffect } from "react";
+import { useNavigate } from "react-router";
 
 import { usePlayerStore } from "../stores/player";
 import { useUiStore } from "../stores/ui";
@@ -185,6 +186,7 @@ export function useDiscoveryShortcuts(actions: {
       if (isTextEditingTarget(document.activeElement)) return;
       const ui = useUiStore.getState();
       if (ui.contextMenuOpen) return;
+      if (!ui.letterKeys) return; // single-key shortcuts are switched off
       // The sheet itself registers as a modal (pickerOpen): "?" still
       // closes it; any OTHER open modal keeps the key.
       if (e.key === "?") {
@@ -215,6 +217,109 @@ export function useDiscoveryShortcuts(actions: {
       window.removeEventListener(SHEET_EVENT, onOpenRequest);
     };
   }, [helpOpen, toggleHelp, toggleFavorite]);
+}
+
+/* ---- player and navigation keys ------------------------------------------
+   Single keys under the discovery keys' guard: no modifier, never while
+   text is being edited, never under an open menu or dialog, and not at
+   all when Settings has single-key shortcuts switched off. A focused
+   button does not block a letter; a focused slider keeps its arrows.
+     M mute · S shuffle · R repeat · Q queue · N Now Playing
+     Shift+↑/↓ volume · 0–9 seek to that tenth of the song
+     G then H/S/A/R/F/P  go to Home, Songs, Albums, Artists, Favorites,
+                         Playlists */
+
+const VOLUME_STEP = 0.05;
+/** Below this the queue is a sheet over Now Playing (NowPlaying.tsx). */
+const NARROW_MQ = "(max-width: 940px)";
+const GO_WINDOW_MS = 1500;
+const GO_TO: Record<string, string> = {
+  h: "/",
+  s: "/tracks",
+  a: "/albums",
+  r: "/artists",
+  f: "/favorites",
+  p: "/playlists",
+};
+
+export function usePlayerKeys(): void {
+  const navigate = useNavigate();
+  useEffect(() => {
+    let goUntil = 0; // "G" was pressed: the next letter names a section
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.defaultPrevented) return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      const active = document.activeElement;
+      if (isTextEditingTarget(active)) return;
+      const ui = useUiStore.getState();
+      if (ui.contextMenuOpen || ui.pickerOpen || ui.organizeOpen || ui.getInfoTrackId != null) return;
+      const player = usePlayerStore.getState();
+
+      // Volume: a chord, so it works with single-key shortcuts off. A
+      // focused slider (the scrubber, the volume itself) keeps its arrows.
+      if (e.shiftKey && (e.key === "ArrowUp" || e.key === "ArrowDown")) {
+        if (active instanceof HTMLInputElement && active.type === "range") return;
+        e.preventDefault();
+        const level = player.muted ? 0 : player.volume;
+        player.setVolume(level + (e.key === "ArrowUp" ? VOLUME_STEP : -VOLUME_STEP));
+        return;
+      }
+      if (e.shiftKey || e.repeat || !ui.letterKeys) return;
+      const key = e.key.toLowerCase();
+
+      if (goUntil > 0) {
+        const armed = Date.now() <= goUntil;
+        goUntil = 0;
+        const to = armed ? GO_TO[key] : undefined;
+        if (to != null) {
+          e.preventDefault();
+          ui.closeNowPlaying();
+          void navigate(to);
+          return;
+        }
+      }
+
+      if (key >= "0" && key <= "9" && key.length === 1) {
+        if (player.queue.length === 0 || player.duration === 0) return;
+        e.preventDefault();
+        player.seek((player.duration * Number(key)) / 10);
+        return;
+      }
+      switch (key) {
+        case "g":
+          goUntil = Date.now() + GO_WINDOW_MS;
+          break;
+        case "m":
+          e.preventDefault();
+          player.toggleMute();
+          break;
+        case "s":
+          e.preventDefault();
+          player.setShuffle(!player.shuffle);
+          break;
+        case "r":
+          e.preventDefault();
+          player.cycleRepeat();
+          break;
+        case "n":
+          e.preventDefault();
+          if (ui.nowPlayingOpen) ui.closeNowPlaying();
+          else ui.openNowPlaying();
+          break;
+        case "q":
+          // Opens Now Playing on the queue. Pressed again it closes the
+          // view — or, in a narrow window where the view is up without
+          // its queue sheet, raises the sheet first.
+          e.preventDefault();
+          if (ui.nowPlayingOpen && (ui.queueSheetOpen || !window.matchMedia?.(NARROW_MQ).matches))
+            ui.closeNowPlaying();
+          else ui.openQueue();
+          break;
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [navigate]);
 }
 
 const SHEET_EVENT = "flow:shortcut-sheet";

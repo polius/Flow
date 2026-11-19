@@ -10,3 +10,9 @@ export const isIOS: boolean =
   typeof navigator !== "undefined" &&
   (/iPad|iPhone|iPod/.test(navigator.userAgent) ||
     (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1));
+
+/* Apple keyboards say ⌘ and ⌥ where everyone else says Ctrl and Alt:
+   the shortcut list and the tooltips name the key that is on the board. */
+export const isApple: boolean =
+  typeof navigator !== "undefined" && /Mac|iPhone|iPad|iPod/.test(navigator.userAgent);
+export const MOD_KEY = isApple ? "⌘" : "Ctrl";

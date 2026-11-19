@@ -383,7 +383,7 @@ export function OrganizeGrid({
       ref={containerRef}
       className={`orggrid${drag ? " orggrid--dragging" : ""}`}
       role="grid"
-      aria-label="Library tracks"
+      aria-label="Library songs"
       aria-rowcount={tracks.length}
       tabIndex={0}
       onKeyDown={onKeyDown}
@@ -399,7 +399,7 @@ export function OrganizeGrid({
             type="button"
             role="checkbox"
             aria-checked={selectAllState === "all" ? true : selectAllState === "some" ? "mixed" : false}
-            aria-label="Select all matching tracks"
+            aria-label="Select all matching songs"
             className={`orgbox${selectAllState !== "none" ? " orgbox--on" : ""}`}
             onClick={onToggleAll}
           >

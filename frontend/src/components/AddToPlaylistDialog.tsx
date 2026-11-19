@@ -149,7 +149,7 @@ export function AddToPlaylistDialog() {
           <header className="addto__head">
             <h2 className="addto__title">New Playlist</h2>
             <p className="addto__sub">
-              {fmtCount(tracks.length)} {tracks.length === 1 ? "track" : "tracks"}
+              {fmtCount(tracks.length)} {tracks.length === 1 ? "song" : "songs"}
               {totalSeconds > 0 && <> · {fmtMinutes(totalSeconds)}</>} will land in it
             </p>
           </header>
@@ -224,9 +224,9 @@ export function AddToPlaylistDialog() {
                 <span className="addto__successsub">
                   {created.added
                     ? `“${created.name}” · ${fmtCount(tracks.length)} ${
-                        tracks.length === 1 ? "track" : "tracks"
+                        tracks.length === 1 ? "song" : "songs"
                       } added`
-                    : `“${created.name}” — but the tracks couldn't be added`}
+                    : `“${created.name}” — but the songs couldn't be added`}
                 </span>
               </div>
             </div>
@@ -281,7 +281,7 @@ export function AddToPlaylistDialog() {
         <header className="addto__head">
           <h2 className="addto__title">Add to Playlist</h2>
           <p className="addto__sub">
-            {fmtCount(tracks.length)} {tracks.length === 1 ? "track" : "tracks"}
+            {fmtCount(tracks.length)} {tracks.length === 1 ? "song" : "songs"}
             {totalSeconds > 0 && <> · {fmtMinutes(totalSeconds)}</>}
           </p>
         </header>
@@ -307,7 +307,7 @@ export function AddToPlaylistDialog() {
                 <span className="addto__name">{playlist.name}</span>
                 <span className="addto__meta">
                   {fmtCount(playlist.track_count)}{" "}
-                  {playlist.track_count === 1 ? "track" : "tracks"}
+                  {playlist.track_count === 1 ? "song" : "songs"}
                 </span>
               </span>
             </button>
@@ -334,7 +334,7 @@ export function AddToPlaylistDialog() {
             </span>
             <span className="addto__names">
               <span className="addto__name">New Playlist</span>
-              <span className="addto__meta">Name it, then these tracks land in it</span>
+              <span className="addto__meta">Name it, then these songs land in it</span>
             </span>
           </button>
         </div>

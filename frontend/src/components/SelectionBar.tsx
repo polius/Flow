@@ -30,7 +30,7 @@ export function SelectionBar({
   onClear,
 }: SelectionBarProps) {
   return (
-    <div className="orgbar" role="toolbar" aria-label="Selected tracks">
+    <div className="orgbar" role="toolbar" aria-label="Selected songs">
       <span className="orgbar__count">
         {loading ? `Selecting ${count.toLocaleString()}…` : `${count.toLocaleString()} selected`}
       </span>
