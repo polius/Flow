@@ -761,6 +761,38 @@
   display: none;
 }
 
+/* An album row by someone other than the album's artist names them under
+   the title at every width (a compilation is otherwise a list of titles
+   with nobody's name on them). Same dress as the phone line. */
+.trackrow__subline--always,
+.trackrow:has(.trackrow__subline--always) .trackrow__titletext {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.trackrow__subline--always {
+  margin-top: 1px;
+  font-size: var(--text-small);
+  font-weight: 400;
+  color: var(--text-secondary);
+}
+
+/* "Disc 2": a small heading between the discs of a multi-disc album. */
+.trackdisc {
+  padding: 16px 12px 6px;
+  font-size: var(--text-caption);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.trackdisc:first-child {
+  padding-top: 6px;
+}
+
 /* Current track — the queue drawer's quiet grammar: a soft
    --bg-active fill (both themes) plus the accent bars in the index slot,
    not a full inversion: near-black on the light canvas was far too much

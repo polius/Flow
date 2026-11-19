@@ -43,6 +43,10 @@ interface TrackRowProps {
   track: Track;
   index: number;
   variant: TrackVariant;
+  /** Album variant: the album's own artist. A row by anyone else (a
+      compilation, a soundtrack, a guest) names its artist under the
+      title, at every width; a normal album's rows stay one line. */
+  albumArtist?: string | null;
   /** No ordinal — the index slot carries the play affordance permanently
       (search results, where a number over a match list means nothing).
       One prop; the CSS does the reveal. */
@@ -105,6 +109,7 @@ export function TrackRow({
   track,
   index,
   variant,
+  albumArtist,
   hideIndex,
   isCurrent,
   isPlaying,
@@ -266,10 +271,16 @@ export function TrackRow({
     if (open !== swipeOpen) onSwipeOpenChange?.(open);
   };
 
-  // The phone second line: whatever the hidden columns would have said.
+  // The second line. On an album it is the row's artist, only when that
+  // is not the album's (shown at every width). Elsewhere it is the phone
+  // line: whatever the hidden columns would have said.
+  const guestArtist =
+    variant === "album" && track.artist && albumArtist != null && track.artist !== albumArtist
+      ? track.artist
+      : null;
   const subline =
     variant === "album"
-      ? null
+      ? guestArtist
       : variant === "artist"
         ? track.album
         : [track.artist, track.album].filter(Boolean).join(" · ") || null;
@@ -403,9 +414,15 @@ export function TrackRow({
         {/* Phones drop the artist/album columns; this second line keeps
             "who and from what" under the title instead (hidden — visually
             and to screen readers — wherever the columns show). */}
-        {subline && <span className="trackrow__subline">{subline}</span>}
+        {subline && (
+          <span className={`trackrow__subline${guestArtist ? " trackrow__subline--always" : ""}`}>
+            {subline}
+          </span>
+        )}
       </span>
-      {variant !== "album" && (
+      {/* An artist's page already says whose songs these are: the column
+          that tells them apart there is the album. */}
+      {variant !== "album" && variant !== "artist" && (
         <span className="trackrow__secondary" role="gridcell">
           {track.artist_id != null ? (
             <Link to={`/artists/${track.artist_id}`} onClick={(e) => e.stopPropagation()}>
@@ -416,7 +433,7 @@ export function TrackRow({
           )}
         </span>
       )}
-      {variant !== "artist" && variant !== "album" && (
+      {variant !== "album" && (
         <span className="trackrow__secondary trackrow__album" role="gridcell">
           {track.album_id != null ? (
             <Link to={`/albums/${track.album_id}`} onClick={(e) => e.stopPropagation()}>

@@ -25,7 +25,7 @@ const byKey = Object.fromEntries(COLUMNS.map((c) => [c.key, c])) as Record<
 /** Which labeled columns each row variant carries (mirrors TrackRow). */
 const VARIANT_COLUMNS: Record<TrackVariant, TrackSortKey[]> = {
   album: ["title"],
-  artist: ["title", "artist"],
+  artist: ["title", "album"],
   all: ["title", "artist", "album"],
   playlist: ["title", "artist", "album"],
 };

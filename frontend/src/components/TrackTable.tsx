@@ -47,6 +47,8 @@ interface TrackTableProps {
   head?: ReactNode;
   /** What this list is, for screen readers: "Songs on Afterglow". */
   label?: string;
+  /** Album variant: the album's artist — rows by someone else say so. */
+  albumArtist?: string | null;
 }
 
 export function TrackTable({
@@ -59,6 +61,7 @@ export function TrackTable({
   hideIndex,
   head,
   label = "Songs",
+  albumArtist,
 }: TrackTableProps) {
   const tableRef = useRef<HTMLDivElement>(null);
   // Row ids for aria-activedescendant; the head (when present) is row 1.
@@ -217,55 +220,75 @@ export function TrackTable({
     onLift: () => setOpenSwipeId(null), // dragging a revealed row closes it first
   });
 
-  const rows = tracks.map((track, index) => (
-    <TrackRow
-      key={track.id}
-      track={track}
-      index={index}
-      variant={variant}
-      hideIndex={hideIndex}
-      isCurrent={current?.id === track.id}
-      isPlaying={isPlaying}
-      rowId={rowId(index)}
-      ariaRowIndex={index + rowIndexBase}
-      selected={selection.ids.has(track.id)}
-      extraClassName={
-        [
-          drag?.from === index ? "trackrow--dragging" : "",
-          cursor === index ? "trackrow--cursor" : "",
-          selection.ids.has(track.id) ? "trackrow--selected" : "",
-        ]
-          .filter(Boolean)
-          .join(" ") || undefined
-      }
-      // The playlist's displacement rides the swipe wrapper; the album's
-      // wrapper-less rows carry it on the row itself (the Favorites way).
-      wrapStyle={drag ? { transform: `translateY(${offsetFor(index)}px)` } : undefined}
-      style={
-        variant === "album" && drag
-          ? { transform: `translateY(${offsetFor(index)}px)` }
-          : undefined
-      }
-      dataIdx={reorderable ? index : undefined}
-      onActivate={play}
-      onTitlePlay={playFromTitle}
-      onRowPlay={playFromRow}
-      onTogglePlay={togglePlay}
-      onToggleFavorite={toggleFavorite}
-      onTrackMenu={trackMenu}
-      onSelectClick={onRowClick}
-      onRemove={variant === "playlist" && removeTrack ? removeTrack : undefined}
-      swipeOpen={variant === "playlist" && openSwipeId === track.id}
-      onSwipeOpenChange={
-        variant === "playlist"
-          ? (open) =>
-              setOpenSwipeId((cur) =>
-                open ? track.id : cur === track.id ? null : cur,
-              )
-          : undefined
-      }
-    />
-  ));
+  // An album on more than one disc gets a small heading before each disc:
+  // without it the numbers just run 1 to n twice.
+  const multiDisc =
+    variant === "album" && new Set(tracks.map((t) => t.disc_no ?? 1)).size > 1;
+  const startsDisc = (index: number) =>
+    multiDisc &&
+    (index === 0 || (tracks[index - 1].disc_no ?? 1) !== (tracks[index].disc_no ?? 1));
+
+  const rows = tracks.map((track, index) => {
+    const row = (
+      <TrackRow
+        key={track.id}
+        track={track}
+        index={index}
+        variant={variant}
+        albumArtist={albumArtist}
+        hideIndex={hideIndex}
+        isCurrent={current?.id === track.id}
+        isPlaying={isPlaying}
+        rowId={rowId(index)}
+        ariaRowIndex={index + rowIndexBase}
+        selected={selection.ids.has(track.id)}
+        extraClassName={
+          [
+            drag?.from === index ? "trackrow--dragging" : "",
+            cursor === index ? "trackrow--cursor" : "",
+            selection.ids.has(track.id) ? "trackrow--selected" : "",
+          ]
+            .filter(Boolean)
+            .join(" ") || undefined
+        }
+        // The playlist's displacement rides the swipe wrapper; the album's
+        // wrapper-less rows carry it on the row itself (the Favorites way).
+        wrapStyle={drag ? { transform: `translateY(${offsetFor(index)}px)` } : undefined}
+        style={
+          variant === "album" && drag
+            ? { transform: `translateY(${offsetFor(index)}px)` }
+            : undefined
+        }
+        dataIdx={reorderable ? index : undefined}
+        onActivate={play}
+        onTitlePlay={playFromTitle}
+        onRowPlay={playFromRow}
+        onTogglePlay={togglePlay}
+        onToggleFavorite={toggleFavorite}
+        onTrackMenu={trackMenu}
+        onSelectClick={onRowClick}
+        onRemove={variant === "playlist" && removeTrack ? removeTrack : undefined}
+        swipeOpen={variant === "playlist" && openSwipeId === track.id}
+        onSwipeOpenChange={
+          variant === "playlist"
+            ? (open) =>
+                setOpenSwipeId((cur) =>
+                  open ? track.id : cur === track.id ? null : cur,
+                )
+            : undefined
+        }
+      />
+    );
+    if (!startsDisc(index)) return row;
+    const disc = track.disc_no ?? 1;
+    return [
+      // Not a grid row: a visual break the rows on either side read past.
+      <div key={`disc-${disc}`} className="trackdisc" role="presentation">
+        Disc {disc}
+      </div>,
+      row,
+    ];
+  });
 
   /* The grid: ONE focusable element holding the head row and the body.
      Focus stays on it while the cursor moves; aria-activedescendant names
