@@ -1094,7 +1094,7 @@
      (1280×680) must not scroll more than it did before. */
   .nowplaying__controls {
     gap: 14px;
-    margin-top: 12px; /* more air between the song's names and the transport */
+    margin-top: 24px; /* more air between the song's names and the transport */
   }
 
   .nowplaying__progress {
