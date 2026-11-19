@@ -189,8 +189,9 @@ class ArtworkStore:
 # Grid tiles ask for one of these edge lengths; other values snap up to the
 # next one (anything larger to the largest), so the cache holds at most
 # len(THUMB_SIZES) files per artwork.
-# 1024 is the full-screen player's cover on a high-density screen (400 CSS
-# px at 2x or 3x): without it that one view fetched the original image.
+# 1024 is the full-screen player's cover on a 2x screen (400 CSS px is
+# 800): without it that view fetched the original image. At 3x (1200 px)
+# it still asks for more than 1024 and gets the original.
 THUMB_SIZES = (64, 96, 128, 256, 512, 1024)
 THUMB_CACHE_DIR = "artwork-cache"
 THUMB_TIMEOUT_SECONDS = 15
