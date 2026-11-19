@@ -41,17 +41,23 @@
     folder: `<path d="M3 7.5A2.5 2.5 0 0 1 5.5 5h3.6l2 2h7.4A2.5 2.5 0 0 1 21 9.5v8a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 17.5z"/>`,
     note: `<path d="M9 18V5.5l10-2v12"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="16.5" cy="15.5" r="2.5"/>`,
     server: `<rect x="4" y="4" width="16" height="7" rx="2"/><rect x="4" y="13" width="16" height="7" rx="2"/><path d="M8 7.5h.01M8 16.5h.01"/>`,
-    queue: `<path d="M4 6h12M4 11h12M4 16h7"/><path d="M15.5 14.5v5l4-2.5z" fill="currentColor"/>`,
+    queue: `<path d="M9 7h11M9 12h11M9 17h11"/><circle cx="4.7" cy="7" r="1.05" fill="currentColor" stroke="none"/><circle cx="4.7" cy="12" r="1.05" fill="currentColor" stroke="none"/><circle cx="4.7" cy="17" r="1.05" fill="currentColor" stroke="none"/>`,
+    pladd: `<path d="M3.5 6.5h13M3.5 12h9M3.5 17.5h6M17.5 13.5v7M14 17h7"/>`,
+    sort: `<path d="M8 5.5V19"/><path d="m4.8 15.8 3.2 3.2 3.2-3.2"/><path d="M16 18.5V5"/><path d="m12.8 8.2 3.2-3.2 3.2 3.2"/>`,
+    orgicon: `<path d="M4 6.5h9M4 11.5h9M4 16.5h4"/><path d="m14.6 16.2 2.3 2.3 4.1-4.6"/>`,
+    chevup: `<path d="m6 14.5 6-6 6 6"/>`,
+    home: `<path d="M4.5 10.6 12 4.3l7.5 6.3"/><path d="M6.4 9.4v9.3h11.2V9.4"/><path d="M10.2 18.7v-4.9h3.6v4.9"/>`,
+    vollow: `<path d="M4 9.5h3.2L11.5 6v12l-4.3-3.5H4z"/><path d="M15 9.2a4 4 0 0 1 0 5.6"/>`,
     check: `<path d="M5 12.5l4.5 4.5L19 7.5"/>`,
     lock: `<rect x="4.5" y="10.5" width="15" height="10.5" rx="2.5"/><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5"/>`,
     share: `<path d="M12 3.5v11M8 7.5l4-4 4 4"/><path d="M6 11v7.5A2 2 0 0 0 8 20.5h8a2 2 0 0 0 2-2V11"/>`,
     plusbox: `<rect x="3.5" y="3.5" width="17" height="17" rx="4"/><path d="M12 8v8M8 12h8"/>`,
     copy: `<rect x="9" y="9" width="11.5" height="11.5" rx="2.5"/><path d="M15 9V6a2.5 2.5 0 0 0-2.5-2.5h-6A2.5 2.5 0 0 0 4 6v6a2.5 2.5 0 0 0 2.5 2.5H9"/>`,
     x: `<path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/>`,
-    chev: `<path d="M6.5 9.5 12 15l5.5-5.5"/>`,
+    chev: `<path d="m6 9.5 6 6 6-6"/>`,
     plus: `<path d="M12 5.5v13M5.5 12h13"/>`,
     trash: `<path d="M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12"/>`,
-    moon: `<path d="M19 14.5A7.5 7.5 0 0 1 9.5 5a7.5 7.5 0 1 0 9.5 9.5z"/>`,
+    moon: `<path d="M19.5 14.6A7.8 7.8 0 0 1 9.4 4.5a7.8 7.8 0 1 0 10.1 10.1Z"/>`,
     wrench: `<path d="M14.7 6.3a4 4 0 0 0 5 5L12 19a2.1 2.1 0 0 1-3-3z"/><path d="M14.7 6.3 17 4l3 3-2.3 2.3"/>`,
     github: `<path fill="currentColor" stroke="none" d="M12 .5a11.5 11.5 0 0 0-3.64 22.41c.58.1.79-.25.79-.56v-2c-3.2.7-3.88-1.54-3.88-1.54-.53-1.33-1.28-1.69-1.28-1.69-1.05-.71.08-.7.08-.7 1.15.08 1.76 1.19 1.76 1.19 1.03 1.76 2.7 1.25 3.36.96.1-.75.4-1.25.73-1.54-2.56-.29-5.25-1.28-5.25-5.69 0-1.26.45-2.29 1.19-3.1-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.17 1.18a11 11 0 0 1 5.77 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.84 1.19 3.1 0 4.42-2.7 5.39-5.27 5.68.41.36.78 1.06.78 2.14v3.17c0 .31.21.67.8.56A11.5 11.5 0 0 0 12 .5z"/>`,
   };
@@ -319,17 +325,17 @@
    *  the app, in a browser window
    * ====================================================================== */
   function topbarHTML(on) {
-    const nav = [["tracks", "Tracks"], ["albums", "Albums"], ["artists", "Artists"], ["heart", "Favorites"], ["playlists", "Playlists"]]
+    const nav = [["tracks", "Songs"], ["albums", "Albums"], ["artists", "Artists"], ["heart", "Favorites"], ["playlists", "Playlists"]]
       .map(([i, l]) => `<span class="${l === on ? "on" : ""}">${icon(i)}${l}</span>`).join("");
-    return `<div class="topbar"><div class="brand"><div class="bt">${noteSvg()}</div><span class="bw"><b>Flow</b><small>v1.6.0</small></span></div>
-      <div class="search">${icon("search")}<span>Albums, artists, songs…</span></div>
+    return `<div class="topbar"><div class="brand"><div class="bt">${noteSvg()}</div><span class="bw"><b>Flow</b></span></div>
+      <div class="search">${icon("search")}<span>Albums, artists, songs, playlists…</span></div>
       <div class="nav">${nav}<span class="sep"></span><span>${icon("settings")}Settings</span></div></div>`;
   }
   function playerHTML() {
-    return `<div class="player"><div class="meta"><div class="pa"></div><div><div class="pt">Nothing playing</div><div class="ps"></div></div></div>
+    return `<div class="player"><div class="meta"><div class="pa"></div><div class="ptt"><div class="pt">Nothing playing</div><div class="ps"></div></div><span class="pfav">${icon("heart")}</span></div>
       <div class="center"><div class="tr">${icon("shuffle")}${icon("prev")}<div class="pp">${icon("play")}</div>${icon("next")}${icon("repeat")}</div>
       <div class="prog"><span class="t0">0:00</span><div class="bar"><b></b><u></u></div><span class="t1">0:00</span></div></div>
-      <div class="vol">${icon("volume")}<div class="bar"><b style="width:100%"></b><u style="left:100%"></u></div></div></div>`;
+      <div class="vol">${icon("moon")}${icon("queue")}${icon("volume")}<div class="bar"><b style="width:100%"></b><u style="left:100%"></u></div>${icon("chevup")}</div></div>`;
   }
   function browser(parent, { x, y, w, h, zoom = 1 }) {
     const win = el("div", "win", parent);
@@ -357,6 +363,26 @@
       setText(t0, mmss(el2)); setText(t1, list[idx][1]);
       setHTML(pp, icon(playing ? "pause" : "play"));
     };
+  }
+
+
+  /* Now Playing on a phone (NowPlaying.tsx below the phone breakpoint), at
+     phone CSS px: the cover takes the width, the actions sit in circles */
+  function phoneNP({ cov, title, artist, album, t0, dur, fill = 0, fav = false, playing = true, top = 77 }) {
+    return `<div class="pnp"><i class="hdl"></i><span class="pcb l">${icon("chev")}</span><span class="pcb r">${icon("queue")}</span>
+      <div class="pcol" style="padding-top:${top}px"><div class="big">${coverSvg(cov)}</div><h3>${title}</h3><p class="pa1">${artist}</p><p class="pa2">${album}</p><p class="pa3">Playing from ${album}</p>
+      <div class="tr">${icon("shuffle")}${icon("prev")}<div class="pp">${icon(playing ? "pause" : "play")}</div>${icon("next")}${icon("repeat")}</div>
+      <div class="bar"><b style="width:${fill}%"></b><u style="left:${fill}%"></u></div><div class="tms"><span class="pt0">${t0}</span><span>${dur}</span></div>
+      <div class="acts"><span class="hf${fav ? " on" : ""}">${icon("heart")}${icon("heartf")}</span><span>${icon("pladd")}</span><span>${icon("moon")}</span></div></div></div>`;
+  }
+  /* the phone's own chrome around a page: top bar, mini player, tab bar (AppShell.tsx) */
+  function phoneShell(page, { tab = "Albums", mini = null } = {}) {
+    const tabs = [["home", "Home"], ["tracks", "Songs"], ["albums", "Albums"], ["artists", "Artists"], ["playlists", "Playlists"]]
+      .map(([i, l]) => `<span class="${l === tab ? "on" : ""}">${icon(i)}<em>${l}</em></span>`).join("");
+    const mp = mini ? `<div class="pmini"><div class="mart">${coverSvg(mini.cov)}</div><div class="mtt"><b>${mini.title}</b><small>${mini.artist}</small></div>
+      <span class="mfav">${icon("heart")}</span>${icon("prev")}<div class="pp">${icon(mini.playing ? "pause" : "play")}</div>${icon("next")}</div>` : "";
+    return `<div class="papp"><div class="ptop"><div class="bt">${noteSvg()}</div><div class="ps">${icon("search")}<span>Albums, artists, songs, playlists…</span></div>${icon("settings")}</div>
+      <div class="pbody">${page}</div>${mp}<div class="ptabs">${tabs}</div></div>`;
   }
 
   /* ====================================================================== *
@@ -424,7 +450,7 @@
     // the app: the Albums page, filling in
     const B = browser(cam, { x: 790, y: 236, w: 1030, h: 730, zoom: 1.0 });
     const SHOWN = ALBUMS.slice(0, 10);
-    B.app.innerHTML = `${topbarHTML("Albums")}<div class="page"><div class="ph1">Albums</div><div class="phs">0 albums</div>
+    B.app.innerHTML = `${topbarHTML("Albums")}<div class="page"><div class="phead"><div><div class="ph1">Albums</div><div class="phs">0 albums</div></div><div class="sortp">${icon("sort")}Title${icon("chev")}</div></div>
       <div class="grid">${SHOWN.map(([k, n, a, y]) => `<div class="card"><div class="art"><div class="cv">${coverSvg(k)}</div></div><div class="ct">${n}</div><div class="cs">${a} · ${y}</div></div>`).join("")}</div></div>`;
     const cards = B.$$(".card"), count = B.$(".phs");
 
@@ -474,7 +500,7 @@
         cards[i].querySelector(".cs").style.opacity = ramp(t, b + 0.1, b + 0.45).toFixed(3);
         if (t >= b) landed++;
       });
-      const total = Math.round(landed === SHOWN.length ? lerp(10, 36, inOutSine(ramp(t, BUILD - 0.2, BUILD + 0.8))) : landed);
+      const total = Math.round(landed === SHOWN.length ? lerp(10, 38, inOutSine(ramp(t, BUILD - 0.2, BUILD + 0.8))) : landed);
       setText(count, `${total} album${total === 1 ? "" : "s"}`);
     };
   }
@@ -483,9 +509,12 @@
    *  PLAY — press play (the beat drops), search as you type, Now Playing
    * ====================================================================== */
   const SUGGEST = [
-    ["Songs", [["afterglow", "Golden Rule", "Velvet Hour"], ["afterglow", "Stay Gold", "Velvet Hour"], ["golden", "Honey Slow", "Marlowe Reyes"]]],
+    ["Songs", [["pines", "Golden Juniper", "Fern & Fog"], ["chrome", "Golden Pulse", "Cassette Club"], ["afterglow", "Golden Rule", "Velvet Hour"], ["chrome", "Golden Starling", "Cassette Club"]]],
     ["Albums", [["golden", "Golden Hour", "Marlowe Reyes"], ["velvetgold", "Velvet & Gold", "Marlowe Reyes"]]],
+    ["Playlists", [[["golden", "afterglow", "chrome", "pines"], "Golden Hour", "12 songs"]]],
   ];
+  /* a playlist's art: its first four covers, two by two (PlaylistArt.tsx) */
+  const mosaic = (ks) => `<div class="mos">${ks.map((k) => `<div>${coverSvg(k)}</div>`).join("")}</div>`;
   function play(cam, api) {
     const layer = api.layer;
     const steps = stepCaptions(layer, [
@@ -505,8 +534,9 @@
         <div class="npmain"><div class="npart">${coverSvg("afterglow")}</div><h2>Golden Rule</h2><div class="npa">Velvet Hour</div><div class="npal">Afterglow</div>
           <div class="npfrom">Playing from Afterglow</div>
           <div class="nptr">${icon("shuffle")}${icon("prev")}<div class="pp">${icon("pause")}</div>${icon("next")}${icon("repeat")}</div>
-          <div class="npprog"><span class="n0">0:00</span><div class="bar"><b></b><u></u></div><span>3:15</span></div>
-          <div class="npbtns"><span class="c">${icon("heart")}</span><span>${icon("playlists")}Add to Playlist</span><span>${icon("moon")}Sleep Timer</span></div></div>
+          <div class="npprog"><div class="bar"><b></b><u></u></div><div class="npt"><span class="n0">0:00</span><span>3:15</span></div></div>
+          <div class="npvol">${icon("vollow")}<div class="bar"><b style="width:100%"></b></div>${icon("volume")}</div>
+          <div class="npbtns">${icon("heart")}${icon("pladd")}${icon("moon")}</div></div>
         <div class="npq"><div class="qh"><b>Queue</b><span class="qb">${icon("plus")}Add</span><span class="qb">${icon("trash")}Clear</span><span class="qn">1 of 9</span></div>
           <div class="qs">Playing from Afterglow</div>
           ${AFTERGLOW.map(([n, d], i) => `<div class="qr${i === 0 ? " on" : ""}"><div class="qa">${coverSvg("afterglow")}${i === 0 ? '<div class="eq"><i></i><i></i><i></i></div>' : ""}</div><div><div class="qt">${n}</div><div class="qm">Velvet Hour</div></div><div class="qd">${d}</div></div>`).join("")}
@@ -526,7 +556,7 @@
     search.style.overflow = "visible";
     const panel = el("div", "suggest", search);
     panel.innerHTML = SUGGEST.map(([g, items]) => `<div class="sg"><span class="sgl">${g}</span>${items.map(([k, n, m]) =>
-      `<div class="si"><div class="sa">${coverSvg(k)}</div><span class="sn">${n}</span><span class="sm">${m}</span><span class="sp">${icon("play")}</span></div>`).join("")}</div>`).join("")
+      `<div class="si"><div class="sa">${Array.isArray(k) ? mosaic(k) : coverSvg(k)}</div><span class="sn">${n}</span><span class="sm">${m}</span><span class="sp">${icon("play")}</span></div>`).join("")}</div>`).join("")
       + `<div class="sall">See all results for “gold”</div>`;
     const sitems = [...panel.querySelectorAll(".si")];
 
@@ -608,19 +638,14 @@
    *  SYNC — saved on your server; any browser picks up where you left off
    * ====================================================================== */
   function nowPlayingLaptop(parent) {
-    const n = el("div", "abs", parent);
-    Object.assign(n.style, { inset: 0 });
-    n.innerHTML = `<div style="position:absolute;inset:0;background:linear-gradient(180deg,#f3e5f1,#f5f5f7)"></div>
-      <div style="position:absolute;left:70px;top:60px;width:330px;height:330px;border-radius:14px;overflow:hidden;box-shadow:0 26px 50px -18px rgba(0,0,0,.45)">${coverSvg("northern")}</div>
-      <div style="position:absolute;left:450px;top:120px;width:360px">
-        <div style="font-size:13px;font-weight:600;letter-spacing:.08em;color:var(--a-muted)">NOW PLAYING</div>
-        <div style="font-size:34px;font-weight:800;letter-spacing:-.025em;margin-top:8px">Aurora</div>
-        <div style="font-size:18px;color:var(--a-2);margin-top:4px">Aurora Fields · Northern Light</div>
-        <div class="lp" style="margin-top:36px;height:5px;border-radius:3px;background:rgba(0,0,0,.12);position:relative"><b style="position:absolute;left:0;top:0;bottom:0;border-radius:3px;background:#1d1d1f"></b></div>
-        <div style="display:flex;justify-content:space-between;font-size:13px;color:var(--a-muted);margin-top:8px;font-variant-numeric:tabular-nums"><span class="lt0">1:12</span><span>6:04</span></div>
-        <div style="display:flex;align-items:center;gap:22px;margin-top:20px;color:#1d1d1f">${icon("heart")}<span class="lh" style="display:none">${icon("heartf")}</span>
-          <span style="display:flex;align-items:center;gap:8px;font-size:15px;font-weight:600;border:1px solid var(--a-border);border-radius:999px;padding:7px 14px">${icon("playlists")}Late night</span></div>
-      </div>`;
+    const n = el("div", "npv solo", parent);
+    n.innerHTML = `<div class="npbg" style="background:linear-gradient(180deg,#e2f1ec 0%,#ebe7f6 60%,#f1f0f5 100%)"></div><div class="npclose">${icon("chev")}</div><div class="npclose r">${icon("queue")}</div>
+      <div class="npmain"><div class="npart">${coverSvg("northern")}</div><h2>Aurora</h2><div class="npa">Aurora Fields</div><div class="npal">Northern Light</div>
+        <div class="npfrom">Playing from Northern Light</div>
+        <div class="nptr">${icon("shuffle")}${icon("prev")}<div class="pp">${icon("pause")}</div>${icon("next")}${icon("repeat")}</div>
+        <div class="npprog"><div class="bar"><b></b><u></u></div><div class="npt"><span class="n0">1:12</span><span>6:04</span></div></div>
+        <div class="npvol">${icon("vollow")}<div class="bar"><b style="width:100%"></b></div>${icon("volume")}</div>
+        <div class="npbtns"><span class="lhf">${icon("heart")}${icon("heartf")}</span>${icon("pladd")}${icon("moon")}</div></div>`;
     return n;
   }
   function sync(cam, api) {
@@ -628,22 +653,19 @@
     // the laptop
     const L = el("div", "laptop", cam);
     Object.assign(L.style, { left: "90px", top: "340px", width: "800px", height: "520px" });
-    L.innerHTML = `<div class="lid" style="width:800px;height:510px"><div class="scr"><div class="app" style="width:830px;height:518px;zoom:0.93"></div></div></div>
+    L.innerHTML = `<div class="lid" style="width:800px;height:510px"><div class="scr"><div class="app" style="width:700px;height:456px;zoom:1.1"></div></div></div>
       <div class="base" style="left:-50px;top:510px;width:900px"></div>`;
     const lapp = L.querySelector(".app");
     lapp.style.position = "absolute";
     const np = nowPlayingLaptop(lapp);
-    const lfill = np.querySelector(".lp b"), lt0 = np.querySelector(".lt0"), lh = np.querySelector(".lh");
-    const lheart = lh.previousElementSibling;
+    const lfill = np.querySelector(".npprog .bar b"), lt0 = np.querySelector(".n0"), lh = np.querySelector(".lhf");
     // the phone
     const PH = el("div", "phone", cam);
     Object.assign(PH.style, { left: "1440px", top: "250px", width: "350px", height: "720px" });
-    PH.innerHTML = `<div class="scr"><div class="island"></div><div class="papp"><div class="ptop"><div class="bt">${noteSvg()}</div><div class="ps">${icon("search")}Search</div></div>
-      <div class="np"><div class="big">${coverSvg("northern")}</div><h3>Aurora</h3><p>Aurora Fields</p>
-      <div class="bar"><b></b><u></u></div><div class="tms"><span class="pt0">1:12</span><span>6:04</span></div>
-      <div class="tr">${icon("prev")}<div class="pp">${icon("pause")}</div>${icon("next")}</div></div></div>
+    PH.innerHTML = `<div class="scr"><div class="island"></div><div class="pnpwrap" style="position:absolute;inset:0;background:linear-gradient(180deg,#e2f1ec 0%,#ebe7f6 70%,#f1f0f5 100%)">
+      ${phoneNP({ cov: "northern", title: "Aurora", artist: "Aurora Fields", album: "Northern Light", t0: "1:12", dur: "6:04", fav: true, top: 112 })}</div>
       <div class="sleep" style="position:absolute;inset:0;background:#0b0b0c"></div></div>`;
-    const pfill = PH.querySelector(".np .bar b"), pknob = PH.querySelector(".np .bar u"), pt0 = PH.querySelector(".pt0"), sleep = PH.querySelector(".sleep");
+    const pfill = PH.querySelector(".pnp .bar b"), pknob = PH.querySelector(".pnp .bar u"), pt0 = PH.querySelector(".pt0"), sleep = PH.querySelector(".sleep");
     // the server
     const LK = el("div", "abs", cam);
     LK.innerHTML = `<svg width="1920" height="1080" style="position:absolute;left:0;top:0;overflow:visible"><path class="la" d="M 905 610 H 1110" fill="none" stroke="#1d1d1f" stroke-width="2.5" stroke-dasharray="2 12" stroke-linecap="round"/><path class="lb" d="M 1250 610 H 1420" fill="none" stroke="#1d1d1f" stroke-width="2.5" stroke-dasharray="2 12" stroke-linecap="round"/></svg>`;
@@ -691,10 +713,9 @@
       const lpos = Math.min(pos, posAt(LEFT));
       lfill.style.width = (lpos / 364 * 100).toFixed(2) + "%";
       setText(lt0, mmss(lpos));
-      lheart.style.display = t >= HEART ? "none" : "";
       const hb = ramp(t, HEART, HEART + 0.4);
+      lh.classList.toggle("on", t >= HEART);
       lh.style.transform = `scale(${(t < HEART ? 1 : spring(hb * 1.4, 12, 5)).toFixed(3)})`;
-      lh.style.display = t >= HEART ? "inline-block" : "none";
       L.querySelector(".scr").style.filter = `brightness(${lerp(1, 0.5, ramp(t, LEFT, LEFT + 0.6)).toFixed(3)})`;
       // chips: laptop -> server
       CH.forEach((ch, i) => {
@@ -724,18 +745,18 @@
     const PH = el("div", "phone", cam);
     Object.assign(PH.style, { left: "1080px", top: "120px", width: "420px", height: "860px" });
     PH.innerHTML = `<div class="scr"><div class="island"></div>
-      <div class="web" style="position:absolute;inset:0;background:var(--a-canvas)"><div class="papp" style="font-size:15px"><div class="ptop"><div class="bt">${noteSvg()}</div><div class="ps">${icon("search")}Albums, artists…</div></div>
-        <div style="padding:22px 20px;display:grid;grid-template-columns:1fr 1fr;gap:18px">${ALBUMS.slice(0, 6).map(([k, n, a]) => `<div><div style="aspect-ratio:1;border-radius:10px;overflow:hidden">${coverSvg(k)}</div><div style="font-size:14px;font-weight:600;margin-top:7px">${n}</div><div style="font-size:12px;color:var(--a-muted)">${a}</div></div>`).join("")}</div></div>
+      <div class="web" style="position:absolute;inset:0;background:var(--a-canvas)">${phoneShell(`<div style="padding:22px 34px 0 18px"><div class="phead" style="display:flex;justify-content:space-between;align-items:flex-start"><div><div class="ph1">Albums</div><div class="phs">38 albums</div></div><div class="sortp">${icon("sort")}Title${icon("chev")}</div></div>
+          <div style="padding-top:20px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:20px 18px">${ALBUMS.slice(0, 6).map(([k, n, a, y]) => `<div><div style="aspect-ratio:1;border-radius:10px;overflow:hidden">${coverSvg(k)}</div><div style="font-size:15px;font-weight:600;margin-top:9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${n}</div><div style="font-size:13px;color:var(--a-muted);white-space:nowrap">${a} · ${y}</div></div>`).join("")}</div></div>
+          <div class="prail">${"#ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("").map((c) => `<i>${c}</i>`).join("")}</div>`,
+          { tab: "Albums", mini: { cov: "bluehour", title: "Blue Hour", artist: "Midnight Harbor", playing: false } })}
         <div class="scrim" style="position:absolute;inset:0;background:rgba(0,0,0,0.28)"></div><div class="sheet"><div class="hd"><div class="bt">${noteSvg("#1c1c1e")}</div><div><b>Flow</b><small>music.example.com</small></div></div>
           <div class="op"><span>Copy</span>${ico("copy")}</div><div class="op"><span>Add to Favorites</span>${ico("heart")}</div><div class="op add"><span>Add to Home Screen</span>${ico("plusbox")}</div></div></div>
       <div class="home" style="background:linear-gradient(160deg,#7d8fc9 0%,#b59ad6 50%,#f0b4a8 100%)">
         <div class="apps">${Array.from({ length: 15 }, (_, i) => `<div class="ap"><i style="background:rgba(255,255,255,${(0.28 + 0.2 * rnd(i)).toFixed(2)})"></i><span>&nbsp;</span></div>`).join("")}
           <div class="ap flow"><i>${noteSvg("#1c1c1e")}</i><span>Flow</span></div></div>
         <div class="dock"><i></i><i></i><i></i><i></i></div></div>
-      <div class="opened" style="position:absolute;inset:0;background:var(--a-canvas)"><div class="papp"><div class="ptop" style="height:70px"></div>
-        <div class="np" style="top:70px"><div class="big">${coverSvg("bluehour")}</div><h3>Blue Hour</h3><p>Midnight Harbor</p>
-        <div class="bar"><b style="width:18%"></b><u style="left:18%"></u></div><div class="tms"><span>1:02</span><span>5:41</span></div>
-        <div class="tr">${icon("prev")}<div class="pp">${icon("pause")}</div>${icon("next")}</div></div></div></div>
+      <div class="opened" style="position:absolute;inset:0;background:linear-gradient(180deg,#e3e9f6 0%,#eceff7 60%,#f2f2f6 100%)">
+        ${phoneNP({ cov: "bluehour", title: "Blue Hour", artist: "Midnight Harbor", album: "Blue Hour Sessions", t0: "1:02", dur: "6:31", fill: 15.8, top: 122 })}</div>
     </div>`;
     const scrim = PH.querySelector(".scrim");
     const sheet = PH.querySelector(".sheet"), add = PH.querySelector(".add"), home = PH.querySelector(".home");
@@ -791,14 +812,15 @@
   /* ====================================================================== *
    *  CARE — Organize fixes messy tags in bulk; unplayable songs repaired
    * ====================================================================== */
-  // the Organize grid (views/OrganizeView.tsx): three songs with no album
+  // the Organize page (views/OrganizeView.tsx): three songs with no album, newest first
   const ORG = [
-    ["Night Drive", "Cassette Club", "", "Synthwave", 1],
-    ["Rooftop Tape", "Cassette Club", "Polaroid Summer", "Synthwave", 0],
-    ["Turquoise", "Cassette Club", "", "Synthwave", 1],
-    ["Analog Love", "Cassette Club", "Polaroid Summer", "Synthwave", 0],
-    ["Out of Order", "Cassette Club", "", "Synthwave", 1],
-    ["Golden Rule", "Velvet Hour", "Afterglow", "Dream Pop", 0],
+    ["Turquoise", "Cassette Club", "", "Synthwave", "Turquoise.mp3", 1],
+    ["Out of Order", "Cassette Club", "", "Synthwave", "Out of Order.mp3", 1],
+    ["Night Drive", "Cassette Club", "", "Synthwave", "Night Drive.mp3", 1],
+    ["Waking in the Orchard", "Velvet Hour", "Afterglow", "Dream Pop", "09 - Waking in the Orchard.mp3", 0],
+    ["Halo", "Velvet Hour", "Afterglow", "Dream Pop", "08 - Halo.mp3", 0],
+    ["The Daylight", "Velvet Hour", "Afterglow", "Dream Pop", "07 - The Daylight.mp3", 0],
+    ["Humming Canyons", "Velvet Hour", "Afterglow", "Dream Pop", "06 - Humming Canyons.mp3", 0],
   ];
   const SET = "Chrome Sunset";
   function care(cam, api) {
@@ -817,18 +839,20 @@
     const app = el("div", "app", O);
     Object.assign(app.style, { zoom: OZ, width: (OW / OZ) + "px", height: (690 / OZ) + "px", position: "absolute" });
     app.innerHTML = `<div class="org">
-      <div class="orgh"><b>Organize</b><div class="search">${icon("search")}<span>Filter songs…</span></div><span class="orgx">Done</span></div>
-      <div class="orgstrip"><span class="ol">Needs attention</span><span class="op p1"><em>3</em> songs have no album</span><span class="op"><em>2</em> albums hold a single song</span><span class="oclean">Nothing needs attention — every track is grouped.</span></div>
-      <div class="og"><div class="ogh"><span class="ck"></span><span>Title</span><span>Artist</span><span>Album</span><span>Genre</span></div>
-        ${ORG.map(([t, a, al, g, bad]) => `<div class="ogr${bad ? " bad" : ""}"><span class="ck">${icon("check")}</span><span>${t}</span><span>${a}</span><span class="al">${al || "—"}</span><span>${g}</span></div>`).join("")}</div>
+      <div class="orgh"><span class="ogi">${icon("orgicon")}</span><div><b>Organize</b><small>Group songs into albums and artists. Edits live in Flow — your files are never touched.</small></div><span class="orgx">Done</span></div>
+      <div class="orgf"><div class="search">${icon("search")}<span>Filter by title, artist, or album</span></div><span class="oall">${icon("albums")}All albums</span></div>
+      <div class="orgstrip"><span class="ol">Needs attention</span><span class="op p1"><em>3</em> songs have no album</span><span class="oclean">Nothing needs attention — every song is grouped.</span></div>
+      <div class="og"><div class="ogh"><span class="ck">${icon("check")}</span><span>Title</span><span>Artist</span><span>Album</span><span>Genre</span><span class="sd">Added${icon("chev")}</span><span>File</span></div>
+        ${ORG.map(([t, a, al, g, f, bad]) => `<div class="ogr${bad ? " bad" : ""}"><span class="ck">${icon("check")}</span><span class="tt">${t}</span><span>${a}</span><span class="al">${al || "No album"}</span><span>${g}</span><span>Nov 19</span><span class="fl">${f}</span></div>`).join("")}</div>
       <div class="orgbar"><span class="oc">3 selected</span><i></i><span class="oa sa">Set Album…</span><span class="oa">Set Artist…</span><span class="oa">Set Album Artist…</span><span class="oa">Set Genre…</span><i></i><span class="oq">Clear</span>
-        <div class="orgpop"><div class="opi"><span class="opv"></span></div><div class="ops"><span class="sw2">${coverSvg("chrome")}</span><span>Chrome Sunset</span><small>Cassette Club</small></div><div class="opb">Apply</div></div></div>
+        <div class="orgpop"><div class="opi"><span class="opv"></span></div><div class="ops"><span>Chrome Sunset</span><small>9</small></div><div class="opc">Clear album</div></div></div>
+      <div class="oconf"><div class="ocs"></div><div class="ocb"><b>Set album to “${SET}”</b><p>Applies to 3 songs in Flow’s library. Your audio files are never modified.</p><div class="oca"><span>Cancel</span><span class="opb">Apply</span></div></div></div>
       <div class="undo">Set album to “${SET}” · 3 songs<b>Undo</b></div>
     </div>`;
     const $ = (q) => app.querySelector(q), $$ = (q) => [...app.querySelectorAll(q)];
     const rows = $$(".ogr"), bad = rows.filter((r) => r.classList.contains("bad")), good = rows.filter((r) => !r.classList.contains("bad"));
     const p1 = $(".p1"), clean = $(".oclean"), strip = $(".orgstrip"), bar = $(".orgbar"), pop = $(".orgpop"), opv = $(".opv"), undo = $(".undo");
-    const hck = $(".ogh .ck"), setA = $(".sa"), apply = $(".opb"), ops = $(".ops");
+    const hck = $(".ogh .ck"), setA = $(".sa"), apply = $(".opb"), ops = $(".ops"), conf = $(".oconf"), olab = $(".ol");
     const foot = at(cam, 960, 970, "url2", `Edits live in Flow<b>·</b>your music files are never changed`);
     foot.style.fontFamily = "var(--font)"; foot.style.fontSize = "24px";
 
@@ -849,30 +873,32 @@
     const s1 = api.segStart("care1"), s2 = api.segStart("care2");
     const PILL = api.on("care1", "finds") + 0.1;           // the pill filters the grid to the three songs
     const SEL = api.on("care1", "fix") - 0.25;             // select them all
-    const SETC = SEL + 0.55, TY = SETC + 0.3, RATE = 0.045;
-    const APPLY = Math.max(TY + SET.length * RATE + 0.35, api.on("care1", "once") + 0.1);
+    const SETC = SEL + 0.55, TY = SETC + 0.25, RATE = 0.035;
+    const PICK = TY + SET.length * RATE + 0.2;            // the suggestion; Flow asks before it changes 3 songs
+    const APPLY = Math.max(PICK + 0.6, api.on("care1", "once") + 0.1);
     const SWAP = s2 - 0.55;
     const FIX0 = api.on("care2", "repaired") - 0.5, FIX1 = FIX0 + 0.7;
     api.cue("click", PILL, 0.6);
     api.cue("click", SEL, 0.6);
     api.cue("click", SETC, 0.5);
     for (let i = 0; i < SET.length; i++) api.cue("key", TY + i * RATE + (rnd(i) - 0.5) * 0.01, 0.28);
+    api.cue("click", PICK, 0.5);
     api.cue("click", APPLY, 0.7);
     [0, 1, 2].forEach((i) => api.cue("pop", APPLY + 0.15 + i * 0.1, 0.3));
     api.cue("deny", s2 + 0.15, 0.5);
     api.cue("stream", FIX0, 0.5);
     api.cue("chime", FIX1, 0.8);
 
-    let P = { pill: [700, 360], ck: [420, 450], set: [700, 880], apply: [900, 800] };
+    let P = { pill: [700, 360], ck: [420, 450], set: [700, 880], pick: [700, 800], apply: [900, 800] };
     afterFonts(() => {
       const c = cam.getBoundingClientRect();
       const mid = (n, fx = 0.5, fy = 0.5) => { const r = n.getBoundingClientRect(); return [r.left - c.left + r.width * fx, r.top - c.top + r.height * fy]; };
-      bar.style.visibility = "visible"; pop.style.visibility = "visible"; bar.style.transform = "translate(-50%, 0)";
-      P = { pill: mid(p1, 0.5, 0.6), ck: mid(hck, 0.6, 0.6), set: mid(setA, 0.45, 0.6), apply: mid(apply, 0.5, 0.6) };
-      bar.style.visibility = ""; pop.style.visibility = ""; bar.style.transform = "";
+      bar.style.visibility = "visible"; pop.style.visibility = "visible"; conf.style.visibility = "visible"; bar.style.transform = "translate(-50%, 0)";
+      P = { pill: mid(p1, 0.5, 0.6), ck: mid(hck, 0.6, 0.6), set: mid(setA, 0.45, 0.6), pick: mid(ops, 0.3, 0.6), apply: mid(apply, 0.5, 0.6) };
+      bar.style.visibility = ""; pop.style.visibility = ""; conf.style.visibility = ""; bar.style.transform = "";
     });
     // the filter: rows that aren't missing an album fold away
-    const ROWH = 44;
+    const ROWH = 38;
 
     return function (t, T) {
       camera(cam, t, [[0, 1.0, 0, 0]]);
@@ -884,8 +910,8 @@
       reveal(foot, ramp(t, APPLY + 0.6, APPLY + 1.0), { dy: 12, alpha: 1 - out });
 
       const pos = path([[0.3, 1500, 900], [PILL - 0.05, P.pill[0], P.pill[1]], [SEL - 0.05, P.ck[0], P.ck[1]],
-        [SETC - 0.05, P.set[0], P.set[1]], [APPLY - 0.05, P.apply[0], P.apply[1]], [APPLY + 0.8, P.apply[0] + 160, P.apply[1] + 60]])(t);
-      cur(t, pos, [PILL, SEL, SETC, APPLY], ramp(t, 0.3, 0.6) * (1 - ramp(t, APPLY + 0.4, APPLY + 0.8)) * (1 - out));
+        [SETC - 0.05, P.set[0], P.set[1]], [TY + 0.2, P.set[0], P.set[1]], [PICK - 0.05, P.pick[0], P.pick[1]], [APPLY - 0.05, P.apply[0], P.apply[1]], [APPLY + 0.8, P.apply[0] + 160, P.apply[1] + 60]])(t);
+      cur(t, pos, [PILL, SEL, SETC, PICK, APPLY], ramp(t, 0.3, 0.6) * (1 - ramp(t, APPLY + 0.4, APPLY + 0.8)) * (1 - out));
 
       // the pill: on, then gone once the album is set
       const fl = inOutCubic(ramp(t, PILL + 0.05, PILL + 0.45));
@@ -905,21 +931,28 @@
       bar.style.opacity = bp.toFixed(3);
       bar.style.transform = `translate(-50%, ${(24 * (1 - bp)).toFixed(1)}px)`;
       setA.classList.toggle("hot", t >= SETC - 0.05 && t < APPLY + 0.3);
-      const pp = outCubic(ramp(t, SETC + 0.05, SETC + 0.25)) * (1 - ramp(t, APPLY + 0.1, APPLY + 0.3));
+      const pp = outCubic(ramp(t, SETC + 0.05, SETC + 0.25)) * (1 - ramp(t, PICK + 0.05, PICK + 0.2));
       pop.style.visibility = pp > 0 ? "visible" : "hidden";
       pop.style.opacity = pp.toFixed(3);
-      setHTML(opv, typed(SET, t, TY, RATE) + (t < APPLY && blink(t) ? '<i class="caret"></i>' : ""));
+      setHTML(opv, typed(SET, t, TY, RATE) + (t < PICK && blink(t) ? '<i class="caret"></i>' : ""));
       ops.style.opacity = ramp(t, TY + 4 * RATE, TY + 4 * RATE + 0.15).toFixed(3);
+      ops.classList.toggle("hot", t >= PICK - 0.25);
+      // the confirmation, then Apply
+      const cp = outCubic(ramp(t, PICK + 0.1, PICK + 0.3)) * (1 - ramp(t, APPLY + 0.1, APPLY + 0.3));
+      conf.style.visibility = cp > 0 ? "visible" : "hidden";
+      conf.style.opacity = cp.toFixed(3);
+      conf.querySelector(".ocb").style.transform = `translate(-50%, -50%) scale(${lerp(0.96, 1, cp).toFixed(4)})`;
       apply.classList.toggle("hot", t >= APPLY - 0.08 && t < APPLY + 0.15);
       // the album lands on each song
       bad.forEach((r, i) => {
         const a = r.querySelector(".al"), at0 = APPLY + 0.15 + i * 0.1;
-        setText(a, t >= at0 ? SET : "—");
+        setText(a, t >= at0 ? SET : "No album");
         r.classList.toggle("bad", t < at0);
         r.classList.toggle("fixed", t >= at0 && t < at0 + 0.9);
       });
       clean.style.opacity = ramp(t, APPLY + 0.8, APPLY + 1.1).toFixed(3);
       clean.style.display = t >= APPLY + 0.75 ? "" : "none";
+      olab.style.display = t >= APPLY + 0.75 ? "none" : "";
       strip.querySelectorAll(".op").forEach((o, i) => { if (i > 0) o.style.display = t >= APPLY + 0.75 ? "none" : ""; });
       const up = outQuint(ramp(t, APPLY + 0.4, APPLY + 0.8));
       undo.style.visibility = up > 0 ? "visible" : "hidden";
@@ -966,8 +999,8 @@
     const body = TM.querySelector(".body");
     const CMD = "docker run --rm -e DEMO=true \\\n    -p 8080:8080 poliuscorp/flow";
     const OUT = [
-      ["d", "Demo library generated: 36 albums, 330 tracks"],
-      ["d", "Scan finished: 330 new/changed, 0 errors"],
+      ["d", "Demo library generated: 36 albums, 347 tracks"],
+      ["d", "Scan finished: 347 new/changed, 0 errors"],
       ["d", "Application startup complete."],
       ["ok", "→ open http://localhost:8080"],
     ];

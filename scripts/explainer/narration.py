@@ -46,7 +46,7 @@ GAP_EXTRA = {
     "play2": 0.6,          # the song starts and the beat drops
     "play3": 0.3,          # the suggestions land before Now Playing opens
     "sync2": 0.35,         # the heart and the playlist reach the server
-    "care2": 1.6,          # the album is set across the songs before the repair
+    "care2": 1.9,          # the album is set across the songs (after Flow's confirmation) before the repair
     "self2": 0.1,
     "outro2": -0.3,        # keep the closing line close to the name
 }
