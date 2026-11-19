@@ -27,7 +27,10 @@
 
 - **Your library, as it is.** MP3, FLAC, M4A, and OGG, organized by their tags. New files show up on their own.
 - **Plays well.** Gapless playback (measured in Chrome; see below), volume normalization, and keyboard shortcuts (press `?`).
-- **Favorites, playlists, and a queue** saved on the server, so any browser picks up where you left off.
+- **Favorites, playlists, and a queue** saved on the server, so any browser picks up where you left off. If another device starts playing, the first one says so and offers to take the queue back.
+- **Lyrics from your own files**: a `.lrc` (synced) or `.txt` beside the song, or the lyrics tag. Nothing is fetched from the internet.
+- **A listening history**: a song counts once you have heard 30 seconds (or half of a shorter song). Home shows what you play most.
+- **Scrobbling to ListenBrainz**, off until you paste a token in **Settings → Scrobbling**. It is the only thing that makes Flow talk to the outside, and it sends only each counted song's title, artist, album, length and the time you played it.
 - **Edit tags without touching your files.** Edits live in Flow's database.
 - **Repairs files browsers can't play**, such as stream rips saved as `.mp3`.
 - **Works on your phone**, added to the Home Screen like an app.
@@ -146,6 +149,7 @@ All optional.
 | `FLOW_REPAIR` | `on` | `off` turns off repairing unplayable files. |
 | `FLOW_AUTO_HEAL` | `on` | `off` skips the file re-check after an upgrade. |
 | `FLOW_LOG_LEVEL` | `INFO` | `DEBUG`, `INFO`, `WARNING`, or `ERROR`. |
+| `FLOW_LISTENBRAINZ_URL` | `https://api.listenbrainz.org` | A self-hosted ListenBrainz. Use `https`: the token travels with every request. |
 | `DEMO` | – | `true` fills an empty library with silent demo tracks. |
 
 ## Security

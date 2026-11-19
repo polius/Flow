@@ -75,18 +75,28 @@ def _load_state(conn: sqlite3.Connection) -> sqlite3.Row:
 
 def _hold(conn: sqlite3.Connection, device: str | None, take: bool) -> None:
     """The queue is held by one device: the one that last sent a whole
-    queue (started one, changed it, or took it over), P3. A playhead write
-    from another device is refused with 409, so that device can say
-    "Playing on another device" instead of moving the playhead of a queue
-    it does not have. A write that names no device (an older client) is
-    let through as before; the first device to write holds a fresh one."""
-    if device is None:
+    queue (started one, changed it, or took it over), P3. Call inside the
+    write transaction (BEGIN IMMEDIATE), so the check and the write are one
+    step. A playhead write from another device is refused with 409, so
+    that device can say "Playing on another device" instead of moving the
+    playhead of a queue it does not have. Only a whole queue makes a
+    device the holder; a write that names no device (an older client) is
+    let through as before."""
+    if not device:
         return
     holder = _load_state(conn)["device"]
-    if holder is not None and holder != device and not take:
+    if take:
+        if holder != device:
+            conn.execute("UPDATE queue_state SET device = ? WHERE id = 0", (device,))
+        return
+    if holder is not None and holder != device:
         raise HTTPException(status_code=409, detail="Playing on another device")
-    if holder != device:
-        conn.execute("UPDATE queue_state SET device = ? WHERE id = 0", (device,))
+
+
+def _begin(conn: sqlite3.Connection) -> None:
+    """Take the write lock before reading what a write depends on."""
+    if not conn.in_transaction:
+        conn.execute("BEGIN IMMEDIATE")
 
 
 def _read_origin(state: sqlite3.Row) -> QueueOrigin | None:
@@ -173,8 +183,8 @@ def _read_snapshot(conn: sqlite3.Connection) -> QueueSnapshot:
         position=position,
         origin=origin,
         updated_at=updated_at,
-        shuffle=bool(state["shuffle"]),
-        repeat=state["repeat"] if state["repeat"] in ("off", "all", "one") else "off",
+        shuffle=None if state["shuffle"] is None else bool(state["shuffle"]),
+        repeat=state["repeat"] if state["repeat"] in ("off", "all", "one") else None,
     )
 
 
@@ -285,6 +295,7 @@ def play_queue(request: Request, body: QueuePlayIn) -> QueueSnapshot:
     play_order, order_pos = _build_order(len(ids), body.shuffle, body.start)
     _write_transaction(conn, lambda: _load_state(conn))  # seeds the singleton
     def _apply() -> str:
+        _begin(conn)
         _hold(conn, body.device, take=True)  # a new queue is this device's
         return _write_snapshot(
             conn,
@@ -351,6 +362,7 @@ def put_queue(
         # Checked inside the retried unit, so a replay after a scan's lock
         # window re-checks against what the scan left.
         # A plan change is acting here: this device holds the queue now.
+        _begin(conn)
         _hold(conn, body.device, take=True)
         ids, play_order, pos = _drop_unknown(
             track_ids, order, order_pos, _existing_ids(conn, track_ids)
@@ -380,57 +392,82 @@ def put_queue(
 def patch_queue(request: Request, body: QueuePatchIn) -> QueuePlayheadOut:
     """The playhead update, plus a played_at stamp when a real playback
     start reports its track id — carried explicitly so an in-flight mirror
-    PUT cannot mis-stamp."""
-    conn = request.app.state.db.connect()
-    state = _load_state(conn)
+    PUT cannot mis-stamp.
 
-    # The target values are computable up front (reads); the transaction is
-    # the two writes under one retry window.
-    n = conn.execute("SELECT COUNT(*) AS c FROM queue_items").fetchone()["c"]
-    order_pos = state["order_pos"]
-    if body.order_pos is not None:
-        # An out-of-range playhead means the writer's plan isn't mirrored yet
-        # (its PUT is in flight) — it does NOT mean "the last track". Ignore
-        # it and let the mirror bring plan and playhead together; clamping
-        # would invent a pointer into an order the writer never meant.
-        if -1 <= body.order_pos < n:
-            order_pos = body.order_pos
-    position = (
-        max(0.0, body.position)
-        if body.position is not None
-        else float(state["position"] or 0.0)
+    The stamp is a fact about the listener, so it is recorded whichever
+    device holds the queue, and once per `listen_id` (a retried stamp whose
+    answer was lost is not a second play). The playhead and repeat are the
+    queue's: a device that does not hold it is refused (409) after its
+    stamp is recorded."""
+    conn = request.app.state.db.connect()
+    moves_playhead = (
+        body.order_pos is not None or body.position is not None or body.repeat is not None
     )
-    updated_at = _now()
+    result: dict = {}
 
     def _apply() -> None:
-        _hold(conn, body.device, take=False)
-        if body.repeat is not None:
-            conn.execute("UPDATE queue_state SET repeat = ? WHERE id = 0", (body.repeat,))
+        _begin(conn)
+        result.clear()
         if body.played_track_id is not None:
             stamp = _now()
             stamped = conn.execute(
                 "UPDATE tracks SET played_at = ? WHERE id = ?",
                 (stamp, body.played_track_id),
             ).rowcount
-            # One row of history per counted play (the client sends the id
-            # once per listen, after 30 s or half the song).
             if stamped:
                 play = conn.execute(
-                    "INSERT INTO plays (track_id, played_at) VALUES (?, ?)",
-                    (body.played_track_id, stamp),
+                    "INSERT OR IGNORE INTO plays (track_id, played_at, listen_id) "
+                    "VALUES (?, ?, ?)",
+                    (body.played_track_id, stamp, body.listen_id),
                 )
-                # Queued for ListenBrainz only while a token is set.
-                scrobble.enqueue(conn, play.lastrowid)
-        conn.execute(
-            "UPDATE queue_state SET order_pos = ?, position = ?, updated_at = ? "
-            "WHERE id = 0",
-            (order_pos, position, updated_at),
+                if play.rowcount:
+                    # Queued for ListenBrainz only while a token is set.
+                    scrobble.enqueue(conn, play.lastrowid)
+                    result["played"] = True
+        if moves_playhead:
+            try:
+                _hold(conn, body.device, take=False)
+            except HTTPException:
+                conn.commit()  # the play stands; the playhead is not this device's
+                result["refused"] = True
+                return
+        # Read inside the lock: a whole queue another device just wrote is
+        # what the range check and the stored playhead are measured against.
+        state = _load_state(conn)
+        n = conn.execute("SELECT COUNT(*) AS c FROM queue_items").fetchone()["c"]
+        order_pos = state["order_pos"]
+        if body.order_pos is not None:
+            # An out-of-range playhead means the writer's plan isn't mirrored
+            # yet (its PUT is in flight) — it does NOT mean "the last track".
+            # Ignore it and let the mirror bring plan and playhead together.
+            if -1 <= body.order_pos < n:
+                order_pos = body.order_pos
+        position = (
+            max(0.0, body.position)
+            if body.position is not None
+            else float(state["position"] or 0.0)
         )
+        updated_at = _now()
+        if body.repeat is not None:
+            conn.execute("UPDATE queue_state SET repeat = ? WHERE id = 0", (body.repeat,))
+        if moves_playhead:
+            conn.execute(
+                "UPDATE queue_state SET order_pos = ?, position = ?, updated_at = ? "
+                "WHERE id = 0",
+                (order_pos, position, updated_at),
+            )
         conn.commit()
+        result.update(order_pos=order_pos, position=position, updated_at=updated_at)
 
     # Stamp and playhead share one retry window — a scan's write transaction
     # must not thin the played_at record either.
     _write_transaction(conn, _apply)
-    if body.played_track_id is not None:
+    if result.get("played"):
         request.app.state.scrobbler.kick()  # sends only with a token set
-    return QueuePlayheadOut(order_pos=order_pos, position=position, updated_at=updated_at)
+    if result.get("refused"):
+        raise HTTPException(status_code=409, detail="Playing on another device")
+    return QueuePlayheadOut(
+        order_pos=result["order_pos"],
+        position=result["position"],
+        updated_at=result["updated_at"],
+    )

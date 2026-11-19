@@ -5,5 +5,7 @@
 -- and repeat travel with the queue, so a second device shows the same
 -- plan with the same switches.
 ALTER TABLE queue_state ADD COLUMN device TEXT;
-ALTER TABLE queue_state ADD COLUMN shuffle INTEGER NOT NULL DEFAULT 0;
-ALTER TABLE queue_state ADD COLUMN repeat TEXT NOT NULL DEFAULT 'off';
+-- NULL until a device states them: an upgraded queue keeps each browser's
+-- own Shuffle and Repeat instead of resetting them to off.
+ALTER TABLE queue_state ADD COLUMN shuffle INTEGER;
+ALTER TABLE queue_state ADD COLUMN repeat TEXT;

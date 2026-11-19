@@ -704,6 +704,12 @@ export interface paths {
          * @description The playhead update, plus a played_at stamp when a real playback
          *     start reports its track id — carried explicitly so an in-flight mirror
          *     PUT cannot mis-stamp.
+         *
+         *     The stamp is a fact about the listener, so it is recorded whichever
+         *     device holds the queue, and once per `listen_id` (a retried stamp whose
+         *     answer was lost is not a second play). The playhead and repeat are the
+         *     queue's: a device that does not hold it is refused (409) after its
+         *     stamp is recorded.
          */
         patch: operations["patch_queue_api_queue_patch"];
         trace?: never;
@@ -1215,6 +1221,8 @@ export interface components {
             position?: number | null;
             /** Played Track Id */
             played_track_id?: number | null;
+            /** Listen Id */
+            listen_id?: string | null;
             /** Device */
             device?: string | null;
             /** Repeat */
@@ -1343,17 +1351,10 @@ export interface components {
             origin?: components["schemas"]["QueueOrigin"] | null;
             /** Updated At */
             updated_at?: string | null;
-            /**
-             * Shuffle
-             * @default false
-             */
-            shuffle: boolean;
-            /**
-             * Repeat
-             * @default off
-             * @enum {string}
-             */
-            repeat: "off" | "all" | "one";
+            /** Shuffle */
+            shuffle?: boolean | null;
+            /** Repeat */
+            repeat?: ("off" | "all" | "one") | null;
         };
         /**
          * ReviewSummary

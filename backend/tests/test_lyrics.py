@@ -80,3 +80,21 @@ def test_the_lyrics_endpoint(client, lyric_library):
 @pytest.fixture
 def library(lyric_library):
     return lyric_library
+
+
+def test_other_encodings_and_enhanced_lrc(tmp_path):
+    (tmp_path / "a.mp3").write_bytes(b"")
+    (tmp_path / "a.lrc").write_bytes("[00:01.00]Café déjà vu\n".encode("utf-16"))
+    assert for_file(tmp_path, "a.mp3").lines[0].text == "Café déjà vu"
+    (tmp_path / "a.lrc").write_bytes("[00:01.00]Café déjà vu\n".encode("cp1252"))
+    assert for_file(tmp_path, "a.mp3").lines[0].text == "Café déjà vu"
+    words = parse("[00:12.00]<00:12.00> One <00:12.50> two\n")
+    assert words.lines[0].text == "One two"
+
+
+def test_one_line_with_thousands_of_stamps_is_capped():
+    from app.lyrics import MAX_LINES
+
+    lyrics = parse("[00:01]" * 5000 + "chorus\n")
+    assert len(lyrics.lines) == MAX_LINES
+

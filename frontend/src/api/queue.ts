@@ -189,6 +189,8 @@ export function saveServerPlayhead(
     orderPos?: number;
     position?: number;
     playedTrackId?: number;
+    /** The counted listen's id (sent with its stamp; a retry reuses it). */
+    listenId?: string;
     /** Written right after the listener acted here: a refusal means
         "take the queue over", not "ask". */
     claim?: boolean;
@@ -205,6 +207,7 @@ export function saveServerPlayhead(
           ...(patch.playedTrackId != null
             ? { played_track_id: patch.playedTrackId }
             : {}),
+          ...(patch.listenId != null ? { listen_id: patch.listenId } : {}),
           ...(patch.repeat != null ? { repeat: patch.repeat } : {}),
           device: deviceId(),
         },

@@ -1585,6 +1585,14 @@ let yieldedToOtherTab = false;
 let elsewhere: "asking" | "local" | null = null;
 let claimPending = false;
 
+/** One counted listen's id: a stamp sent again (its answer was lost) is
+    recognised by the server as the same play. */
+function newListenId(): string {
+  return typeof crypto !== "undefined" && "randomUUID" in crypto
+    ? crypto.randomUUID()
+    : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+}
+
 /** The listener acted on this device: the next playhead write claims the
     queue for it. */
 function actHere(): void {
@@ -1610,6 +1618,9 @@ setQueueConflictHandler((acted) => {
     return;
   }
   if (elsewhere === "local") return;
+  // Nothing playing here: there is nothing to choose about. Pressing play
+  // later is acting here, and takes the queue then.
+  if (!usePlayerStore.getState().isPlaying) return;
   elsewhere = "asking";
   usePlayerStore.setState({ elsewhere: true });
 });
@@ -1618,6 +1629,11 @@ tabChannel?.addEventListener("message", (e: MessageEvent) => {
   const msg = e.data as { type?: unknown; tab?: unknown } | null;
   if (msg?.type !== "playing" || msg.tab === TAB_ID) return;
   yieldedToOtherTab = true;
+  // This browser is playing again (in that tab): no other device to ask about.
+  if (elsewhere != null) {
+    elsewhere = null;
+    usePlayerStore.setState({ elsewhere: false });
+  }
   intendPlay = false;
   clearNetworkHold();
   if (audio != null && !audio.paused) audio.pause();
@@ -1996,8 +2012,13 @@ function writePlayhead(started = false, keepalive = false): void {
   // listener acts here (which claims it).
   const claim = claimPending;
   claimPending = false;
-  if (elsewhere != null && !claim) return;
   const current = queue[order[orderPos]] ?? null;
+  if (elsewhere != null && !claim) {
+    // Not this device's queue: no playhead goes out — but a counted listen
+    // is the listener's, and still goes in the history.
+    if (started && current) saveServerPlayhead({ playedTrackId: current.id, listenId: newListenId() });
+    return;
+  }
   saveServerPlayhead(
     {
       orderPos,
@@ -2006,7 +2027,7 @@ function writePlayhead(started = false, keepalive = false): void {
       // The stamp rides the start-of-play sync, carrying the id —
       // never derived from the server's stored plan (a mirror PUT may
       // still be in flight there).
-      ...(started && current ? { playedTrackId: current.id } : {}),
+      ...(started && current ? { playedTrackId: current.id, listenId: newListenId() } : {}),
     },
     keepalive,
   );
@@ -2299,8 +2320,10 @@ async function adoptServerSession(attempt = 0): Promise<void> {
   adoptionAwaitingNetwork = false;
   if (sessionTouched) {
     // This browser's session already began: the server's copy is not
-    // adopted — it is replaced.
-    void claimSession();
+    // adopted — it is replaced. Not while another device holds the queue
+    // (the listener chose, or is choosing, about that): only acting here
+    // takes it.
+    if (elsewhere == null) void claimSession();
     return;
   }
   if (result.status === "empty") {
@@ -2402,6 +2425,11 @@ async function claimSession(): Promise<void> {
     signing back in resumes it. */
 export function endPlayback({ forget }: { forget: boolean }): void {
   playEpoch++; // any pending async play is now stale
+  // Signed out: whatever another device was doing is no longer this
+  // session's question.
+  elsewhere = null;
+  claimPending = false;
+  usePlayerStore.setState({ elsewhere: false });
   intendPlay = false;
   clearStallWatch();
   clearNetworkHold();

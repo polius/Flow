@@ -62,9 +62,11 @@ def put_listenbrainz(request: Request, body: ListenBrainzIn) -> ListenBrainzStat
     conn = request.app.state.db.connect()
     tok = body.token.strip() if body.token is not None else None
     if tok:
+        if not scrobble.token_is_well_formed(tok):
+            raise HTTPException(status_code=400, detail="ListenBrainz didn't accept this token")
         try:
             known = scrobble.validate(tok)
-        except OSError as exc:
+        except scrobble.REQUEST_ERRORS as exc:
             raise HTTPException(status_code=502, detail="Couldn't reach ListenBrainz") from exc
         if not known:
             raise HTTPException(status_code=400, detail="ListenBrainz didn't accept this token")

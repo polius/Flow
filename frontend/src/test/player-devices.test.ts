@@ -77,6 +77,7 @@ describe("another device holds the queue", () => {
     const { usePlayerStore, reportQueueConflict } = await setup();
     usePlayerStore.getState().playTracks([track(1), track(2), track(3)], 0);
     await new Promise((r) => setTimeout(r, 450)); // the plan mirror has gone out
+    usePlayerStore.setState({ isPlaying: true });
     reportQueueConflict();
     expect(usePlayerStore.getState().elsewhere).toBe(true);
 
@@ -96,6 +97,7 @@ describe("another device holds the queue", () => {
     const { usePlayerStore, reportQueueConflict } = await setup();
     usePlayerStore.getState().playTracks([track(1), track(2)], 0);
     await new Promise((r) => setTimeout(r, 450));
+    usePlayerStore.setState({ isPlaying: true });
     reportQueueConflict();
     expect(usePlayerStore.getState().elsewhere).toBe(true);
     usePlayerStore.getState().keepListeningHere();
@@ -153,6 +155,62 @@ describe("another device holds the queue", () => {
     const { usePlayerStore, reportQueueConflict } = await setup();
     usePlayerStore.getState().playTracks([track(1), track(2)], 0); // mirror pending (400 ms)
     reportQueueConflict();
+    expect(usePlayerStore.getState().elsewhere).toBe(false);
+  });
+
+  it("a device with nothing playing is not asked", async () => {
+    const { usePlayerStore, reportQueueConflict } = await setup();
+    usePlayerStore.getState().playTracks([track(1)], 0);
+    await new Promise((r) => setTimeout(r, 450));
+    usePlayerStore.setState({ isPlaying: false });
+    reportQueueConflict(); // e.g. a Repeat click on a paused device
+    expect(usePlayerStore.getState().elsewhere).toBe(false);
+  });
+
+  it("while another device holds the queue, a counted listen still goes in the history", async () => {
+    const { usePlayerStore, reportQueueConflict } = await setup();
+    usePlayerStore.getState().playTracks([track(1), track(2)], 0);
+    await new Promise((r) => setTimeout(r, 450));
+    usePlayerStore.setState({ isPlaying: true });
+    reportQueueConflict();
+    usePlayerStore.getState().keepListeningHere();
+    queueApi.saveServerPlayhead.mockClear();
+    const el = elements[0];
+    let t = 0;
+    Object.defineProperty(el, "currentTime", { configurable: true, get: () => t });
+    Object.defineProperty(el, "duration", { configurable: true, get: () => 200 });
+    for (; t < 31; t += 0.25) el.dispatchEvent(new Event("timeupdate"));
+    const stamps = queueApi.saveServerPlayhead.mock.calls.map(([p]) => p as Record<string, unknown>);
+    expect(stamps).toHaveLength(1);
+    expect(stamps[0].playedTrackId).toBe(1);
+    expect(typeof stamps[0].listenId).toBe("string");
+    expect(Object.keys(stamps[0]).sort()).toEqual(["listenId", "playedTrackId"]); // no playhead
+  });
+
+  it("Keep Listening Here is not undone by the network coming back", async () => {
+    let answer: (v: unknown) => void = () => {};
+    queueApi.fetchServerQueue.mockReturnValueOnce({ then: (r: (v: unknown) => void) => r({ status: "unreachable" }) });
+    const { usePlayerStore, reportQueueConflict } = await setup();
+    usePlayerStore.getState().playTracks([track(1), track(2)], 0);
+    await new Promise((r) => setTimeout(r, 450));
+    usePlayerStore.setState({ isPlaying: true });
+    reportQueueConflict();
+    usePlayerStore.getState().keepListeningHere();
+    queueApi.fetchServerQueue.mockReturnValue(new Promise((r) => (answer = r)));
+    queueApi.claimServerQueue.mockClear();
+    window.dispatchEvent(new Event("online"));
+    answer({ status: "session", snapshot: { items: [track(9)], order: [0], order_pos: 0, position: 0 } });
+    await new Promise((r) => setTimeout(r, 0));
+    expect(queueApi.claimServerQueue).not.toHaveBeenCalled();
+  });
+
+  it("signing out clears the question", async () => {
+    const { usePlayerStore, reportQueueConflict, endPlayback } = await setup();
+    usePlayerStore.getState().playTracks([track(1)], 0);
+    await new Promise((r) => setTimeout(r, 450));
+    usePlayerStore.setState({ isPlaying: true });
+    reportQueueConflict();
+    endPlayback({ forget: true });
     expect(usePlayerStore.getState().elsewhere).toBe(false);
   });
 });

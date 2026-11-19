@@ -62,3 +62,46 @@ def test_shuffle_and_repeat_travel_with_the_queue(client, library):
     played = client.post("/api/queue", json={"track_ids": ids, "start": 0, "shuffle": False, "device": "phone"})
     assert played.status_code == 200 and played.json()["shuffle"] is False
     assert played.json()["repeat"] == "one"  # repeat is a listener's setting: kept
+
+
+def test_a_play_counts_whichever_device_holds_the_queue(client, library):
+    """The stamp is a fact about the listener: a device that does not hold
+    the queue still has its listen counted, while its playhead is refused."""
+    ids = _ids(client)
+    _put(client, ids, "phone")
+    conn = client.app.state.db.connect()
+    r = client.patch(
+        "/api/queue",
+        json={"position": 40, "played_track_id": ids[1], "listen_id": "l-1", "device": "laptop"},
+    )
+    assert r.status_code == 409
+    assert conn.execute("SELECT COUNT(*) c FROM plays").fetchone()["c"] == 1
+    assert client.get("/api/queue").json()["position"] == 0
+    # The stamp alone (no playhead) is simply taken.
+    r = client.patch("/api/queue", json={"played_track_id": ids[2], "listen_id": "l-2", "device": "laptop"})
+    assert r.status_code == 200
+    assert conn.execute("SELECT COUNT(*) c FROM plays").fetchone()["c"] == 2
+
+
+def test_a_stamp_sent_again_is_the_same_play(client, library):
+    ids = _ids(client)
+    conn = client.app.state.db.connect()
+    for _ in range(3):  # the answer was lost and the stamp retried
+        client.patch("/api/queue", json={"played_track_id": ids[0], "listen_id": "same-listen"})
+    assert conn.execute("SELECT COUNT(*) c FROM plays").fetchone()["c"] == 1
+    assert conn.execute("SELECT play_count FROM tracks WHERE id = ?", (ids[0],)).fetchone()[0] == 1
+
+
+def test_only_a_whole_queue_makes_a_device_the_holder(client, library):
+    """After an upgrade nobody holds the queue: a playhead or Repeat from
+    some device must not make it the holder (and so refuse everyone else)."""
+    client.patch("/api/queue", json={"repeat": "all", "device": "phone"})
+    assert client.patch("/api/queue", json={"position": 2, "device": "laptop"}).status_code == 200
+    # An empty id is no id.
+    _put(client, _ids(client), "laptop")
+    assert client.patch("/api/queue", json={"position": 3, "device": ""}).status_code == 200
+
+
+def test_switches_are_unknown_until_a_device_states_them(client, library):
+    snap = client.get("/api/queue").json()
+    assert snap["shuffle"] is None and snap["repeat"] is None

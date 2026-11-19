@@ -34,6 +34,7 @@ class FakeListenBrainz:
         self.received: list[dict] = []
         self.submit_status = 200
         self.valid_tokens = {TOKEN}
+        self.validate_answer: tuple[int, bytes] | None = None
         outer = self
 
         class Handler(BaseHTTPRequestHandler):
@@ -43,9 +44,14 @@ class FakeListenBrainz:
             def _token_ok(self):
                 return self.headers.get("Authorization") in {f"Token {t}" for t in outer.valid_tokens}
 
-            def do_GET(self):  # /1/validate-token
-                self.send_response(200 if self._token_ok() else 401)
+            def do_GET(self):  # /1/validate-token: 200 with {"valid": ...}, like ListenBrainz
+                if outer.validate_answer is not None:
+                    status, body = outer.validate_answer
+                else:
+                    status, body = 200, json.dumps({"valid": self._token_ok()}).encode()
+                self.send_response(status)
                 self.end_headers()
+                self.wfile.write(body)
 
             def do_POST(self):  # /1/submit-listens
                 body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
@@ -174,3 +180,75 @@ def test_the_background_sender_sends_without_blocking_the_play(client, library, 
     while not fake.received:
         assert time.monotonic() < deadline, "the sender never sent the listen"
         time.sleep(0.05)
+
+
+def test_the_token_check_reads_the_answer(client, library, fake):
+    fake.validate_answer = (200, b"<html>a captive portal</html>")
+    assert client.put("/api/listenbrainz", json={"token": TOKEN}).status_code == 502
+    fake.validate_answer = (500, b"")
+    assert client.put("/api/listenbrainz", json={"token": TOKEN}).status_code == 502
+    fake.validate_answer = None
+    assert client.put("/api/listenbrainz", json={"token": "not-this-one"}).status_code == 400
+    for pasted in ("two words", "line\nbreak", "ellipsis\u2026"):
+        assert client.put("/api/listenbrainz", json={"token": pasted}).status_code == 400
+    assert client.get("/api/settings").json()["listenbrainz"]["enabled"] is False
+
+
+def test_a_listen_listenbrainz_refuses_is_dropped(client, library, fake):
+    client.put("/api/listenbrainz", json={"token": TOKEN})
+    client.app.state.scrobbler.stop()
+    fake.submit_status = 400
+    _play(client, _ids(client)["Song One"])
+    assert scrobble.send_due(client.app.state.db) == 0
+    assert client.get("/api/settings").json()["listenbrainz"]["waiting"] == 0
+
+
+def test_a_long_outage_does_not_break_the_backoff(client, library, fake):
+    client.put("/api/listenbrainz", json={"token": TOKEN})
+    client.app.state.scrobbler.stop()
+    fake.submit_status = 503
+    _play(client, _ids(client)["Song One"])
+    db = client.app.state.db
+    db.connect().execute("UPDATE listenbrainz_queue SET attempts = 5000")
+    db.connect().commit()
+    assert scrobble.send_due(db) == 0  # no OverflowError
+    row = db.connect().execute("SELECT next_try FROM listenbrainz_queue").fetchone()
+    assert row["next_try"] - time.time() <= scrobble.MAX_DELAY_S + 5
+
+
+def test_a_redirect_is_not_followed(client, library, monkeypatch):
+    """A redirect would carry the token to another host."""
+    from app import config
+
+    hits = []
+
+    class Elsewhere(BaseHTTPRequestHandler):
+        def log_message(self, *args):
+            pass
+
+        def do_GET(self):
+            hits.append(self.headers.get("Authorization"))
+            self.send_response(200)
+            self.end_headers()
+            self.wfile.write(b'{"valid": true}')
+
+    other = HTTPServer(("127.0.0.1", 0), Elsewhere)
+    threading.Thread(target=other.serve_forever, daemon=True).start()
+
+    class Redirect(BaseHTTPRequestHandler):
+        def log_message(self, *args):
+            pass
+
+        def do_GET(self):
+            self.send_response(302)
+            self.send_header("Location", f"http://127.0.0.1:{other.server_port}/1/validate-token")
+            self.end_headers()
+
+    first = HTTPServer(("127.0.0.1", 0), Redirect)
+    threading.Thread(target=first.serve_forever, daemon=True).start()
+    monkeypatch.setattr(config, "LISTENBRAINZ_URL", f"http://127.0.0.1:{first.server_port}")
+    assert client.put("/api/listenbrainz", json={"token": TOKEN}).status_code == 502
+    assert hits == []
+    first.shutdown()
+    other.shutdown()
+

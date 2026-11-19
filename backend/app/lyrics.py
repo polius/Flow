@@ -25,9 +25,14 @@ log = logging.getLogger("flow.lyrics")
 
 # Lyrics are text: far below this. A larger "lyrics" file is not read.
 MAX_BYTES = 256 * 1024
+# A song has a few hundred lines at most. One line can carry many stamps
+# (a chorus), so the file's size alone does not bound the answer.
+MAX_LINES = 2000
 
 _STAMP = re.compile(r"\[(\d{1,3}):(\d{1,2})(?:[.:](\d{1,3}))?\]")
 _OFFSET = re.compile(r"^\[offset:\s*([+-]?\d+)\s*\]", re.IGNORECASE)
+# Enhanced LRC times each word (<00:12.00>word): shown as the line's text.
+_WORD_STAMP = re.compile(r"<\d{1,3}:\d{1,2}(?:[.:]\d{1,3})?>\s*")
 
 
 @dataclass(frozen=True)
@@ -51,7 +56,7 @@ def parse(text: str) -> Lyrics:
     raw = text.split("\n")
     if any(_STAMP.match(r.strip()) for r in raw):
         return _parse_lrc(raw)
-    lines = [Line(None, r.rstrip()) for r in raw]
+    lines = [Line(None, r.rstrip()) for r in raw[:MAX_LINES]]
     while lines and not lines[0].text:
         lines.pop(0)
     while lines and not lines[-1].text:
@@ -76,17 +81,31 @@ def _parse_lrc(raw: list[str]) -> Lyrics:
             r = r[m.end() :]
         if not stamps:
             continue  # metadata ([ar:…], [ti:…]) or a stray line
+        text = _WORD_STAMP.sub("", r).strip()
         for t in stamps:  # [00:12.00][01:30.00] a repeated chorus line
-            timed.append(Line(max(0.0, t - offset), r.strip()))
+            if len(timed) >= MAX_LINES:
+                break
+            timed.append(Line(max(0.0, t - offset), text))
     timed.sort(key=lambda line: line.time or 0.0)
     return Lyrics(synced=True, lines=timed) if timed else NONE
+
+
+def _decode(raw: bytes) -> str:
+    """UTF-16 when it says so (a BOM), UTF-8 (with or without a BOM), and
+    otherwise the Windows code page older lyric files were saved in."""
+    if raw.startswith((b"\xff\xfe", b"\xfe\xff")):
+        return raw.decode("utf-16", errors="replace")
+    try:
+        return raw.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        return raw.decode("cp1252", errors="replace")
 
 
 def _read_text(path: Path) -> str | None:
     try:
         if not path.is_file() or path.stat().st_size > MAX_BYTES:
             return None
-        return path.read_bytes().decode("utf-8", errors="replace")
+        return _decode(path.read_bytes())
     except OSError:
         return None
 

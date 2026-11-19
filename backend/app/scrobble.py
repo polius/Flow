@@ -12,6 +12,7 @@ sending until a new one is saved. Standard library only.
 
 from __future__ import annotations
 
+import http.client
 import json
 import logging
 import threading
@@ -35,8 +36,19 @@ TIMEOUT_S = 10.0
 MAX_DELAY_S = 3600.0
 
 
-class TokenRefused(Exception):
-    """ListenBrainz answered 401: the token is wrong or revoked."""
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    """A redirect is not followed: it would carry the token to whatever
+    host it names (and turn a submit into a GET)."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):  # noqa: ANN001, ARG002
+        return None
+
+
+_opener = urllib.request.build_opener(_NoRedirect)
+
+# What a failed request can raise besides an HTTP status: no answer
+# (OSError, URLError), a non-HTTP answer, or a header value urllib refuses.
+REQUEST_ERRORS = (OSError, http.client.HTTPException, ValueError)
 
 
 def _get(conn, key: str) -> str | None:
@@ -70,9 +82,9 @@ def status(conn) -> dict:
     }
 
 
-def _request(path: str, tok: str, body: dict | None = None) -> int:
-    """One HTTPS request to ListenBrainz; the HTTP status. Raises OSError
-    (urllib's URLError included) when there is no answer."""
+def _request(path: str, tok: str, body: dict | None = None) -> tuple[int, bytes]:
+    """One HTTPS request to ListenBrainz: the HTTP status and body. Raises
+    one of REQUEST_ERRORS when there is no usable answer."""
     data = json.dumps(body).encode() if body is not None else None
     req = urllib.request.Request(
         f"{config.LISTENBRAINZ_URL}{path}",
@@ -85,18 +97,31 @@ def _request(path: str, tok: str, body: dict | None = None) -> int:
         },
     )
     try:
-        with urllib.request.urlopen(req, timeout=TIMEOUT_S) as res:  # noqa: S310 - fixed https base
-            return res.status
+        with _opener.open(req, timeout=TIMEOUT_S) as res:
+            return res.status, res.read(65536)
     except urllib.error.HTTPError as err:
-        return err.code
+        return err.code, b""
+
+
+def token_is_well_formed(tok: str) -> bool:
+    """A ListenBrainz user token is printable ASCII with no spaces: anything
+    else is a paste gone wrong, and could not go in a header anyway."""
+    return 0 < len(tok) <= 200 and all(33 <= ord(c) <= 126 for c in tok)
 
 
 def validate(tok: str) -> bool:
-    """Ask ListenBrainz whether it knows this token (on save only). Raises
-    OSError when it cannot be reached."""
-    if _request("/1/validate-token", tok) == 401:
+    """Ask ListenBrainz whether it knows this token (on save only). It
+    answers 200 with {"valid": true|false}; anything else is no answer.
+    Raises one of REQUEST_ERRORS when it cannot be asked."""
+    code, body = _request("/1/validate-token", tok)
+    if code == 401:
         return False
-    return True
+    if code != 200:
+        raise OSError(f"ListenBrainz answered {code}")
+    try:
+        return json.loads(body).get("valid") is True
+    except (ValueError, AttributeError) as exc:
+        raise OSError("ListenBrainz gave no usable answer") from exc
 
 
 def set_token(conn, tok: str | None) -> None:
@@ -166,14 +191,21 @@ def send_due(db: Database, now: float | None = None) -> int:
     if not rows:
         return 0
     try:
-        code = _request("/1/submit-listens", tok, _payload(rows))
-    except OSError as exc:
+        code, _ = _request("/1/submit-listens", tok, _payload(rows))
+    except REQUEST_ERRORS as exc:
         code = None
         log.info("ListenBrainz unreachable (%s); %d listen(s) kept for later", exc, len(rows))
     if code == 401:
         _put(conn, REFUSED_KEY, "1")
         conn.commit()
         log.warning("ListenBrainz refused the token; nothing more is sent until a new one is saved")
+        return 0
+    if code == 400:
+        # ListenBrainz will never take these as they are: retrying them
+        # forever would block every batch they ride in.
+        conn.executemany("DELETE FROM listenbrainz_queue WHERE play_id = ?", [(r["play_id"],) for r in rows])
+        conn.commit()
+        log.warning("ListenBrainz refused %d listen(s) as malformed; dropped", len(rows))
         return 0
     if code is not None and 200 <= code < 300:
         conn.executemany("DELETE FROM listenbrainz_queue WHERE play_id = ?", [(r["play_id"],) for r in rows])
@@ -183,7 +215,7 @@ def send_due(db: Database, now: float | None = None) -> int:
     if code is not None:
         log.info("ListenBrainz answered %s; %d listen(s) kept for later", code, len(rows))
     for r in rows:
-        delay = min(60.0 * 2 ** r["attempts"], MAX_DELAY_S)
+        delay = min(60.0 * 2 ** min(r["attempts"], 10), MAX_DELAY_S)
         conn.execute(
             "UPDATE listenbrainz_queue SET attempts = attempts + 1, next_try = ? WHERE play_id = ?",
             (now + delay, r["play_id"]),

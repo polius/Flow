@@ -441,8 +441,9 @@ class QueueSnapshot(BaseModel):
     updated_at: str | None = None
     # The switches the queue was played with (P3): a second device shows
     # the same plan with the same Shuffle and Repeat.
-    shuffle: bool = False
-    repeat: Literal["off", "all", "one"] = "off"
+    # Null when no device has stated them yet (a queue from before 007).
+    shuffle: bool | None = None
+    repeat: Literal["off", "all", "one"] | None = None
 
 
 class QueuePlayIn(BaseModel):
@@ -512,6 +513,8 @@ class QueuePatchIn(BaseModel):
     order_pos: int | None = None
     position: float | None = None
     played_track_id: int | None = None
+    # One listen's id, sent with its stamp: a repeat of it is not a new play.
+    listen_id: str | None = Field(None, max_length=64)
     # The browser making this write (P3). A whole queue (POST, PUT) makes
     # it the device holding the queue; a playhead write from another
     # device is refused with 409.

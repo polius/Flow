@@ -9,7 +9,10 @@
 CREATE TABLE plays (
   id INTEGER PRIMARY KEY,
   track_id INTEGER NOT NULL REFERENCES tracks(id) ON DELETE CASCADE,
-  played_at TEXT NOT NULL
+  played_at TEXT NOT NULL,
+  -- The client's id for one listen: a stamp sent again because its answer
+  -- was lost is the same play, not a second one.
+  listen_id TEXT UNIQUE
 );
 CREATE INDEX plays_track ON plays (track_id);
 CREATE INDEX plays_time ON plays (played_at);
