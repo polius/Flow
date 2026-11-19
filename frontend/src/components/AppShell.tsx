@@ -4,9 +4,7 @@ import { Navigate, Outlet, useLocation } from "react-router";
 import { useAuthStatus } from "../api/auth";
 import { ensureScanSync, stopScanSync } from "../api/scanSync";
 import { useGlobalShortcuts } from "../lib/shortcuts";
-import { AddToPlaylistDialog } from "./AddToPlaylistDialog";
 import { Announcer } from "./Announcer";
-import { NowPlaying } from "./NowPlaying";
 import { PlayerBar } from "./PlayerBar";
 import { ShortcutSheet } from "./ShortcutSheet";
 import { TopBar } from "./TopBar";
@@ -16,14 +14,21 @@ import { resumeServerAdoption } from "../stores/player";
 import { useUiStore } from "../stores/ui";
 import "../styles/shell.css";
 
-/* Organize and Get Info are tasks most visits never open: their code (and
-   Organize's stylesheet) loads on first open, then stays mounted exactly
-   as before. */
+/* Surfaces that render nothing until opened load their code on first
+   open, then stay mounted exactly as before: Organize, Get Info, Now
+   Playing (with the queue) and Add to Playlist. Most visits never open
+   Organize or Get Info, and none needs Now Playing to show the library. */
 const OrganizeSheet = lazy(() =>
   import("./OrganizeSheet").then((m) => ({ default: m.OrganizeSheet })),
 );
 const GetInfoPanel = lazy(() =>
   import("./GetInfoPanel").then((m) => ({ default: m.GetInfoPanel })),
+);
+const NowPlaying = lazy(() =>
+  import("./NowPlaying").then((m) => ({ default: m.NowPlaying })),
+);
+const AddToPlaylistDialog = lazy(() =>
+  import("./AddToPlaylistDialog").then((m) => ({ default: m.AddToPlaylistDialog })),
 );
 
 /** True from the first time `flag` is true: a lazy surface mounts on
@@ -43,6 +48,8 @@ export function AppShell() {
   const { data: authStatus } = useAuthStatus();
   const organizeMounted = useOpenedOnce(useUiStore((s) => s.organizeOpen));
   const getInfoMounted = useOpenedOnce(useUiStore((s) => s.getInfoTrackId != null));
+  const nowPlayingMounted = useOpenedOnce(useUiStore((s) => s.nowPlayingOpen));
+  const addToPlaylistMounted = useOpenedOnce(useUiStore((s) => s.addToPlaylistTarget != null));
 
   // The API answers only a signed-in browser (or anyone, with Login off):
   // the scan stream and the server-queue adoption wait for that. Opened
@@ -110,7 +117,11 @@ export function AppShell() {
         </Suspense>
       )}
       <TrackActionsMenu />
-      <AddToPlaylistDialog />
+      {addToPlaylistMounted && (
+        <Suspense fallback={null}>
+          <AddToPlaylistDialog />
+        </Suspense>
+      )}
       <UndoToast />
       <Announcer />
       <ShortcutSheet />
@@ -119,7 +130,11 @@ export function AppShell() {
           <OrganizeSheet />
         </Suspense>
       )}
-      <NowPlaying />
+      {nowPlayingMounted && (
+        <Suspense fallback={null}>
+          <NowPlaying />
+        </Suspense>
+      )}
     </div>
   );
 }
