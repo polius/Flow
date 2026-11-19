@@ -903,7 +903,9 @@ let lastTitleKey = "";
 function syncWindowTitle(): void {
   if (typeof document === "undefined") return;
   const track = currentTrack();
-  const key = track ? `${track.id}` : "";
+  // The names are part of the key: a rename of the playing song is a new
+  // title, though the song is the same.
+  const key = track ? `${track.id}|${track.artist ?? ""}|${track.title}` : "";
   if (key === lastTitleKey) return;
   lastTitleKey = key;
   document.title = track
@@ -914,7 +916,9 @@ function syncWindowTitle(): void {
 let lastMetadataKey = "";
 function syncMediaSessionMetadata(track: Track | null): void {
   if (typeof navigator === "undefined" || !("mediaSession" in navigator)) return;
-  const key = track ? `${track.id}:${track.artwork_id}` : "";
+  const key = track
+    ? `${track.id}:${track.artwork_id}|${track.title}|${track.artist ?? ""}|${track.album ?? ""}`
+    : "";
   if (key === lastMetadataKey) return;
   lastMetadataKey = key;
   if (track == null) {
