@@ -60,17 +60,6 @@
   pointer-events: none;
 }
 
-/* Phones: the notice sits in the middle of the screen. At the top it
-   covered the page title, and on a small screen a message there is easy
-   to read past. The slot still lets every touch through around it. */
-@media (max-width: 640px) {
-  .servernotice-slot {
-    top: 0;
-    bottom: 0;
-    align-items: center;
-  }
-}
-
 .servernotice {
   pointer-events: auto;
   display: flex;
@@ -121,6 +110,51 @@
   content: "";
   position: absolute;
   inset: -9px;
+}
+
+/* Phones: the notice sits in the middle of the screen. At the top it
+   covered the page title, and on a small screen a message there is easy
+   to read past. The slot still lets every touch through around it. */
+@media (max-width: 640px) {
+  .servernotice-slot {
+    top: 0;
+    bottom: 0;
+    align-items: center;
+  }
+
+  /* "Flow was updated" is a card on a phone: the message, then Reload
+     centred on its own line as the one thing to press. It has no close:
+     a phone keeps a tab for days, and a dismissed notice left it running
+     an old build against the new server. It goes when the page reloads. */
+  .servernotice--updated {
+    flex-direction: column;
+    gap: 16px;
+    width: min(300px, calc(100% - 32px));
+    padding: 24px 24px 20px;
+    border-radius: 20px;
+    text-align: center;
+  }
+
+  .servernotice--updated .servernotice__msg {
+    font-size: var(--text-regular);
+    font-weight: 600;
+  }
+
+  .servernotice--updated .servernotice__action {
+    min-height: 44px;
+    padding: 10px 32px;
+    background: var(--text-primary);
+    color: var(--bg-canvas);
+  }
+
+  .servernotice--updated .servernotice__action:hover {
+    background: var(--text-primary);
+    opacity: 0.85;
+  }
+
+  .servernotice--updated .servernotice__close {
+    display: none;
+  }
 }
 
 .shell__canvas {
