@@ -996,7 +996,7 @@ class LibraryScanner:
         before ffmpeg was available). Runs under phase="analyze" on the
         scan's own SSE stream; ffmpeg absent → the pass is a no-op and the
         app simply plays at unity gain. A queued scan request interrupts it
-        between tracks — the follow-up reconcile runs, and the next pass
+        between batches — the follow-up reconcile runs, and the next pass
         picks up where this one stopped (rows still NULL). Returns False
         when interrupted."""
         if not ffmpeg_available():
