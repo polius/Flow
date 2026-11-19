@@ -97,7 +97,7 @@ export function PlaylistDetailView() {
 
   if (playlist === null || !Number.isFinite(playlistId)) {
     return (
-      <section className="view">
+      <section className="view view--capped">
         <EmptyState
           icon={<IconPlaylists size={26} />}
           title="Playlist not found"
@@ -115,7 +115,7 @@ export function PlaylistDetailView() {
 
   if (playlist === undefined && isError) {
     return (
-      <section className="view">
+      <section className="view view--capped">
         <ErrorState what="this playlist" retry={refetch} />
       </section>
     );
@@ -123,7 +123,7 @@ export function PlaylistDetailView() {
 
   if (playlist === undefined) {
     return (
-      <section className="view">
+      <section className="view view--capped">
         <LoadingState variant="detail" />
       </section>
     );
@@ -186,7 +186,7 @@ export function PlaylistDetailView() {
   };
 
   return (
-    <section className="view">
+    <section className="view view--capped">
       <header className="detailhead">
         <PlaylistCoverCell playlist={playlist} />
         <div className="detailhead__info">

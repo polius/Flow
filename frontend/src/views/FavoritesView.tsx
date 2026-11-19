@@ -201,7 +201,7 @@ export function FavoritesView() {
   }, [q]);
 
   return (
-    <section className="view">
+    <section className="view view--capped">
       <div className="view__head">
         <div>
           <h1 className="view__title">Favorites</h1>

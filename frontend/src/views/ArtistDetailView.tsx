@@ -53,7 +53,7 @@ export function ArtistDetailView() {
 
   if (artist === null || !Number.isFinite(artistId)) {
     return (
-      <section className="view">
+      <section className="view view--capped">
         <EmptyState
           icon={<IconArtists size={26} />}
           title="Artist not found"
@@ -71,7 +71,7 @@ export function ArtistDetailView() {
 
   if (artist === undefined && isError) {
     return (
-      <section className="view">
+      <section className="view view--capped">
         <ErrorState what="this artist" retry={refetch} />
       </section>
     );
@@ -79,7 +79,7 @@ export function ArtistDetailView() {
 
   if (artist === undefined) {
     return (
-      <section className="view">
+      <section className="view view--capped">
         <LoadingState variant="detail" />
       </section>
     );
@@ -122,7 +122,7 @@ export function ArtistDetailView() {
   };
 
   return (
-    <section className="view">
+    <section className="view view--capped">
       <header className="detailhead">
         <CoverEdit
           round

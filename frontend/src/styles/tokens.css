@@ -124,9 +124,11 @@
      640  phone — overflow nav sheet, mini player, compact insets
      760  the brand wordmark hides
      940  Now Playing queue → sheet
-    1200  top-bar nav gains text labels (six labeled items, Settings
-          included; measured so the search field keeps ~384px once the
-          labels appear)
+    1000  top-bar nav gains text labels (six labeled items, Settings
+          included; the search field narrows to make room — below about
+          955px they no longer fit beside its 140px floor)
+    1200  the width song lists and detail pages cap their content at
+          (.view--capped in views.css; not a media query)
    Independent of width, touch capability ((hover: none) +
    (pointer: coarse)) sizes the top bar's targets to the 44pt HIG floor
    with invisible slop. */
