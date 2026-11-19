@@ -746,12 +746,16 @@ class LibraryScanner:
                 if result.note:
                     note = f"Partially recovered — {result.note}; indexed anyway"
         if parsed is None:
-            # One user-facing line per file already went out from tags.py;
-            # the persisted scan error log is the durable record.
-            log.debug("Skipping unparseable file: %s", f.rel)
+            # The persisted scan error log is the durable record. With repair
+            # off, tags.py already said "skipped"; with it on, it said "trying
+            # a repair", so the outcome is logged here.
             reason = "Unreadable or unrecognized audio file"
             if detail:
                 reason += f" — repair attempted but failed ({detail})"
+            if config.REPAIR:
+                log.warning("Skipped %s: %s", f.rel, reason)
+            else:
+                log.debug("Skipping unparseable file: %s", f.rel)
             self._error_log.append({"path": f.rel, "reason": reason})
             return False, None
         if not parsed.playable and media_path is None and detail:
