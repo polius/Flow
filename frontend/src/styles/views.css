@@ -59,6 +59,16 @@
        never drop (Favorites' third pill bled off-canvas at 375px). */
     max-width: 100%;
   }
+
+  /* Songs' three pills never fit beside the title on a phone, and wrapped
+     to the right they left a blank stretch before Genre. They take their
+     own row under the subtitle, starting at the left like Favorites' Play
+     and Shuffle. */
+  .view__actions--row {
+    flex-basis: 100%;
+    margin-left: 0;
+    justify-content: flex-start;
+  }
 }
 
 /* Album detail ambience: the blurred cover sits behind the

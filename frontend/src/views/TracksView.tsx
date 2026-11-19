@@ -222,7 +222,7 @@ export function TracksView() {
                   : `${fmtCount(total)} ${total === 1 ? "song" : "songs"}`}
           </p>
         </div>
-        <div className="view__actions">
+        <div className="view__actions view__actions--row">
           <GenreMenu value={genreId} onChange={onGenre} />
           <SortMenu
             options={SORT_OPTIONS}
