@@ -9,6 +9,11 @@ interface InlineEditProps {
   className?: string;
   placeholder?: string;
   ariaLabel: string;
+  /** The name of the resting text (a button that opens the editor). It
+      must contain the words on screen, or someone using voice control
+      cannot name what they see: "Album: Afterglow, edit". Defaults to the
+      shown text followed by `ariaLabel`. */
+  displayLabel?: string;
   /** Rendered text may span lines (playlist description). */
   multiline?: boolean;
   /** Empty commits are allowed (clearing artist/album in Organize);
@@ -24,6 +29,7 @@ export function InlineEdit({
   className,
   placeholder,
   ariaLabel,
+  displayLabel,
   multiline = false,
   allowEmpty = false,
   startInEdit = false,
@@ -71,7 +77,7 @@ export function InlineEdit({
         title="Click to edit"
         role="button"
         tabIndex={0}
-        aria-label={ariaLabel}
+        aria-label={displayLabel ?? `${value || placeholder || ""} — ${ariaLabel}`}
         onKeyDown={(e) => {
           if (e.key === "Enter") setEditing(true);
         }}

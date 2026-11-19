@@ -21,6 +21,7 @@ vi.mock("../api/queue", () => ({
 
 import { api } from "../api/client";
 import type { Track } from "../api/types";
+import { OrganizeRow } from "../components/OrganizeRow";
 import { TopBar } from "../components/TopBar";
 import { TrackTable } from "../components/TrackTable";
 import { TrackTableHead } from "../components/TrackTableHead";
@@ -208,5 +209,61 @@ describe("search combobox", () => {
     fireEvent.keyDown(input, { key: "ArrowDown" });
     expect(input).toHaveAttribute("aria-activedescendant", option.id);
     expect(option).toHaveAttribute("aria-selected", "true");
+  });
+});
+
+describe("Organize grid semantics", () => {
+  const noop = () => {};
+  const row = (compact: boolean) => (
+    <div role="grid" aria-label="Library songs">
+      <OrganizeRow
+        track={{ ...track(7, "Altitude"), album: "Sea of Clouds", genre: null }}
+        index={0}
+        checked={false}
+        isCursor={false}
+        isCurrent={false}
+        compact={compact}
+        editTitle={false}
+        onToggle={noop}
+        onOpenInfo={noop}
+        onCommitTitle={noop}
+        onCommitArtist={noop}
+        onCommitAlbum={noop}
+        onCommitGenre={noop}
+      />
+    </div>
+  );
+
+  it("every child of a row is a gridcell, one per column", () => {
+    render(row(false));
+    const cells = within(screen.getByRole("row")).getAllByRole("gridcell");
+    // Select, Title, Artist, Album, Genre, Added, File: the head's seven columns.
+    expect(cells).toHaveLength(7);
+    expect(screen.getByRole("row").children).toHaveLength(7);
+  });
+
+  it("an editable cell is named by its column and the value it shows", () => {
+    render(row(false));
+    const names = within(screen.getByRole("row"))
+      .getAllByRole("button")
+      .map((b) => b.getAttribute("aria-label"));
+    expect(names).toEqual([
+      "Title: Altitude, edit",
+      "Artist: Artist, edit",
+      "Album: Sea of Clouds, edit",
+      "Genre: No genre, edit",
+    ]);
+    // The name contains what is on screen (voice control can say it).
+    for (const button of within(screen.getByRole("row")).getAllByRole("button")) {
+      expect(button.getAttribute("aria-label")).toContain(button.textContent);
+    }
+    // Opened, the field is named for the song it edits.
+    fireEvent.click(screen.getByRole("button", { name: "Album: Sea of Clouds, edit" }));
+    expect(screen.getByRole("textbox", { name: "Album for Altitude" })).toHaveValue("Sea of Clouds");
+  });
+
+  it("the phone row has cells too", () => {
+    render(row(true));
+    expect(within(screen.getByRole("row")).getAllByRole("gridcell")).toHaveLength(2);
   });
 });
