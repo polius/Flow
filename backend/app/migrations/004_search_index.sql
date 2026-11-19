@@ -7,9 +7,10 @@
 --
 -- track_search holds, per track, the four names a listener types: its
 -- title, its artist, its album and the album's artist. The unicode61
--- tokenizer folds case and strips accents on both sides, and the prefix
--- indexes make "blu ho" a cheap query. Matching is by word, in any order,
--- across the four columns (app/search.py builds the queries).
+-- tokenizer folds case and strips accents on both sides. Matching is by
+-- word beginning, in any order, across the four columns (app/search.py
+-- builds the queries). No prefix indexes: measured on 50,000 songs they
+-- made the index half as big again and no query faster.
 --
 -- The index is kept in step by triggers, in plain SQL, so every writer is
 -- covered without knowing the index exists: the scanner, the editors, undo,
@@ -22,8 +23,7 @@
 
 CREATE VIRTUAL TABLE track_search USING fts5(
   title, artist, album, album_artist,
-  tokenize = 'unicode61 remove_diacritics 2',
-  prefix = '1 2 3'
+  tokenize = 'unicode61 remove_diacritics 2'
 );
 
 INSERT INTO track_search (rowid, title, artist, album, album_artist)
