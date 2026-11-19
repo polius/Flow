@@ -44,8 +44,10 @@ TRACK_SORTS = {
     "year": "t.year",
     "duration": "t.duration",
     "added_at": "t.added_at",
-    # Read path for the recency record; no counts.
+    # Read path for the recency record.
     "played": "t.played_at",
+    # How often each song was played (counted plays, G2).
+    "plays": "t.play_count",
     # The file column sorts by its library-relative path.
     "path": "t.path COLLATE NOCASE",
     # The track's primary genre (first tag genre).
@@ -84,6 +86,8 @@ ALBUM_SORTS = {
     # ascending / last descending, so never-played albums sit at the end
     # of either direction.
     "played": "MAX(t.played_at)",
+    # Counted plays of all the album's songs: Home's "Most played".
+    "plays": "SUM(t.play_count)",
 }
 
 # Every genre that still has at least one track — an emptied genre is

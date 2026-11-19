@@ -26,8 +26,11 @@
 ## Features
 
 - **Your library, as it is.** MP3, FLAC, M4A, and OGG, organized by their tags. New files show up on their own.
-- **Plays well.** Gapless playback, volume normalization, and keyboard shortcuts (press `?`).
-- **Favorites, playlists, and a queue** saved on the server, so any browser picks up where you left off.
+- **Plays well.** Gapless playback (measured in Chrome; see below), volume normalization, and keyboard shortcuts (press `?`).
+- **Favorites, playlists, and a queue** saved on the server, so any browser picks up where you left off. If another device starts playing, the first one says so and offers to take the queue back.
+- **Lyrics from your own files**: a `.lrc` (synced) or `.txt` beside the song, or the lyrics tag. Nothing is fetched from the internet.
+- **A listening history**: a song counts once you have heard 30 seconds (or half of a shorter song). Home shows what you play most.
+- **Scrobbling to ListenBrainz**, off until you paste a token in **Settings → Scrobbling**. It is the only thing that makes Flow talk to the outside, and it sends only each counted song's title, artist, album, length and the time you played it.
 - **Edit tags without touching your files.** Edits live in Flow's database.
 - **Repairs files browsers can't play**, such as stream rips saved as `.mp3`.
 - **Works on your phone**, added to the Home Screen like an app.
@@ -64,8 +67,12 @@ Flow streams files as they are, without transcoding:
 | Format | Chrome, Edge, Firefox | Safari |
 | --- | --- | --- |
 | MP3, FLAC, M4A (AAC) | ✓ | ✓ |
-| M4A (ALAC) | ✗ | ✓ |
+| M4A (ALAC) | ✓ as a FLAC copy | ✓ as a FLAC copy |
 | OGG (Vorbis, Opus) | ✓ | Recent versions |
+
+Apple Lossless (ALAC) plays only in Safari, so Flow keeps a lossless FLAC copy of each ALAC file in `flow/data/repaired` and streams that. The original is never touched, and the copy is removed with it. Each copy takes about the original's size again, and the first scan of a large ALAC library takes longer. With `FLOW_REPAIR=off`, ALAC files are not copied and play in Safari only.
+
+Songs on an album follow each other without a gap in Chrome: about 5 ms, measured on one continuous tone cut into two files, FLAC and MP3 alike. Firefox leaves a short gap (13 to 45 ms in the same test). Desktop Safari was not measured; WebKit, the engine under it, left about half a second.
 
 On iPhone and iPad, songs change with a short gap and volume normalization is off. iOS keeps music playing with the screen locked only when the browser plays each file directly, one at a time.
 
@@ -142,6 +149,7 @@ All optional.
 | `FLOW_REPAIR` | `on` | `off` turns off repairing unplayable files. |
 | `FLOW_AUTO_HEAL` | `on` | `off` skips the file re-check after an upgrade. |
 | `FLOW_LOG_LEVEL` | `INFO` | `DEBUG`, `INFO`, `WARNING`, or `ERROR`. |
+| `FLOW_LISTENBRAINZ_URL` | `https://api.listenbrainz.org` | A self-hosted ListenBrainz. Use `https`: the token travels with every request. |
 | `DEMO` | – | `true` fills an empty library with silent demo songs. |
 
 ## Security

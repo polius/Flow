@@ -173,6 +173,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/listenbrainz": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Put Listenbrainz
+         * @description Save a ListenBrainz token (checked with ListenBrainz first), or with
+         *     null turn scrobbling off. The only request Flow makes to the outside
+         *     before a token is saved is this check, on the owner's say-so.
+         */
+        put: operations["put_listenbrainz_api_listenbrainz_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/tracks": {
         parameters: {
             query?: never;
@@ -635,6 +657,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/tracks/{track_id}/lyrics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Lyrics
+         * @description The song's lyrics from its own files: a .lrc beside it, its lyrics
+         *     tag, or a .txt beside it. Never fetched from anywhere else.
+         */
+        get: operations["get_lyrics_api_tracks__track_id__lyrics_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/artwork/{artwork_id}": {
         parameters: {
             query?: never;
@@ -685,6 +728,12 @@ export interface paths {
          * @description The playhead update, plus a played_at stamp when a real playback
          *     start reports its track id — carried explicitly so an in-flight mirror
          *     PUT cannot mis-stamp.
+         *
+         *     The stamp is a fact about the listener, so it is recorded whichever
+         *     device holds the queue, and once per `listen_id` (a retried stamp whose
+         *     answer was lost is not a second play). The playhead and repeat are the
+         *     queue's: a device that does not hold it is refused (409) after its
+         *     stamp is recorded.
          */
         patch: operations["patch_queue_api_queue_patch"];
         trace?: never;
@@ -985,11 +1034,68 @@ export interface components {
             artists: number;
             /** Playlists */
             playlists: number;
+            /**
+             * Plays
+             * @default 0
+             */
+            plays: number;
+        };
+        /**
+         * ListenBrainzIn
+         * @description `token: null` turns scrobbling off (and drops what was waiting).
+         */
+        ListenBrainzIn: {
+            /** Token */
+            token: string | null;
+        };
+        /**
+         * ListenBrainzStatus
+         * @description Scrobbling. The token itself is never sent back.
+         */
+        ListenBrainzStatus: {
+            /**
+             * Enabled
+             * @default false
+             */
+            enabled: boolean;
+            /**
+             * Refused
+             * @default false
+             */
+            refused: boolean;
+            /**
+             * Sent
+             * @default 0
+             */
+            sent: number;
+            /**
+             * Waiting
+             * @default 0
+             */
+            waiting: number;
         };
         /** LoginIn */
         LoginIn: {
             /** Password */
             password: string;
+        };
+        /** LyricsLine */
+        LyricsLine: {
+            /** Time */
+            time: number | null;
+            /** Text */
+            text: string;
+        };
+        /**
+         * LyricsOut
+         * @description A song's lyrics from its own files (a .lrc or .txt beside it, or its
+         *     lyrics tag). No lines: the song has none.
+         */
+        LyricsOut: {
+            /** Synced */
+            synced: boolean;
+            /** Lines */
+            lines: components["schemas"]["LyricsLine"][];
         };
         /**
          * PasswordIn
@@ -1158,6 +1264,12 @@ export interface components {
             position?: number | null;
             /** Played Track Id */
             played_track_id?: number | null;
+            /** Listen Id */
+            listen_id?: string | null;
+            /** Device */
+            device?: string | null;
+            /** Repeat */
+            repeat?: ("off" | "all" | "one") | null;
         };
         /**
          * QueuePlayIn
@@ -1205,6 +1317,8 @@ export interface components {
              */
             shuffle: boolean;
             origin?: components["schemas"]["QueueOrigin"] | null;
+            /** Device */
+            device?: string | null;
         };
         /**
          * QueuePlayheadOut
@@ -1240,6 +1354,12 @@ export interface components {
              */
             position: number;
             origin?: components["schemas"]["QueueOrigin"] | null;
+            /** Device */
+            device?: string | null;
+            /** Shuffle */
+            shuffle?: boolean | null;
+            /** Repeat */
+            repeat?: ("off" | "all" | "one") | null;
         };
         /**
          * QueuePutMinimalOut
@@ -1274,6 +1394,10 @@ export interface components {
             origin?: components["schemas"]["QueueOrigin"] | null;
             /** Updated At */
             updated_at?: string | null;
+            /** Shuffle */
+            shuffle?: boolean | null;
+            /** Repeat */
+            repeat?: ("off" | "all" | "one") | null;
         };
         /**
          * ReviewSummary
@@ -1358,6 +1482,15 @@ export interface components {
             library_exists: boolean;
             scan: components["schemas"]["ScanStatus"];
             counts: components["schemas"]["LibraryCounts"];
+            /**
+             * @default {
+             *       "enabled": false,
+             *       "refused": false,
+             *       "sent": 0,
+             *       "waiting": 0
+             *     }
+             */
+            listenbrainz: components["schemas"]["ListenBrainzStatus"];
         };
         /**
          * TrackDetailOut
@@ -1736,6 +1869,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SettingsOut"];
+                };
+            };
+        };
+    };
+    put_listenbrainz_api_listenbrainz_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ListenBrainzIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListenBrainzStatus"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -2767,6 +2933,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_lyrics_api_tracks__track_id__lyrics_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                track_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LyricsOut"];
                 };
             };
             /** @description Validation Error */

@@ -6,6 +6,7 @@ import { ensureScanSync, stopScanSync } from "../api/scanSync";
 import { lazyPart } from "../lib/lazyParts";
 import { useGlobalShortcuts } from "../lib/shortcuts";
 import { Announcer } from "./Announcer";
+import { DeviceNotice } from "./DeviceNotice";
 import { PlayerBar } from "./PlayerBar";
 import { ServerNotice } from "./ServerNotice";
 import { ShortcutSheet } from "./ShortcutSheet";
@@ -190,6 +191,7 @@ export function AppShell() {
       )}
       <UndoToast />
       <ServerNotice />
+      <DeviceNotice />
       <Announcer />
       <ShortcutSheet />
       {organizeMounted && (

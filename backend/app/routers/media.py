@@ -10,6 +10,7 @@ from fastapi import APIRouter, HTTPException, Query, Request, Response
 from fastapi.responses import FileResponse
 
 from app import config
+from app import lyrics as lyrics_files
 from app.artwork import (
     MIME_OCTET,
     THUMB_CACHE_DIR,
@@ -20,6 +21,7 @@ from app.artwork import (
     thumbnail_path,
 )
 from app.routers.common import TxRoute
+from app.schemas import LyricsLine, LyricsOut
 
 log = logging.getLogger("flow.media")
 
@@ -58,6 +60,21 @@ def stream_track(request: Request, track_id: int) -> Response:
         )
 
     return FileResponse(file_path, media_type=media_type)
+
+
+@router.get("/api/tracks/{track_id}/lyrics", response_model=LyricsOut)
+def get_lyrics(request: Request, track_id: int) -> LyricsOut:
+    """The song's lyrics from its own files: a .lrc beside it, its lyrics
+    tag, or a .txt beside it. Never fetched from anywhere else."""
+    conn = request.app.state.db.connect()
+    track = conn.execute("SELECT path FROM tracks WHERE id = ?", (track_id,)).fetchone()
+    if track is None:
+        raise HTTPException(status_code=404, detail="Track not found")
+    found = lyrics_files.for_file(config.MUSIC_DIR, track["path"])
+    return LyricsOut(
+        synced=found.synced,
+        lines=[LyricsLine(time=line.time, text=line.text) for line in found.lines],
+    )
 
 
 # Artwork is served from the app's own origin, so a blob must never be able

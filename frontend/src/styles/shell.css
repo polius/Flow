@@ -121,3 +121,59 @@
   padding-left: env(safe-area-inset-left, 0px);
   padding-right: env(safe-area-inset-right, 0px);
 }
+
+/* "Playing on another device": under the top bar, over the page and over
+   Now Playing (at the bottom it covered Now Playing's controls on a
+   phone), until the listener chooses. */
+.devicenotice-slot {
+  position: fixed;
+  top: calc(env(safe-area-inset-top, 0px) + 64px);
+  left: 0;
+  right: 0;
+  z-index: var(--z-popover);
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.devicenotice {
+  pointer-events: auto;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 6px 10px;
+  max-width: calc(100% - 32px);
+  padding: 7px 8px 7px 16px;
+  border: 1px solid var(--separator);
+  border-radius: var(--radius-l);
+  background: var(--bg-elevated);
+  box-shadow: var(--shadow-popover);
+}
+
+.devicenotice__msg {
+  font-size: var(--text-body);
+  color: var(--text-primary);
+}
+
+.devicenotice__action {
+  position: relative;
+  flex: none;
+  padding: 5px 12px;
+  border-radius: 999px;
+  font-size: var(--text-body);
+  font-weight: 600;
+  color: var(--text-primary);
+  transition: background var(--dur-fast) var(--ease-out);
+}
+
+/* Drawn 30 px tall, answers a 44 px touch. */
+.devicenotice__action::after {
+  content: "";
+  position: absolute;
+  inset: -7px 0;
+}
+
+.devicenotice__action:hover {
+  background: var(--bg-hover);
+}

@@ -37,6 +37,24 @@ class LibraryCounts(BaseModel):
     albums: int
     artists: int
     playlists: int
+    # Counted plays in the listening history.
+    plays: int = 0
+
+
+class ListenBrainzStatus(BaseModel):
+    """Scrobbling. The token itself is never sent back."""
+
+    enabled: bool = False
+    # ListenBrainz refused the saved token: nothing is sent until a new one.
+    refused: bool = False
+    sent: int = 0
+    waiting: int = 0
+
+
+class ListenBrainzIn(BaseModel):
+    """`token: null` turns scrobbling off (and drops what was waiting)."""
+
+    token: str | None = Field(..., min_length=1, max_length=200)
 
 
 class SettingsOut(BaseModel):
@@ -44,6 +62,7 @@ class SettingsOut(BaseModel):
     library_exists: bool
     scan: ScanStatus
     counts: LibraryCounts
+    listenbrainz: ListenBrainzStatus = ListenBrainzStatus()
 
 
 class ScanErrorEntry(BaseModel):
@@ -93,6 +112,20 @@ class Health(BaseModel):
 
 
 # ---- Library -----------------------------------------------------------------
+
+
+class LyricsLine(BaseModel):
+    # Seconds into the song where the line starts; null when unsynced.
+    time: float | None
+    text: str
+
+
+class LyricsOut(BaseModel):
+    """A song's lyrics from its own files (a .lrc or .txt beside it, or its
+    lyrics tag). No lines: the song has none."""
+
+    synced: bool
+    lines: list[LyricsLine]
 
 
 class TrackOut(BaseModel):
@@ -427,6 +460,11 @@ class QueueSnapshot(BaseModel):
     position: float
     origin: QueueOrigin | None = None
     updated_at: str | None = None
+    # The switches the queue was played with (P3): a second device shows
+    # the same plan with the same Shuffle and Repeat.
+    # Null when no device has stated them yet (a queue from before 007).
+    shuffle: bool | None = None
+    repeat: Literal["off", "all", "one"] | None = None
 
 
 class QueuePlayIn(BaseModel):
@@ -450,6 +488,10 @@ class QueuePlayIn(BaseModel):
     start: int = 0
     shuffle: bool = False
     origin: QueueOrigin | None = None
+    # The browser making this write (P3). A whole queue (POST, PUT) makes
+    # it the device holding the queue; a playhead write from another
+    # device is refused with 409.
+    device: str | None = Field(None, max_length=64)
 
 
 class QueuePutIn(BaseModel):
@@ -465,6 +507,12 @@ class QueuePutIn(BaseModel):
     order_pos: int
     position: float = 0
     origin: QueueOrigin | None = None
+    # The browser making this write (P3). A whole queue (POST, PUT) makes
+    # it the device holding the queue; a playhead write from another
+    # device is refused with 409.
+    device: str | None = Field(None, max_length=64)
+    shuffle: bool | None = None
+    repeat: Literal["off", "all", "one"] | None = None
 
 
 class QueuePutMinimalOut(BaseModel):
@@ -486,6 +534,13 @@ class QueuePatchIn(BaseModel):
     order_pos: int | None = None
     position: float | None = None
     played_track_id: int | None = None
+    # One listen's id, sent with its stamp: a repeat of it is not a new play.
+    listen_id: str | None = Field(None, max_length=64)
+    # The browser making this write (P3). A whole queue (POST, PUT) makes
+    # it the device holding the queue; a playhead write from another
+    # device is refused with 409.
+    device: str | None = Field(None, max_length=64)
+    repeat: Literal["off", "all", "one"] | None = None
 
 
 class QueuePlayheadOut(BaseModel):

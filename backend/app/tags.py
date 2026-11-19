@@ -263,15 +263,32 @@ def sniff_container(path: Path) -> Sniff | None:
 def stale_format(path: Path, indexed_format: str | None) -> bool:
     """True when a row's stored format is contradicted by the file's bytes
     (an MP4 stream-rip indexed as mp3, WAV in a .mp3 indexed as mp3), or
-    the bytes are a container browsers can't play — either way the file
-    needs reprocessing. Unknown signatures never count as stale."""
+    the bytes are a container browsers can't play, or an MP4 indexed as
+    m4a holds Apple Lossless — either way the file needs reprocessing.
+    Unknown signatures never count as stale."""
     sniffed = sniff_container(path)
     if sniffed is None:
         return False
+    if sniffed.container == "mp4" and indexed_format in ("m4a", "alac"):
+        # Apple Lossless indexed as playable m4a by an older release is
+        # stale; one indexed as alac is stale only if it no longer is.
+        return _mp4_is_alac(path) != (indexed_format == "alac")
     return (
         CONTAINER_FORMAT[sniffed.container] != indexed_format
         or sniffed.container not in BROWSER_SAFE
     )
+
+
+def _is_alac(audio) -> bool:
+    """An MP4 holding Apple Lossless (mutagen names the codec "alac")."""
+    return isinstance(audio, MP4) and str(getattr(audio.info, "codec", "")).startswith("alac")
+
+
+def _mp4_is_alac(path: Path) -> bool:
+    try:
+        return _is_alac(MP4(path))
+    except Exception:  # noqa: BLE001 - unreadable here is not "stale"
+        return False
 
 
 def _mutagen_container(audio) -> str | None:
@@ -334,6 +351,7 @@ def _parse_audio(path: Path) -> ParsedTags:
     # parse is garbage: hand the file to the repair pass, which strips the
     # junk and remuxes the payload into a canonical container.
     container = _mutagen_container(audio)
+    alac = _is_alac(audio)
     sniffed = sniff_container(path)
     if sniffed is not None and sniffed.container != container:
         log.warning(
@@ -431,8 +449,12 @@ def _parse_audio(path: Path) -> ParsedTags:
         replaygain_db=replaygain_db,
         compilation=compilation,
         container=container,
-        format=CONTAINER_FORMAT.get(container or ""),
-        playable=container in BROWSER_SAFE,
+        # Apple Lossless in an MP4 container plays in Safari only: not
+        # playable, so it takes the repair path and streams as FLAC. Indexed
+        # without a copy (FLOW_REPAIR off, no ffmpeg), its format says so,
+        # and the player can name it when a browser refuses it.
+        format="alac" if alac else CONTAINER_FORMAT.get(container or ""),
+        playable=container in BROWSER_SAFE and not alac,
     )
 
 

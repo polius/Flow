@@ -254,6 +254,7 @@
    the app's grammar for a quiet secondary action; the height lands at the
    30px transport circles' rhythm, so the controls read as one column. */
 .nowplaying__addto {
+  white-space: nowrap;
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -273,8 +274,10 @@
 .nowplaying__actions {
   align-self: center;
   display: flex;
+  flex-wrap: wrap; /* four pills on a 360 px phone: a second row, not squeezed labels */
+  justify-content: center;
   align-items: center;
-  gap: 12px;
+  gap: 10px 12px;
 }
 
 /* Phones: the heart and the two pills stay on one line, and no label
@@ -392,6 +395,73 @@
   -webkit-backdrop-filter: blur(var(--player-blur));
   backdrop-filter: blur(var(--player-blur));
   animation: queue-in var(--dur-normal) var(--ease-out);
+}
+
+/* ---- Lyrics ------------------------------------------------------------
+   The song's own lyrics: in the queue's column on a desktop, in the
+   cover's place on a phone. The line being sung is lit; the rest wait in
+   the secondary colour. */
+.lyrics {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.lyrics--column {
+  border-left: 1px solid var(--separator);
+  background: var(--bg-player);
+  -webkit-backdrop-filter: blur(var(--player-blur));
+  backdrop-filter: blur(var(--player-blur));
+  padding: 48px 28px;
+  animation: queue-in var(--dur-normal) var(--ease-out);
+}
+
+/* The cover's square, filled with words instead. */
+.lyrics--stage {
+  width: min(380px, 100%);
+  height: min(380px, 42vh);
+  flex: none;
+  padding: 8px 4px;
+}
+
+.lyrics__lines {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--text-title);
+  font-weight: 600;
+  line-height: var(--leading-tight);
+  color: var(--text-primary);
+}
+
+.lyrics__lines--synced {
+  color: var(--text-secondary);
+}
+
+.lyrics__line--current {
+  color: var(--text-primary);
+}
+
+/* A synced line is a seek target: the whole line, no button chrome. */
+.lyrics__seek {
+  display: block;
+  width: calc(100% + 12px);
+  margin: -4px -6px;
+  padding: 4px 6px;
+  border-radius: var(--radius-s);
+  font: inherit;
+  color: inherit;
+  text-align: left;
+}
+
+@media (hover: hover) {
+  .lyrics__seek:hover {
+    color: var(--text-primary);
+    background: var(--bg-hover);
+  }
 }
 
 @keyframes queue-in {

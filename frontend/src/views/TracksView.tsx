@@ -33,6 +33,7 @@ const SORT_OPTIONS: SortOption[] = [
   { key: "duration", label: "Duration" },
   { key: "year", label: "Year" },
   { key: "added_at", label: "Recently added", defaultDir: "desc" },
+  { key: "plays", label: "Most played", defaultDir: "desc" },
 ];
 
 const SORT_KEYS = new Set(SORT_OPTIONS.map((o) => o.key));

@@ -5,7 +5,7 @@
    a quiet idle state when nothing plays, and the queue is present from the
    start. Below 940px the queue slides up over the stage as a sheet. */
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
 
 import { useMediaQuery } from "../lib/media";
@@ -26,6 +26,8 @@ import {
   IconRepeat,
   IconShuffle,
 } from "./icons";
+import { useLyrics } from "../lib/lyrics";
+import { LyricsPanel } from "./Lyrics";
 import { QueuePanel } from "./QueuePanel";
 import { SleepTimer } from "./SleepTimer";
 import { PlayPauseButton, Scrubber, TransportButton, VolumeControl } from "./transport";
@@ -63,6 +65,13 @@ export function NowPlaying() {
   // bar's Queue button and the Q key can open Now Playing straight on it.
   const queueOpen = useUiStore((s) => s.queueSheetOpen);
   const setQueueOpen = useUiStore((s) => s.setQueueSheetOpen);
+  // Lyrics take the queue's column on a desktop and the cover's place on
+  // a phone. The choice holds from song to song; a song with no lyrics
+  // shows neither the button nor the panel.
+  const [lyricsOn, setLyricsOn] = useState(false);
+  const { data: lyrics } = useLyrics(open ? track?.id : null);
+  const hasLyrics = lyrics != null && lyrics.lines.length > 0;
+  const showLyrics = lyricsOn && hasLyrics;
   const surfaceRef = useRef<HTMLDivElement>(null);
 
   // Modal focus: focus moves into the takeover on open, Tab cycles
@@ -203,12 +212,16 @@ export function NowPlaying() {
       <div className="nowplaying__layout">
         {track ? (
           <div className="nowplaying__stage">
-            <Artwork
-              artworkId={track.artwork_id}
-              size={400}
-              radius="l"
-              className="nowplaying__art"
-            />
+            {narrow && showLyrics ? (
+              <LyricsPanel lyrics={lyrics} className="lyrics--stage" />
+            ) : (
+              <Artwork
+                artworkId={track.artwork_id}
+                size={400}
+                radius="l"
+                className="nowplaying__art"
+              />
+            )}
             <div className="nowplaying__meta">
               <h1 className="nowplaying__title">{track.title}</h1>
               <p className="nowplaying__artist">
@@ -317,6 +330,16 @@ export function NowPlaying() {
                     </button>
                   </>
                 )}
+                {hasLyrics && (
+                  <button
+                    type="button"
+                    className={`nowplaying__addto${showLyrics ? " nowplaying__addto--on" : ""}`}
+                    aria-pressed={showLyrics}
+                    onClick={() => setLyricsOn(!showLyrics)}
+                  >
+                    Lyrics
+                  </button>
+                )}
                 <SleepTimer />
               </div>
               {/* The takeover covers the bar, so the volume comes along
@@ -343,7 +366,11 @@ export function NowPlaying() {
           </div>
         )}
 
-        <QueuePanel onCollapse={narrow ? () => setQueueOpen(false) : undefined} />
+        {!narrow && showLyrics ? (
+          <LyricsPanel lyrics={lyrics} className="lyrics--column" />
+        ) : (
+          <QueuePanel onCollapse={narrow ? () => setQueueOpen(false) : undefined} />
+        )}
       </div>
     </div>
   );
