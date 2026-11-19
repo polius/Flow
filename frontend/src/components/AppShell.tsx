@@ -6,6 +6,7 @@ import { ensureScanSync, stopScanSync } from "../api/scanSync";
 import { useGlobalShortcuts } from "../lib/shortcuts";
 import { Announcer } from "./Announcer";
 import { PlayerBar } from "./PlayerBar";
+import { ServerNotice } from "./ServerNotice";
 import { ShortcutSheet } from "./ShortcutSheet";
 import { TopBar } from "./TopBar";
 import { TrackActionsMenu } from "./TrackActionsMenu";
@@ -107,6 +108,7 @@ export function AppShell() {
       <div className="shell__main">
         <TopBar />
         <main ref={canvasRef} className="shell__canvas">
+          <ServerNotice />
           <Outlet />
         </main>
         <PlayerBar />

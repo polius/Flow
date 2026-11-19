@@ -92,6 +92,23 @@ describe("server-queue restore", () => {
     expect(s.isPlaying).toBe(false);
   });
 
+  it("an adopted session is kept locally too, for when the server is gone", async () => {
+    queueApi.fetchServerQueue.mockResolvedValue(session(1));
+    await importPlayerStore();
+    const stored = JSON.parse(localStorage.getItem("flow.player.queue") ?? "null") as {
+      rows: unknown[][];
+    } | null;
+    expect(stored?.rows.map((r) => r[0])).toEqual([101, 102, 103]);
+    const playhead = JSON.parse(localStorage.getItem("flow.player.playhead") ?? "null") as {
+      orderPos: number;
+      position: number;
+    } | null;
+    expect(playhead).toMatchObject({ orderPos: 1, position: 12 });
+    // Nothing went back to the server: an adoption is not an edit.
+    expect(queueApi.saveServerQueue).not.toHaveBeenCalled();
+    expect(queueApi.saveServerPlayhead).not.toHaveBeenCalled();
+  });
+
   it("the server's plan replaces a stale local copy when untouched", async () => {
     const local = [{ ...TRACKS[0], id: 7, title: "Local Track" }];
     localStorage.setItem(

@@ -76,6 +76,9 @@ export function TracksView() {
           },
         },
       });
+      // A 5xx (a proxy whose server is restarting) has no body to read:
+      // it is a failed load, not an empty library.
+      if (!data) throw new Error("The server didn't answer");
       return data;
     },
     initialPageParam: 0,
