@@ -17,8 +17,16 @@ from __future__ import annotations
 from app.routers.common import like_pattern
 
 
+# More words than this narrow nothing a person types, and each one is a
+# prefix scan: 250 one-letter words took seconds.
+MAX_WORDS = 8
+
+
 def _words(q: str) -> list[str]:
-    return [w for w in q.split() if any(ch.isalnum() for ch in w)]
+    # Control characters are never part of a name, and FTS5 refuses a NUL
+    # inside a string (a 500 for every endpoint that takes `q`).
+    q = "".join(ch if ch.isprintable() else " " for ch in q)
+    return [w for w in q.split() if any(ch.isalnum() for ch in w)][:MAX_WORDS]
 
 
 def _phrase(text: str) -> str:

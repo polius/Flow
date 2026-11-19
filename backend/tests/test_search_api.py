@@ -196,3 +196,37 @@ def test_search_tracks_carry_every_track_field(client, library):
     found = client.get("/api/search", params={"q": "lust"}).json()["tracks"][0]
     assert found == full
     assert found["genre"] == "Rock" and found["played_at"] and found["added_at"]
+
+
+def test_control_characters_in_a_query_are_ignored(client, library):
+    """FTS5 refuses a NUL inside a string: every endpoint that takes `q`
+    answered 500 to one."""
+    for path in ("/api/search", "/api/tracks", "/api/albums", "/api/artists"):
+        response = client.get(path, params={"q": "a\x00b"})
+        assert response.status_code == 200, path
+    assert client.get("/api/search", params={"q": "\x00"}).status_code in (200, 422)
+
+
+def test_a_query_uses_at_most_eight_words(client, library):
+    """Each word is a prefix scan: hundreds of one-letter words took
+    seconds. Words past the eighth are not used."""
+    from app.search import MAX_WORDS, fts_query
+
+    assert MAX_WORDS == 8
+    expr = fts_query(" ".join("a" for _ in range(250)))
+    assert expr is not None and expr.count('"a"*') == MAX_WORDS
+    assert client.get("/api/search", params={"q": " ".join("a" for _ in range(250))}).status_code == 200
+
+
+def test_an_update_that_changes_no_name_leaves_the_index_alone(client, library):
+    """A full rescan sets every column of every track; rewriting the index
+    for each one bloated it. Only a changed name reaches the index."""
+    conn = client.app.state.db.connect()
+    n = conn.execute("SELECT COUNT(*) AS c FROM tracks").fetchone()["c"]
+    before = conn.total_changes
+    conn.execute("UPDATE tracks SET title = title, artist_id = artist_id, album_id = album_id")
+    assert conn.total_changes - before == n  # the rows themselves, no index writes
+    before = conn.total_changes
+    conn.execute("UPDATE tracks SET title = title || ' (live)' WHERE id = (SELECT MIN(id) FROM tracks)")
+    assert conn.total_changes - before > 1  # a rename does reach it
+    conn.rollback()

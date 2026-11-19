@@ -43,8 +43,15 @@ CREATE TRIGGER track_search_track_insert AFTER INSERT ON tracks BEGIN
   WHERE t.id = NEW.id;
 END;
 
+-- Only when a name it indexes changed: a full rescan sets every column of
+-- every row, and rewriting all of them bloated the index (a one-letter
+-- query on 50,000 songs went from 42 to 54 ms after two rescans).
 CREATE TRIGGER track_search_track_update
-AFTER UPDATE OF title, artist_id, album_id ON tracks BEGIN
+AFTER UPDATE OF title, artist_id, album_id ON tracks
+WHEN OLD.title IS NOT NEW.title
+  OR OLD.artist_id IS NOT NEW.artist_id
+  OR OLD.album_id IS NOT NEW.album_id
+BEGIN
   DELETE FROM track_search WHERE rowid = OLD.id;
   INSERT INTO track_search (rowid, title, artist, album, album_artist)
   SELECT t.id, t.title, ar.name, al.title, aar.name
