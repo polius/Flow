@@ -481,6 +481,30 @@ describe("volume", () => {
   });
 });
 
+describe("clear the queue, then undo", () => {
+  it("brings back the duration, so the scrubber and the seek keys work again", async () => {
+    const { usePlayerStore, useUiStore } = await importPlayer();
+    usePlayerStore.getState().playTracks([track(1), track(2)], 0);
+    // The element reported the song's length and how much is buffered.
+    usePlayerStore.setState({ duration: 200, buffered: 80, position: 42 });
+
+    usePlayerStore.getState().clearQueue();
+    expect(usePlayerStore.getState().duration).toBe(0);
+    await useUiStore.getState().undoNotice?.undo?.();
+
+    // The element still holds the song: nothing will report its length again.
+    const restored = usePlayerStore.getState();
+    expect(restored.queue).toHaveLength(2);
+    expect(restored.position).toBe(42);
+    expect(restored.duration).toBe(200);
+    expect(restored.buffered).toBe(80);
+
+    // The → key's seek (shortcuts.ts refuses to seek at zero duration).
+    restored.seek(Math.min(restored.duration, restored.position + 10));
+    expect(usePlayerStore.getState().position).toBe(52);
+  });
+});
+
 /* A Web Audio stand-in: counts contexts and records the gain each
    element's node was last told to reach. */
 function stubAudioContext() {

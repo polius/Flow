@@ -396,12 +396,15 @@ export const usePlayerStore = create<PlayerState>()(
       },
 
       clearQueue: () => {
-        const { queue, order, orderPos, position, origin } = get();
+        const { queue, order, orderPos, position, origin, duration, buffered } = get();
         if (queue.length === 0) return;
         // The exact session, captured for the undo: restoring brings the
         // playhead AND the origin back — everything but the sound. A plain
         // set re-mirrors the snapshot to the server like any queue edit.
-        const snapshot = { queue, order, orderPos, position, origin };
+        // The song's length comes back with it: the element still holds
+        // the song, so nothing would report the duration again, and at
+        // zero the scrubber is disabled and the seek keys do nothing.
+        const snapshot = { queue, order, orderPos, position, origin, duration, buffered };
         playEpoch++;
         intendPlay = false;
         clearStallWatch();
