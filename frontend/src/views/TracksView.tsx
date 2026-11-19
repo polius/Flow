@@ -1,11 +1,12 @@
-import { useCallback, useEffect, useMemo } from "react";
-import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
+import { useCallback, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useSearchParams } from "react-router";
 
 import { api, fetchAllTracks } from "../api/client";
 import { playByFilter } from "../api/queue";
-import type { QueueOrigin } from "../api/types";
+import type { QueueOrigin, Track } from "../api/types";
 import { GenreMenu } from "../components/GenreMenu";
+import { LetterRail } from "../components/LetterRail";
 import { SortMenu, type SortOption } from "../components/SortMenu";
 import { TrackTableHead, type TrackSortKey } from "../components/TrackTableHead";
 import { VirtualTrackTable } from "../components/VirtualTrackTable";
@@ -15,12 +16,15 @@ import { LoadingState } from "../components/LoadingState";
 import { useReviewCount } from "../components/ReviewStrip";
 import { IconOrganize, IconTracks } from "../components/icons";
 import { fmtCount } from "../lib/format";
+import { usePagedList } from "../lib/pagedList";
+import { useCanvasTopOnChange } from "../lib/scroll";
 import { beginPlayRequest, usePlayerStore } from "../stores/player";
 import { useUiStore } from "../stores/ui";
 
-/* Full-library view, windowed: pages of 1000 stream in behind the
-   virtualizer as the user scrolls. */
-const PAGE_SIZE = 1000;
+/* Full-library view, windowed. The list is sized to the whole library
+   from the first answer, and pages of 500 are read where the window is —
+   the end of 50,000 songs is one scroll away, not fifty. */
+const PAGE_SIZE = 500;
 
 const SORT_OPTIONS: SortOption[] = [
   { key: "title", label: "Title" },
@@ -61,14 +65,15 @@ export function TracksView() {
 
   const reviewCount = useReviewCount();
 
-  const query = useInfiniteQuery({
-    queryKey: ["tracks", "all", q, sort, dir, genreId],
-    queryFn: async ({ pageParam }) => {
+  const query = usePagedList(
+    ["tracks", "all", q, sort, dir, genreId],
+    PAGE_SIZE,
+    async (offset, limit) => {
       const { data } = await api.GET("/api/tracks", {
         params: {
           query: {
-            limit: PAGE_SIZE,
-            offset: pageParam,
+            limit,
+            offset,
             sort,
             dir,
             ...(q ? { q } : {}),
@@ -78,22 +83,34 @@ export function TracksView() {
       });
       return data;
     },
-    initialPageParam: 0,
-    getNextPageParam: (lastPage, allPages) => {
-      const loaded = allPages.reduce((n, p) => n + (p?.items.length ?? 0), 0);
-      return loaded < (lastPage?.total ?? 0) ? loaded : undefined;
-    },
-    // A re-sort must not tear the table down to a skeleton while it fetches
-    // (the header-click "glitch"): the previous rows stay mounted and the
-    // refetched order swaps in in one paint.
-    placeholderData: (prev) => prev,
-  });
-
-  const tracks = useMemo(
-    () => query.data?.pages.flatMap((p) => p?.items ?? []) ?? [],
-    [query.data],
   );
-  const total = query.data?.pages[0]?.total ?? 0;
+
+  const tracks = query.items;
+  const total = query.total ?? 0;
+  // Every row is here: the list can be played (and counted) locally.
+  const allLoaded = query.total !== undefined && query.loaded >= total;
+
+  // The A to Z rail, for the one sort an alphabet indexes.
+  const { data: letters } = useQuery({
+    queryKey: ["tracks", "letters", q, dir, genreId],
+    queryFn: async () => {
+      const { data } = await api.GET("/api/letters", {
+        params: {
+          query: {
+            of: "tracks",
+            dir,
+            ...(q ? { q } : {}),
+            ...(genreId != null ? { genre_id: genreId } : {}),
+          },
+        },
+      });
+      return data;
+    },
+    enabled: sort === "title",
+  });
+  const [jump, setJump] = useState<{ index: number; nonce: number } | null>(null);
+  const railLetters = sort === "title" ? (letters?.letters ?? []) : [];
+  const railed = railLetters.length > 1;
 
   const playTracks = usePlayerStore((s) => s.playTracks);
   const playSnapshot = usePlayerStore((s) => s.playSnapshot);
@@ -122,8 +139,8 @@ export function TracksView() {
   // dropped — it must not replace the queue the user started since.
   const playFromHere = useCallback(
     (index: number) => {
-      if (tracks.length >= total) {
-        playTracks(tracks, index, viewOrigin);
+      if (allLoaded) {
+        playTracks(tracks as Track[], index, viewOrigin);
         return;
       }
       const isCurrent = beginPlayRequest();
@@ -147,18 +164,17 @@ export function TracksView() {
           dir,
         }).then((full) => {
           if (!isCurrent()) return;
-          const list = full.length > 0 ? full : tracks;
-          playTracks(list, Math.min(index, list.length - 1), viewOrigin);
+          // Last resort: whatever rows did load, from the one asked for.
+          const loadedRows = tracks.filter((t): t is Track => t != null);
+          const list = full.length > 0 ? full : loadedRows;
+          const at = full.length > 0 ? index : loadedRows.indexOf(tracks[index] as Track);
+          playTracks(list, Math.max(0, Math.min(at, list.length - 1)), viewOrigin);
         });
       });
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [playTracks, playSnapshot, tracks, total, q, genreName, genreId, sort, dir],
+    [playTracks, playSnapshot, tracks, allLoaded, q, genreName, genreId, sort, dir],
   );
-
-  const handleNearEnd = useCallback(() => {
-    if (query.hasNextPage && !query.isFetchingNextPage) void query.fetchNextPage();
-  }, [query.hasNextPage, query.isFetchingNextPage, query.fetchNextPage]);
 
   const onSort = useCallback(
     (key: TrackSortKey, nextDir: "asc" | "desc") => {
@@ -172,9 +188,7 @@ export function TracksView() {
 
   // A new ordering or filter is a new list: land at its top, not wherever
   // the old order's scroll offset happens to fall.
-  useEffect(() => {
-    document.querySelector<HTMLElement>(".shell__canvas")?.scrollTo(0, 0);
-  }, [sort, dir, genreId]);
+  useCanvasTopOnChange(sort, dir, genreId);
 
   const onGenre = useCallback(
     (id: number | null) => {
@@ -195,7 +209,7 @@ export function TracksView() {
             {/* In flight, an empty fixed-height slot — never a formatted
                 zero: a fresh visit (or a genre/filter switch) must not
                 flash "0 songs" before the count is measured. */}
-            {query.data === undefined
+            {query.total === undefined
               ? "\u00A0"
               : genreName
                 ? `${fmtCount(total)} ${total === 1 ? "song" : "songs"} in “${genreName}”`
@@ -230,11 +244,11 @@ export function TracksView() {
           </button>
         </div>
       </div>
-      {query.data === undefined && query.isError ? (
+      {query.isError ? (
         <ErrorState what="your songs" retry={query.refetch} />
-      ) : query.isPending ? (
+      ) : query.total === undefined ? (
         <LoadingState variant="rows" />
-      ) : tracks.length === 0 ? (
+      ) : total === 0 ? (
         <EmptyState
           icon={<IconTracks size={26} />}
           title={q ? `No songs match “${q}”` : "No songs yet"}
@@ -250,9 +264,17 @@ export function TracksView() {
             head={<TrackTableHead sort={sort} dir={dir} onSort={onSort} />}
             label={genreName ? `Songs in ${genreName}` : q ? `Songs matching “${q}”` : "All songs"}
             tracks={tracks}
-            onNearEnd={handleNearEnd}
+            onRangeChange={query.ensure}
+            jump={jump}
             onPlay={playFromHere}
           />
+          {railed && (
+            <LetterRail
+              label="Songs"
+              letters={railLetters}
+              onJump={(index) => setJump((cur) => ({ index, nonce: (cur?.nonce ?? 0) + 1 }))}
+            />
+          )}
         </>
       )}
     </section>

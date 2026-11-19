@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { Navigate, Outlet, useLocation } from "react-router";
+import { Navigate, NavigationType, Outlet, useLocation, useNavigationType } from "react-router";
 
 import { useAuthStatus } from "../api/auth";
 import { ensureScanSync, stopScanSync } from "../api/scanSync";
@@ -61,12 +61,50 @@ export function AppShell() {
 
   // The canvas is one shared scroll container across views, so an offset from
   // one section would leak into the next — the new view could land mid-list
-  // (or pinned past its content) on first open. Reset synchronously before
-  // paint (useLayoutEffect) so the leaked offset is never visible. Search-term
-  // updates keep their scroll: only the pathname is reset.
+  // (or pinned past its content) on first open. A new page starts at the
+  // top; going Back or Forward returns to where that page was left (a long
+  // grid would otherwise restart from its first row every time an album
+  // was opened from it). Set synchronously before paint (useLayoutEffect)
+  // so the leaked offset is never visible. Search-term updates keep their
+  // scroll: only a pathname change moves it.
+  const navigationType = useNavigationType();
+  const scrollByEntry = useRef(new Map<string, number>());
+  const shownKey = useRef(location.key);
+  const lastScroll = useRef(0);
+  useEffect(() => {
+    const el = canvasRef.current;
+    if (!el) return;
+    const onScroll = () => {
+      lastScroll.current = el.scrollTop;
+    };
+    el.addEventListener("scroll", onScroll, { passive: true });
+    return () => el.removeEventListener("scroll", onScroll);
+  }, []);
   useLayoutEffect(() => {
-    canvasRef.current?.scrollTo(0, 0);
+    const el = canvasRef.current;
+    if (!el) return;
+    // Leaving: remember where the entry that was on screen had got to.
+    if (shownKey.current !== location.key)
+      scrollByEntry.current.set(shownKey.current, lastScroll.current);
+    const back = navigationType === NavigationType.Pop;
+    const saved = back ? (scrollByEntry.current.get(location.key) ?? 0) : 0;
+    let frame = 0;
+    let tries = 0;
+    // The page may still be laying out (a windowed grid measures itself
+    // first): keep asking until the canvas is tall enough, for a moment.
+    const restore = () => {
+      el.scrollTo(0, saved);
+      lastScroll.current = el.scrollTop;
+      if (Math.abs(el.scrollTop - saved) > 1 && tries++ < 30)
+        frame = requestAnimationFrame(restore);
+    };
+    restore();
+    return () => cancelAnimationFrame(frame);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.pathname]);
+  useEffect(() => {
+    shownKey.current = location.key;
+  });
 
   // ⌘F / Ctrl+F focuses the top-bar search field from anywhere.
   useEffect(() => {

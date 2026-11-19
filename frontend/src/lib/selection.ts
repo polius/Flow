@@ -21,7 +21,12 @@ export interface SelectClick {
   shiftKey: boolean;
 }
 
-export function useTrackSelection(tracks: Track[], playingId?: number | null) {
+/** `tracks` may hold empty slots: a paged list has one per row, filled as
+    its page arrives. Only loaded rows can be selected. */
+export function useTrackSelection(
+  tracks: readonly (Track | undefined)[],
+  playingId?: number | null,
+) {
   const [ids, setIds] = useState<ReadonlySet<number>>(() => new Set());
   const anchorIdRef = useRef<number | null>(null);
   const lastIdRef = useRef<number | null>(null);
@@ -48,7 +53,7 @@ export function useTrackSelection(tracks: Track[], playingId?: number | null) {
           next.size === 0 &&
           playingId != null &&
           track.id !== playingId &&
-          tracks.some((t) => t.id === playingId)
+          tracks.some((t) => t?.id === playingId)
         ) {
           next.add(playingId);
         }
@@ -65,12 +70,15 @@ export function useTrackSelection(tracks: Track[], playingId?: number | null) {
         // the Finder default (a lone shift-click selects just that row).
         const anchorIndex =
           anchorIdRef.current != null
-            ? tracks.findIndex((t) => t.id === anchorIdRef.current)
+            ? tracks.findIndex((t) => t?.id === anchorIdRef.current)
             : -1;
         const from = anchorIndex >= 0 ? anchorIndex : index;
         const [lo, hi] = from <= index ? [from, index] : [index, from];
         next.clear();
-        for (let i = lo; i <= hi; i++) next.add(tracks[i].id);
+        for (let i = lo; i <= hi; i++) {
+          const id = tracks[i]?.id;
+          if (id != null) next.add(id);
+        }
         lastIdRef.current = track.id;
       } else {
         // Plain click: never selects — a live selection dissolves and the
@@ -91,12 +99,12 @@ export function useTrackSelection(tracks: Track[], playingId?: number | null) {
       cursor grammar). */
   const lastIndex = useCallback((): number | null => {
     if (lastIdRef.current == null || ids.size === 0) return null;
-    const i = tracks.findIndex((t) => t.id === lastIdRef.current);
+    const i = tracks.findIndex((t) => t?.id === lastIdRef.current);
     return i >= 0 ? i : null;
   }, [tracks, ids]);
 
   const selectedTracks = useMemo(
-    () => tracks.filter((t) => ids.has(t.id)),
+    () => tracks.filter((t): t is Track => t != null && ids.has(t.id)),
     [tracks, ids],
   );
 

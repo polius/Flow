@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "react-router";
 
@@ -15,6 +15,7 @@ import { LoadingState } from "../components/LoadingState";
 import { IconHeart, IconPlay, IconShuffle } from "../components/icons";
 import { fmtCount } from "../lib/format";
 import { beginPlayRequest, usePlayerStore } from "../stores/player";
+import { useCanvasTopOnChange } from "../lib/scroll";
 
 /* Favorites is a curated list — no sort menu. The order is the drag-written
    manual one (favorite_position 1..n, persisted server-side); a search
@@ -196,9 +197,7 @@ export function FavoritesView() {
     [tracks, q, queryClient, reorderFavorites],
   );
 
-  useEffect(() => {
-    document.querySelector<HTMLElement>(".shell__canvas")?.scrollTo(0, 0);
-  }, [q]);
+  useCanvasTopOnChange(q);
 
   return (
     <section className="view">

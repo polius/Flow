@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Literal
+
 from fastapi import APIRouter, HTTPException, Query, Request
 
 from app.schemas import (
@@ -13,6 +15,8 @@ from app.schemas import (
     ArtistSummary,
     GenreListOut,
     GenreSummary,
+    LetterIndex,
+    LetterIndexOut,
     TrackListOut,
     TrackOut,
 )
@@ -486,6 +490,62 @@ def artist_detail(conn, artist_id: int) -> ArtistDetail:
 def get_artist(request: Request, artist_id: int) -> ArtistDetail:
     conn = request.app.state.db.connect()
     return artist_detail(conn, artist_id)
+
+
+@router.get("/api/letters", response_model=LetterIndexOut)
+def letter_index(
+    request: Request,
+    of: Literal["tracks", "albums", "artists"],
+    q: str | None = Query(None, max_length=MAX_QUERY),
+    genre_id: int | None = None,
+    dir: str = "asc",
+) -> LetterIndexOut:
+    """The A to Z rail's map for a list sorted by title (tracks, albums) or
+    name (artists), under the same filter the list itself takes: for each
+    initial, the index of its first row. Rows are counted per first
+    character in the list's own collation, so an index here is an offset
+    the list endpoint answers with that row."""
+    conn = request.app.state.db.connect()
+    if of == "tracks":
+        clause, params = track_filter_where(q=q, genre_id=genre_id)
+        source, column = f"{TRACK_FILTER_FROM} {clause}", "t.title"
+    elif of == "albums":
+        match, params = album_match(q) if q else ("1 = 1", [])
+        source = f"FROM albums al LEFT JOIN artists ar ON ar.id = al.artist_id WHERE {match}"
+        column = "al.title"
+    else:
+        match, params = artist_match(q) if q else ("1 = 1", [])
+        source, column = f"FROM artists ar WHERE {match}", "ar.name"
+
+    initial = f"SUBSTR({column}, 1, 1) COLLATE NOCASE"
+    groups = conn.execute(
+        f"SELECT UPPER(SUBSTR({column}, 1, 1)) AS ch, COUNT(*) AS n {source} "
+        f"GROUP BY {initial} ORDER BY {initial}",
+        params,
+    ).fetchall()
+    total = sum(g["n"] for g in groups)
+
+    # letter -> [first index, rows], in ascending list order. Whatever
+    # sorts before the first letter is "#"; what sorts after Z (accented
+    # initials, other scripts) has no place on an A to Z rail.
+    spans: dict[str, list[int]] = {}
+    seen = 0
+    for g in groups:
+        ch = g["ch"] or ""
+        if "A" <= ch <= "Z" and len(ch) == 1:
+            spans.setdefault(ch, [seen, 0])[1] += g["n"]
+        elif not any(k != "#" for k in spans):
+            spans.setdefault("#", [seen, 0])[1] += g["n"]
+        seen += g["n"]
+
+    desc = dir == "desc"
+    return LetterIndexOut(
+        letters=[
+            LetterIndex(letter=letter, index=total - first - rows if desc else first)
+            for letter, (first, rows) in sorted(spans.items())
+        ],
+        total=total,
+    )
 
 
 @router.get("/api/genres", response_model=GenreListOut)
