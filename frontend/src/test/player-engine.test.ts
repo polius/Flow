@@ -191,6 +191,21 @@ describe("media session", () => {
     );
   });
 
+  it("a rename of the playing song reaches the tab title and the lock screen", async () => {
+    const { usePlayerStore } = await importPlayer();
+    usePlayerStore.getState().playTracks([track(1), track(2)], 0);
+    expect(document.title).toBe("Artist — Track 1 · Flow");
+
+    // What an edit does: the queue's own copy of the row is replaced.
+    usePlayerStore.setState((s) => ({
+      queue: [{ ...s.queue[0], title: "A Better Name", artist: "Someone" }, s.queue[1]],
+    }));
+
+    expect(document.title).toBe("Someone — A Better Name · Flow");
+    const metadata = navigator.mediaSession.metadata as unknown as { init: { title: string } };
+    expect(metadata.init.title).toBe("A Better Name");
+  });
+
   it("clearing the queue clears the lock screen and the title", async () => {
     const { usePlayerStore } = await importPlayer();
     usePlayerStore.getState().playTracks([track(1)], 0);
