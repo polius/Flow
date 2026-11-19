@@ -84,7 +84,7 @@ describe("cover card on touch", () => {
       "Play",
       "Shuffle",
       "Play Next",
-      "Add to Queue (end)",
+      "Add to Queue",
       "Add to Playlist",
     ]);
     fireEvent.touchEnd(cover);

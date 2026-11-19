@@ -5,7 +5,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 
 import { fmtDuration } from "../lib/format";
 import { usePlayerStore } from "../stores/player";
-import { IconPause, IconPlay } from "./icons";
+import { IconPause, IconPlay, IconVolume, IconVolumeMute } from "./icons";
 
 export function Scrubber() {
   const position = usePlayerStore((s) => s.position);
@@ -130,8 +130,11 @@ export function TransportButton({
   badge,
   primary,
   secondary,
+  hint,
 }: {
   label: string;
+  /** The key that does the same thing, shown in the tooltip only. */
+  hint?: string;
   active?: boolean;
   onClick: () => void;
   children: ReactNode;
@@ -152,7 +155,7 @@ export function TransportButton({
       disabled={disabled}
       aria-label={label}
       aria-pressed={active}
-      title={label}
+      title={hint ? `${label} (${hint})` : label}
     >
       {children}
       {badge != null && <span className="player__badge">{badge}</span>}
@@ -173,6 +176,7 @@ export function PlayPauseButton({
   return (
     <TransportButton
       label={isPlaying ? "Pause" : "Play"}
+      hint="Space"
       onClick={togglePlay}
       disabled={disabled}
       primary
@@ -186,5 +190,42 @@ export function PlayPauseButton({
         </span>
       </span>
     </TransportButton>
+  );
+}
+
+/* Volume: mute toggle + level slider, in the bar's right column and in
+   Now Playing. Not rendered on iOS, where element volume is ignored and
+   loudness is hardware-only; hidden at phone widths. The level persists
+   in this browser (flow.player.volume). */
+export function VolumeControl() {
+  const volume = usePlayerStore((s) => s.volume);
+  const muted = usePlayerStore((s) => s.muted);
+  const setVolume = usePlayerStore((s) => s.setVolume);
+  const toggleMute = usePlayerStore((s) => s.toggleMute);
+  const level = muted ? 0 : volume;
+  const pct = Math.round(level * 100);
+  return (
+    <div className="player__volume">
+      <TransportButton label="Mute" hint="M" active={muted} secondary onClick={toggleMute}>
+        {level === 0 ? <IconVolumeMute size={16} /> : <IconVolume size={16} />}
+      </TransportButton>
+      <input
+        type="range"
+        className="range player__volumeslider"
+        min={0}
+        max={1}
+        step={0.01}
+        value={level}
+        aria-label="Volume"
+        aria-valuetext={`${pct}%`}
+        title="Volume (Shift+↑ / Shift+↓)"
+        style={{
+          backgroundImage: `linear-gradient(to right,
+            var(--text-tertiary) 0% ${pct}%,
+            var(--scrubber-rest, var(--bg-active)) ${pct}% 100%)`,
+        }}
+        onChange={(e) => setVolume(Number(e.target.value))}
+      />
+    </div>
   );
 }

@@ -99,6 +99,35 @@ CATALOG: list[tuple[str, str, list[tuple[str, int, int, list[str]]]]] = [
     ]),
 ]
 
+# Two albums a plain catalog never shows, written after it so every title,
+# duration and cover above stays what it was: a two-disc set (the album page
+# puts a heading before each disc) and a compilation (a different artist on
+# every track, named under each title).
+# (album artist, album, year, [(disc, title, track artist), …]).
+SPECIAL_ALBUMS: list[tuple[str, str, int, list[tuple[int, str, str]]]] = [
+    ("The Slow Tide", "Live at the Breakwater", 2022, [
+        (1, "Riptide (Live)", "The Slow Tide"),
+        (1, "Sea Glass (Live)", "The Slow Tide"),
+        (1, "Saltwater (Live)", "The Slow Tide"),
+        (1, "Longwave (Live)", "The Slow Tide"),
+        (1, "Lighthouse (Live)", "The Slow Tide"),
+        (2, "Foghorn (Live)", "The Slow Tide"),
+        (2, "North Pier (Live)", "The Slow Tide"),
+        (2, "White Noise (Live)", "The Slow Tide"),
+        (2, "Breakwater (Live)", "The Slow Tide"),
+    ]),
+    ("Various Artists", "Sidewalk Sampler", 2024, [
+        (1, "Paper Crown", "Kite Theory"),
+        (1, "Low Tide Radio", "Cassette Club"),
+        (1, "Porchlight", "Fern & Fog"),
+        (1, "Third Coffee", "Odette Blue"),
+        (1, "Honeycomb", "Marlowe Reyes"),
+        (1, "Greenhouse", "Velvet Hour"),
+        (1, "Mile Marker", "The Paper Lanterns"),
+        (1, "Soft Focus", "Silver Larch"),
+    ]),
+]
+
 # Per-genre realistic track lengths (seconds) — Jazz/Ambient/Post-Rock run long,
 # Lo-fi runs short; the spread is what makes tracklists and totals look real.
 _DURATIONS: dict[str, tuple[int, int]] = {
@@ -232,19 +261,21 @@ def _write_track(
     genre: str,
     seconds: float,
     picture: bytes,
+    album_artist: str | None = None,
+    disc: str | None = None,
 ) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     frame = _mp3_frame(32)
     path.write_bytes(frame * int(seconds * _FRAMES_PER_SECOND))
 
-    n, disc = track.split("/")
+    n, total = track.split("/")
     tags = ID3()
     tags.add(TIT2(encoding=3, text=title))
     tags.add(TPE1(encoding=3, text=artist))
-    tags.add(TPE2(encoding=3, text=artist))
+    tags.add(TPE2(encoding=3, text=album_artist or artist))
     tags.add(TALB(encoding=3, text=album))
     tags.add(TRCK(encoding=3, text=track))
-    tags.add(TPOS(encoding=3, text=f"1/{disc}"))
+    tags.add(TPOS(encoding=3, text=disc or f"1/{total}"))
     tags.add(TYER(encoding=3, text=year))
     tags.add(TCON(encoding=3, text=genre))
     tags.add(APIC(encoding=3, mime="image/jpeg", type=3, desc="", data=picture))
@@ -264,8 +295,11 @@ def generate_library(music_dir: Path, albums_limit: int | None = None) -> int:
     catalog = CATALOG if albums_limit is None else _first_albums(albums_limit)
     # Round-robin over the title-sorted wall: the default Albums view reads as
     # a deliberate hue sweep, and color repeats land 16 titles apart.
+    # The test-speed subset (`albums_limit`) leaves the special albums out.
+    specials = SPECIAL_ALBUMS if albums_limit is None else []
     wall = sorted(
-        ((artist, album[0]) for artist, _, albums in catalog for album in albums),
+        [(artist, album[0]) for artist, _, albums in catalog for album in albums]
+        + [(artist, album) for artist, album, _, _ in specials],
         key=lambda pair: pair[1].lower(),
     )
     color_of = {pair: COVER_COLORS[i % len(COVER_COLORS)] for i, pair in enumerate(wall)}
@@ -287,6 +321,31 @@ def generate_library(music_dir: Path, albums_limit: int | None = None) -> int:
                     artist=artist,
                     album=album,
                     track=f"{t + 1}/{n_tracks}",
+                    year=str(year),
+                    genre=genre,
+                    seconds=rng.uniform(*_DURATIONS[genre]),
+                    picture=cover,
+                )
+                tracks += 1
+
+    genre_of = {artist: genre for artist, genre, _ in CATALOG}
+    for album_artist, album, year, songs in specials:
+        cover = render_cover(color_of[(album_artist, album)])
+        album_dir = music_dir / _safe_name(album_artist) / f"{year} - {_safe_name(album)}"
+        discs = max(disc for disc, _, _ in songs)
+        for disc in range(1, discs + 1):
+            on_disc = [(title, artist) for d, title, artist in songs if d == disc]
+            for t, (title, artist) in enumerate(on_disc):
+                genre = genre_of[artist]
+                prefix = f"{disc}-" if discs > 1 else ""
+                _write_track(
+                    album_dir / f"{prefix}{t + 1:02d} - {_safe_name(title)}.mp3",
+                    title=title,
+                    artist=artist,
+                    album_artist=album_artist,
+                    album=album,
+                    track=f"{t + 1}/{len(on_disc)}",
+                    disc=f"{disc}/{discs}",
                     year=str(year),
                     genre=genre,
                     seconds=rng.uniform(*_DURATIONS[genre]),

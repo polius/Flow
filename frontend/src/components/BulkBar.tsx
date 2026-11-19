@@ -177,7 +177,7 @@ export function BulkBar({ count, filterMode, applying, selectedTracks, onClear, 
           type="button"
           className="orgbar__action"
           onClick={() => open("album_artist")}
-          title="Resolve a compilation: one album artist for every selected track"
+          title="Resolve a compilation: one album artist for every selected song"
         >
           Set Album Artist…
         </button>
@@ -185,7 +185,7 @@ export function BulkBar({ count, filterMode, applying, selectedTracks, onClear, 
           type="button"
           className="orgbar__action"
           onClick={() => open("genre")}
-          title="Set the genre the Tracks filter groups these tracks by"
+          title="Set the genre the Songs filter groups these songs by"
         >
           Set Genre…
         </button>
@@ -269,7 +269,7 @@ export function BulkBar({ count, filterMode, applying, selectedTracks, onClear, 
           <div className="orgsheet" role="alertdialog" aria-label={confirmTitle} aria-modal="true">
             <h2 className="orgsheet__title">{confirmTitle}</h2>
             <p className="orgsheet__body">
-              Applies to {count.toLocaleString()} {count === 1 ? "track" : "tracks"} in
+              Applies to {count.toLocaleString()} {count === 1 ? "song" : "songs"} in
               Flow's library. Your audio files are never modified.
             </p>
             <ConsequenceLine field={confirm.field} value={confirm.value} filterMode={filterMode} selectedTracks={selectedTracks} />
@@ -439,20 +439,20 @@ function ConsequenceLine({
     return names;
   }, [details.data, filterMode, field, value, selectedTracks]);
 
-  const suffix = field === "album" ? "will be removed if left empty" : "will be left with no tracks";
+  const suffix = field === "album" ? "will be removed if left empty" : "will be left with no songs";
 
   if (field === "album_artist") {
     return (
       <p className="orgsheet__note">
         The album keeps one album artist: the album page, its grouping, and
-        future rescans of these tracks all follow the name you set.
+        future rescans of these songs all follow the name you set.
       </p>
     );
   }
   if (field === "genre") {
     return (
       <p className="orgsheet__note">
-        Genres are what the Tracks view's filter menu reads. A new
+        Genres are what the Songs view's filter menu reads. A new
         name appears there immediately; a rescan keeps your choice.
       </p>
     );

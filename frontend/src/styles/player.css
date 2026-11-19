@@ -9,7 +9,7 @@
   /* Sides outweigh the center but stay equal to each other, so the
      transport sits dead-centered and the title gets room before it
      ellipsizes (the old 1fr/2.4fr/1fr split starved it). */
-  grid-template-columns: minmax(180px, 1.4fr) minmax(0, 1.6fr) minmax(150px, 1.4fr);
+  grid-template-columns: minmax(180px, 1.4fr) minmax(0, 1.6fr) minmax(138px, 1.4fr);
   align-items: center;
   gap: 24px;
   padding: 0 calc(20px + env(safe-area-inset-right, 0px)) 0
@@ -227,21 +227,60 @@
   --scrubber-rest: var(--control-border);
 }
 
-/* ---- volume (desktop) ----
-   The bar's right column: mute toggle + a short level slider, pushed to
-   the trailing edge. The fill rides the same background-image layer as
-   the scrubber. */
-.player__volume {
+/* ---- the right column (desktop) ----
+   Sleep timer · queue · volume · open Now Playing, pushed to the trailing
+   edge. Everything here has a first-class home in Now Playing, so the
+   phone mini bar drops the whole group. */
+.player__side {
   justify-self: end;
   display: flex;
   align-items: center;
-  gap: 8px;
-  width: min(150px, 100%);
+  gap: 6px;
+  min-width: 0;
 }
 
-.player__volumeslider {
-  flex: 1;
-  min-width: 0;
+/* Volume: mute toggle + a short level slider. The fill rides the same
+   background-image layer as the scrubber. */
+.player__volume {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Out-specifies the base .range rule's width: 100%. */
+input[type="range"].range.player__volumeslider {
+  flex: none;
+  width: 96px;
+}
+
+/* Between the phone and tablet breakpoints the column keeps its four
+   buttons and gives the slider's room back to the title and transport. */
+@media (max-width: 940px) {
+  .player__side .player__volumeslider {
+    display: none;
+  }
+}
+
+/* Sleep timer: the menu opens upward from its button — the pill in Now
+   Playing (centered) or the moon in this bar (pinned to its right edge). */
+.nowplaying__sleep {
+  position: relative;
+  display: inline-flex;
+}
+
+.nowplaying__sleepmenu {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  translate: -50% 0;
+  min-width: 180px;
+}
+
+.nowplaying__sleep--bar .nowplaying__sleepmenu {
+  bottom: calc(100% + 14px);
+  left: auto;
+  right: -8px;
+  translate: none;
 }
 
 /* ---- phone mini bar ----
@@ -347,7 +386,8 @@
   }
 
   .player__btn--secondary,
-  .player__volume {
+  .player__volume,
+  .player__side {
     display: none;
   }
 }

@@ -79,6 +79,16 @@ export function PlaylistsView() {
             icon={<IconPlaylists size={26} />}
             title="No playlists yet"
             hint="Create a playlist and drag songs in — reorder them any time."
+            action={
+              <button
+                type="button"
+                className="btn empty-state__action"
+                onClick={() => setCreating(true)}
+              >
+                <IconPlus size={15} />
+                New Playlist
+              </button>
+            }
           />
         </>
       ) : (
@@ -295,7 +305,7 @@ function PlaylistCard({ playlist }: { playlist: PlaylistSummary }) {
                 disabled={loading || tracks.length === 0}
               >
                 <IconQueue size={15} />
-                Add to Queue (end)
+                Add to Queue
               </button>
               {/* A playlist is a destination, not a source: where the album
                   menu files tracks elsewhere, this one fills the playlist. */}
@@ -307,7 +317,7 @@ function PlaylistCard({ playlist }: { playlist: PlaylistSummary }) {
                 disabled={detail === undefined}
               >
                 <IconPlus size={15} />
-                Add Tracks
+                Add Songs
               </button>
               <div className="trackmenu__separator" role="separator" />
               <button
@@ -337,7 +347,7 @@ function PlaylistCard({ playlist }: { playlist: PlaylistSummary }) {
         {playlist.name}
       </Link>
       <div className="album-card__meta">
-        {fmtCount(playlist.track_count)} track{playlist.track_count === 1 ? "" : "s"}
+        {fmtCount(playlist.track_count)} song{playlist.track_count === 1 ? "" : "s"}
         {playlist.track_count > 0 ? ` · ${fmtMinutes(playlist.duration_total)}` : ""}
       </div>
       {addingTracks && detail && (

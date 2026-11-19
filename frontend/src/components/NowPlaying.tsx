@@ -5,10 +5,11 @@
    a quiet idle state when nothing plays, and the queue is present from the
    start. Below 940px the queue slides up over the stage as a sheet. */
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { Link } from "react-router";
 
 import { useMediaQuery } from "../lib/media";
+import { isIOS, MOD_KEY } from "../lib/platform";
 import { isTextEditingTarget } from "../lib/shortcuts";
 import { trackIsUnverified, useCurrentTrack, usePlayerStore } from "../stores/player";
 import { useUiStore } from "../stores/ui";
@@ -27,7 +28,7 @@ import {
 } from "./icons";
 import { QueuePanel } from "./QueuePanel";
 import { SleepTimer } from "./SleepTimer";
-import { PlayPauseButton, Scrubber, TransportButton } from "./transport";
+import { PlayPauseButton, Scrubber, TransportButton, VolumeControl } from "./transport";
 import { useModalFocus } from "../lib/focus";
 import "../styles/nowplaying.css";
 
@@ -58,17 +59,17 @@ export function NowPlaying() {
   const cycleRepeat = usePlayerStore((s) => s.cycleRepeat);
 
   const narrow = useMediaQuery(NARROW_BP);
-  const [queueOpen, setQueueOpen] = useState(false);
+  // The queue sheet (narrow windows) lives in the UI store so the player
+  // bar's Queue button and the Q key can open Now Playing straight on it.
+  const queueOpen = useUiStore((s) => s.queueSheetOpen);
+  const setQueueOpen = useUiStore((s) => s.setQueueSheetOpen);
   const surfaceRef = useRef<HTMLDivElement>(null);
 
   // Modal focus: focus moves into the takeover on open, Tab cycles
   // inside it, and closing restores focus to whatever opened it.
   useModalFocus(surfaceRef, open);
 
-  const handleClose = () => {
-    setQueueOpen(false);
-    close();
-  };
+  const handleClose = close; // closing also folds the queue sheet (ui store)
 
   const dragRef = useRef<{ y: number; x: number; at: number; locked: boolean; dy: number } | null>(
     null,
@@ -134,7 +135,7 @@ export function NowPlaying() {
         return;
       if (isTextEditingTarget(document.activeElement)) return;
       e.preventDefault();
-      if (queueOpen) {
+      if (narrow && queueOpen) {
         setQueueOpen(false);
         return;
       }
@@ -142,7 +143,7 @@ export function NowPlaying() {
     };
     window.addEventListener("keydown", onKeyDown, true);
     return () => window.removeEventListener("keydown", onKeyDown, true);
-  }, [open, close, queueOpen]);
+  }, [open, close, narrow, queueOpen, setQueueOpen]);
 
   if (!open) return null;
 
@@ -265,20 +266,22 @@ export function NowPlaying() {
               <div className="nowplaying__transport">
                 <TransportButton
                   label="Shuffle"
+                  hint="S"
                   active={shuffle}
                   onClick={() => setShuffle(!shuffle)}
                 >
                   <IconShuffle size={16} />
                 </TransportButton>
-                <TransportButton label="Previous track" onClick={prev}>
+                <TransportButton label="Previous song" hint={`${MOD_KEY}←`} onClick={prev}>
                   <IconPrev size={19} />
                 </TransportButton>
                 <PlayPauseButton isPlaying={isPlaying} />
-                <TransportButton label="Next track" onClick={next}>
+                <TransportButton label="Next song" hint={`${MOD_KEY}→`} onClick={next}>
                   <IconNext size={19} />
                 </TransportButton>
                 <TransportButton
                   label={`Repeat: ${repeat}`}
+                  hint="R"
                   active={repeat !== "off"}
                   badge={repeat === "one" ? "1" : undefined}
                   onClick={cycleRepeat}
@@ -316,6 +319,13 @@ export function NowPlaying() {
                 )}
                 <SleepTimer />
               </div>
+              {/* The takeover covers the bar, so the volume comes along
+                  (desktop only: phones use their hardware keys). */}
+              {!isIOS && (
+                <div className="nowplaying__volume">
+                  <VolumeControl />
+                </div>
+              )}
             </div>
           </div>
         ) : (
@@ -326,7 +336,7 @@ export function NowPlaying() {
               </span>
               <h1 className="nowplaying__title">Nothing Playing</h1>
               <p className="nowplaying__hint">
-                Add tracks to the queue, then tap one to start — or play an
+                Add songs to the queue, then tap one to start — or play an
                 album or playlist anywhere in Flow.
               </p>
             </div>

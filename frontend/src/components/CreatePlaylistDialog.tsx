@@ -119,7 +119,7 @@ export function CreatePlaylistDialog({ onClose }: CreatePlaylistDialogProps) {
               <span className="addto__coverhint">
                 {file
                   ? file.name
-                  : "Optional — pick a cover image, or leave the 2×2 track mosaic."}
+                  : "Optional — pick a cover image, or leave the 2×2 mosaic of its songs' covers."}
               </span>
               {file && (
                 <button

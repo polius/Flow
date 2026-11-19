@@ -14,7 +14,14 @@ import { useUiStore } from "../stores/ui";
 import { Artwork } from "./Artwork";
 import { CardMenu } from "./CardMenu";
 import { inCardSheet, useCardLongPress } from "../lib/cardMenu";
-import { IconEllipsis, IconNext, IconPlay, IconPlus, IconQueue, IconShuffle } from "./icons";
+import {
+  IconEllipsis,
+  IconNext,
+  IconPlay,
+  IconPlaylistAdd,
+  IconQueue,
+  IconShuffle,
+} from "./icons";
 import "../styles/library.css";
 
 export function AlbumCard({ album }: { album: AlbumSummary }) {
@@ -166,7 +173,7 @@ export function AlbumCard({ album }: { album: AlbumSummary }) {
                 disabled={loading || tracks.length === 0}
               >
                 <IconQueue size={15} />
-                Add to Queue (end)
+                Add to Queue
               </button>
               <button
                 type="button"
@@ -175,7 +182,7 @@ export function AlbumCard({ album }: { album: AlbumSummary }) {
                 onClick={act(() => openAddToPlaylist(tracks))}
                 disabled={loading || tracks.length === 0}
               >
-                <IconPlus size={15} />
+                <IconPlaylistAdd size={15} />
                 Add to Playlist
               </button>
             </CardMenu>

@@ -118,6 +118,50 @@ describe("track grid semantics", () => {
     expect(within(rows[1]).getByRole("button", { name: "Play One" })).toBeInTheDocument();
   });
 
+  it("an artist's page lists the album, not the artist it already names", () => {
+    render(
+      wrap(
+        <TrackTable tracks={TRACKS} variant="artist" head={<TrackTableHead variant="artist" />} />,
+      ),
+    );
+    const grid = screen.getByRole("grid");
+    const headers = within(grid).getAllByRole("columnheader").map((h) => h.textContent);
+    expect(headers).toEqual(["#Number", "Title", "Album", "Time", "Favorite"]);
+    const row = within(grid).getAllByRole("row")[1];
+    expect(within(row).getAllByRole("gridcell")).toHaveLength(headers.length);
+    expect(within(row).getByRole("link", { name: "Album" })).toBeInTheDocument();
+    expect(within(row).queryByRole("link", { name: "Artist" })).toBeNull();
+  });
+
+  it("an album names a row's artist only when it is not the album's", () => {
+    const { unmount } = render(
+      wrap(<TrackTable tracks={TRACKS} variant="album" albumArtist="Artist" />),
+    );
+    expect(document.querySelector(".trackrow__subline")).toBeNull();
+    unmount();
+    render(wrap(<TrackTable tracks={TRACKS} variant="album" albumArtist="Various Artists" />));
+    const sublines = [...document.querySelectorAll(".trackrow__subline--always")];
+    expect(sublines.map((el) => el.textContent)).toEqual(["Artist", "Artist", "Artist"]);
+  });
+
+  it("a multi-disc album gets one heading per disc; a single disc gets none", () => {
+    const discs = [
+      { ...track(1, "One"), disc_no: 1 },
+      { ...track(2, "Two"), disc_no: 1 },
+      { ...track(3, "Three"), disc_no: 2, track_no: 1 },
+    ];
+    const { unmount } = render(wrap(<TrackTable tracks={discs} variant="album" />));
+    expect([...document.querySelectorAll(".trackdisc")].map((el) => el.textContent)).toEqual([
+      "Disc 1",
+      "Disc 2",
+    ]);
+    // The headings are not rows: the grid still counts three songs.
+    expect(within(screen.getByRole("grid")).getAllByRole("row")).toHaveLength(3);
+    unmount();
+    render(wrap(<TrackTable tracks={TRACKS} variant="album" />));
+    expect(document.querySelector(".trackdisc")).toBeNull();
+  });
+
   it("aria-activedescendant follows the keyboard cursor", () => {
     render(wrap(<TrackTable tracks={TRACKS} label="Songs" />));
     const grid = screen.getByRole("grid", { name: "Songs" });

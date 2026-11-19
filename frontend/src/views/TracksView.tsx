@@ -190,7 +190,7 @@ export function TracksView() {
     <section className="view">
       <div className="view__head">
         <div>
-          <h1 className="view__title">Tracks</h1>
+          <h1 className="view__title">Songs</h1>
           <p className="view__subtitle">
             {/* In flight, an empty fixed-height slot — never a formatted
                 zero: a fresh visit (or a genre/filter switch) must not
@@ -222,7 +222,7 @@ export function TracksView() {
                 ? `Organize — ${reviewCount} ${reviewCount === 1 ? "item needs" : "items need"} attention`
                 : "Organize"
             }
-            title="Organize — group tracks into albums and artists"
+            title="Organize — group songs into albums and artists"
           >
             <IconOrganize size={15} />
             Organize
@@ -241,13 +241,14 @@ export function TracksView() {
           hint={
             q
               ? "Try a different word, or search everything from the Search view."
-              : "Every song in your library will live here, in a table built to stay smooth at ten thousand tracks."
+              : "Every song in your library will live here, in a table built to stay smooth at ten thousand songs."
           }
         />
       ) : (
         <>
           <VirtualTrackTable
-            head={<TrackTableHead sort={sort} dir={dir} onSort={onSort} />}
+            head={<TrackTableHead sort={sort} dir={dir} onSort={onSort} hideIndex />}
+            hideIndex
             label={genreName ? `Songs in ${genreName}` : q ? `Songs matching “${q}”` : "All songs"}
             tracks={tracks}
             onNearEnd={handleNearEnd}

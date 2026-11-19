@@ -267,7 +267,7 @@ export function HomeView() {
     queryKey: ["albums", "recent"],
     queryFn: async () => {
       const { data } = await api.GET("/api/albums", {
-        params: { query: { sort: "recent", limit: 12 } },
+        params: { query: { sort: "recent", dir: "desc", limit: 12 } },
       });
       return data;
     },
