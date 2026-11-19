@@ -68,6 +68,9 @@ interface PlayerState {
   position: number; // seconds
   duration: number; // seconds (from the audio element once known)
   buffered: number; // seconds buffered ahead
+  /** The element is playing but waiting for data: the play button shows
+      a spinner instead of claiming sound that is not there. */
+  buffering: boolean;
   shuffle: boolean;
   repeat: RepeatMode;
   /** Sound Check: apply the scan's loudness analysis so albums play at a
@@ -244,6 +247,9 @@ function clearSleepHandle(): void {
   }
 }
 
+/** What the persist middleware last wrote, per key (see its setItem). */
+const persistedValues = new Map<string, string>();
+
 export const usePlayerStore = create<PlayerState>()(
   persist(
     (set, get) => ({
@@ -254,6 +260,7 @@ export const usePlayerStore = create<PlayerState>()(
       position: 0,
       duration: 0,
       buffered: 0,
+      buffering: false,
       shuffle: false,
       repeat: "off",
       soundcheck: true,
@@ -544,6 +551,9 @@ export const usePlayerStore = create<PlayerState>()(
         if (!audio) return;
         audio.currentTime = seconds;
         set({ position: seconds });
+        // Waiting on the network: the reload resumes where the listener
+        // put the playhead, not where the connection dropped.
+        if (networkHold != null) networkHold.position = seconds;
         syncPositionState();
       },
 
@@ -588,13 +598,7 @@ export const usePlayerStore = create<PlayerState>()(
         }
         const ms = choice * 60_000;
         set({ sleep: { kind: "minutes", minutes: choice, endsAt: Date.now() + ms } });
-        sleepTimerHandle = window.setTimeout(() => {
-          sleepTimerHandle = null;
-          set({ sleep: null });
-          intendPlay = false;
-          clearNetworkHold(); // asleep means asleep: no reconnect resumes it
-          audio?.pause();
-        }, ms);
+        sleepTimerHandle = window.setTimeout(fallAsleep, ms);
       },
 
       cycleRepeat: () => {
@@ -617,6 +621,11 @@ export const usePlayerStore = create<PlayerState>()(
           }
         },
         setItem: (key, value) => {
+          // The middleware writes on every store update, and the position
+          // updates four times a second while a song plays: the three
+          // preferences it holds are only written when one of them changed.
+          if (persistedValues.get(key) === value) return;
+          persistedValues.set(key, value);
           try {
             localStorage.setItem(key, value);
           } catch {
@@ -667,6 +676,8 @@ let audio: HTMLAudioElement | null = audioA;
     gain-matched, ready to start the instant the playing one ends. */
 let standby: HTMLAudioElement | null = audioB;
 let standbyTrack: Track | null = null;
+/** The track whose preload failed, until another song is loaded. */
+let standbyFailedId: number | null = null;
 
 /** The stream URL the active element currently holds — null until the first
     real load. A restored session plays from a populated store with a virgin
@@ -707,7 +718,7 @@ function outputLevel(): number {
   const { volume, muted } = usePlayerStore.getState();
   // Squared: a linear slider tracks perceived loudness far better than raw
   // amplitude — the bottom half of the travel isn't all near-silence.
-  return muted ? 0 : volume * volume;
+  return muted ? 0 : volume * volume * sleepFade();
 }
 
 /** Re-apply gain (Sound Check × volume) to both elements. */
@@ -792,6 +803,20 @@ function recoverGraph(): void {
     .catch(() => {});
 }
 
+/** The Sound Check correction for a track. While an album is playing every
+    song on it gets the same one — the album's loudest song sets it — so
+    the quiet interlude stays quiet next to the single, as mastered. Any
+    other queue levels each song on its own. */
+function soundCheckDb(track: Track): number | null {
+  const { origin, queue } = usePlayerStore.getState();
+  if (origin?.kind !== "album" || track.gain_db == null) return track.gain_db ?? null;
+  let album = track.gain_db;
+  for (const t of queue) {
+    if (t.album_id === track.album_id && t.gain_db != null && t.gain_db < album) album = t.gain_db;
+  }
+  return album;
+}
+
 function applyGain(el: HTMLAudioElement | null, track: Track | null): void {
   if (el == null) return;
   const level = outputLevel();
@@ -804,7 +829,7 @@ function applyGain(el: HTMLAudioElement | null, track: Track | null): void {
   }
   if (el.volume !== 1) el.volume = 1;
   const { soundcheck } = usePlayerStore.getState();
-  const db = soundcheck && track != null ? track.gain_db : null;
+  const db = soundcheck && track != null ? soundCheckDb(track) : null;
   // setTargetAtTime glides the step so a Sound Check toggle, a volume
   // drag, or the first apply mid-play never clicks.
   gain.gain.setTargetAtTime(
@@ -917,6 +942,41 @@ function syncNowPlayingSurfaces(): void {
   syncMediaSessionMetadata(currentTrack());
 }
 
+/* -- what counts as a play ----------------------------------------------------
+   "Recently played" used to be stamped the moment a song started: skip
+   through ten songs and ten albums became recently played. A play counts
+   once the song has been HEARD for 30 seconds, or for half of it when it
+   is shorter than a minute — time listened, not the position reached, so
+   scrubbing to the end counts for nothing. One stamp per load. */
+const PLAY_COUNTS_AFTER_S = 30;
+let listenedSeconds = 0;
+let listenedAt: number | null = null; // the clock at the last tick
+let playCounted = false;
+
+function resetListening(): void {
+  listenedSeconds = 0;
+  listenedAt = null;
+  playCounted = false;
+}
+
+/** Called on every tick of the song's clock. */
+function noteListening(el: HTMLAudioElement): void {
+  if (playCounted) return;
+  const now = el.currentTime;
+  // A tick is ~0.25 s; a larger jump (or a step back) is a seek.
+  if (listenedAt != null && now > listenedAt && now - listenedAt < 2) {
+    listenedSeconds += now - listenedAt;
+  }
+  listenedAt = now;
+  const length = Number.isFinite(el.duration) && el.duration > 0 ? el.duration : Infinity;
+  if (listenedSeconds >= Math.min(PLAY_COUNTS_AFTER_S, length / 2)) {
+    playCounted = true;
+    // The stamp rides a playhead sync, carrying the track id so the server
+    // marks the right row even while the plan mirror is still in flight.
+    writePlayhead(true);
+  }
+}
+
 /** Whether the user means sound to be coming out: set by every play and
     pause the user (or the plan) asks for, never by a pause the engine
     makes itself — so a network hold knows whether to resume. */
@@ -925,6 +985,8 @@ let intendPlay = false;
 function load(track: Track, autoplay: boolean, startAt?: number): void {
   if (!audio || !track) return;
   blockedPlayAt = null; // a new load supersedes a blocked play
+  standbyFailedId = null;
+  resetListening();
   const src = trackSrc(track);
   loadedSrc = src;
   intendPlay = autoplay;
@@ -981,6 +1043,10 @@ function prepareStandby(): void {
     return;
   }
   if (standbyTrack?.id === next.track.id) return;
+  // It already failed to preload for this song: `ended` will load it the
+  // classic way. Asking again on every tick of the last ten seconds only
+  // repeats the failure.
+  if (standbyFailedId === next.track.id) return;
   standbyTrack = next.track;
   standby.src = trackSrc(next.track);
   applyGain(standby, next.track);
@@ -1002,6 +1068,8 @@ function swapToStandby(): boolean {
   loadedSrc = trackSrc(next.track);
   intendPlay = true;
   standbyTrack = null;
+  standbyFailedId = null;
+  resetListening();
   clearStallWatch();
   clearNetworkHold();
   resetStandby(); // the finished element becomes the next standby
@@ -1111,6 +1179,40 @@ function advance(step: number, auto: boolean): void {
   const track = state.queue[state.order[pos]];
   usePlayerStore.setState({ orderPos: pos });
   load(track, true);
+}
+
+/** The sleep timer's minutes ran out: the music stops. Reached by the
+    timer, and by the song's own clock (`checkSleep`) — a timeout alone is
+    late after the laptop slept or the tab was throttled, and the pill read
+    0:00 over music that kept playing. */
+function fallAsleep(): void {
+  clearSleepHandle();
+  usePlayerStore.setState({ sleep: null });
+  intendPlay = false;
+  clearNetworkHold(); // asleep means asleep: no reconnect resumes it
+  audio?.pause();
+  applyLevels(); // the fade is over: the next play starts at full level
+}
+
+/** The last seconds before sleep fade out (where a graph or the element
+    can carry a level at all). 1 outside that window. */
+const SLEEP_FADE_MS = 8000;
+
+function sleepFade(): number {
+  const { sleep } = usePlayerStore.getState();
+  if (sleep?.kind !== "minutes") return 1;
+  const left = sleep.endsAt - Date.now();
+  return left >= SLEEP_FADE_MS ? 1 : Math.max(0, left / SLEEP_FADE_MS);
+}
+
+/** Called as the song advances: stop when the end time has passed, and
+    step the fade while it approaches. */
+function checkSleep(): void {
+  const { sleep } = usePlayerStore.getState();
+  if (sleep?.kind !== "minutes") return;
+  const left = sleep.endsAt - Date.now();
+  if (left <= 0) fallAsleep();
+  else if (left < SLEEP_FADE_MS) applyLevels();
 }
 
 /** Sleep timer, "end of track": the music stops at the boundary and the
@@ -1440,13 +1542,14 @@ for (const el of elements()) {
     yieldedToOtherTab = false;
     tabChannel?.postMessage({ type: "playing", tab: TAB_ID });
     armFrozenWatch(el);
-    // A real start is what played_at means: sync the playhead now,
-    // not on the 3 s cadence, carrying the track id so the server stamps
-    // the right row even while the plan mirror is still in flight.
-    writePlayhead(true);
+    // Sync the playhead now, not on the 3 s cadence: another device that
+    // opens Flow sees what just started. The played stamp is not sent
+    // here — it waits until the song has been listened to (noteListening).
+    writePlayhead();
   });
   el.addEventListener("playing", () => {
     if (!live()) return;
+    usePlayerStore.setState({ buffering: false });
     clearStallWatch();
     networkRetries = 0; // bytes are flowing again
     // The clock restarts now: a buffering wait was not a freeze.
@@ -1454,13 +1557,14 @@ for (const el of elements()) {
   });
   el.addEventListener("waiting", () => {
     if (!live() || el.paused) return;
+    usePlayerStore.setState({ buffering: true });
     armStallWatch(el);
   });
   el.addEventListener("pause", () => {
     if (!live()) return;
     clearStallWatch();
     clearFrozenWatch();
-    usePlayerStore.setState({ isPlaying: false });
+    usePlayerStore.setState({ isPlaying: false, buffering: false });
     setPlaybackState("paused");
     syncPositionState();
   });
@@ -1471,6 +1575,8 @@ for (const el of elements()) {
   el.addEventListener("timeupdate", () => {
     if (!live()) return;
     usePlayerStore.setState({ position: el.currentTime });
+    noteListening(el);
+    checkSleep();
     if (
       Number.isFinite(el.duration) &&
       el.duration - el.currentTime <= PRELOAD_AHEAD_SECONDS
@@ -1503,6 +1609,7 @@ for (const el of elements()) {
     }
     if (state.repeat === "one") {
       el.currentTime = 0;
+      resetListening(); // the same song again is another play
       void el.play();
       return;
     }
@@ -1518,6 +1625,7 @@ for (const el of elements()) {
     if (el !== audio) {
       // The standby failed to load: drop it so `ended` uses the fallback.
       if (el === standby) {
+        standbyFailedId = standbyTrack?.id ?? null;
         standbyTrack = null;
         el.removeAttribute("src");
       }

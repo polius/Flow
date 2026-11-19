@@ -330,6 +330,24 @@
   }
 }
 
+/* Buffering: a quiet ring turns around the play circle while the stream
+   has stalled under a song that is meant to be playing. */
+.transport-buffering {
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  border-top-color: var(--text-secondary);
+  animation: transport-buffering 0.9s linear infinite;
+  pointer-events: none;
+}
+
+@keyframes transport-buffering {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 /* Play/pause glyph crossfade — 150ms ease-out. */
 .transport-glyph {
   position: relative;
