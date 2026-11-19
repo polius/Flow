@@ -20,6 +20,7 @@ from mutagen.mp4 import MP4
 from mutagen.ogg import OggFileType
 from mutagen.wave import WAVE
 
+from app import config
 from app.artwork import sniff_mime
 
 log = logging.getLogger("flow.tags")
@@ -78,6 +79,16 @@ _FTYP_SEARCH_WINDOW = 65536
 # Behind a plausible MPEG frame header the check is shorter: a few stray
 # frames in front of an MP4 are seen, a genuine MP3 is the norm.
 _FRAME_FTYP_WINDOW = 16384
+# A tag whose declared size runs a few bytes past its real end: the MP4
+# begins inside what the header claims is still tag. Seen in the wild from
+# one downloader, every file 3 bytes over; a few bytes of slack covers it.
+_TAG_SIZE_SLACK = 8
+# Top-level ISO-BMFF boxes that follow `ftyp` in a real file. Required
+# behind a box found inside the declared tag, so tag text can't pass.
+_MP4_TOP_BOXES = frozenset(
+    (b"moov", b"moof", b"mdat", b"free", b"skip", b"wide", b"sidx", b"styp",
+     b"uuid", b"meta", b"pdin", b"mfra", b"prft", b"emsg")
+)
 
 
 @dataclass(frozen=True)
@@ -137,12 +148,25 @@ def parse_audio(path: Path) -> ParsedTags | None:
     try:
         return _parse_audio(path)
     except Exception as exc:  # noqa: BLE001
+        # With repair on, the scanner hands the file to the repair pass next
+        # and logs a skip itself only if that fails: "skipped" here was
+        # untrue for every file the repair rescues.
         mislabel = _mislabeled_container(path)
-        if mislabel:
+        if mislabel and config.REPAIR:
+            log.warning(
+                "Audio file is not what its extension says: %s — bytes are %s; "
+                "trying a repair", path, mislabel,
+            )
+        elif mislabel:
             log.warning(
                 "Unreadable audio file skipped: %s — bytes are %s, not what the "
                 "extension claims (re-encode or rename to index it)",
                 path, mislabel,
+            )
+        elif config.REPAIR:
+            log.warning(
+                "Unreadable audio file: %s (%s: %s); trying a repair",
+                path, type(exc).__name__, exc,
             )
         else:
             log.warning(
@@ -231,6 +255,29 @@ def _find_ftyp(window: bytes) -> int | None:
         start = i + 1
 
 
+def _ftyp_inside_tag_end(fh, offset: int) -> int | None:
+    """Where an `ftyp` box starts within the last few bytes the ID3 header
+    claims as tag, if one does: a sane size, a printable brand, and a real
+    top-level box right behind it. Nearest the declared end first."""
+    back = min(_TAG_SIZE_SLACK, offset)
+    if back == 0:
+        return None
+    fh.seek(offset - back)
+    head = fh.read(back + 12)
+    for i in range(back - 1, -1, -1):
+        if head[i + 4 : i + 8] != b"ftyp":
+            continue
+        size = int.from_bytes(head[i : i + 4], "big")
+        brand = head[i + 8 : i + 12]
+        if not (8 <= size <= 4096 and len(brand) == 4 and all(32 <= b < 127 for b in brand)):
+            continue
+        start = offset - back + i
+        fh.seek(start + size + 4)
+        if fh.read(4) in _MP4_TOP_BOXES:
+            return start
+    return None
+
+
 def sniff_container(path: Path) -> Sniff | None:
     """What the file's bytes really are, independent of its name — the one
     detection used by the parser guard, by repair and by heal. Walks the
@@ -245,6 +292,11 @@ def sniff_container(path: Path) -> Sniff | None:
             container = _magic(fh.read(16))
             if container not in (None, "mp3"):
                 return Sniff(container, offset)
+            # The tag's declared size may overshoot: an MP4 that starts a
+            # few bytes before where the tag says it ends.
+            early = _ftyp_inside_tag_end(fh, offset)
+            if early is not None:
+                return Sniff("mp4", early)
             # No signature where the payload should start, or one MPEG frame
             # header — four bytes that occur by chance. Junk (or a couple of
             # stray frames) glued in front of an MP4 is the shape seen in

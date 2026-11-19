@@ -528,6 +528,22 @@ def probe_8(work: Path, music: Path) -> Path:
     return path
 
 
+def _overstate_tag_size(prefix: bytes, extra: int) -> bytes:
+    """The same tag with a header claiming `extra` more bytes than it has."""
+    size = (prefix[6] << 21) | (prefix[7] << 14) | (prefix[8] << 7) | prefix[9]
+    size += extra
+    synch = bytes([(size >> 21) & 0x7F, (size >> 14) & 0x7F, (size >> 7) & 0x7F, size & 0x7F])
+    return prefix[:6] + synch + prefix[10:]
+
+
+def probe_9(work: Path, music: Path) -> Path:
+    """ID3 whose declared size runs 3 bytes into the MP4 behind it: the
+    shape of every file from one downloader seen in a real library."""
+    path = music / "p9.mp3"
+    path.write_bytes(_overstate_tag_size(_id3_prefix(work), 3) + _fragmented_mp4(work))
+    return path
+
+
 # (probe, format, copy extension, MIME, cover bytes or None, partial?)
 PROBES = [
     pytest.param(probe_1, "m4a", "m4a", "audio/mp4", None, False, id="1-id3+fmp4"),
@@ -538,6 +554,7 @@ PROBES = [
     pytest.param(probe_6, "wav", "wav", "audio/wav", jpeg_bytes(), False, id="6-aiff"),
     pytest.param(probe_7, "m4a", "m4a", "audio/mp4", None, True, id="7-truncated"),
     pytest.param(probe_8, "m4a", "m4a", "audio/mp4", None, False, id="8-ftyp-decoy-in-tag"),
+    pytest.param(probe_9, "m4a", "m4a", "audio/mp4", None, False, id="9-tag-size-overstated"),
 ]
 
 
@@ -685,6 +702,55 @@ def test_sniff_magic(tmp_path, head, container):
     path.write_bytes(head + b"\x00" * 32)
     sniffed = sniff_container(path)
     assert (sniffed.container if sniffed else None) == container
+
+
+def test_sniff_finds_mp4_starting_inside_an_overstated_tag(tmp_path):
+    from app.tags import sniff_container
+
+    # A tag declaring 3 bytes more than it has: the declared end lands on
+    # "\x18ftyp", 3 bytes past where the ftyp box really starts.
+    tag = _id3_header(40)
+    mp4 = b"\x00\x00\x00\x18ftypdash\x00\x00\x00\x00iso6mp41" + b"\x00\x00\x02\x84moov"
+    path = tmp_path / "x.mp3"
+    path.write_bytes(_overstate_tag_size(tag, 3) + mp4 + b"\x00" * 64)
+    sniffed = sniff_container(path)
+    assert sniffed is not None
+    assert (sniffed.container, sniffed.offset) == ("mp4", len(tag))
+
+
+def test_sniff_ignores_ftyp_text_at_the_end_of_a_tag(tmp_path):
+    from app.tags import sniff_container
+
+    # The same bytes inside the tag's last few, but with no MP4 box behind
+    # them: tag text, not the payload.
+    decoy = b"\x00\x00\x00\x18ftypisom\x00\x00\x02\x00isomiso2"
+    body = b"\x00" * 40 + decoy
+    tag = _id3_header(len(body))[:10] + body
+    path = tmp_path / "x.mp3"
+    path.write_bytes(_overstate_tag_size(tag, 3) + b"just text, no audio" + b"\x00" * 64)
+    sniffed = sniff_container(path)
+    assert sniffed is None or sniffed.container != "mp4"
+
+
+@requires_ffmpeg
+def test_a_rescued_file_is_not_logged_as_skipped(conn, music, scanner, tmp_path, caplog):
+    work = tmp_path / "work"
+    work.mkdir()
+    probe_9(work, music)
+    with caplog.at_level(logging.INFO):
+        scanner.run_scan("test")
+    text = caplog.text
+    assert "skipped" not in text.lower()
+    assert "trying a repair" in text
+    assert "Repaired unparseable file: p9.mp3" in text
+
+
+@requires_ffmpeg
+def test_a_failed_repair_is_logged_as_skipped(conn, music, scanner, caplog):
+    (music / "noise.mp3").write_bytes(b"ID3\x03\x00\x00\x00\x00\x00\x0a" + b"\x00" * 10 + b"\x5a" * 200_000)
+    with caplog.at_level(logging.INFO):
+        scanner.run_scan("test")
+    assert "Skipped noise.mp3: Unreadable or unrecognized audio file" in caplog.text
 
 
 # ---- lifecycle: failure markers, sweep, upgrade ----
