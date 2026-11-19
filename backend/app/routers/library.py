@@ -96,6 +96,15 @@ def _directed(order_sql: str, desc: bool) -> str:
     return ", ".join(f"{t} DESC" for t in terms) if desc else ", ".join(terms)
 
 
+# Sorts that mean "latest first": a caller that names one without a
+# direction gets the newest at the top, not the oldest.
+NEWEST_FIRST_SORTS = {"recent", "played"}
+
+
+def _is_desc(sort: str, dir: str | None) -> bool:
+    return dir == "desc" if dir is not None else sort in NEWEST_FIRST_SORTS
+
+
 def track_order_by(sort: str, desc: bool) -> str:
     """The full ORDER BY for a track listing: the whitelisted sort, the
     title tie-breaker, and the id last so paging over equal keys ("Intro"
@@ -275,7 +284,7 @@ def list_albums(
     request: Request,
     q: str | None = Query(None, max_length=MAX_QUERY),
     sort: str = "title",
-    dir: str = "asc",
+    dir: str | None = None,
     limit: int = Query(DEFAULT_LIMIT, ge=1),
     offset: int = Query(0, ge=0),
 ) -> AlbumListOut:
@@ -295,7 +304,7 @@ def list_albums(
         "LEFT JOIN tracks t ON t.album_id = al.id"
     )
     order = ALBUM_SORTS.get(sort, ALBUM_SORTS["title"])
-    directed = _directed(order, dir == "desc")
+    directed = _directed(order, _is_desc(sort, dir))
 
     total = conn.execute(
         f"SELECT COUNT(DISTINCT al.id) AS c {base} {clause}", params
@@ -494,7 +503,7 @@ def list_genres(
     request: Request,
     q: str | None = Query(None, max_length=MAX_QUERY),
     sort: str = "name",
-    dir: str = "asc",
+    dir: str | None = None,
     limit: int = Query(DEFAULT_LIMIT, ge=1),
     offset: int = Query(0, ge=0),
 ) -> GenreListOut:
@@ -518,7 +527,7 @@ def list_genres(
         "recent": "MAX(t.added_at)",
     }
     order = GENRE_SORTS.get(sort, GENRE_SORTS["name"])
-    directed = _directed(order, dir == "desc")
+    directed = _directed(order, _is_desc(sort, dir))
 
     rows = conn.execute(
         f"SELECT g.id, g.name, COUNT(DISTINCT tg.track_id) AS track_count, "

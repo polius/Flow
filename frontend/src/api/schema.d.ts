@@ -1757,7 +1757,7 @@ export interface operations {
             query?: {
                 q?: string | null;
                 sort?: string;
-                dir?: string;
+                dir?: string | null;
                 limit?: number;
                 offset?: number;
             };
@@ -1959,7 +1959,7 @@ export interface operations {
             query?: {
                 q?: string | null;
                 sort?: string;
-                dir?: string;
+                dir?: string | null;
                 limit?: number;
                 offset?: number;
             };
