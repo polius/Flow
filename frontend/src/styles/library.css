@@ -1066,14 +1066,10 @@ button.trackhead__sort:hover {
     user-select: none;
   }
 
-  /* Swipe owns removal on touch: the inline minus folds away, and
-     with it the trailing slot — the row and its head both lose the column
-     so nothing misaligns. (At tablet widths the now-empty last column
-     stays: the desktop template just ends one column early.) */
-  .trackrow__remove,
-  .trackhead__remove {
-    display: none;
-  }
+  /* Swipe owns removal on touch: the inline minus and its slot fold away
+     (editing.css, beside the slot's own rule). At tablet widths the
+     now-empty last column stays: the desktop template just ends one
+     column early. */
 }
 
 /* Touch phones: the playlist row is a four-column row — the 30px the
