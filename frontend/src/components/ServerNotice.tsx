@@ -25,11 +25,11 @@ export function ServerNotice() {
   return (
     <div className="servernotice-slot" role="status">
       {shown && (
-        <div className="servernotice">
+        <div className={`servernotice servernotice--${shown}`}>
           <span className="servernotice__msg">
             {shown === "down"
               ? "Can’t reach your server. Flow will reconnect when it’s back."
-              : "Flow was updated."}
+              : "Flow was updated"}
           </span>
           {shown === "updated" && (
             <button
@@ -40,6 +40,8 @@ export function ServerNotice() {
               Reload
             </button>
           )}
+          {/* On a phone the update notice has no close (see shell.css):
+              it stays until the page is reloaded. */}
           <button
             type="button"
             className="servernotice__close"

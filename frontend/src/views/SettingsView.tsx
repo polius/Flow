@@ -10,8 +10,8 @@ import { openShortcutSheet } from "../lib/shortcuts";
 import { usePlayerStore } from "../stores/player";
 import { useScanStore } from "../stores/scan";
 import { useUiStore, type HomeIcon, type ThemeMode } from "../stores/ui";
+import { wakeLockSupported } from "../lib/wakeLock";
 import { AccessSettings } from "../components/AccessSettings";
-import { ListenBrainzSettings } from "../components/ListenBrainzSettings";
 import { useReviewCount } from "../components/ReviewStrip";
 import { ScanErrorsPanel } from "../components/ScanErrors";
 
@@ -105,6 +105,8 @@ export function SettingsView() {
   const { data: version } = useAppVersion();
   const letterKeys = useUiStore((s) => s.letterKeys);
   const setLetterKeys = useUiStore((s) => s.setLetterKeys);
+  const keepAwake = useUiStore((s) => s.keepAwake);
+  const setKeepAwake = useUiStore((s) => s.setKeepAwake);
   const soundcheck = usePlayerStore((s) => s.soundcheck);
   const setSoundcheck = usePlayerStore((s) => s.setSoundcheck);
   const openOrganize = useUiStore((s) => s.openOrganize);
@@ -136,8 +138,53 @@ export function SettingsView() {
   const counts = settings?.counts;
   const errorCount = scan?.errors ?? 0;
 
+  // Shown in either Playback group (lib/wakeLock.ts). Browsers offer the
+  // wake lock only to HTTPS pages (and localhost): over plain http, as on
+  // a home network by IP address, the row says so rather than vanish.
+  // A browser without the API at all gets no row.
+  const keepAwakeNeedsHttps = !wakeLockSupported && !window.isSecureContext;
+  const keepAwakeRow = keepAwakeNeedsHttps ? (
+    <div className="settings-row settings-row--stack">
+      <span className="settings-row__label">
+        Keep screen on while playing
+        <span className="settings-row__hint">
+          Browsers allow this only when Flow is opened over HTTPS. See
+          “HTTPS and reverse proxies” in the README.
+        </span>
+      </span>
+      <span className="settings-row__value">Needs HTTPS</span>
+    </div>
+  ) : wakeLockSupported && (
+    <div className="settings-row settings-row--stack">
+      <span className="settings-row__label">
+        <span id="settings-keepawake-label">Keep screen on while playing</span>
+        <span className="settings-row__hint" id="settings-keepawake-hint">
+          Stops this device dimming and locking while a song plays and Flow
+          is on screen. Uses more battery; music keeps playing with the
+          screen off either way.
+        </span>
+      </span>
+      <span className="settings-row__value">
+        <button
+          type="button"
+          role="switch"
+          aria-checked={keepAwake}
+          aria-labelledby="settings-keepawake-label"
+          aria-describedby="settings-keepawake-hint"
+          className={`settingstoggle${keepAwake ? " settingstoggle--on" : ""}`}
+          onClick={() => setKeepAwake(!keepAwake)}
+        >
+          <span className="settingstoggle__knob" aria-hidden="true" />
+          <span className="settingstoggle__label" aria-hidden="true">
+            {keepAwake ? "On" : "Off"}
+          </span>
+        </button>
+      </span>
+    </div>
+  );
+
   return (
-    <section className="view">
+    <section className="view view--settings">
       <h1 className="view__title">Settings</h1>
       <p className="view__subtitle">Appearance, access, library, and playback.</p>
 
@@ -369,6 +416,7 @@ export function SettingsView() {
                 </span>
                 <span className="settings-row__value">Off on this device</span>
               </div>
+              {keepAwakeRow}
             </div>
           )}
           {!isIOS && (
@@ -403,9 +451,9 @@ export function SettingsView() {
                   </button>
                 </span>
               </div>
+              {keepAwakeRow}
             </div>
           )}
-          <ListenBrainzSettings status={settings?.listenbrainz} />
           {version && (
             <div className="settings-group">
               <h2>About</h2>

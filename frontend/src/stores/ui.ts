@@ -97,6 +97,10 @@ interface UiState {
       speech input or switch device types stray characters (WCAG 2.1.4). */
   letterKeys: boolean;
   setLetterKeys: (on: boolean) => void;
+  /** Keep the screen on while a song plays (lib/wakeLock.ts). Off by
+      default: it costs battery, and music plays with the screen off. */
+  keepAwake: boolean;
+  setKeepAwake: (on: boolean) => void;
   /** Which app icon this device installs; light is the default. */
   homeIcon: HomeIcon;
   setHomeIcon: (icon: HomeIcon) => void;
@@ -142,6 +146,8 @@ export const useUiStore = create<UiState>()(
       setThemeMode: (themeMode) => set({ themeMode }),
       letterKeys: true,
       setLetterKeys: (letterKeys) => set({ letterKeys }),
+      keepAwake: false,
+      setKeepAwake: (keepAwake) => set({ keepAwake }),
       homeIcon: "light",
       setHomeIcon: (homeIcon) => set({ homeIcon }),
       undoNotice: null,
@@ -158,6 +164,7 @@ export const useUiStore = create<UiState>()(
         themeMode: s.themeMode,
         homeIcon: s.homeIcon,
         letterKeys: s.letterKeys,
+        keepAwake: s.keepAwake,
       }),
     },
   ),

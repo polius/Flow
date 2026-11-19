@@ -271,31 +271,119 @@
 
 /* The favorite toggle and the filing pill — a state and an action at
    the same tier, drawn at the same height. */
-.nowplaying__actions {
-  align-self: center;
+/* ---- the row under the scrubber ----
+   One line spanning the scrubber's width: the volume at its left edge,
+   the song's actions at its right — not two centred rows of their own
+   widths stacked under it. On a phone (no volume here) the actions sit
+   centred. */
+.nowplaying__footer {
   display: flex;
-  flex-wrap: wrap; /* four pills on a 360 px phone: a second row, not squeezed labels */
-  justify-content: center;
   align-items: center;
-  gap: 10px 12px;
+  justify-content: space-between;
+  gap: 16px;
+  width: 100%;
 }
 
-/* Phones: the heart and the two pills stay on one line, and no label
-   breaks in two ("Add to / Playlist"). */
+.nowplaying__footer--novolume {
+  justify-content: center;
+}
+
+.nowplaying__actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 10px;
+}
+
+.nowplaying__footer--novolume .nowplaying__actions {
+  justify-content: center;
+}
+
+/* Add to Playlist and an idle sleep timer are icons in circles, like the
+   heart, with their names in a tooltip and for assistive technology; a
+   running timer is a pill showing the time left, without the "Sleep:"
+   prefix. Labelled pills did not fit beside the volume. */
+.nowplaying__iconpill {
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  justify-content: center;
+}
+
+.nowplaying__iconpill svg {
+  width: 16px;
+  height: 16px;
+}
+
+.nowplaying__iconpill .nowplaying__pilltext,
+.nowplaying__sleepprefix {
+  display: none;
+}
+
+.nowplaying__addto {
+  min-height: 34px;
+}
+
+/* Phones: the row stays on one line, and no label breaks in two. */
 @media (max-width: 640px) {
+  .nowplaying__footer {
+    justify-content: center;
+  }
+
+  /* The bar's volume is hidden at phone widths (player.css); its empty
+     wrapper must not hold a place in the row. */
+  .nowplaying__volume {
+    display: none;
+  }
+
   .nowplaying__actions {
-    gap: 8px;
+    justify-content: center;
+    gap: 14px;
+    /* As wide as its buttons need, up to the screen less its margins,
+       even where that is wider than the cover above it (a 360px phone
+       with Lyrics and a running timer). Centred either way. */
+    width: max-content;
+    max-width: calc(100vw - 32px);
   }
 
   .nowplaying__addto {
     padding-inline: 12px;
     white-space: nowrap;
   }
+
+  /* Phones: the row is all there is under the scrubber (no volume), so
+     its buttons grow to 40px with 18px icons, and the pills that keep a
+     label (Lyrics, a running timer) share the height. */
+  .nowplaying__iconpill,
+  .nowplaying__actions .nowplaying__fav {
+    width: 40px;
+    height: 40px;
+  }
+
+  .nowplaying__actions .nowplaying__fav svg,
+  .nowplaying__iconpill svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  .nowplaying__addto {
+    min-height: 40px;
+  }
+
+  .nowplaying__iconpill .nowplaying__pilltext,
+  .nowplaying__sleepprefix {
+    display: none;
+  }
 }
 
 .nowplaying__fav {
-  width: 30px;
-  height: 30px;
+  width: 34px;
+  height: 34px;
+}
+
+.nowplaying__fav svg {
+  width: 16px;
+  height: 16px;
 }
 
 /* Where hover exists, the circle wears the pill's hover fill — two
@@ -332,11 +420,23 @@
 /* The takeover covers the player bar, so the volume rides along under
    the actions (hidden with the bar's own at phone widths, player.css). */
 .nowplaying__volume {
-  align-self: center;
+  flex: none;
 }
 
+/* The volume is the row's quiet half: a shorter track and a smaller
+   thumb than the scrubber's above it. */
 .nowplaying__volume input[type="range"].range.player__volumeslider {
-  width: 160px;
+  width: 120px;
+}
+
+.nowplaying__volume input[type="range"].range::-webkit-slider-thumb {
+  width: 10px;
+  height: 10px;
+}
+
+.nowplaying__volume input[type="range"].range::-moz-range-thumb {
+  width: 10px;
+  height: 10px;
 }
 
 /* Touch: the pill keeps its ~30px drawing but its hit area reaches the
@@ -972,5 +1072,169 @@
 
   .nowplaying--queue .queue {
     transform: translateY(0);
+  }
+}
+
+/* ---- desktop: the controls in Apple Music's grammar ----
+   Under the transport, three rows centred in the column:
+   - the scrubber, with elapsed and total time under its two ends;
+   - the volume, centred and half as wide, a quiet glyph at each end;
+   - the song's actions as borderless glyphs grouped in the centre,
+     muted at rest, a soft fill under the pointer, full ink and a
+     soft circle when on. A running sleep timer adds its time beside
+     the moon.
+   No hairline outlines anywhere: outlined pills read as web chrome. A
+   phone keeps its own row (above), the word "Lyrics" included. */
+.nowplaying__lyricsicon {
+  display: none;
+}
+
+@media (min-width: 641px) {
+  /* 14px between rows: the times row added height, and a short window
+     (1280×680) must not scroll more than it did before. */
+  .nowplaying__controls {
+    gap: 14px;
+    margin-top: 24px; /* more air between the song's names and the transport */
+  }
+
+  .nowplaying__progress {
+    flex-wrap: wrap;
+    row-gap: 4px;
+    margin-top: 10px; /* 24px under the transport: the buttons breathe */
+  }
+
+  .nowplaying__progress .player__scrubber {
+    order: -1; /* drawn above the times; the times are not focusable */
+    flex: 1 0 100%;
+  }
+
+  .nowplaying__progress .player__time {
+    min-width: 0;
+    font-size: var(--text-caption);
+  }
+
+  .nowplaying__progress .player__time:last-child {
+    margin-left: auto;
+  }
+
+  .nowplaying__footer {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  /* The volume is secondary to the scrubber: half its width, centred
+     under it, with more room above so the two bars don't read as a
+     pair. */
+  .nowplaying__volume {
+    align-self: center;
+    width: min(260px, 100%);
+    margin-top: 10px;
+  }
+
+  .nowplaying__volume .player__volume {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+  }
+
+  .nowplaying__volume input[type="range"].range.player__volumeslider {
+    flex: 1;
+    width: auto;
+  }
+
+  .player__volumemax {
+    display: inline-flex;
+    flex: none;
+    color: var(--text-muted);
+  }
+
+  .nowplaying__actions {
+    display: flex;
+    justify-content: center;
+    gap: 16px;
+  }
+
+  .nowplaying__actions .nowplaying__fav,
+  .nowplaying__actions .nowplaying__addto {
+    width: 36px;
+    height: 36px;
+    min-height: 0;
+    padding: 0;
+    justify-content: center;
+    border: none;
+    border-radius: 50%;
+    background: transparent;
+    color: var(--text-muted);
+  }
+
+  .nowplaying__actions .nowplaying__fav svg,
+  .nowplaying__actions .nowplaying__addto svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  @media (hover: hover) {
+    .nowplaying__actions .nowplaying__fav:hover,
+    .nowplaying__actions .nowplaying__addto:hover {
+      color: var(--text-primary);
+      background: var(--bg-hover);
+    }
+  }
+
+  /* On: full ink on a soft circle — loved, lyrics showing, a timer set. */
+  .nowplaying__actions .favbtn--on,
+  .nowplaying__actions .nowplaying__addto--on {
+    color: var(--text-primary);
+    background: var(--bg-active);
+  }
+
+  .nowplaying__lyricsicon {
+    display: block;
+  }
+
+  .nowplaying__lyricstext {
+    display: none;
+  }
+
+  /* The sliders are bars: their thumbs appear only under the pointer
+     (or keyboard focus), as Apple Music's do. Touch screens keep them,
+     since there is no pointer to bring them out. */
+  @media (hover: hover) {
+    .nowplaying__progress input[type="range"].range::-webkit-slider-thumb,
+    .nowplaying__volume input[type="range"].range::-webkit-slider-thumb {
+      transform: scale(0);
+    }
+
+    .nowplaying__progress input[type="range"].range::-moz-range-thumb,
+    .nowplaying__volume input[type="range"].range::-moz-range-thumb {
+      transform: scale(0);
+      transition: transform var(--dur-fast) var(--ease-out);
+    }
+
+    .nowplaying__progress input[type="range"].range:is(:hover, :focus-visible)::-webkit-slider-thumb,
+    .nowplaying__volume input[type="range"].range:is(:hover, :focus-visible)::-webkit-slider-thumb {
+      transform: scale(1);
+    }
+
+    .nowplaying__progress input[type="range"].range:is(:hover, :focus-visible)::-moz-range-thumb,
+    .nowplaying__volume input[type="range"].range:is(:hover, :focus-visible)::-moz-range-thumb {
+      transform: scale(1);
+    }
+
+    .nowplaying__progress input[type="range"].range:active::-webkit-slider-thumb,
+    .nowplaying__volume input[type="range"].range:active::-webkit-slider-thumb {
+      transform: scale(1.25);
+    }
+  }
+
+  /* A running timer is a pill wide enough for its time. */
+  .nowplaying__actions .nowplaying__sleepbtn.nowplaying__addto--on {
+    width: auto;
+    padding: 0 14px;
+    gap: 7px;
+    border-radius: 999px;
+    font-size: var(--text-small);
   }
 }

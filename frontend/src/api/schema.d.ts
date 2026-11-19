@@ -173,28 +173,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/listenbrainz": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /**
-         * Put Listenbrainz
-         * @description Save a ListenBrainz token (checked with ListenBrainz first), or with
-         *     null turn scrobbling off. The only request Flow makes to the outside
-         *     before a token is saved is this check, on the owner's say-so.
-         */
-        put: operations["put_listenbrainz_api_listenbrainz_put"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/tracks": {
         parameters: {
             query?: never;
@@ -1040,40 +1018,6 @@ export interface components {
              */
             plays: number;
         };
-        /**
-         * ListenBrainzIn
-         * @description `token: null` turns scrobbling off (and drops what was waiting).
-         */
-        ListenBrainzIn: {
-            /** Token */
-            token: string | null;
-        };
-        /**
-         * ListenBrainzStatus
-         * @description Scrobbling. The token itself is never sent back.
-         */
-        ListenBrainzStatus: {
-            /**
-             * Enabled
-             * @default false
-             */
-            enabled: boolean;
-            /**
-             * Refused
-             * @default false
-             */
-            refused: boolean;
-            /**
-             * Sent
-             * @default 0
-             */
-            sent: number;
-            /**
-             * Waiting
-             * @default 0
-             */
-            waiting: number;
-        };
         /** LoginIn */
         LoginIn: {
             /** Password */
@@ -1482,15 +1426,6 @@ export interface components {
             library_exists: boolean;
             scan: components["schemas"]["ScanStatus"];
             counts: components["schemas"]["LibraryCounts"];
-            /**
-             * @default {
-             *       "enabled": false,
-             *       "refused": false,
-             *       "sent": 0,
-             *       "waiting": 0
-             *     }
-             */
-            listenbrainz: components["schemas"]["ListenBrainzStatus"];
         };
         /**
          * TrackDetailOut
@@ -1869,39 +1804,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SettingsOut"];
-                };
-            };
-        };
-    };
-    put_listenbrainz_api_listenbrainz_put: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ListenBrainzIn"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ListenBrainzStatus"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

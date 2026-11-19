@@ -18,6 +18,7 @@ import { Artwork } from "./Artwork";
 import { FavoriteButton } from "./FavoriteButton";
 import {
   IconChevronDown,
+  IconLyrics,
   IconMusicNote,
   IconNext,
   IconPlaylistAdd,
@@ -305,50 +306,63 @@ export function NowPlaying() {
               <div className="nowplaying__progress">
                 <Scrubber />
               </div>
-              {/* The transport's quiet footnote: the favorite toggle and
-                  the filing pill — a state and an action at the same tier
-                  (hidden while the track is unverified, like the text
-                  names above) — and the sleep timer, which needs no
-                  vouching. */}
-              <div className="nowplaying__actions">
-                {verified && (
-                  <>
-                    <FavoriteButton
-                      track={track}
-                      circled
-                      className="nowplaying__fav"
-                      size={15}
-                    />
+              {/* One row under the scrubber, spanning its width: the
+                  volume at its left edge (desktop), the song's actions at
+                  its right. On a phone there is no volume here and the
+                  actions sit centred. */}
+              <div className={`nowplaying__footer${isIOS ? " nowplaying__footer--novolume" : ""}`}>
+                {/* The takeover covers the bar, so the volume comes along
+                    (desktop only: phones use their hardware keys). */}
+                {!isIOS && (
+                  <div className="nowplaying__volume">
+                    <VolumeControl wide />
+                  </div>
+                )}
+                {/* The transport's quiet footnote: the favorite toggle and
+                    the filing pill — a state and an action at the same tier
+                    (hidden while the track is unverified, like the text
+                    names above) — and the sleep timer, which needs no
+                    vouching. */}
+                <div className="nowplaying__actions">
+                  {verified && (
+                    <>
+                      <FavoriteButton
+                        track={track}
+                        circled
+                        className="nowplaying__fav"
+                        size={15}
+                      />
+                      <button
+                        type="button"
+                        className="nowplaying__addto nowplaying__iconpill"
+                        onClick={() => openAddToPlaylist([track])}
+                        aria-haspopup="dialog"
+                        aria-label="Add to Playlist"
+                        title="Add to Playlist"
+                      >
+                        <IconPlaylistAdd size={13} />
+                        <span className="nowplaying__pilltext">Add to Playlist</span>
+                      </button>
+                    </>
+                  )}
+                  {hasLyrics && (
                     <button
                       type="button"
-                      className="nowplaying__addto"
-                      onClick={() => openAddToPlaylist([track])}
-                      aria-haspopup="dialog"
+                      className={`nowplaying__addto nowplaying__lyricsbtn${showLyrics ? " nowplaying__addto--on" : ""}`}
+                      aria-pressed={showLyrics}
+                      aria-label="Lyrics"
+                      title="Lyrics"
+                      onClick={() => setLyricsOn(!showLyrics)}
                     >
-                      <IconPlaylistAdd size={13} />
-                      Add to Playlist
+                      {/* A desktop shows the glyph, a phone the word
+                          (nowplaying.css). */}
+                      <IconLyrics size={16} className="nowplaying__lyricsicon" />
+                      <span className="nowplaying__lyricstext">Lyrics</span>
                     </button>
-                  </>
-                )}
-                {hasLyrics && (
-                  <button
-                    type="button"
-                    className={`nowplaying__addto${showLyrics ? " nowplaying__addto--on" : ""}`}
-                    aria-pressed={showLyrics}
-                    onClick={() => setLyricsOn(!showLyrics)}
-                  >
-                    Lyrics
-                  </button>
-                )}
-                <SleepTimer />
-              </div>
-              {/* The takeover covers the bar, so the volume comes along
-                  (desktop only: phones use their hardware keys). */}
-              {!isIOS && (
-                <div className="nowplaying__volume">
-                  <VolumeControl />
+                  )}
+                  <SleepTimer />
                 </div>
-              )}
+              </div>
             </div>
           </div>
         ) : (

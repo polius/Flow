@@ -5,6 +5,7 @@ import { useAuthStatus } from "../api/auth";
 import { ensureScanSync, stopScanSync } from "../api/scanSync";
 import { lazyPart } from "../lib/lazyParts";
 import { useGlobalShortcuts } from "../lib/shortcuts";
+import { useKeepScreenOn } from "../lib/wakeLock";
 import { Announcer } from "./Announcer";
 import { DeviceNotice } from "./DeviceNotice";
 import { PlayerBar } from "./PlayerBar";
@@ -39,6 +40,7 @@ export function AppShell() {
   const location = useLocation();
   const canvasRef = useRef<HTMLElement>(null);
   useGlobalShortcuts();
+  useKeepScreenOn();
 
   const { data: authStatus } = useAuthStatus();
   const organizeMounted = useOpenedOnce(useUiStore((s) => s.organizeOpen));

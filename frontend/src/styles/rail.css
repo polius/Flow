@@ -15,6 +15,19 @@
   touch-action: none;
   user-select: none;
   -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  /* The box spans the whole gap between the bars, but the letters are
+     centred in it: on a tall phone, strips about 60px high above and
+     below them took a touch and did nothing — no jump, and no scroll,
+     since the rail does not scroll. Only the letters take a touch; the
+     strips scroll the list like the rest of the canvas. A drag that has
+     begun on a letter is captured by the rail and keeps working across
+     them. */
+  pointer-events: none;
+}
+
+.letterrail__letter {
+  pointer-events: auto;
 }
 
 /* 27 letters share the height: 20px each where there is room, less where
@@ -51,9 +64,15 @@
   }
 }
 
-/* Phones: the letters fit inside the view's 16px side padding, so no row
-   or card gives up width to them. */
+/* Narrow windows and phones: the letters sit in the view's right padding.
+   The usual 16px left them 1px from the album and artist cards, as if
+   stuck to them; a view showing the rail keeps 30px on the right, so
+   the letters stand clear like they do on a wide window. */
 @media (max-width: 640px) {
+  .view:has(.letterrail) {
+    --view-pad-right: 30px;
+  }
+
   .letterrail {
     right: calc(1px + env(safe-area-inset-right, 0px));
   }

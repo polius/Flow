@@ -557,13 +557,24 @@
     display: none;
   }
 
+  /* Logo, field, Settings: 12px apart, and the logo and Settings 16px
+     from the screen edges, in line with the page's own 16px margins. The
+     field had 16px margins on top of the bar's 16px gap (32px either
+     side), and the logo 10px of padding the Settings icon did not have;
+     the field takes the room back. */
+  .topbar {
+    gap: 12px;
+    padding-left: calc(16px + env(safe-area-inset-left, 0px));
+    padding-right: calc(16px + env(safe-area-inset-right, 0px));
+  }
+
   .topbar__brand {
-    padding-right: 0;
+    padding: 0;
   }
 
   .topbar__searchzone {
-    margin-left: 16px;
-    margin-right: 16px;
+    margin-left: 0;
+    margin-right: 0;
   }
 
   /* The field is squeezed between the logo and the Settings icon, and a

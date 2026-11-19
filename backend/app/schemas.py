@@ -41,28 +41,11 @@ class LibraryCounts(BaseModel):
     plays: int = 0
 
 
-class ListenBrainzStatus(BaseModel):
-    """Scrobbling. The token itself is never sent back."""
-
-    enabled: bool = False
-    # ListenBrainz refused the saved token: nothing is sent until a new one.
-    refused: bool = False
-    sent: int = 0
-    waiting: int = 0
-
-
-class ListenBrainzIn(BaseModel):
-    """`token: null` turns scrobbling off (and drops what was waiting)."""
-
-    token: str | None = Field(..., min_length=1, max_length=200)
-
-
 class SettingsOut(BaseModel):
     library_path: str
     library_exists: bool
     scan: ScanStatus
     counts: LibraryCounts
-    listenbrainz: ListenBrainzStatus = ListenBrainzStatus()
 
 
 class ScanErrorEntry(BaseModel):
