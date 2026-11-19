@@ -21,6 +21,8 @@ export function Scrubber() {
   const pendingSeek = useRef<number | null>(null);
   const seekRaf = useRef<number | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  /** The value was changed by the user since the last commit. */
+  const touched = useRef(false);
 
   const flushSeek = () => {
     seekRaf.current = null;
@@ -50,10 +52,15 @@ export function Scrubber() {
   const commit = () => {
     cancelPendingSeek();
     const el = inputRef.current;
-    if (el != null) {
+    // Only a scrub that happened is committed. The release paths (keyup,
+    // blur) also fire when focus merely passes over the slider: Tab in,
+    // Tab out used to seek twice to where the song already was — an
+    // audible hiccup for nothing.
+    if (el != null && touched.current) {
       const final = Number(el.value);
       if (Number.isFinite(final)) seek(final);
     }
+    touched.current = false;
     setScrub(null);
     setDragging(false);
   };
@@ -97,6 +104,7 @@ export function Scrubber() {
         disabled={max === 0}
         aria-label="Seek"
         onInput={(e) => {
+          touched.current = true;
           setDragging(true);
           const v = Number((e.target as HTMLInputElement).value);
           setScrub(v);
@@ -110,6 +118,7 @@ export function Scrubber() {
           // The system took the pointer mid-drag: release the visual hold
           // without committing a position the user didn't choose.
           cancelPendingSeek();
+          touched.current = false;
           setScrub(null);
           setDragging(false);
         }}
@@ -170,6 +179,9 @@ export function PlayPauseButton({
   disabled?: boolean;
 }) {
   const togglePlay = usePlayerStore((s) => s.togglePlay);
+  // Playing, but the stream has stalled: say so, instead of a Pause glyph
+  // over a frozen scrubber.
+  const buffering = usePlayerStore((s) => s.buffering) && isPlaying;
   return (
     <TransportButton
       label={isPlaying ? "Pause" : "Play"}
@@ -177,6 +189,7 @@ export function PlayPauseButton({
       disabled={disabled}
       primary
     >
+      {buffering && <span className="transport-buffering" aria-hidden="true" />}
       <span className={`transport-glyph${isPlaying ? " transport-glyph--alt" : ""}`}>
         <span className="transport-glyph__pause">
           <IconPause size={19} />

@@ -189,7 +189,9 @@ class ArtworkStore:
 # Grid tiles ask for one of these edge lengths; other values snap up to the
 # next one (anything larger to the largest), so the cache holds at most
 # len(THUMB_SIZES) files per artwork.
-THUMB_SIZES = (64, 96, 128, 256, 512)
+# 1024 is the full-screen player's cover on a high-density screen (400 CSS
+# px at 2x or 3x): without it that one view fetched the original image.
+THUMB_SIZES = (64, 96, 128, 256, 512, 1024)
 THUMB_CACHE_DIR = "artwork-cache"
 THUMB_TIMEOUT_SECONDS = 15
 # ffmpeg renders are CPU-bound; a burst of cold grid tiles shouldn't fan out

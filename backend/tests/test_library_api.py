@@ -238,9 +238,14 @@ def test_sized_artwork_is_rendered_cached_and_bounded(
     monkeypatch.undo()
     monkeypatch.setattr(config, "DATA_DIR", tmp_path / "data")
 
-    # Never upscaled; huge requests snap down to the largest size.
+    # Sizes snap up to the next step...
+    mid = client.get(f"/api/artwork/{artwork_id}", params={"s": 300})
+    assert _jpeg_size(mid.content) == (512, 341)
+    # ...huge requests snap down to the largest one (1024), and a cover is
+    # never upscaled: this one is 600 px wide and stays 600.
     big = client.get(f"/api/artwork/{artwork_id}", params={"s": 4000})
-    assert _jpeg_size(big.content) == (512, 341)
+    assert _jpeg_size(big.content) == (600, 400)
+    assert len(list(cache.glob(f"{artwork_id}-1024-*.jpg"))) == 1
     # No size → the original bytes.
     assert client.get(f"/api/artwork/{artwork_id}").content == real_cover
 
