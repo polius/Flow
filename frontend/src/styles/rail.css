@@ -15,6 +15,19 @@
   touch-action: none;
   user-select: none;
   -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  /* The box spans the whole gap between the bars, but the letters are
+     centred in it: on a tall phone, strips about 60px high above and
+     below them took a touch and did nothing — no jump, and no scroll,
+     since the rail does not scroll. Only the letters take a touch; the
+     strips scroll the list like the rest of the canvas. A drag that has
+     begun on a letter is captured by the rail and keeps working across
+     them. */
+  pointer-events: none;
+}
+
+.letterrail__letter {
+  pointer-events: auto;
 }
 
 /* 27 letters share the height: 20px each where there is room, less where
