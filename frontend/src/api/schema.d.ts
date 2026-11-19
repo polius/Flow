@@ -1316,6 +1316,57 @@ export interface components {
             scan: components["schemas"]["ScanStatus"];
             counts: components["schemas"]["LibraryCounts"];
         };
+        /**
+         * TrackDetailOut
+         * @description One track, with the file facts Get Info shows. Lists stay on the
+         *     lean TrackOut: these are read for one song at a time.
+         */
+        TrackDetailOut: {
+            /** Id */
+            id: number;
+            /** Title */
+            title: string;
+            /** Artist */
+            artist: string | null;
+            /** Artist Id */
+            artist_id: number | null;
+            /** Album */
+            album: string | null;
+            /** Album Id */
+            album_id: number | null;
+            /** Album Artist */
+            album_artist?: string | null;
+            /** Track No */
+            track_no: number | null;
+            /** Disc No */
+            disc_no: number | null;
+            /** Year */
+            year: number | null;
+            /** Duration */
+            duration: number;
+            /** Format */
+            format: string;
+            /** Favorite */
+            favorite: boolean;
+            /** Artwork Id */
+            artwork_id: number | null;
+            /** Path */
+            path: string;
+            /** Gain Db */
+            gain_db?: number | null;
+            /** Played At */
+            played_at?: string | null;
+            /** Genre */
+            genre?: string | null;
+            /** Added At */
+            added_at?: string | null;
+            /** Bitrate */
+            bitrate?: number | null;
+            /** Sample Rate */
+            sample_rate?: number | null;
+            /** Size */
+            size?: number | null;
+        };
         /** TrackListOut */
         TrackListOut: {
             /** Items */
@@ -1703,7 +1754,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["TrackOut"];
+                    "application/json": components["schemas"]["TrackDetailOut"];
                 };
             };
             /** @description Validation Error */

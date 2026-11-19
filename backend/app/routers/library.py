@@ -14,6 +14,7 @@ from app.schemas import (
     GenreListOut,
     GenreSummary,
     TrackListOut,
+    TrackDetailOut,
     TrackOut,
 )
 from app.routers.common import (
@@ -270,13 +271,23 @@ def list_tracks(
     )
 
 
-@router.get("/api/tracks/{track_id}", response_model=TrackOut)
-def get_track(request: Request, track_id: int) -> TrackOut:
+TRACK_DETAIL_SELECT = TRACK_SELECT.replace(
+    "SELECT", "SELECT t.bitrate, t.sample_rate, t.size,", 1
+)
+
+
+@router.get("/api/tracks/{track_id}", response_model=TrackDetailOut)
+def get_track(request: Request, track_id: int) -> TrackDetailOut:
     conn = request.app.state.db.connect()
-    row = conn.execute(f"{TRACK_SELECT} WHERE t.id = ?", (track_id,)).fetchone()
+    row = conn.execute(f"{TRACK_DETAIL_SELECT} WHERE t.id = ?", (track_id,)).fetchone()
     if row is None:
         raise HTTPException(status_code=404, detail="Track not found")
-    return track_out(row)
+    return TrackDetailOut(
+        **track_out(row).model_dump(),
+        bitrate=row["bitrate"],
+        sample_rate=row["sample_rate"],
+        size=row["size"],
+    )
 
 
 @router.get("/api/albums", response_model=AlbumListOut)

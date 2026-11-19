@@ -98,6 +98,19 @@ def test_recent_albums_default_to_newest_first(client, library):
     assert titles("/api/albums?sort=title") == sorted(titles("/api/albums?sort=title"), key=str.lower)
 
 
+def test_one_track_carries_the_file_facts(client, library):
+    """Get Info reads bitrate, sample rate and size from the single-track
+    endpoint; the list rows stay lean."""
+    listed = client.get("/api/tracks").json()["items"][0]
+    assert "bitrate" not in listed and "size" not in listed
+
+    one = client.get(f"/api/tracks/{listed['id']}").json()
+    assert one["title"] == listed["title"]
+    assert one["size"] > 0
+    assert one["sample_rate"] in (44100, 48000)
+    assert one["bitrate"] is None or one["bitrate"] > 0
+
+
 def test_artists_list_and_detail(client, library):
     artists = client.get("/api/artists").json()
     assert artists["total"] == 3
