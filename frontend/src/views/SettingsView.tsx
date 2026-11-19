@@ -187,7 +187,7 @@ export function SettingsView() {
             </div>
             {/* The "?" sheet's pointer door — a shortcut list nobody can
                 find is no help. */}
-            <div className="settings-row">
+            <div className="settings-row settings-row--keyboard">
               <span className="settings-row__label">Keyboard shortcuts</span>
               <span className="settings-row__value">
                 Press <kbd className="settings-row__kbd">?</kbd> anywhere

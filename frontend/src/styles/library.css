@@ -1082,6 +1082,76 @@ button.trackhead__sort:hover {
   }
 }
 
+/* Phone lists carry no desktop furniture.
+
+   The column header ("# · TITLE · TIME") names columns a phone row does
+   not have, above a list whose sort has its own button. */
+@media (max-width: 640px) {
+  .trackhead {
+    display: none;
+  }
+
+  .tracklist {
+    margin-top: 14px;
+  }
+
+  .artistcard__songs {
+    display: none;
+  }
+}
+
+/* The play glyph on every row: once a tap anywhere on the row plays it,
+   the glyph is 32px of repetition — and on an album it sat where the
+   track numbers belong. Numbered lists (albums, playlists) get their
+   numbers back, with the bars on the playing row; the Play button stays
+   in place for assistive technology, unseen. Unnumbered lists (Songs,
+   Favorites, an artist's songs, search) drop the column, and their
+   playing row leads with the bars. */
+@media (hover: none) and (max-width: 640px) {
+  /* The :hover twins matter: a phone leaves the row it last tapped in
+     :hover, and the desktop hover rules (glyph in, number and bars out)
+     would otherwise win on exactly that row. */
+  .trackrow__play,
+  .trackrow:hover .trackrow__play {
+    opacity: 0;
+  }
+
+  .trackrow__num,
+  .trackrow:hover .trackrow__num {
+    opacity: 1;
+  }
+
+  .trackrow--playing .trackrow__num,
+  .trackrow--playing:hover .trackrow__num {
+    opacity: 0;
+  }
+
+  .trackrow--playing .trackrow__eq,
+  .trackrow--playing:hover .trackrow__eq {
+    opacity: 1;
+  }
+
+  .trackrow--all,
+  .trackrow--artist {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 60px) 30px;
+  }
+
+  .trackrow--all .trackrow__index,
+  .trackrow--artist .trackrow__index {
+    display: none;
+  }
+
+  .trackrow--all.trackrow--playing,
+  .trackrow--artist.trackrow--playing {
+    grid-template-columns: 18px minmax(0, 1fr) minmax(0, 60px) 30px;
+  }
+
+  .trackrow--all.trackrow--playing .trackrow__index,
+  .trackrow--artist.trackrow--playing .trackrow__index {
+    display: flex;
+  }
+}
+
 /* ---- section headers with a trailing link (Home, Search) ----------------- */
 
 .libsection__head {
