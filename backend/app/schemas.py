@@ -37,6 +37,8 @@ class LibraryCounts(BaseModel):
     albums: int
     artists: int
     playlists: int
+    # Counted plays in the listening history.
+    plays: int = 0
 
 
 class SettingsOut(BaseModel):

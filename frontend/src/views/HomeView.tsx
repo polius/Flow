@@ -190,6 +190,32 @@ function RecentlyPlayed() {
   );
 }
 
+/* The albums played most, by counted plays (30 s or half a song each).
+   Shown once the history has something to say: ten plays. */
+const MOST_PLAYED_AFTER = 10;
+
+function MostPlayed() {
+  const { data } = useQuery({
+    queryKey: ["albums", "most-played"],
+    queryFn: async () => {
+      const { data } = await api.GET("/api/albums", {
+        params: { query: { sort: "plays", dir: "desc", limit: 12 } },
+      });
+      return data;
+    },
+  });
+  // A played album has a played_at; one never played sorts last anyway.
+  const albums = (data?.items ?? []).filter((a) => a.played_at != null);
+  if (albums.length === 0) return null;
+  return (
+    <Shelf title="Most played">
+      {albums.map((album) => (
+        <AlbumCard key={album.id} album={album} />
+      ))}
+    </Shelf>
+  );
+}
+
 /* The server resolves and shuffles the WHOLE library in one query (never a
    truncated queue); the client-side fetch is the fallback. Shuffle flips on
    before the call so the player bar tells the truth about the plan. */
@@ -305,6 +331,8 @@ export function HomeView() {
       {hasLibrary && <ContinueListening />}
 
       {hasLibrary && <RecentlyPlayed />}
+
+      {hasLibrary && (counts?.plays ?? 0) >= MOST_PLAYED_AFTER && <MostPlayed />}
 
       {hasLibrary && counts && counts.tracks > 0 && (
         <ShuffleAll count={counts.tracks} />

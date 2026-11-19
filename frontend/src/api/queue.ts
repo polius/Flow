@@ -150,7 +150,7 @@ export function saveServerPlayhead(
   },
   keepalive = false,
 ): void {
-  const send = (ka: boolean) =>
+  const send = (ka: boolean): Promise<boolean> =>
     api
       .PATCH("/api/queue", {
         body: {
@@ -162,18 +162,22 @@ export function saveServerPlayhead(
         },
         ...(ka ? { keepalive: true } : {}),
       })
+      .then(({ response }) => response.ok)
       .catch(() => {
         // Same best-effort story as every other write here. The 3 s cadence
         // keeps the playhead converging; only the stamp needs a retry, and
         // only this sync carries one.
+        return false;
       });
-  void send(keepalive);
-  // A lost start-of-play stamp would silently thin the played record (the
-  // position ticks that follow never carry a track id). One quiet retry —
-  // past a scanner's commit window, which can hold the write lock for
-  // seconds — keeps the record honest. Re-stamping is idempotent: recency
-  // only.
+  const first = send(keepalive);
+  // A lost stamp would silently thin the play record (the position ticks
+  // that follow never carry a track id). One quiet retry — past a
+  // scanner's commit window, which can hold the write lock for seconds —
+  // and only when the first did not land: every stamp the server takes is
+  // one play in the history.
   if (patch.playedTrackId != null) {
-    window.setTimeout(() => void send(false), 2500);
+    void first.then((ok) => {
+      if (!ok) window.setTimeout(() => void send(false), 2500);
+    });
   }
 }

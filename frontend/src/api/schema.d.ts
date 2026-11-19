@@ -963,6 +963,11 @@ export interface components {
             artists: number;
             /** Playlists */
             playlists: number;
+            /**
+             * Plays
+             * @default 0
+             */
+            plays: number;
         };
         /** LoginIn */
         LoginIn: {

@@ -28,6 +28,7 @@ def get_settings(request: Request) -> SettingsOut:
         albums=conn.execute("SELECT COUNT(*) c FROM albums").fetchone()["c"],
         artists=conn.execute("SELECT COUNT(*) c FROM artists").fetchone()["c"],
         playlists=conn.execute("SELECT COUNT(*) c FROM playlists").fetchone()["c"],
+        plays=conn.execute("SELECT COUNT(*) c FROM plays").fetchone()["c"],
     )
     scan = ScanStatus(
         state=event["state"],

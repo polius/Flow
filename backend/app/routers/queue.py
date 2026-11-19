@@ -373,10 +373,18 @@ def patch_queue(request: Request, body: QueuePatchIn) -> QueuePlayheadOut:
 
     def _apply() -> None:
         if body.played_track_id is not None:
-            conn.execute(
+            stamp = _now()
+            stamped = conn.execute(
                 "UPDATE tracks SET played_at = ? WHERE id = ?",
-                (_now(), body.played_track_id),
-            )
+                (stamp, body.played_track_id),
+            ).rowcount
+            # One row of history per counted play (the client sends the id
+            # once per listen, after 30 s or half the song).
+            if stamped:
+                conn.execute(
+                    "INSERT INTO plays (track_id, played_at) VALUES (?, ?)",
+                    (body.played_track_id, stamp),
+                )
         conn.execute(
             "UPDATE queue_state SET order_pos = ?, position = ?, updated_at = ? "
             "WHERE id = 0",

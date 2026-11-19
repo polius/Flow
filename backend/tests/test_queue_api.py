@@ -162,7 +162,7 @@ def test_patch_stamps_played_at_on_the_reported_track(client, library):
     )
     assert r.status_code == 200
     assert client.get(f"/api/tracks/{ids[0]}").json()["played_at"] is not None
-    # No counts anywhere — one timestamp, and only on the track that played.
+    # The stamp lands only on the track that played.
     assert client.get(f"/api/tracks/{ids[1]}").json()["played_at"] is None
 
 
