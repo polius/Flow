@@ -27,7 +27,7 @@ export function SelectionBar({
   onClear,
 }: SelectionBarProps) {
   return (
-    <div className="orgbar" role="toolbar" aria-label="Selected tracks">
+    <div className="orgbar" role="toolbar" aria-label="Selected songs">
       <span className="orgbar__count">{count.toLocaleString()} selected</span>
       <span className="orgbar__sep" aria-hidden="true" />
       <button type="button" className="orgbar__action" onClick={onAddToPlaylist}>

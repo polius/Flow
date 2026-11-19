@@ -1,9 +1,11 @@
 /* One track row, shared by TrackTable and VirtualTrackTable so the markup
    can't drift. State comes in as props — neither table owns per-row
-   subscriptions. A plain click on the title plays; any plain click —
-   title or row body — dissolves a live selection pill, and only
-   modifier clicks build a selection. Playback also belongs to the row's
-   Play button and the keyboard cursor's Enter.
+   subscriptions. With a mouse, a plain click on the title plays and a
+   double-click anywhere on the row plays; a plain click on the row body
+   moves the keyboard cursor there and dissolves a live selection pill —
+   only modifier clicks build a selection. On touch, a tap anywhere on
+   the row plays. Playback also belongs to the row's Play button and the
+   keyboard cursor's Enter.
    Playlist rows: hover-revealed minus on desktop, swipe-to-remove on
    touch — the drag opens the action, the tap commits it. */
 import { useEffect, useRef, useState } from "react";
@@ -41,6 +43,10 @@ interface TrackRowProps {
   track: Track;
   index: number;
   variant: TrackVariant;
+  /** Album variant: the album's own artist. A row by anyone else (a
+      compilation, a soundtrack, a guest) names its artist under the
+      title, at every width; a normal album's rows stay one line. */
+  albumArtist?: string | null;
   /** No ordinal — the index slot carries the play affordance permanently
       (search results, where a number over a match list means nothing).
       One prop; the CSS does the reveal. */
@@ -57,6 +63,9 @@ interface TrackRowProps {
       any live selection around it (playing is not curation) and gives
       the current track the Play button's toggle instead of a restart. */
   onTitlePlay: (index: number) => void;
+  /** Double-click on the row body: make this row the one playing (the
+      current track resumes if paused and is never restarted). */
+  onRowPlay?: (index: number) => void;
   onTogglePlay: () => void;
   onToggleFavorite: (track: Track) => void;
   /** Opens the row action menu (right-click / long-press, see TrackActionsMenu). */
@@ -100,6 +109,7 @@ export function TrackRow({
   track,
   index,
   variant,
+  albumArtist,
   hideIndex,
   isCurrent,
   isPlaying,
@@ -110,6 +120,7 @@ export function TrackRow({
   selected,
   onActivate,
   onTitlePlay,
+  onRowPlay,
   onTogglePlay,
   onToggleFavorite,
   onTrackMenu,
@@ -129,6 +140,11 @@ export function TrackRow({
     y: number;
     fired: boolean;
   }>({ timer: null, x: 0, y: 0, fired: false });
+
+  // What made the last press: a tap anywhere on the row plays, a mouse
+  // click outside the title does not. Compatibility mouse events fire no
+  // pointerdown of their own, so a tap stays "touch" through its click.
+  const pointerTypeRef = useRef("mouse");
 
   const clearPress = () => {
     if (pressRef.current.timer != null) {
@@ -255,10 +271,16 @@ export function TrackRow({
     if (open !== swipeOpen) onSwipeOpenChange?.(open);
   };
 
-  // The phone second line: whatever the hidden columns would have said.
+  // The second line. On an album it is the row's artist, only when that
+  // is not the album's (shown at every width). Elsewhere it is the phone
+  // line: whatever the hidden columns would have said.
+  const guestArtist =
+    variant === "album" && track.artist && albumArtist != null && track.artist !== albumArtist
+      ? track.artist
+      : null;
   const subline =
     variant === "album"
-      ? null
+      ? guestArtist
       : variant === "artist"
         ? track.album
         : [track.artist, track.album].filter(Boolean).join(" · ") || null;
@@ -291,10 +313,10 @@ export function TrackRow({
       onClick={(e) => {
         // The click a long-press or swipe leaves behind is swallowed, and
         // a tap on a revealed row closes it instead. Then the fork: a
-        // plain click on the title plays (a live pill dissolves with
-        // it); every other part of the row, and any modifier click on
-        // the title, goes to the selection grammar — where a plain click
-        // just dissolves too.
+        // tap plays; a plain mouse click on the title plays (a live pill
+        // dissolves with it); every other part of the row, and any
+        // modifier click, goes to the table — where a plain click moves
+        // the keyboard cursor and dissolves the pill.
         if (pressRef.current.fired) {
           pressRef.current.fired = false;
           return;
@@ -307,20 +329,38 @@ export function TrackRow({
           onSwipeOpenChange?.(false);
           return;
         }
-        if (
-          e.target instanceof Element &&
-          e.target.closest(".trackrow__title") != null &&
-          !e.metaKey &&
-          !e.ctrlKey &&
-          !e.altKey &&
-          !e.shiftKey
-        ) {
-          // Title click: play — a live pill dissolves with it. Cmd/Ctrl,
-          // Alt, and Shift fall through to selection.
+        const plain = !e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey;
+        // Touch: the whole row is the target (links, the heart and the
+        // menu stop their own clicks before they get here).
+        if (plain && pointerTypeRef.current === "touch") {
           onTitlePlay(index);
           return;
         }
+        if (
+          plain &&
+          e.target instanceof Element &&
+          e.target.closest(".trackrow__title") != null
+        ) {
+          // Title click: play — a live pill dissolves with it. Cmd/Ctrl,
+          // Alt, and Shift fall through to selection. The second click
+          // of a double-click is not a second request: without this the
+          // song would start and pause again.
+          if (e.detail < 2) onTitlePlay(index);
+          return;
+        }
         onSelectClick?.(track, index, e);
+      }}
+      onPointerDown={(e) => {
+        pointerTypeRef.current = e.pointerType || "mouse";
+      }}
+      onDoubleClick={(e) => {
+        // Double-click anywhere on the row body plays it. The title
+        // already played on the first click; controls keep their own.
+        if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
+        if (pointerTypeRef.current === "touch") return;
+        if (!(e.target instanceof Element)) return;
+        if (e.target.closest(".trackrow__title, button, a") != null) return;
+        onRowPlay?.(index);
       }}
       onContextMenu={
         onTrackMenu
@@ -374,9 +414,15 @@ export function TrackRow({
         {/* Phones drop the artist/album columns; this second line keeps
             "who and from what" under the title instead (hidden — visually
             and to screen readers — wherever the columns show). */}
-        {subline && <span className="trackrow__subline">{subline}</span>}
+        {subline && (
+          <span className={`trackrow__subline${guestArtist ? " trackrow__subline--always" : ""}`}>
+            {subline}
+          </span>
+        )}
       </span>
-      {variant !== "album" && (
+      {/* An artist's page already says whose songs these are: the column
+          that tells them apart there is the album. */}
+      {variant !== "album" && variant !== "artist" && (
         <span className="trackrow__secondary" role="gridcell">
           {track.artist_id != null ? (
             <Link to={`/artists/${track.artist_id}`} onClick={(e) => e.stopPropagation()}>
@@ -387,7 +433,7 @@ export function TrackRow({
           )}
         </span>
       )}
-      {variant !== "artist" && variant !== "album" && (
+      {variant !== "album" && (
         <span className="trackrow__secondary trackrow__album" role="gridcell">
           {track.album_id != null ? (
             <Link to={`/albums/${track.album_id}`} onClick={(e) => e.stopPropagation()}>

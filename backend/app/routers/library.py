@@ -14,6 +14,7 @@ from app.schemas import (
     GenreListOut,
     GenreSummary,
     TrackListOut,
+    TrackDetailOut,
     TrackOut,
 )
 from app.routers.common import (
@@ -94,6 +95,15 @@ def _directed(order_sql: str, desc: bool) -> str:
     (nulls-first clauses flip with it: DESC is the full inverse of asc)."""
     terms = [t.strip() for t in order_sql.split(",")]
     return ", ".join(f"{t} DESC" for t in terms) if desc else ", ".join(terms)
+
+
+# Sorts that mean "latest first": a caller that names one without a
+# direction gets the newest at the top, not the oldest.
+NEWEST_FIRST_SORTS = {"recent", "played"}
+
+
+def _is_desc(sort: str, dir: str | None) -> bool:
+    return dir == "desc" if dir is not None else sort in NEWEST_FIRST_SORTS
 
 
 def track_order_by(sort: str, desc: bool) -> str:
@@ -261,13 +271,23 @@ def list_tracks(
     )
 
 
-@router.get("/api/tracks/{track_id}", response_model=TrackOut)
-def get_track(request: Request, track_id: int) -> TrackOut:
+TRACK_DETAIL_SELECT = TRACK_SELECT.replace(
+    "SELECT", "SELECT t.bitrate, t.sample_rate, t.size,", 1
+)
+
+
+@router.get("/api/tracks/{track_id}", response_model=TrackDetailOut)
+def get_track(request: Request, track_id: int) -> TrackDetailOut:
     conn = request.app.state.db.connect()
-    row = conn.execute(f"{TRACK_SELECT} WHERE t.id = ?", (track_id,)).fetchone()
+    row = conn.execute(f"{TRACK_DETAIL_SELECT} WHERE t.id = ?", (track_id,)).fetchone()
     if row is None:
         raise HTTPException(status_code=404, detail="Track not found")
-    return track_out(row)
+    return TrackDetailOut(
+        **track_out(row).model_dump(),
+        bitrate=row["bitrate"],
+        sample_rate=row["sample_rate"],
+        size=row["size"],
+    )
 
 
 @router.get("/api/albums", response_model=AlbumListOut)
@@ -275,7 +295,7 @@ def list_albums(
     request: Request,
     q: str | None = Query(None, max_length=MAX_QUERY),
     sort: str = "title",
-    dir: str = "asc",
+    dir: str | None = None,
     limit: int = Query(DEFAULT_LIMIT, ge=1),
     offset: int = Query(0, ge=0),
 ) -> AlbumListOut:
@@ -295,7 +315,7 @@ def list_albums(
         "LEFT JOIN tracks t ON t.album_id = al.id"
     )
     order = ALBUM_SORTS.get(sort, ALBUM_SORTS["title"])
-    directed = _directed(order, dir == "desc")
+    directed = _directed(order, _is_desc(sort, dir))
 
     total = conn.execute(
         f"SELECT COUNT(DISTINCT al.id) AS c {base} {clause}", params
@@ -494,7 +514,7 @@ def list_genres(
     request: Request,
     q: str | None = Query(None, max_length=MAX_QUERY),
     sort: str = "name",
-    dir: str = "asc",
+    dir: str | None = None,
     limit: int = Query(DEFAULT_LIMIT, ge=1),
     offset: int = Query(0, ge=0),
 ) -> GenreListOut:
@@ -518,7 +538,7 @@ def list_genres(
         "recent": "MAX(t.added_at)",
     }
     order = GENRE_SORTS.get(sort, GENRE_SORTS["name"])
-    directed = _directed(order, dir == "desc")
+    directed = _directed(order, _is_desc(sort, dir))
 
     rows = conn.execute(
         f"SELECT g.id, g.name, COUNT(DISTINCT tg.track_id) AS track_count, "

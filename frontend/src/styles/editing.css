@@ -833,7 +833,7 @@ textarea.inlineedit__input {
   min-width: 0;
 }
 
-.getinfo__albumname {
+.getinfo__songname {
   font-size: var(--text-body);
   font-weight: 600;
   overflow: hidden;
@@ -841,12 +841,13 @@ textarea.inlineedit__input {
   white-space: nowrap;
 }
 
-.getinfo__format {
+/* What Flow knows about the file, as written: no capitals, so "kbps" and
+   "kHz" read as units. */
+.getinfo__facts {
   margin-top: 2px;
   font-size: var(--text-caption);
   color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  font-variant-numeric: tabular-nums;
 }
 
 /* The file's library-relative path — read-only reference, one click

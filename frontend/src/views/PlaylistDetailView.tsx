@@ -23,7 +23,7 @@ import { IconPlaylists, IconPlus, IconTrash } from "../components/icons";
 import { PlaylistArt } from "../components/PlaylistArt";
 import { TrackTable } from "../components/TrackTable";
 import { TrackTableHead } from "../components/TrackTableHead";
-import { fmtCount, fmtDateTime, fmtMinutes } from "../lib/format";
+import { fmtCount, fmtDate, fmtMinutes } from "../lib/format";
 import { coverChangeNotice, coverRemovalNotice } from "../lib/coverUndo";
 import { useUiStore } from "../stores/ui";
 import { useQueryClient } from "@tanstack/react-query";
@@ -152,9 +152,9 @@ export function PlaylistDetailView() {
   };
 
   const metaBits = [
-    `${fmtCount(playlist.track_count)} track${playlist.track_count === 1 ? "" : "s"}`,
+    `${fmtCount(playlist.track_count)} song${playlist.track_count === 1 ? "" : "s"}`,
     playlist.track_count > 0 ? fmtMinutes(playlist.duration_total) : null,
-    fmtDateTime(playlist.created_at),
+    playlist.created_at ? `Created ${fmtDate(playlist.created_at)}` : null,
   ].filter(Boolean);
 
   // Removal: no confirmation — a frequent, low-stakes action recovers by
@@ -222,7 +222,7 @@ export function PlaylistDetailView() {
               addToPlaylist={false}
               extraItems={[
                 {
-                  label: "Add Tracks",
+                  label: "Add Songs",
                   icon: <IconPlus size={15} />,
                   onSelect: () => setAdding(true),
                 },
@@ -251,7 +251,7 @@ export function PlaylistDetailView() {
             <>
               Search your library right here — pick a song, an album, anything.{" "}
               <button type="button" className="empty-state__link" onClick={() => setAdding(true)}>
-                Add your first tracks
+                Add your first songs
               </button>
             </>
           }

@@ -79,6 +79,38 @@ def test_albums_list_and_detail(client, library):
     assert missing.status_code == 404
 
 
+def test_recent_albums_default_to_newest_first(client, library):
+    """"Recently added" without a direction must not mean the oldest: the
+    Home shelf once sent exactly that and showed the twelve oldest albums."""
+    conn = client.app.state.db.connect()
+    conn.execute("UPDATE tracks SET added_at = '2020-01-01T00:00:00+00:00'")
+    conn.execute(
+        "UPDATE tracks SET added_at = '2026-01-01T00:00:00+00:00' WHERE album_id = "
+        "(SELECT id FROM albums WHERE title = 'Origin')"
+    )
+    conn.commit()
+
+    titles = lambda url: [a["title"] for a in client.get(url).json()["items"]]  # noqa: E731
+    assert titles("/api/albums?sort=recent")[0] == "Origin"
+    assert titles("/api/albums?sort=recent&dir=desc")[0] == "Origin"
+    assert titles("/api/albums?sort=recent&dir=asc")[-1] == "Origin"
+    # Every other sort still reads ascending unless told otherwise.
+    assert titles("/api/albums?sort=title") == sorted(titles("/api/albums?sort=title"), key=str.lower)
+
+
+def test_one_track_carries_the_file_facts(client, library):
+    """Get Info reads bitrate, sample rate and size from the single-track
+    endpoint; the list rows stay lean."""
+    listed = client.get("/api/tracks").json()["items"][0]
+    assert "bitrate" not in listed and "size" not in listed
+
+    one = client.get(f"/api/tracks/{listed['id']}").json()
+    assert one["title"] == listed["title"]
+    assert one["size"] > 0
+    assert one["sample_rate"] in (44100, 48000)
+    assert one["bitrate"] is None or one["bitrate"] > 0
+
+
 def test_artists_list_and_detail(client, library):
     artists = client.get("/api/artists").json()
     assert artists["total"] == 3
