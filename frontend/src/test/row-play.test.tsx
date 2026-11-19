@@ -133,7 +133,9 @@ describe("what plays a row", () => {
     render(wrap(<TrackTable tracks={TRACKS} />));
     doubleClick(cell("Two", ".trackrow__time"));
     expect(togglePlay).toHaveBeenCalledTimes(1);
-    act(() => usePlayerStore.setState({ isPlaying: true }));
+    act(() => {
+      usePlayerStore.setState({ isPlaying: true });
+    });
     doubleClick(cell("Two", ".trackrow__time"));
     expect(togglePlay).toHaveBeenCalledTimes(1);
     expect(playTracks).not.toHaveBeenCalled();

@@ -118,9 +118,10 @@ describe("Home's Recently added shelf", () => {
       </MemoryRouter>,
     );
     await act(async () => {});
-    const recent = clientApi.api.GET.mock.calls.find(
+    type Call = [string, { params?: { query?: { sort?: string; dir?: string } } }?];
+    const recent = (clientApi.api.GET.mock.calls as Call[]).find(
       ([path, init]) => path === "/api/albums" && init?.params?.query?.sort === "recent",
     );
-    expect(recent?.[1].params.query.dir).toBe("desc");
+    expect(recent?.[1]?.params?.query?.dir).toBe("desc");
   });
 });
