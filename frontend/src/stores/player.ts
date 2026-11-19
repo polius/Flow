@@ -2110,6 +2110,26 @@ async function claimSession(): Promise<void> {
   setStateRestoring({ queue: queue.map((t) => ({ ...t })) });
 }
 
+/** The signed-in session is over. The sound stops at once — the app is
+    about to show the sign-in page, and music with no control on screen is
+    a room nobody can turn off. An explicit sign-out (`forget`) also drops
+    the queue and this browser's saved copy of it: the next person at this
+    browser starts clean. A session that merely expired keeps both, so
+    signing back in resumes it. */
+export function endPlayback({ forget }: { forget: boolean }): void {
+  playEpoch++; // any pending async play is now stale
+  intendPlay = false;
+  clearStallWatch();
+  clearNetworkHold();
+  if (audio) {
+    audio.pause();
+    if (standbyTrack != null) resetStandby();
+  }
+  usePlayerStore.setState({ isPlaying: false, sleep: null });
+  clearSleepHandle();
+  if (forget) clearLocalSession();
+}
+
 /** Sign-in landed (or the status says Login is off): adopt the server's
     session now — the boot-time attempt was refused before this browser
     had a session cookie. A no-op unless that attempt was refused. */
