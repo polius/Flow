@@ -321,12 +321,13 @@ export function NowPlaying() {
                     />
                     <button
                       type="button"
-                      className="nowplaying__addto"
+                      className="nowplaying__addto nowplaying__iconpill"
                       onClick={() => openAddToPlaylist([track])}
                       aria-haspopup="dialog"
+                      aria-label="Add to Playlist"
                     >
                       <IconPlaylistAdd size={13} />
-                      Add to Playlist
+                      <span className="nowplaying__pilltext">Add to Playlist</span>
                     </button>
                   </>
                 )}

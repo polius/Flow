@@ -280,8 +280,7 @@
   gap: 10px 12px;
 }
 
-/* Phones: the heart and the two pills stay on one line, and no label
-   breaks in two ("Add to / Playlist"). */
+/* Phones: the row stays on one line, and no label breaks in two. */
 @media (max-width: 640px) {
   .nowplaying__actions {
     gap: 8px;
@@ -290,6 +289,24 @@
   .nowplaying__addto {
     padding-inline: 12px;
     white-space: nowrap;
+  }
+
+  /* The sleep timer wrapped to a line of its own under the heart and
+     Add to Playlist (on a 360px phone, and on any phone once Lyrics
+     joins the row): the row is only as wide as the cover. Add to Playlist
+     and an idle sleep timer are icons in 30px circles like the heart, and
+     a running timer shows the time left without the "Sleep:" prefix. Each
+     keeps its name for assistive technology (aria-label). */
+  .nowplaying__iconpill {
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    justify-content: center;
+  }
+
+  .nowplaying__iconpill .nowplaying__pilltext,
+  .nowplaying__sleepprefix {
+    display: none;
   }
 }
 
