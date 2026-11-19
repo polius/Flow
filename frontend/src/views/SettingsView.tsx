@@ -11,7 +11,6 @@ import { usePlayerStore } from "../stores/player";
 import { useScanStore } from "../stores/scan";
 import { useUiStore, type HomeIcon, type ThemeMode } from "../stores/ui";
 import { AccessSettings } from "../components/AccessSettings";
-import { ListenBrainzSettings } from "../components/ListenBrainzSettings";
 import { useReviewCount } from "../components/ReviewStrip";
 import { ScanErrorsPanel } from "../components/ScanErrors";
 
@@ -405,7 +404,6 @@ export function SettingsView() {
               </div>
             </div>
           )}
-          <ListenBrainzSettings status={settings?.listenbrainz} />
           {version && (
             <div className="settings-group">
               <h2>About</h2>

@@ -8,7 +8,6 @@ import sqlite3
 
 from fastapi import APIRouter, HTTPException, Query, Request
 
-from app import scrobble
 from app.db import retry_locked
 from app.routers.common import TxRoute, chunks as _chunks, utcnow as _now
 from app.routers.library import (
@@ -415,15 +414,11 @@ def patch_queue(request: Request, body: QueuePatchIn) -> QueuePlayheadOut:
                 (stamp, body.played_track_id),
             ).rowcount
             if stamped:
-                play = conn.execute(
+                conn.execute(
                     "INSERT OR IGNORE INTO plays (track_id, played_at, listen_id) "
                     "VALUES (?, ?, ?)",
                     (body.played_track_id, stamp, body.listen_id),
                 )
-                if play.rowcount:
-                    # Queued for ListenBrainz only while a token is set.
-                    scrobble.enqueue(conn, play.lastrowid)
-                    result["played"] = True
         if moves_playhead:
             try:
                 _hold(conn, body.device, take=False)
@@ -462,8 +457,6 @@ def patch_queue(request: Request, body: QueuePatchIn) -> QueuePlayheadOut:
     # Stamp and playhead share one retry window — a scan's write transaction
     # must not thin the played_at record either.
     _write_transaction(conn, _apply)
-    if result.get("played"):
-        request.app.state.scrobbler.kick()  # sends only with a token set
     if result.get("refused"):
         raise HTTPException(status_code=409, detail="Playing on another device")
     return QueuePlayheadOut(

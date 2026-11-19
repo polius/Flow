@@ -19,7 +19,6 @@ from app import artwork as artwork_core
 from app import auth as auth_core
 from app import config
 from app import demo as demo_mode
-from app import scrobble
 from app import heal
 from app.db import Database
 from app.events import ScanBus
@@ -164,7 +163,6 @@ def create_app() -> FastAPI:
 
     bus = ScanBus()
     scanner = LibraryScanner(db, config.MUSIC_DIR, bus)
-    scrobbler = scrobble.Sender(db)
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
@@ -205,10 +203,8 @@ def create_app() -> FastAPI:
                 demo_mode.seed_when_indexed(db, demo_tracks)
             elif empty and _has_entries(config.MUSIC_DIR):
                 scanner.start_scan(trigger="startup")
-            scrobbler.start()
             yield
         finally:
-            scrobbler.stop()
             watcher.stop()
 
     app = FastAPI(
@@ -224,7 +220,6 @@ def create_app() -> FastAPI:
     app.state.db = db
     app.state.scan_bus = bus
     app.state.scanner = scanner
-    app.state.scrobbler = scrobbler
 
     @app.get("/api/health", tags=["system"], response_model=Health)
     def health() -> Health:

@@ -64,11 +64,6 @@ WATCHER_MODE = os.environ.get("FLOW_WATCHER", "auto").strip().lower()
 POLL_INTERVAL = float(os.environ.get("FLOW_POLL_INTERVAL", "60"))
 WATCH_DEBOUNCE = float(os.environ.get("FLOW_WATCH_DEBOUNCE", "2.0"))
 
-# ListenBrainz (scrobbling): nothing is ever sent until a token is set in
-# Settings. The address is configurable for a self-hosted ListenBrainz
-# (and for tests).
-LISTENBRAINZ_URL = os.environ.get("FLOW_LISTENBRAINZ_URL", "https://api.listenbrainz.org").rstrip("/")
-
 # Login bootstrap. FLOW_PASSWORD seeds the login password at boot when none
 # is set (never overwrites one chosen in Settings), so a fresh install isn't
 # open to whoever arrives first. FLOW_RESET_PASSWORD=1 is the recovery path:

@@ -2,14 +2,12 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Request
 
-from app import config, scrobble
+from app import config
 from app.routers.common import TxRoute
 from app.schemas import (
     LibraryCounts,
-    ListenBrainzIn,
-    ListenBrainzStatus,
     ScanStatus,
     SettingsOut,
 )
@@ -50,26 +48,4 @@ def get_settings(request: Request) -> SettingsOut:
         library_exists=config.MUSIC_DIR.is_dir(),
         scan=scan,
         counts=counts,
-        listenbrainz=ListenBrainzStatus(**scrobble.status(conn)),
     )
-
-
-@router.put("/api/listenbrainz", response_model=ListenBrainzStatus)
-def put_listenbrainz(request: Request, body: ListenBrainzIn) -> ListenBrainzStatus:
-    """Save a ListenBrainz token (checked with ListenBrainz first), or with
-    null turn scrobbling off. The only request Flow makes to the outside
-    before a token is saved is this check, on the owner's say-so."""
-    conn = request.app.state.db.connect()
-    tok = body.token.strip() if body.token is not None else None
-    if tok:
-        if not scrobble.token_is_well_formed(tok):
-            raise HTTPException(status_code=400, detail="ListenBrainz didn't accept this token")
-        try:
-            known = scrobble.validate(tok)
-        except scrobble.REQUEST_ERRORS as exc:
-            raise HTTPException(status_code=502, detail="Couldn't reach ListenBrainz") from exc
-        if not known:
-            raise HTTPException(status_code=400, detail="ListenBrainz didn't accept this token")
-    scrobble.set_token(conn, tok or None)
-    conn.commit()
-    return ListenBrainzStatus(**scrobble.status(conn))
