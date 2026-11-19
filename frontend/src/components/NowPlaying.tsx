@@ -25,6 +25,8 @@ import {
   IconRepeat,
   IconShuffle,
 } from "./icons";
+import { useLyrics } from "../lib/lyrics";
+import { LyricsPanel } from "./Lyrics";
 import { QueuePanel } from "./QueuePanel";
 import { SleepTimer } from "./SleepTimer";
 import { PlayPauseButton, Scrubber, TransportButton } from "./transport";
@@ -49,6 +51,13 @@ export function NowPlaying() {
 
   const narrow = useMediaQuery(NARROW_BP);
   const [queueOpen, setQueueOpen] = useState(false);
+  // Lyrics take the queue's column on a desktop and the cover's place on
+  // a phone. The choice holds from song to song; a song with no lyrics
+  // shows neither the button nor the panel.
+  const [lyricsOn, setLyricsOn] = useState(false);
+  const { data: lyrics } = useLyrics(open ? track?.id : null);
+  const hasLyrics = lyrics != null && lyrics.lines.length > 0;
+  const showLyrics = lyricsOn && hasLyrics;
   const surfaceRef = useRef<HTMLDivElement>(null);
 
   // Modal focus: focus moves into the takeover on open, Tab cycles
@@ -137,12 +146,16 @@ export function NowPlaying() {
       <div className="nowplaying__layout">
         {track ? (
           <div className="nowplaying__stage">
-            <Artwork
-              artworkId={track.artwork_id}
-              size={400}
-              radius="l"
-              className="nowplaying__art"
-            />
+            {narrow && showLyrics ? (
+              <LyricsPanel lyrics={lyrics} className="lyrics--stage" />
+            ) : (
+              <Artwork
+                artworkId={track.artwork_id}
+                size={400}
+                radius="l"
+                className="nowplaying__art"
+              />
+            )}
             <div className="nowplaying__meta">
               <h1 className="nowplaying__title">{track.title}</h1>
               <p className="nowplaying__artist">
@@ -249,6 +262,16 @@ export function NowPlaying() {
                     </button>
                   </>
                 )}
+                {hasLyrics && (
+                  <button
+                    type="button"
+                    className={`nowplaying__addto${showLyrics ? " nowplaying__addto--on" : ""}`}
+                    aria-pressed={showLyrics}
+                    onClick={() => setLyricsOn(!showLyrics)}
+                  >
+                    Lyrics
+                  </button>
+                )}
                 <SleepTimer />
               </div>
             </div>
@@ -268,7 +291,11 @@ export function NowPlaying() {
           </div>
         )}
 
-        <QueuePanel onCollapse={narrow ? () => setQueueOpen(false) : undefined} />
+        {!narrow && showLyrics ? (
+          <LyricsPanel lyrics={lyrics} className="lyrics--column" />
+        ) : (
+          <QueuePanel onCollapse={narrow ? () => setQueueOpen(false) : undefined} />
+        )}
       </div>
     </div>
   );

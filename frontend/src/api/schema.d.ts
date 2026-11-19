@@ -611,6 +611,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/tracks/{track_id}/lyrics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Lyrics
+         * @description The song's lyrics from its own files: a .lrc beside it, its lyrics
+         *     tag, or a .txt beside it. Never fetched from anywhere else.
+         */
+        get: operations["get_lyrics_api_tracks__track_id__lyrics_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/artwork/{artwork_id}": {
         parameters: {
             query?: never;
@@ -947,6 +968,24 @@ export interface components {
         LoginIn: {
             /** Password */
             password: string;
+        };
+        /** LyricsLine */
+        LyricsLine: {
+            /** Time */
+            time: number | null;
+            /** Text */
+            text: string;
+        };
+        /**
+         * LyricsOut
+         * @description A song's lyrics from its own files (a .lrc or .txt beside it, or its
+         *     lyrics tag). No lines: the song has none.
+         */
+        LyricsOut: {
+            /** Synced */
+            synced: boolean;
+            /** Lines */
+            lines: components["schemas"]["LyricsLine"][];
         };
         /**
          * PasswordIn
@@ -2639,6 +2678,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_lyrics_api_tracks__track_id__lyrics_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                track_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LyricsOut"];
                 };
             };
             /** @description Validation Error */

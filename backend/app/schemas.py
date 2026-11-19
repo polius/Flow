@@ -95,6 +95,20 @@ class Health(BaseModel):
 # ---- Library -----------------------------------------------------------------
 
 
+class LyricsLine(BaseModel):
+    # Seconds into the song where the line starts; null when unsynced.
+    time: float | None
+    text: str
+
+
+class LyricsOut(BaseModel):
+    """A song's lyrics from its own files (a .lrc or .txt beside it, or its
+    lyrics tag). No lines: the song has none."""
+
+    synced: bool
+    lines: list[LyricsLine]
+
+
 class TrackOut(BaseModel):
     id: int
     title: str
