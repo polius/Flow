@@ -49,6 +49,7 @@ export function VirtualCardGrid({
   const [scrollEl, setScrollEl] = useState<HTMLElement | null>(() =>
     document.querySelector<HTMLElement>(".shell__canvas"),
   );
+  const [gridTop, setGridTop] = useState(0);
   const [width, setWidth] = useState(0);
 
   // Measured before the first paint, so the grid is born at its full
@@ -56,9 +57,20 @@ export function VirtualCardGrid({
   useLayoutEffect(() => {
     const el = containerRef.current;
     if (!el) return;
-    setScrollEl(el.closest<HTMLElement>(".shell__canvas"));
-    setWidth(el.clientWidth);
-    const observer = new ResizeObserver(() => setWidth(el.clientWidth));
+    const scroller = el.closest<HTMLElement>(".shell__canvas");
+    setScrollEl(scroller);
+    // Where the grid starts inside the scroller's content. offsetTop is
+    // measured from the nearest positioned ancestor, which is not the
+    // scroller: a jump landed that far too low (57 px on Albums).
+    const measure = () => {
+      setWidth(el.clientWidth);
+      if (scroller) {
+        const top = el.getBoundingClientRect().top - scroller.getBoundingClientRect().top;
+        setGridTop(top + scroller.scrollTop);
+      }
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
     observer.observe(el);
     return () => observer.disconnect();
   }, []);
@@ -74,7 +86,7 @@ export function VirtualCardGrid({
     estimateSize: () => rowEstimate,
     overscan: OVERSCAN_ROWS,
     // The grid sits below the view's head inside the scroller.
-    scrollMargin: containerRef.current?.offsetTop ?? 0,
+    scrollMargin: gridTop,
   });
   // A new column count is a new set of rows: forget the measured heights.
   useEffect(() => {

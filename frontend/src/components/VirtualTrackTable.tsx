@@ -180,11 +180,10 @@ export function VirtualTrackTable({
     virtualizer.scrollToIndex(cursor, { align: "auto" });
   }, [cursor, virtualizer, tracks.length]);
 
-  /* Marquee selection: Cmd/Shift-click selects over the
-     loaded rows; the floating quiet bar files the selection. The loaded
-     rows are exactly the rows that can be clicked, so every selected id
-     resolves to a real track here. */
-  const selection = useTrackSelection(tracks, current?.id ?? null);
+  /* Marquee selection: Cmd/Shift-click selects; the floating quiet bar
+     files the selection. A shift range over rows a jump skipped loads
+     them first, and the bar waits for them. */
+  const selection = useTrackSelection(tracks, current?.id ?? null, onRangeChange);
   /* Title clicks play through the same whole-view resolution as the
      Play button, and any live selection dissolves with the play. */
   const playFromTitle = (index: number) => {
@@ -200,6 +199,7 @@ export function VirtualTrackTable({
   const selectionBar = selection.count > 0 && (
     <SelectionBar
       count={selection.count}
+      loading={selection.loading}
       allFavorite={allFavorite}
       onAddToPlaylist={() => openAddToPlaylist(selection.selectedTracks)}
       onAddToQueue={() => {
