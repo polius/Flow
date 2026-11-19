@@ -283,7 +283,12 @@
 /* Phones: the row stays on one line, and no label breaks in two. */
 @media (max-width: 640px) {
   .nowplaying__actions {
-    gap: 8px;
+    gap: 14px;
+    /* As wide as its buttons need, up to the screen less its margins,
+       even where that is wider than the cover above it (a 360px phone
+       with Lyrics and a running timer). Centred either way. */
+    width: max-content;
+    max-width: calc(100vw - 32px);
   }
 
   .nowplaying__addto {
@@ -294,14 +299,32 @@
   /* The sleep timer wrapped to a line of its own under the heart and
      Add to Playlist (on a 360px phone, and on any phone once Lyrics
      joins the row): the row is only as wide as the cover. Add to Playlist
-     and an idle sleep timer are icons in 30px circles like the heart, and
+     and an idle sleep timer are icons in circles like the heart, and
      a running timer shows the time left without the "Sleep:" prefix. Each
      keeps its name for assistive technology (aria-label). */
   .nowplaying__iconpill {
-    width: 30px;
-    height: 30px;
+    width: 40px;
+    height: 40px;
     padding: 0;
     justify-content: center;
+  }
+
+  /* Without labels the icons carry the row: 40px circles with 18px
+     icons, and the pills that keep a label (Lyrics, a running timer)
+     share the height. */
+  .nowplaying__actions .nowplaying__fav {
+    width: 40px;
+    height: 40px;
+  }
+
+  .nowplaying__actions .nowplaying__fav svg,
+  .nowplaying__iconpill svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  .nowplaying__addto {
+    min-height: 40px;
   }
 
   .nowplaying__iconpill .nowplaying__pilltext,
