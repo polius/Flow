@@ -1746,7 +1746,7 @@ function writeLocalQueue(): void {
 function writeQueueSnapshot(keepalive = false): void {
   writeLocalQueue();
   const { queue, order, orderPos, position, origin } = usePlayerStore.getState();
-  saveServerQueue({ tracks: queue, order, orderPos, position, origin }, keepalive);
+  void saveServerQueue({ tracks: queue, order, orderPos, position, origin }, keepalive);
 }
 
 function writePlayhead(started = false, keepalive = false): void {
@@ -2045,7 +2045,12 @@ async function adoptServerSession(attempt = 0): Promise<void> {
     return;
   }
   adoptionAwaitingNetwork = false;
-  if (sessionTouched) return; // this browser's session already began
+  if (sessionTouched) {
+    // This browser's session already began: the server's copy is not
+    // adopted — it is replaced.
+    void claimSession();
+    return;
+  }
   if (result.status === "empty") {
     // The server answered and its truth is "nothing is playing" —
     // authoritative for clearing, never a reason to degrade to a local
@@ -2078,6 +2083,28 @@ async function adoptServerSession(attempt = 0): Promise<void> {
     duration: track.duration || 0,
   });
   syncWindowTitle();
+}
+
+/** The listener acted on the local queue before the server's copy arrived
+    (pressed Play on a restored session). The playhead writes that follow
+    are positions in THIS queue, and the server would apply them to
+    whatever queue it still held — the next reload, or another device,
+    then got that other queue at an arbitrary song. So the server is told
+    which queue is playing. When it stores every row (none were removed by
+    a scan since this browser saved them), the rows are vouched for: the
+    surfaces get their links, the heart and L back. */
+async function claimSession(): Promise<void> {
+  const { queue, order, orderPos, position, origin } = usePlayerStore.getState();
+  if (queue.length === 0) return;
+  const stored = await saveServerQueue({ tracks: queue, order, orderPos, position, origin });
+  if (stored !== queue.length) return;
+  // An edit made meanwhile mirrors itself, and its rows came from live
+  // fetches; only the queue that was sent is vouched for.
+  if (usePlayerStore.getState().queue !== queue) return;
+  if (!queue.some((t) => unverifiedRows.has(t))) return;
+  // Fresh row objects: membership in `unverifiedRows` is by object, and
+  // the surfaces re-read it when the rows they hold change.
+  setStateRestoring({ queue: queue.map((t) => ({ ...t })) });
 }
 
 /** Sign-in landed (or the status says Login is off): adopt the server's

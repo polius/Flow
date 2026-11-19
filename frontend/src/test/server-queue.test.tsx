@@ -137,6 +137,71 @@ describe("server-queue restore", () => {
     expect(usePlayerStore.getState().queue[0]?.title).toBe("Local Track");
   });
 
+  it("pressing play before the saved queue arrives sends this queue up and vouches for it", async () => {
+    const local = [
+      { ...TRACKS[0], id: 7, title: "Local One" },
+      { ...TRACKS[0], id: 8, title: "Local Two" },
+    ];
+    localStorage.setItem(
+      "flow.player.queue",
+      JSON.stringify({ queue: local, order: [0, 1] }),
+    );
+    let release: (value: ReturnType<typeof session>) => void = () => {};
+    queueApi.fetchServerQueue.mockReturnValue(
+      new Promise((resolve) => {
+        release = resolve;
+      }),
+    );
+    // The server stores both rows.
+    queueApi.saveServerQueue.mockResolvedValue(2);
+
+    const { usePlayerStore, trackIsUnverified } = await import("../stores/player");
+    expect(trackIsUnverified(usePlayerStore.getState().queue[0])).toBe(true);
+
+    // Play, on the restored queue: no plan change, so nothing mirrored yet.
+    usePlayerStore.setState({ isPlaying: true, orderPos: 1 });
+    expect(queueApi.saveServerQueue).not.toHaveBeenCalled();
+
+    release(session(1)); // the server still held a different queue
+    await new Promise((r) => setTimeout(r, 0));
+
+    // The queue that is playing is the one the server now holds...
+    expect(queueApi.saveServerQueue).toHaveBeenCalledTimes(1);
+    const sent = queueApi.saveServerQueue.mock.calls[0][0] as {
+      tracks: { id: number }[];
+      orderPos: number;
+    };
+    expect(sent.tracks.map((t) => t.id)).toEqual([7, 8]);
+    expect(sent.orderPos).toBe(1);
+    // ...it was not replaced, and its rows are vouched for: links, the heart and L work.
+    const state = usePlayerStore.getState();
+    expect(state.queue.map((t) => t.title)).toEqual(["Local One", "Local Two"]);
+    expect(state.orderPos).toBe(1);
+    expect(state.queue.some((t) => trackIsUnverified(t))).toBe(false);
+  });
+
+  it("rows the server could not store stay unvouched", async () => {
+    localStorage.setItem(
+      "flow.player.queue",
+      JSON.stringify({ queue: [{ ...TRACKS[0], id: 7 }, { ...TRACKS[0], id: 8 }], order: [0, 1] }),
+    );
+    let release: (value: ReturnType<typeof session>) => void = () => {};
+    queueApi.fetchServerQueue.mockReturnValue(
+      new Promise((resolve) => {
+        release = resolve;
+      }),
+    );
+    queueApi.saveServerQueue.mockResolvedValue(1); // one id no longer exists
+
+    const { usePlayerStore, trackIsUnverified } = await import("../stores/player");
+    usePlayerStore.setState({ isPlaying: true });
+    release(session(1));
+    await new Promise((r) => setTimeout(r, 0));
+
+    expect(queueApi.saveServerQueue).toHaveBeenCalledTimes(1);
+    expect(usePlayerStore.getState().queue.every((t) => trackIsUnverified(t))).toBe(true);
+  });
+
   it("an unreachable server degrades to the localStorage snapshot, rows unverified", async () => {
     const local = [{ ...TRACKS[0], id: 7, title: "Local Track" }];
     localStorage.setItem(
