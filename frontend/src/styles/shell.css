@@ -128,9 +128,9 @@
      an old build against the new server. It goes when the page reloads. */
   .servernotice--updated {
     flex-direction: column;
-    gap: 16px;
+    gap: 24px;
     width: min(300px, calc(100% - 32px));
-    padding: 24px 24px 20px;
+    padding: 32px 28px 28px;
     border-radius: 20px;
     text-align: center;
   }
