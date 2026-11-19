@@ -272,6 +272,39 @@ def test_sized_artwork_cache_follows_the_content(client, library, real_cover, tm
     assert sorted(cache.iterdir()) == [second]
 
 
+def test_artwork_revalidates_and_serves_cached_thumbnails_from_the_hash(
+    client, library, real_cover, tmp_path, monkeypatch
+):
+    """A thumbnail on disk is served from the id and hash alone, without
+    reading the original; If-None-Match with the current ETag is a 304."""
+    from app import config
+
+    monkeypatch.setattr(config, "DATA_DIR", tmp_path / "data")
+    artwork_id = _store(client, real_cover)
+    first = client.get(f"/api/artwork/{artwork_id}", params={"s": 128})
+    etag = first.headers["etag"]
+    assert etag != client.get(f"/api/artwork/{artwork_id}").headers["etag"]  # per size
+
+    again = client.get(
+        f"/api/artwork/{artwork_id}", params={"s": 100}, headers={"If-None-Match": etag}
+    )
+    assert again.status_code == 304
+    assert again.content == b""
+    assert "immutable" in again.headers["cache-control"]
+    assert client.get(
+        f"/api/artwork/{artwork_id}", params={"s": 128}, headers={"If-None-Match": '"other"'}
+    ).status_code == 200
+
+    # The original is no longer read for a cached size: make it unreadable
+    # as an image (same hash) and the thumbnail is still what comes back.
+    conn = client.app.state.db.connect()
+    conn.execute("UPDATE artwork SET blob = ? WHERE id = ?", (b"not an image", artwork_id))
+    conn.commit()
+    cached = client.get(f"/api/artwork/{artwork_id}", params={"s": 128})
+    assert cached.headers["content-type"] == "image/jpeg"
+    assert cached.content == first.content
+
+
 def test_sized_artwork_falls_back_to_the_original(client, library, tmp_path, monkeypatch):
     from app import config
 
