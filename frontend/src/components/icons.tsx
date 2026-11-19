@@ -200,6 +200,14 @@ export function IconChevronDown(props: IconProps) {
   );
 }
 
+export function IconChevronUp(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="m6 14.5 6-6 6 6" />
+    </Icon>
+  );
+}
+
 export function IconGrip(props: IconProps) {
   return (
     <Icon {...props}>

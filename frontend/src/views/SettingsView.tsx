@@ -97,6 +97,8 @@ export function SettingsView() {
   const setThemeMode = useUiStore((s) => s.setThemeMode);
   const homeIcon = useUiStore((s) => s.homeIcon);
   const setHomeIcon = useUiStore((s) => s.setHomeIcon);
+  const letterKeys = useUiStore((s) => s.letterKeys);
+  const setLetterKeys = useUiStore((s) => s.setLetterKeys);
   const soundcheck = usePlayerStore((s) => s.soundcheck);
   const setSoundcheck = usePlayerStore((s) => s.setSoundcheck);
   const openOrganize = useUiStore((s) => s.openOrganize);
@@ -198,6 +200,32 @@ export function SettingsView() {
                   aria-haspopup="dialog"
                 >
                   Show
+                </button>
+              </span>
+            </div>
+            <div className="settings-row settings-row--stack">
+              <span className="settings-row__label">
+                <span id="settings-letterkeys-label">Single-key shortcuts</span>
+                <span className="settings-row__hint" id="settings-letterkeys-hint">
+                  Keys such as M, S, Q and the digits. Turn this off if speech
+                  input or a switch device presses them by accident; shortcuts
+                  that use Space, the arrows or a modifier stay on.
+                </span>
+              </span>
+              <span className="settings-row__value">
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={letterKeys}
+                  aria-labelledby="settings-letterkeys-label"
+                  aria-describedby="settings-letterkeys-hint"
+                  className={`settingstoggle${letterKeys ? " settingstoggle--on" : ""}`}
+                  onClick={() => setLetterKeys(!letterKeys)}
+                >
+                  <span className="settingstoggle__knob" aria-hidden="true" />
+                  <span className="settingstoggle__label" aria-hidden="true">
+                    {letterKeys ? "On" : "Off"}
+                  </span>
                 </button>
               </span>
             </div>

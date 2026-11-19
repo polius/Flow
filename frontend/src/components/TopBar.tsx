@@ -24,6 +24,7 @@ import { useAppVersion } from "../api/system";
 import { useDebouncedValue } from "../lib/debounce";
 import { fmtCount, scanProgressFraction, scanStatusLabel } from "../lib/format";
 import { useMediaQuery } from "../lib/media";
+import { MOD_KEY } from "../lib/platform";
 import { useScanStore } from "../stores/scan";
 import { usePlayerStore } from "../stores/player";
 import { useUiStore } from "../stores/ui";
@@ -579,6 +580,7 @@ function SearchZone({
           placeholder="Albums, artists, songs, playlists…"
           value={text}
           aria-label="Search library"
+          title={`Search (/ or ${MOD_KEY}F)`}
           // The ARIA combobox contract: the field owns the panel, says
           // whether it is open, and points at the highlighted option so a
           // screen reader follows the arrows (focus never leaves the field).

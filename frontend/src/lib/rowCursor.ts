@@ -93,6 +93,8 @@ export function useRowCursor(
       setCursor(to);
       return;
     }
+    // Shift+↑/↓ is the volume, everywhere: the cursor lets it pass.
+    if (e.shiftKey && (e.key === "ArrowUp" || e.key === "ArrowDown")) return;
     const move = (next: number) => {
       e.preventDefault();
       setCursor(Math.max(0, Math.min(last, next)));
