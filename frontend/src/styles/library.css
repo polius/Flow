@@ -40,6 +40,26 @@
   color: var(--text-secondary);
 }
 
+/* The windowed grid (VirtualCardGrid): the container is as tall as the
+   whole list and each row of cards is placed in it; the row carries the
+   grid's gaps so its measured height is the row pitch. */
+.cardgrid {
+  position: relative;
+  margin-top: 24px;
+}
+
+.cardgrid__row {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  display: grid;
+}
+
+.cardgrid--artists {
+  margin-top: 28px;
+}
+
 /* Home shelves scroll sideways. A horizontal scroller clips vertically
    too, so the row keeps 48px of headroom for the card's upward "…" menu —
    pulled back under the section head by an equal negative margin, so the
@@ -875,6 +895,19 @@
    still glide beneath the translucent player bar. */
 .tracktable--virtual {
   position: relative;
+}
+
+/* A row whose page has not arrived: one quiet bar across the title
+   column, at the row's own height. */
+.tracktable--virtual .trackrow--loading {
+  cursor: default;
+  pointer-events: none;
+}
+
+.trackrow--loading .skeleton {
+  grid-column: 2;
+  width: 46%;
+  margin: 0;
 }
 
 .tracktable--virtual .trackrow {

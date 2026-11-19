@@ -142,6 +142,19 @@ class TrackListOut(BaseModel):
     offset: int
 
 
+class LetterIndex(BaseModel):
+    letter: str
+    index: int
+
+
+class LetterIndexOut(BaseModel):
+    """Where each initial starts in a name-sorted list: the row index of the
+    first title (or name) beginning with it. "#" stands for everything that
+    sorts before A; initials with no rows are absent."""
+    letters: list[LetterIndex]
+    total: int
+
+
 class AlbumSummary(BaseModel):
     id: int
     title: str

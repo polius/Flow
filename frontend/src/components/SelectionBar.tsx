@@ -9,6 +9,8 @@ import "../styles/organize.css";
 
 interface SelectionBarProps {
   count: number;
+  /** Rows of the selection are still loading: the verbs wait for them. */
+  loading?: boolean;
   /** Whether every selected track is already favorited — flips the bar's
       one toggle verb between Favorite and Unfavorite. */
   allFavorite: boolean;
@@ -20,6 +22,7 @@ interface SelectionBarProps {
 
 export function SelectionBar({
   count,
+  loading = false,
   allFavorite,
   onAddToPlaylist,
   onAddToQueue,
@@ -28,15 +31,17 @@ export function SelectionBar({
 }: SelectionBarProps) {
   return (
     <div className="orgbar" role="toolbar" aria-label="Selected songs">
-      <span className="orgbar__count">{count.toLocaleString()} selected</span>
+      <span className="orgbar__count">
+        {loading ? `Selecting ${count.toLocaleString()}…` : `${count.toLocaleString()} selected`}
+      </span>
       <span className="orgbar__sep" aria-hidden="true" />
-      <button type="button" className="orgbar__action" onClick={onAddToPlaylist}>
+      <button type="button" className="orgbar__action" onClick={onAddToPlaylist} disabled={loading}>
         Add to Playlist…
       </button>
-      <button type="button" className="orgbar__action" onClick={onAddToQueue}>
+      <button type="button" className="orgbar__action" onClick={onAddToQueue} disabled={loading}>
         Add to Queue
       </button>
-      <button type="button" className="orgbar__action" onClick={onToggleFavorite}>
+      <button type="button" className="orgbar__action" onClick={onToggleFavorite} disabled={loading}>
         {allFavorite ? "Unfavorite" : "Favorite"}
       </button>
       <span className="orgbar__sep" aria-hidden="true" />

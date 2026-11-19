@@ -111,6 +111,48 @@ def test_one_track_carries_the_file_facts(client, library):
     assert one["bitrate"] is None or one["bitrate"] > 0
 
 
+def test_letter_index_points_at_the_first_row_of_each_initial(client, music):
+    """The A to Z rail: for a list sorted by name, where each initial
+    starts. An index here must be the offset at which the list endpoint
+    returns the first row with that initial, in either direction."""
+    for i, title in enumerate(
+        ["apple", "Avocado", "banana", "Cherry", "cherry pie", "1999", "(intro)", "Élan", "zest"]
+    ):
+        make_mp3(music / f"{i}.mp3", title=title, artist=f"{title} band", album=f"{title} LP")
+    client.app.state.scanner.run_scan("test")
+
+    def check(of, list_url, field, extra=""):
+        for direction in ("asc", "desc"):
+            out = client.get(f"/api/letters?of={of}&dir={direction}{extra}").json()
+            sort = "name" if of == "artists" else "title"
+            rows = client.get(
+                f"{list_url}?sort={sort}&dir={direction}&limit=1000{extra}"
+            ).json()
+            assert out["total"] == rows["total"]
+            names = [r[field] for r in rows["items"]]
+            for entry in out["letters"]:
+                first = names[entry["index"]][0].upper()
+                if entry["letter"] == "#":
+                    assert not ("A" <= first <= "Z")
+                else:
+                    assert first == entry["letter"]
+                # ...and it is the FIRST such row in this direction.
+                if entry["index"] > 0 and entry["letter"] != "#":
+                    assert names[entry["index"] - 1][0].upper() != entry["letter"]
+        return out
+
+    out = check("tracks", "/api/tracks", "title")
+    assert [e["letter"] for e in out["letters"]] == ["#", "A", "B", "C", "F", "N", "Y", "Z"]
+    assert check("albums", "/api/albums", "title")["total"] == 11
+    check("artists", "/api/artists", "name")
+
+    # The same filter the list takes.
+    out = check("tracks", "/api/tracks", "title", "&q=cherry")
+    assert out["letters"] == [{"letter": "C", "index": 0}] and out["total"] == 2
+
+    assert client.get("/api/letters?of=playlists").status_code == 422
+
+
 def test_artists_list_and_detail(client, library):
     artists = client.get("/api/artists").json()
     assert artists["total"] == 3

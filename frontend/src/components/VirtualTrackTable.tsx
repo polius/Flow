@@ -1,6 +1,8 @@
 /* Windowed track table for the full-library Tracks view. At 10k+ rows the
-   DOM holds only the visible window (~30 rows). Rows come from an infinite
-   query — pagination happens honestly behind the window. The virtualizer
+   DOM holds only the visible window (~30 rows). `tracks` has one slot per
+   row of the whole list; a slot is empty until its page arrives (Songs
+   reads pages at random access, so the scrollbar spans the library and
+   the last row is reachable), and an empty slot draws a placeholder row. The virtualizer
    binds to the shell's .shell__canvas scroll container (the pattern the
    queue drawer and the Organize grid use) — a window virtualizer never
    sees the canvas scroll and would render a frozen first window with blank
@@ -36,9 +38,17 @@ const OVERSCAN = 12;
 const PREFETCH_ROWS = 200;
 
 interface VirtualTrackTableProps {
-  tracks: Track[];
-  /** Called when the window nears the loaded end: fetch the next page. */
-  onNearEnd: () => void;
+  /** One slot per row; undefined where the row has not loaded yet. */
+  tracks: readonly (Track | undefined)[];
+  /** Called when the window nears the loaded end: fetch the next page
+      (lists that load in order from the top). */
+  onNearEnd?: () => void;
+  /** Called with the rows the window covers (overscan included): load
+      the pages under them (lists read at random access). */
+  onRangeChange?: (start: number, end: number) => void;
+  /** Scroll so that row `index` is at the top of the list. A new `nonce`
+      repeats a jump to the same row. */
+  jump?: { index: number; nonce: number } | null;
   /** Row activation: plays `index` within the WHOLE view — paged views
       resolve the full filter first, so the queue never stops at the loaded
       pages. */
@@ -67,6 +77,8 @@ interface VirtualTrackTableProps {
 export function VirtualTrackTable({
   tracks,
   onNearEnd,
+  onRangeChange,
+  jump,
   onPlay,
   contextLoader,
   onMove,
@@ -81,7 +93,13 @@ export function VirtualTrackTable({
   const rowIndexBase = head != null ? 2 : 1;
   const phone = useMediaQuery(PHONE_MQ);
   const rowHeight = phone ? ROW_HEIGHT_PHONE : ROW_HEIGHT;
-  const [scrollEl, setScrollEl] = useState<HTMLElement | null>(null);
+  // Known from the first render whenever the shell is already on screen
+  // (every navigation after the first load): the virtualizer then binds to
+  // the canvas in this commit, before the shell places the scroll — bound
+  // a render later, it would reset a restored position to its own zero.
+  const [scrollEl, setScrollEl] = useState<HTMLElement | null>(() =>
+    document.querySelector<HTMLElement>(".shell__canvas"),
+  );
   const current = useCurrentTrack();
   const isPlaying = usePlayerStore((s) => s.isPlaying);
   const togglePlay = usePlayerStore((s) => s.togglePlay);
@@ -106,10 +124,31 @@ export function VirtualTrackTable({
     virtualizer.measure();
   }, [rowHeight, virtualizer]);
 
+  const startIndex = virtualizer.range?.startIndex ?? -1;
   const endIndex = virtualizer.range?.endIndex ?? -1;
   useEffect(() => {
-    if (endIndex >= 0 && endIndex >= tracks.length - PREFETCH_ROWS) onNearEnd();
+    if (endIndex >= 0 && endIndex >= tracks.length - PREFETCH_ROWS) onNearEnd?.();
   }, [endIndex, tracks.length, onNearEnd]);
+  useEffect(() => {
+    if (startIndex >= 0 && endIndex >= 0)
+      onRangeChange?.(Math.max(0, startIndex - OVERSCAN), endIndex + OVERSCAN);
+  }, [startIndex, endIndex, onRangeChange]);
+
+  // A jump (the A to Z rail): rows are a fixed height, so the target is
+  // arithmetic. The sticky head covers the first rows' worth of the canvas.
+  const jumpNonce = jump?.nonce;
+  useEffect(() => {
+    if (jump == null || scrollEl == null || containerRef.current == null) return;
+    const top =
+      containerRef.current.getBoundingClientRect().top -
+      scrollEl.getBoundingClientRect().top +
+      scrollEl.scrollTop;
+    const headEl = containerRef.current.parentElement?.querySelector<HTMLElement>(".trackhead");
+    const headHeight = headEl?.offsetHeight ?? 0;
+    scrollEl.scrollTo({ top: Math.max(0, top + jump.index * rowHeight - headHeight) });
+    // Only a new jump moves the list, not a re-render with the same one.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [jumpNonce, scrollEl]);
 
   const play = onPlay;
 
@@ -146,11 +185,10 @@ export function VirtualTrackTable({
     virtualizer.scrollToIndex(cursor, { align: "auto" });
   }, [cursor, virtualizer, tracks.length]);
 
-  /* Marquee selection: Cmd/Shift-click selects over the
-     loaded rows; the floating quiet bar files the selection. The loaded
-     rows are exactly the rows that can be clicked, so every selected id
-     resolves to a real track here. */
-  const selection = useTrackSelection(tracks, current?.id ?? null);
+  /* Marquee selection: Cmd/Shift-click selects; the floating quiet bar
+     files the selection. A shift range over rows a jump skipped loads
+     them first, and the bar waits for them. */
+  const selection = useTrackSelection(tracks, current?.id ?? null, onRangeChange);
   /* Title clicks play through the same whole-view resolution as the
      Play button, and any live selection dissolves with the play. */
   const playFromTitle = (index: number) => {
@@ -182,6 +220,7 @@ export function VirtualTrackTable({
   const selectionBar = selection.count > 0 && (
     <SelectionBar
       count={selection.count}
+      loading={selection.loading}
       allFavorite={allFavorite}
       onAddToPlaylist={() => openAddToPlaylist(selection.selectedTracks)}
       onAddToQueue={() => {
@@ -220,13 +259,13 @@ export function VirtualTrackTable({
         track,
         x,
         y,
-        context: tracks,
+        context: tracks.filter((t): t is Track => t != null),
         contextLoader,
         // The menu's Play is the row click: one whole-view play request,
         // never a page-by-page fetch of the filter.
         playFrom: () => {
           const index = tracks.indexOf(track);
-          onPlay(index >= 0 ? index : tracks.findIndex((t) => t.id === track.id));
+          onPlay(index >= 0 ? index : tracks.findIndex((t) => t?.id === track.id));
         },
         selection:
           selection.count > 0 && selection.ids.has(track.id)
@@ -282,7 +321,19 @@ export function VirtualTrackTable({
         >
           {virtualizer.getVirtualItems().map((item) => {
             const track = tracks[item.index];
-            if (!track) return null;
+            if (!track)
+              // Its page is on the way: a row-shaped placeholder holds the
+              // place, so the list never jumps when the rows land.
+              return (
+                <div
+                  key={`loading-${item.index}`}
+                  className="trackrow trackrow--all trackrow--loading"
+                  style={{ transform: `translateY(${item.start}px)` }}
+                  aria-hidden="true"
+                >
+                  <span className="skeleton skeleton--line" />
+                </div>
+              );
             return (
               <TrackRow
                 key={track.id}

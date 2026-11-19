@@ -4,6 +4,9 @@ scan error disclosure + mount-guard state."""
 from __future__ import annotations
 
 import os
+import threading
+import time
+from pathlib import Path
 
 import pytest
 from tests.audio_fixtures import make_flac, make_mp3
@@ -235,6 +238,73 @@ def test_featured_artist_detail_includes_credits(api_client):
     detail = api_client.get(f"/api/artists/{nova['id']}").json()
     titles = {t["title"] for t in detail["tracks"]}
     assert titles == {"With", "Duo"}
+
+
+def test_full_rescan_keeps_the_measured_gain_of_unchanged_files(conn, music, scanner, credit_library):
+    """A full rescan re-reads every tag. It used to reset every analyzed
+    loudness value with them, and the whole library went back through
+    ffmpeg — and played without normalization until its turn came."""
+    scanner.run_scan("test")
+    assert track_row(conn, "lead.mp3")["gain_db"] is None  # no tag: waits for analysis
+    conn.execute("UPDATE tracks SET gain_db = -3.3 WHERE path = 'lead.mp3'")  # "analyzed"
+    conn.commit()
+
+    scanner.run_scan("test", full=True)
+    assert track_row(conn, "lead.mp3")["gain_db"] == pytest.approx(-3.3)
+    # The ReplayGain tag still wins where there is one.
+    tagged = conn.execute("SELECT gain_db FROM tracks WHERE gain_db = -2.5").fetchall()
+    assert len(tagged) == 1
+
+    # A file whose bytes changed is measured again.
+    target = music / "lead.mp3"
+    stat = target.stat()
+    os.utime(target, (stat.st_atime, stat.st_mtime + 60))
+    scanner.run_scan("test")
+    assert track_row(conn, "lead.mp3")["gain_db"] is None
+
+
+def test_loudness_analysis_runs_files_side_by_side_and_keeps_them_apart(
+    conn, music, scanner, credit_library, monkeypatch
+):
+    """Several ffmpeg at once, and each result lands on its own track."""
+    from app import scanner as scanner_module
+
+    for i in range(7):
+        make_mp3(music / "more" / f"{i}.mp3", title=f"Song {i}")
+    scanner.run_scan("test")
+
+    live = {"now": 0, "peak": 0}
+    lock = threading.Lock()
+
+    def fake_analyze(path):
+        with lock:
+            live["now"] += 1
+            live["peak"] = max(live["peak"], live["now"])
+        time.sleep(0.02)
+        with lock:
+            live["now"] -= 1
+        stem = Path(path).stem
+        return -float(stem) if stem.isdigit() else -9.0
+
+    monkeypatch.setattr(scanner_module, "ffmpeg_available", lambda: True)
+    monkeypatch.setattr(scanner_module, "analyze_file", fake_analyze)
+    monkeypatch.setattr(scanner_module, "analysis_workers", lambda: 3)
+    conn.execute("UPDATE tracks SET gain_db = NULL")
+    conn.commit()
+
+    assert scanner._analyze_gains() is True
+    assert live["peak"] == 3
+    for i in range(7):
+        assert track_row(conn, f"more/{i}.mp3")["gain_db"] == pytest.approx(-float(i))
+    assert conn.execute("SELECT COUNT(*) FROM tracks WHERE gain_db IS NULL").fetchone()[0] == 0
+
+
+def test_analysis_workers_leave_half_the_cores(monkeypatch):
+    from app import scanner as scanner_module
+
+    for cores, expected in ((1, 1), (2, 1), (4, 2), (8, 4), (32, 4), (None, 1)):
+        monkeypatch.setattr(scanner_module.os, "cpu_count", lambda cores=cores: cores)
+        assert scanner_module.analysis_workers() == expected
 
 
 def test_track_out_carries_gain(api_client):
