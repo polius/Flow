@@ -5,7 +5,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 
 import { fmtDuration } from "../lib/format";
 import { usePlayerStore } from "../stores/player";
-import { IconPause, IconPlay, IconVolume, IconVolumeMute } from "./icons";
+import { IconPause, IconPlay, IconVolume, IconVolumeLow, IconVolumeMute } from "./icons";
 
 export function Scrubber() {
   const position = usePlayerStore((s) => s.position);
@@ -210,7 +210,7 @@ export function PlayPauseButton({
    Now Playing. Not rendered on iOS, where element volume is ignored and
    loudness is hardware-only; hidden at phone widths. The level persists
    in this browser (flow.player.volume). */
-export function VolumeControl() {
+export function VolumeControl({ wide = false }: { wide?: boolean } = {}) {
   const volume = usePlayerStore((s) => s.volume);
   const muted = usePlayerStore((s) => s.muted);
   const setVolume = usePlayerStore((s) => s.setVolume);
@@ -220,7 +220,13 @@ export function VolumeControl() {
   return (
     <div className="player__volume">
       <TransportButton label="Mute" hint="M" active={muted} secondary onClick={toggleMute}>
-        {level === 0 ? <IconVolumeMute size={16} /> : <IconVolume size={16} />}
+        {level === 0 ? (
+          <IconVolumeMute size={16} />
+        ) : wide ? (
+          <IconVolumeLow size={16} />
+        ) : (
+          <IconVolume size={16} />
+        )}
       </TransportButton>
       <input
         type="range"
@@ -239,6 +245,13 @@ export function VolumeControl() {
         }}
         onChange={(e) => setVolume(Number(e.target.value))}
       />
+      {/* Wide (Now Playing): a quiet glyph at each end, low at the
+          mute button and full here. */}
+      {wide && (
+        <span className="player__volumemax" aria-hidden="true">
+          <IconVolume size={16} />
+        </span>
+      )}
     </div>
   );
 }

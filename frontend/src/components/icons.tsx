@@ -376,6 +376,28 @@ export function IconVolume(props: IconProps) {
   );
 }
 
+/* Low volume: the speaker with one short wave — the left end of a wide
+   volume slider, IconVolume its right. */
+export function IconVolumeLow(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M4 9.5h3.2L11.5 6v12l-4.3-3.5H4z" />
+      <path d="M15 9.2a4 4 0 0 1 0 5.6" />
+    </Icon>
+  );
+}
+
+/* Lyrics — a speech bubble holding a quotation mark. */
+export function IconLyrics(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M5.5 4.5h13a2 2 0 0 1 2 2v8.5a2 2 0 0 1-2 2H11l-4.5 3.5V17H5.5a2 2 0 0 1-2-2V6.5a2 2 0 0 1 2-2Z" />
+      <path d="M8.6 9h2.2v2.1c0 1.1-.7 2-1.8 2.3" />
+      <path d="M13.2 9h2.2v2.1c0 1.1-.7 2-1.8 2.3" />
+    </Icon>
+  );
+}
+
 export function IconVolumeMute(props: IconProps) {
   return (
     <Icon {...props}>

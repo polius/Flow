@@ -1074,3 +1074,158 @@
     transform: translateY(0);
   }
 }
+
+/* ---- desktop: the controls in Apple Music's grammar ----
+   Under the transport, three rows of one width, the column's:
+   - the scrubber, with elapsed and total time under its two ends;
+   - the volume as wide as the scrubber, a quiet glyph at each end;
+   - the song's actions as borderless glyphs spread evenly across the
+     width, muted at rest, a soft fill under the pointer, full ink and a
+     soft circle when on. A running sleep timer adds its time beside
+     the moon.
+   No hairline outlines anywhere: outlined pills read as web chrome. A
+   phone keeps its own row (above), the word "Lyrics" included. */
+.nowplaying__lyricsicon {
+  display: none;
+}
+
+@media (min-width: 641px) {
+  /* 14px between rows: the times row added height, and a short window
+     (1280×680) must not scroll more than it did before. */
+  .nowplaying__controls {
+    gap: 14px;
+  }
+
+  .nowplaying__progress {
+    flex-wrap: wrap;
+    row-gap: 4px;
+  }
+
+  .nowplaying__progress .player__scrubber {
+    order: -1; /* drawn above the times; the times are not focusable */
+    flex: 1 0 100%;
+  }
+
+  .nowplaying__progress .player__time {
+    min-width: 0;
+    font-size: var(--text-caption);
+  }
+
+  .nowplaying__progress .player__time:last-child {
+    margin-left: auto;
+  }
+
+  .nowplaying__footer {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .nowplaying__volume .player__volume {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+  }
+
+  .nowplaying__volume input[type="range"].range.player__volumeslider {
+    flex: 1;
+    width: auto;
+  }
+
+  .player__volumemax {
+    display: inline-flex;
+    flex: none;
+    color: var(--text-muted);
+  }
+
+  .nowplaying__actions {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: 1fr;
+    justify-items: center;
+    gap: 0;
+  }
+
+  .nowplaying__actions .nowplaying__fav,
+  .nowplaying__actions .nowplaying__addto {
+    width: 36px;
+    height: 36px;
+    min-height: 0;
+    padding: 0;
+    justify-content: center;
+    border: none;
+    border-radius: 50%;
+    background: transparent;
+    color: var(--text-muted);
+  }
+
+  .nowplaying__actions .nowplaying__fav svg,
+  .nowplaying__actions .nowplaying__addto svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  @media (hover: hover) {
+    .nowplaying__actions .nowplaying__fav:hover,
+    .nowplaying__actions .nowplaying__addto:hover {
+      color: var(--text-primary);
+      background: var(--bg-hover);
+    }
+  }
+
+  /* On: full ink on a soft circle — loved, lyrics showing, a timer set. */
+  .nowplaying__actions .favbtn--on,
+  .nowplaying__actions .nowplaying__addto--on {
+    color: var(--text-primary);
+    background: var(--bg-active);
+  }
+
+  .nowplaying__lyricsicon {
+    display: block;
+  }
+
+  .nowplaying__lyricstext {
+    display: none;
+  }
+
+  /* The sliders are bars: their thumbs appear only under the pointer
+     (or keyboard focus), as Apple Music's do. Touch screens keep them,
+     since there is no pointer to bring them out. */
+  @media (hover: hover) {
+    .nowplaying__progress input[type="range"].range::-webkit-slider-thumb,
+    .nowplaying__volume input[type="range"].range::-webkit-slider-thumb {
+      transform: scale(0);
+    }
+
+    .nowplaying__progress input[type="range"].range::-moz-range-thumb,
+    .nowplaying__volume input[type="range"].range::-moz-range-thumb {
+      transform: scale(0);
+      transition: transform var(--dur-fast) var(--ease-out);
+    }
+
+    .nowplaying__progress input[type="range"].range:is(:hover, :focus-visible)::-webkit-slider-thumb,
+    .nowplaying__volume input[type="range"].range:is(:hover, :focus-visible)::-webkit-slider-thumb {
+      transform: scale(1);
+    }
+
+    .nowplaying__progress input[type="range"].range:is(:hover, :focus-visible)::-moz-range-thumb,
+    .nowplaying__volume input[type="range"].range:is(:hover, :focus-visible)::-moz-range-thumb {
+      transform: scale(1);
+    }
+
+    .nowplaying__progress input[type="range"].range:active::-webkit-slider-thumb,
+    .nowplaying__volume input[type="range"].range:active::-webkit-slider-thumb {
+      transform: scale(1.25);
+    }
+  }
+
+  /* A running timer is a pill wide enough for its time. */
+  .nowplaying__actions .nowplaying__sleepbtn.nowplaying__addto--on {
+    width: auto;
+    padding: 0 14px;
+    gap: 7px;
+    border-radius: 999px;
+    font-size: var(--text-small);
+  }
+}

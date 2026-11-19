@@ -18,6 +18,7 @@ import { Artwork } from "./Artwork";
 import { FavoriteButton } from "./FavoriteButton";
 import {
   IconChevronDown,
+  IconLyrics,
   IconMusicNote,
   IconNext,
   IconPlaylistAdd,
@@ -314,7 +315,7 @@ export function NowPlaying() {
                     (desktop only: phones use their hardware keys). */}
                 {!isIOS && (
                   <div className="nowplaying__volume">
-                    <VolumeControl />
+                    <VolumeControl wide />
                   </div>
                 )}
                 {/* The transport's quiet footnote: the favorite toggle and
@@ -347,11 +348,16 @@ export function NowPlaying() {
                   {hasLyrics && (
                     <button
                       type="button"
-                      className={`nowplaying__addto${showLyrics ? " nowplaying__addto--on" : ""}`}
+                      className={`nowplaying__addto nowplaying__lyricsbtn${showLyrics ? " nowplaying__addto--on" : ""}`}
                       aria-pressed={showLyrics}
+                      aria-label="Lyrics"
+                      title="Lyrics"
                       onClick={() => setLyricsOn(!showLyrics)}
                     >
-                      Lyrics
+                      {/* A desktop shows the glyph, a phone the word
+                          (nowplaying.css). */}
+                      <IconLyrics size={16} className="nowplaying__lyricsicon" />
+                      <span className="nowplaying__lyricstext">Lyrics</span>
                     </button>
                   )}
                   <SleepTimer />
