@@ -16,6 +16,7 @@ from app.schemas import (
     TrackListOut,
     TrackOut,
 )
+from app.search import album_match, artist_match, track_match
 from app.routers.common import (
     DEFAULT_LIMIT,
     MAX_QUERY,
@@ -163,11 +164,9 @@ def track_filter_where(
     """
     where, params = [], []
     if q:
-        where.append(
-            "(t.title LIKE ? ESCAPE '\\' OR ar.name LIKE ? ESCAPE '\\' "
-            "OR al.title LIKE ? ESCAPE '\\')"
-        )
-        params += [like_pattern(q), like_pattern(q), like_pattern(q)]
+        clause, q_params = track_match(q)
+        where.append(clause)
+        params += q_params
     if artist_id is not None:
         where.append(
             "(t.artist_id = ? OR t.id IN "
@@ -284,10 +283,9 @@ def list_albums(
 
     where, params = [], []
     if q:
-        where.append(
-            "(al.title LIKE ? ESCAPE '\\' OR ar.name LIKE ? ESCAPE '\\')"
-        )
-        params += [like_pattern(q), like_pattern(q)]
+        clause, q_params = album_match(q)
+        where.append(clause)
+        params += q_params
     clause = f"WHERE {' AND '.join(where)}" if where else ""
 
     base = (
@@ -383,8 +381,9 @@ def list_artists(
 
     where, params = [], []
     if q:
-        where.append("ar.name LIKE ? ESCAPE '\\'")
-        params.append(like_pattern(q))
+        match, q_params = artist_match(q)
+        where.append(match)
+        params += q_params
     clause = f"WHERE {' AND '.join(where)}" if where else ""
 
     total = conn.execute(
