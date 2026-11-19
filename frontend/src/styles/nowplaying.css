@@ -1152,7 +1152,7 @@
   .nowplaying__actions {
     display: flex;
     justify-content: center;
-    gap: 28px;
+    gap: 16px;
   }
 
   .nowplaying__actions .nowplaying__fav,
