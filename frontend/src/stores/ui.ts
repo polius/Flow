@@ -57,6 +57,12 @@ interface UiState {
   nowPlayingOpen: boolean;
   openNowPlaying: () => void;
   closeNowPlaying: () => void;
+  /** The queue inside Now Playing. Wide windows always show it beside the
+      stage; below 940px it is a sheet over the stage, and this says
+      whether that sheet is up. `openQueue` opens Now Playing on it. */
+  queueSheetOpen: boolean;
+  setQueueSheetOpen: (open: boolean) => void;
+  openQueue: () => void;
   /** Organize is a task, not a destination: it lives in a full-screen sheet
       over the app (opened from Tracks) instead of its own section. */
   organizeOpen: boolean;
@@ -87,6 +93,10 @@ interface UiState {
   /** Theme override; default follows the OS. */
   themeMode: ThemeMode;
   setThemeMode: (mode: ThemeMode) => void;
+  /** Single-key shortcuts (M, S, Q, 0-9, …). Off for people whose
+      speech input or switch device types stray characters (WCAG 2.1.4). */
+  letterKeys: boolean;
+  setLetterKeys: (on: boolean) => void;
   /** Which app icon this device installs; light is the default. */
   homeIcon: HomeIcon;
   setHomeIcon: (icon: HomeIcon) => void;
@@ -109,7 +119,10 @@ export const useUiStore = create<UiState>()(
       closeGetInfo: () => set({ getInfoTrackId: null }),
       nowPlayingOpen: false,
       openNowPlaying: () => set({ nowPlayingOpen: true }),
-      closeNowPlaying: () => set({ nowPlayingOpen: false }),
+      closeNowPlaying: () => set({ nowPlayingOpen: false, queueSheetOpen: false }),
+      queueSheetOpen: false,
+      setQueueSheetOpen: (queueSheetOpen) => set({ queueSheetOpen }),
+      openQueue: () => set({ nowPlayingOpen: true, queueSheetOpen: true }),
       organizeOpen: false,
       openOrganize: () => set({ organizeOpen: true }),
       closeOrganize: () => set({ organizeOpen: false }),
@@ -127,6 +140,8 @@ export const useUiStore = create<UiState>()(
       setQueueDragOpen: (queueDragOpen) => set({ queueDragOpen }),
       themeMode: "system",
       setThemeMode: (themeMode) => set({ themeMode }),
+      letterKeys: true,
+      setLetterKeys: (letterKeys) => set({ letterKeys }),
       homeIcon: "light",
       setHomeIcon: (homeIcon) => set({ homeIcon }),
       undoNotice: null,
@@ -142,6 +157,7 @@ export const useUiStore = create<UiState>()(
       partialize: (s) => ({
         themeMode: s.themeMode,
         homeIcon: s.homeIcon,
+        letterKeys: s.letterKeys,
       }),
     },
   ),

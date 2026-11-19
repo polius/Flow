@@ -127,11 +127,32 @@ class TrackOut(BaseModel):
     added_at: str | None = None
 
 
+class TrackDetailOut(TrackOut):
+    """One track, with the file facts Get Info shows. Lists stay on the
+    lean TrackOut: these are read for one song at a time."""
+    bitrate: int | None = None  # bits per second
+    sample_rate: int | None = None  # Hz
+    size: int | None = None  # bytes
+
+
 class TrackListOut(BaseModel):
     items: list[TrackOut]
     total: int
     limit: int
     offset: int
+
+
+class LetterIndex(BaseModel):
+    letter: str
+    index: int
+
+
+class LetterIndexOut(BaseModel):
+    """Where each initial starts in a name-sorted list: the row index of the
+    first title (or name) beginning with it. "#" stands for everything that
+    sorts before A; initials with no rows are absent."""
+    letters: list[LetterIndex]
+    total: int
 
 
 class AlbumSummary(BaseModel):

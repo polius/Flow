@@ -25,6 +25,20 @@ export function fmtMinutes(seconds: number): string {
   return m > 0 ? `${h} hr ${m} min` : `${h} hr`;
 }
 
+/** 5662310 → "5.4 MB"; small files read in KB. */
+export function fmtBytes(bytes: number): string {
+  if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+const dateFormat = new Intl.DateTimeFormat(undefined, { dateStyle: "medium" });
+
+/** An ISO timestamp as a day in the reader's locale ("18 Nov 2026"). */
+export function fmtDate(iso: string): string {
+  const date = new Date(iso);
+  return Number.isNaN(date.getTime()) ? "" : dateFormat.format(date);
+}
+
 /* Scan status: every phase speaks its own verb and live counts. Counts
    are omitted while the total isn't known yet — one honest dash beats
    a wrong number. */

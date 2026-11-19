@@ -24,6 +24,16 @@ function Icon({ size = 20, children, ...rest }: IconProps) {
   );
 }
 
+export function IconHome(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M4.5 10.6 12 4.3l7.5 6.3" />
+      <path d="M6.4 9.4v9.3h11.2V9.4" />
+      <path d="M10.2 18.7v-4.9h3.6v4.9" />
+    </Icon>
+  );
+}
+
 export function IconAlbums(props: IconProps) {
   return (
     <Icon {...props}>
@@ -196,6 +206,14 @@ export function IconChevronDown(props: IconProps) {
   return (
     <Icon {...props}>
       <path d="m6 9.5 6 6 6-6" />
+    </Icon>
+  );
+}
+
+export function IconChevronUp(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="m6 14.5 6-6 6 6" />
     </Icon>
   );
 }

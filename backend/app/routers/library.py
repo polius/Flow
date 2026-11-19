@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Literal
+
 from fastapi import APIRouter, HTTPException, Query, Request
 
 from app.schemas import (
@@ -13,9 +15,13 @@ from app.schemas import (
     ArtistSummary,
     GenreListOut,
     GenreSummary,
+    LetterIndex,
+    LetterIndexOut,
     TrackListOut,
+    TrackDetailOut,
     TrackOut,
 )
+from app.search import album_match, artist_match, track_match
 from app.routers.common import (
     DEFAULT_LIMIT,
     MAX_QUERY,
@@ -96,6 +102,15 @@ def _directed(order_sql: str, desc: bool) -> str:
     return ", ".join(f"{t} DESC" for t in terms) if desc else ", ".join(terms)
 
 
+# Sorts that mean "latest first": a caller that names one without a
+# direction gets the newest at the top, not the oldest.
+NEWEST_FIRST_SORTS = {"recent", "played"}
+
+
+def _is_desc(sort: str, dir: str | None) -> bool:
+    return dir == "desc" if dir is not None else sort in NEWEST_FIRST_SORTS
+
+
 def track_order_by(sort: str, desc: bool) -> str:
     """The full ORDER BY for a track listing: the whitelisted sort, the
     title tie-breaker, and the id last so paging over equal keys ("Intro"
@@ -163,11 +178,9 @@ def track_filter_where(
     """
     where, params = [], []
     if q:
-        where.append(
-            "(t.title LIKE ? ESCAPE '\\' OR ar.name LIKE ? ESCAPE '\\' "
-            "OR al.title LIKE ? ESCAPE '\\')"
-        )
-        params += [like_pattern(q), like_pattern(q), like_pattern(q)]
+        clause, q_params = track_match(q)
+        where.append(clause)
+        params += q_params
     if artist_id is not None:
         where.append(
             "(t.artist_id = ? OR t.id IN "
@@ -261,13 +274,23 @@ def list_tracks(
     )
 
 
-@router.get("/api/tracks/{track_id}", response_model=TrackOut)
-def get_track(request: Request, track_id: int) -> TrackOut:
+TRACK_DETAIL_SELECT = TRACK_SELECT.replace(
+    "SELECT", "SELECT t.bitrate, t.sample_rate, t.size,", 1
+)
+
+
+@router.get("/api/tracks/{track_id}", response_model=TrackDetailOut)
+def get_track(request: Request, track_id: int) -> TrackDetailOut:
     conn = request.app.state.db.connect()
-    row = conn.execute(f"{TRACK_SELECT} WHERE t.id = ?", (track_id,)).fetchone()
+    row = conn.execute(f"{TRACK_DETAIL_SELECT} WHERE t.id = ?", (track_id,)).fetchone()
     if row is None:
         raise HTTPException(status_code=404, detail="Track not found")
-    return track_out(row)
+    return TrackDetailOut(
+        **track_out(row).model_dump(),
+        bitrate=row["bitrate"],
+        sample_rate=row["sample_rate"],
+        size=row["size"],
+    )
 
 
 @router.get("/api/albums", response_model=AlbumListOut)
@@ -275,7 +298,7 @@ def list_albums(
     request: Request,
     q: str | None = Query(None, max_length=MAX_QUERY),
     sort: str = "title",
-    dir: str = "asc",
+    dir: str | None = None,
     limit: int = Query(DEFAULT_LIMIT, ge=1),
     offset: int = Query(0, ge=0),
 ) -> AlbumListOut:
@@ -284,10 +307,9 @@ def list_albums(
 
     where, params = [], []
     if q:
-        where.append(
-            "(al.title LIKE ? ESCAPE '\\' OR ar.name LIKE ? ESCAPE '\\')"
-        )
-        params += [like_pattern(q), like_pattern(q)]
+        clause, q_params = album_match(q)
+        where.append(clause)
+        params += q_params
     clause = f"WHERE {' AND '.join(where)}" if where else ""
 
     base = (
@@ -295,7 +317,7 @@ def list_albums(
         "LEFT JOIN tracks t ON t.album_id = al.id"
     )
     order = ALBUM_SORTS.get(sort, ALBUM_SORTS["title"])
-    directed = _directed(order, dir == "desc")
+    directed = _directed(order, _is_desc(sort, dir))
 
     total = conn.execute(
         f"SELECT COUNT(DISTINCT al.id) AS c {base} {clause}", params
@@ -383,8 +405,9 @@ def list_artists(
 
     where, params = [], []
     if q:
-        where.append("ar.name LIKE ? ESCAPE '\\'")
-        params.append(like_pattern(q))
+        match, q_params = artist_match(q)
+        where.append(match)
+        params += q_params
     clause = f"WHERE {' AND '.join(where)}" if where else ""
 
     total = conn.execute(
@@ -489,12 +512,68 @@ def get_artist(request: Request, artist_id: int) -> ArtistDetail:
     return artist_detail(conn, artist_id)
 
 
+@router.get("/api/letters", response_model=LetterIndexOut)
+def letter_index(
+    request: Request,
+    of: Literal["tracks", "albums", "artists"],
+    q: str | None = Query(None, max_length=MAX_QUERY),
+    genre_id: int | None = None,
+    dir: str = "asc",
+) -> LetterIndexOut:
+    """The A to Z rail's map for a list sorted by title (tracks, albums) or
+    name (artists), under the same filter the list itself takes: for each
+    initial, the index of its first row. Rows are counted per first
+    character in the list's own collation, so an index here is an offset
+    the list endpoint answers with that row."""
+    conn = request.app.state.db.connect()
+    if of == "tracks":
+        clause, params = track_filter_where(q=q, genre_id=genre_id)
+        source, column = f"{TRACK_FILTER_FROM} {clause}", "t.title"
+    elif of == "albums":
+        match, params = album_match(q) if q else ("1 = 1", [])
+        source = f"FROM albums al LEFT JOIN artists ar ON ar.id = al.artist_id WHERE {match}"
+        column = "al.title"
+    else:
+        match, params = artist_match(q) if q else ("1 = 1", [])
+        source, column = f"FROM artists ar WHERE {match}", "ar.name"
+
+    initial = f"SUBSTR({column}, 1, 1) COLLATE NOCASE"
+    groups = conn.execute(
+        f"SELECT UPPER(SUBSTR({column}, 1, 1)) AS ch, COUNT(*) AS n {source} "
+        f"GROUP BY {initial} ORDER BY {initial}",
+        params,
+    ).fetchall()
+    total = sum(g["n"] for g in groups)
+
+    # letter -> [first index, rows], in ascending list order. Whatever
+    # sorts before the first letter is "#"; what sorts after Z (accented
+    # initials, other scripts) has no place on an A to Z rail.
+    spans: dict[str, list[int]] = {}
+    seen = 0
+    for g in groups:
+        ch = g["ch"] or ""
+        if "A" <= ch <= "Z" and len(ch) == 1:
+            spans.setdefault(ch, [seen, 0])[1] += g["n"]
+        elif not any(k != "#" for k in spans):
+            spans.setdefault("#", [seen, 0])[1] += g["n"]
+        seen += g["n"]
+
+    desc = dir == "desc"
+    return LetterIndexOut(
+        letters=[
+            LetterIndex(letter=letter, index=total - first - rows if desc else first)
+            for letter, (first, rows) in sorted(spans.items())
+        ],
+        total=total,
+    )
+
+
 @router.get("/api/genres", response_model=GenreListOut)
 def list_genres(
     request: Request,
     q: str | None = Query(None, max_length=MAX_QUERY),
     sort: str = "name",
-    dir: str = "asc",
+    dir: str | None = None,
     limit: int = Query(DEFAULT_LIMIT, ge=1),
     offset: int = Query(0, ge=0),
 ) -> GenreListOut:
@@ -518,7 +597,7 @@ def list_genres(
         "recent": "MAX(t.added_at)",
     }
     order = GENRE_SORTS.get(sort, GENRE_SORTS["name"])
-    directed = _directed(order, dir == "desc")
+    directed = _directed(order, _is_desc(sort, dir))
 
     rows = conn.execute(
         f"SELECT g.id, g.name, COUNT(DISTINCT tg.track_id) AS track_count, "

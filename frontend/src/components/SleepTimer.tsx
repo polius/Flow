@@ -1,7 +1,9 @@
-/* Sleep timer: a pill in Now Playing's action row that opens a small menu —
+/* Sleep timer: a pill in Now Playing's action row, and a moon button in
+   the player bar (`compact`), that open the same small menu —
    15/30/45/60 minutes, or the end of the current track. While a timer
-   runs the pill counts down; picking "Turn Off Timer" cancels it. The
-   timer itself lives in the player store (it must outlive this view). */
+   runs the pill counts down and the moon wears the active mark; picking
+   "Turn Off Timer" cancels it. The timer itself lives in the player
+   store (it must outlive either view). */
 
 import { useEffect, useRef, useState } from "react";
 
@@ -29,7 +31,7 @@ function useSecondsLeft(sleep: SleepTimerState | null): number | null {
   return endsAt == null ? null : Math.max(0, Math.ceil((endsAt - now) / 1000));
 }
 
-export function SleepTimer() {
+export function SleepTimer({ compact = false }: { compact?: boolean }) {
   const sleep = usePlayerStore((s) => s.sleep);
   const setSleepTimer = usePlayerStore((s) => s.setSleepTimer);
   const [open, setOpen] = useState(false);
@@ -67,21 +69,35 @@ export function SleepTimer() {
     sleep == null
       ? "Sleep Timer"
       : sleep.kind === "track"
-        ? "Sleep: End of Track"
+        ? "Sleep: End of Song"
         : `Sleep: ${fmtDuration(secondsLeft ?? 0)}`;
 
   return (
-    <div className="nowplaying__sleep" ref={wrapRef}>
-      <button
-        type="button"
-        className={`nowplaying__addto${sleep != null ? " nowplaying__addto--on" : ""}`}
-        aria-haspopup="menu"
-        aria-expanded={open}
-        onClick={() => setOpen((o) => !o)}
-      >
-        <IconMoon size={13} />
-        {label}
-      </button>
+    <div className={`nowplaying__sleep${compact ? " nowplaying__sleep--bar" : ""}`} ref={wrapRef}>
+      {compact ? (
+        <button
+          type="button"
+          className={`player__btn player__btn--secondary${sleep != null ? " player__btn--active" : ""}`}
+          aria-haspopup="menu"
+          aria-expanded={open}
+          aria-label={label}
+          title={label}
+          onClick={() => setOpen((o) => !o)}
+        >
+          <IconMoon size={16} />
+        </button>
+      ) : (
+        <button
+          type="button"
+          className={`nowplaying__addto${sleep != null ? " nowplaying__addto--on" : ""}`}
+          aria-haspopup="menu"
+          aria-expanded={open}
+          onClick={() => setOpen((o) => !o)}
+        >
+          <IconMoon size={13} />
+          {label}
+        </button>
+      )}
       {open && (
         <div className="trackmenu nowplaying__sleepmenu" role="menu" aria-label="Sleep timer">
           {MINUTE_CHOICES.map((m) => {
@@ -112,7 +128,7 @@ export function SleepTimer() {
             <span className="trackmenu__check" aria-hidden="true">
               {sleep?.kind === "track" && <IconCheck size={13} />}
             </span>
-            End of track
+            End of song
           </button>
           {sleep != null && (
             <button

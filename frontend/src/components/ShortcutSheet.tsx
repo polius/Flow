@@ -12,16 +12,15 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { useToggleFavorite } from "../api/mutations";
 import { useModalFocus } from "../lib/focus";
-import { useDiscoveryShortcuts } from "../lib/shortcuts";
+import { isApple, MOD_KEY } from "../lib/platform";
+import { useDiscoveryShortcuts, usePlayerKeys } from "../lib/shortcuts";
 import { trackIsUnverified, useCurrentTrack } from "../stores/player";
 import { useUiStore } from "../stores/ui";
 import { IconClose } from "./icons";
 import "../styles/editing.css";
 import "../styles/shortcuts.css";
 
-const isApple =
-  typeof navigator !== "undefined" && /Mac|iPhone|iPad|iPod/.test(navigator.userAgent);
-const MOD = isApple ? "⌘" : "Ctrl";
+const MOD = MOD_KEY;
 const ALT = isApple ? "⌥" : "Alt";
 
 /** One row: the keys (alternatives separated by "or") and what they do. */
@@ -38,6 +37,11 @@ const GROUPS: { title: string; rows: Row[] }[] = [
       { keys: [["←"], ["→"]], does: "Skip back or ahead 10 seconds" },
       { keys: [[MOD, "→"]], does: "Next song" },
       { keys: [[MOD, "←"]], does: "Previous song" },
+      { keys: [["0–9"]], does: "Jump to that tenth of the song" },
+      { keys: [["Shift", "↑"], ["Shift", "↓"]], does: "Volume up or down" },
+      { keys: [["M"]], does: "Mute" },
+      { keys: [["S"]], does: "Shuffle on or off" },
+      { keys: [["R"]], does: "Repeat: off, all, one" },
       { keys: [["L"]], does: "Love or unlove the playing song" },
     ],
   },
@@ -45,8 +49,21 @@ const GROUPS: { title: string; rows: Row[] }[] = [
     title: "Anywhere",
     rows: [
       { keys: [["/"], [MOD, "F"]], does: "Search your library" },
+      { keys: [["Q"]], does: "Open or close the queue" },
+      { keys: [["N"]], does: "Open or close Now Playing" },
       { keys: [["?"]], does: "Show this list" },
       { keys: [["Esc"]], does: "Close the menu, panel or dialog on top" },
+    ],
+  },
+  {
+    title: "Go to",
+    rows: [
+      { keys: [["G", "H"]], does: "Home" },
+      { keys: [["G", "S"]], does: "Songs" },
+      { keys: [["G", "A"]], does: "Albums" },
+      { keys: [["G", "R"]], does: "Artists" },
+      { keys: [["G", "F"]], does: "Favorites" },
+      { keys: [["G", "P"]], does: "Playlists" },
     ],
   },
   {
@@ -79,6 +96,7 @@ export function ShortcutSheet() {
   }, [current, toggleFavorite]);
 
   useDiscoveryShortcuts({ helpOpen: open, toggleHelp, toggleFavorite: loveCurrent });
+  usePlayerKeys();
 
   if (!open) return null;
   return <SheetDialog onClose={() => setOpen(false)} />;

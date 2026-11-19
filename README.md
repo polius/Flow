@@ -38,7 +38,7 @@
 docker run --rm -e DEMO=true -p 8080:8080 poliuscorp/flow
 ```
 
-Open http://localhost:8080. The demo tracks are silent placeholders.
+Open http://localhost:8080. The demo songs are silent placeholders.
 
 ## Set up
 
@@ -142,7 +142,7 @@ All optional.
 | `FLOW_REPAIR` | `on` | `off` turns off repairing unplayable files. |
 | `FLOW_AUTO_HEAL` | `on` | `off` skips the file re-check after an upgrade. |
 | `FLOW_LOG_LEVEL` | `INFO` | `DEBUG`, `INFO`, `WARNING`, or `ERROR`. |
-| `DEMO` | – | `true` fills an empty library with silent demo tracks. |
+| `DEMO` | – | `true` fills an empty library with silent demo songs. |
 
 ## Security
 

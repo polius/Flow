@@ -30,13 +30,35 @@ class SchemaTooNewError(RuntimeError):
     """The database was migrated by a newer Flow than this one."""
 
 
+class _ThreadOwned:
+    """Sits in a thread's local storage beside its connection. Python drops
+    that storage when the thread ends, and this closes the connection then.
+
+    The server's worker threads are not permanent: they end after a few
+    idle seconds and new ones start with the next burst of requests. Each
+    opened a connection that nothing closed — three file handles and a page
+    cache per retired thread, for as long as the process lived."""
+
+    __slots__ = ("_conn", "_release")
+
+    def __init__(self, conn: sqlite3.Connection, release) -> None:
+        self._conn = conn
+        self._release = release
+
+    def __del__(self) -> None:
+        try:
+            self._release(self._conn)
+        except Exception:  # noqa: BLE001 - a finalizer must never raise
+            pass
+
+
 class Database:
     def __init__(self, path: Path) -> None:
         self.path = path
         self._local = local()
-        # Every connection ever opened, so tests and shutdown can close the
-        # ones owned by pool threads (each would otherwise be closed by the
-        # garbage collector with a ResourceWarning).
+        # Every open connection, so tests and shutdown can close the ones
+        # owned by pool threads still alive (each would otherwise be closed
+        # by the garbage collector with a ResourceWarning).
         self._all: list[sqlite3.Connection] = []
         self._all_lock = threading.Lock()
         _DATABASES.add(self)
@@ -66,18 +88,29 @@ class Database:
             conn.execute("PRAGMA foreign_keys=ON")
             conn.execute("PRAGMA busy_timeout=5000")
             self._local.conn = conn
+            self._local.owned = _ThreadOwned(conn, self._release)
             with self._all_lock:
                 self._all.append(conn)
         return conn
+
+    def _release(self, conn: sqlite3.Connection) -> None:
+        """Close one connection and forget it. Safe to call twice, and from
+        a thread other than the one that opened it (a thread's storage can
+        be torn down from elsewhere; no query is running on it by then)."""
+        with self._all_lock:
+            self._all = [c for c in self._all if c is not conn]
+        try:
+            conn.close()
+        except sqlite3.Error:  # pragma: no cover - already closed
+            pass
 
     def close_thread(self) -> None:
         """Close this thread's connection (scanner threads are ephemeral)."""
         conn: sqlite3.Connection | None = getattr(self._local, "conn", None)
         if conn is not None:
-            conn.close()
             self._local.conn = None
-            with self._all_lock:
-                self._all = [c for c in self._all if c is not conn]
+            self._local.owned = None  # runs _release
+            self._release(conn)
 
     def close_all(self) -> None:
         """Close every connection this Database opened, on any thread. Only

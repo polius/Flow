@@ -406,6 +406,9 @@ def test_queued_scan_interrupts_and_then_resumes_analysis(
     monkeypatch.setattr(scanner, "_reconcile", recording_reconcile)
     monkeypatch.setattr("app.scanner.ffmpeg_available", lambda: True)
     monkeypatch.setattr("app.scanner.analyze_file", fake_analyze)
+    # Analysis runs a few files side by side and checks for a queued scan
+    # between batches; one at a time here, so the order is exact.
+    monkeypatch.setattr("app.scanner.analysis_workers", lambda: 1)
     scanner.start_scan("manual")
     _wait_idle(scanner)
 

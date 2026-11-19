@@ -474,7 +474,7 @@ export function AddTracksDialog(props: AddTracksDialogProps) {
                   <IconPlus size={14} />
                   {props.kind === "queue" ? "Add to Queue" : "Add"}{" "}
                   {selectedCount > 0 ? selectedCount : ""}{" "}
-                  {selectedCount === 1 ? "Track" : "Tracks"}
+                  {selectedCount === 1 ? "Song" : "Songs"}
                 </>
               )}
             </button>
