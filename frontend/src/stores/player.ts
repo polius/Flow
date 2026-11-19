@@ -11,6 +11,7 @@ import { AUTH_STATUS_KEY } from "../api/auth";
 import { api } from "../api/client";
 import { queryClient } from "../api/queryClient";
 import {
+  claimServerQueue,
   fetchServerQueue,
   saveServerPlayhead,
   saveServerQueue,
@@ -352,7 +353,9 @@ export const usePlayerStore = create<PlayerState>()(
       removeQueued: (tracks) => {
         if (tracks.length === 0) return;
         const { queue, order, orderPos } = get();
-        const dropped = new Set(tracks); // reference identity: duplicates by id elsewhere stay
+        // Reference identity: duplicates by id elsewhere stay. A row the
+        // session claim replaced is found through its replacement.
+        const dropped = new Set(tracks.map((t) => replacedRows.get(t) ?? t));
         const currentQueueIndex = order[orderPos];
         // The playing row's own slot is never dropped — even when the same
         // object was ALSO just inserted (Play Next on the playing track),
@@ -435,7 +438,13 @@ export const usePlayerStore = create<PlayerState>()(
         useUiStore.getState().showUndoNotice({
           message: `Cleared the queue — ${queue.length} ${noun}`,
           undo: async () => {
+            const current = snapshot.queue[snapshot.order[snapshot.orderPos]];
+            // Something else was played since the clear: the element holds
+            // that song now. The restored one goes back in, paused at its
+            // place, so the name on screen is the sound that would play.
+            const moved = current != null && loadedSrc !== trackSrc(current);
             usePlayerStore.setState(snapshot);
+            if (moved) load(current, false, snapshot.position);
           },
         });
       },
@@ -590,15 +599,15 @@ export const usePlayerStore = create<PlayerState>()(
         clearSleepHandle();
         if (choice == null) {
           set({ sleep: null });
-          return;
-        }
-        if (choice === "track") {
+        } else if (choice === "track") {
           set({ sleep: { kind: "track" } });
-          return;
+        } else {
+          const ms = choice * 60_000;
+          set({ sleep: { kind: "minutes", minutes: choice, endsAt: Date.now() + ms } });
+          sleepTimerHandle = window.setTimeout(fallAsleep, ms);
         }
-        const ms = choice * 60_000;
-        set({ sleep: { kind: "minutes", minutes: choice, endsAt: Date.now() + ms } });
-        sleepTimerHandle = window.setTimeout(fallAsleep, ms);
+        // Changed during the last seconds' fade: the level comes back.
+        applyLevels();
       },
 
       cycleRepeat: () => {
@@ -809,7 +818,10 @@ function recoverGraph(): void {
     other queue levels each song on its own. */
 function soundCheckDb(track: Track): number | null {
   const { origin, queue } = usePlayerStore.getState();
-  if (origin?.kind !== "album" || track.gain_db == null) return track.gain_db ?? null;
+  // A song with no album is no album's: it is levelled on its own.
+  if (origin?.kind !== "album" || track.gain_db == null || track.album_id == null) {
+    return track.gain_db ?? null;
+  }
   let album = track.gain_db;
   for (const t of queue) {
     if (t.album_id === track.album_id && t.gain_db != null && t.gain_db < album) album = t.gain_db;
@@ -956,6 +968,7 @@ const PLAY_COUNTS_AFTER_S = 30;
 let listenedSeconds = 0;
 let listenedAt: number | null = null; // the clock at the last tick
 let playCounted = false;
+let listeningId: number | null = null; // the song the count belongs to
 
 function resetListening(): void {
   listenedSeconds = 0;
@@ -967,6 +980,11 @@ function resetListening(): void {
 function noteListening(el: HTMLAudioElement): void {
   if (playCounted) return;
   const now = el.currentTime;
+  // Paused, the clock only moves when the listener scrubs: not listening.
+  if (!usePlayerStore.getState().isPlaying) {
+    listenedAt = now;
+    return;
+  }
   // A tick is ~0.25 s; a larger jump (or a step back) is a seek.
   if (listenedAt != null && now > listenedAt && now - listenedAt < 2) {
     listenedSeconds += now - listenedAt;
@@ -990,7 +1008,12 @@ function load(track: Track, autoplay: boolean, startAt?: number): void {
   if (!audio || !track) return;
   blockedPlayAt = null; // a new load supersedes a blocked play
   standbyFailedId = null;
-  resetListening();
+  // A reload of the same song at its playhead (a network hold, a retry
+  // after an error) continues the listen: what was heard still counts,
+  // and a listen already counted is not counted again. Anything else is a
+  // new listen.
+  if (track.id !== listeningId || !(startAt != null && startAt > 0.25)) resetListening();
+  listeningId = track.id;
   const src = trackSrc(track);
   loadedSrc = src;
   intendPlay = autoplay;
@@ -1829,6 +1852,17 @@ function setStateRestoring(partial: Partial<PlayerState>): void {
 let queueSaveTimer: number | null = null;
 let playheadSaveTimer: number | null = null;
 let playheadDirty = false;
+/** Set by an explicit sign-out: the writers stay quiet until a new
+    session begins here (a plan change, or the server's adopted). */
+let sessionEnded = false;
+
+function cancelPendingSaves(): void {
+  if (queueSaveTimer != null) window.clearTimeout(queueSaveTimer);
+  if (playheadSaveTimer != null) window.clearTimeout(playheadSaveTimer);
+  queueSaveTimer = null;
+  playheadSaveTimer = null;
+  playheadDirty = false;
+}
 
 function clearLocalKeys(): void {
   try {
@@ -1859,12 +1893,14 @@ function writeLocalQueue(): void {
 }
 
 function writeQueueSnapshot(keepalive = false): void {
+  if (sessionEnded) return;
   writeLocalQueue();
   const { queue, order, orderPos, position, origin } = usePlayerStore.getState();
   void saveServerQueue({ tracks: queue, order, orderPos, position, origin }, keepalive);
 }
 
 function writePlayhead(started = false, keepalive = false): void {
+  if (sessionEnded) return;
   const { queue, order, orderPos, position } = usePlayerStore.getState();
   if (localQueueSaved) {
     try {
@@ -1921,6 +1957,9 @@ if (typeof window !== "undefined") {
     const planChanged =
       state.order !== prev.order ||
       (state.queue !== prev.queue && !sameIds(state.queue, prev.queue));
+    // Signed out: the element's last ticks are not the listener acting.
+    // Only a new plan begins a session again.
+    if (sessionEnded && !planChanged) return;
     // Session identity is the plan and the playhead. Preference writes
     // (the persist middleware's rehydration, a volume nudge) don't make
     // the session owned — they must not block the server adoption.
@@ -1935,6 +1974,7 @@ if (typeof window !== "undefined") {
     if (planChanged) {
       // Editing the plan here is acting here: this tab speaks again.
       yieldedToOtherTab = false;
+      sessionEnded = false;
       if (queueSaveTimer == null) {
         queueSaveTimer = window.setTimeout(() => {
           queueSaveTimer = null;
@@ -1991,6 +2031,10 @@ if (typeof window !== "undefined") {
    keys go too, or the next reload resurrects the same ghosts), and rows
    restored locally are tagged unverified — surfaces render TEXT, not
    links, for them until the server replaces them wholesale. */
+
+/** Rows the session claim swapped for the server's own (old -> new), so
+    an undo captured before the swap still finds what it added. */
+const replacedRows = new WeakMap<Track, Track>();
 
 /** Rows the server has not vouched for. Tagged at local restore; emptied
     only by wholesale replacement (server adoption, clearing, or any live
@@ -2197,6 +2241,7 @@ async function adoptServerSession(attempt = 0): Promise<void> {
     position: Math.max(0, Math.min(position, track.duration || position)),
     duration: track.duration || 0,
   });
+  sessionEnded = false; // a session again: its edits are mirrored
   syncWindowTitle();
 }
 
@@ -2211,15 +2256,38 @@ async function adoptServerSession(attempt = 0): Promise<void> {
 async function claimSession(): Promise<void> {
   const { queue, order, orderPos, position, origin } = usePlayerStore.getState();
   if (queue.length === 0) return;
-  const stored = await saveServerQueue({ tracks: queue, order, orderPos, position, origin });
-  if (stored !== queue.length) return;
+  const stored = await claimServerQueue({ tracks: queue, order, orderPos, position, origin });
+  if (stored == null) return;
   // An edit made meanwhile mirrors itself, and its rows came from live
-  // fetches; only the queue that was sent is vouched for.
-  if (usePlayerStore.getState().queue !== queue) return;
-  if (!queue.some((t) => unverifiedRows.has(t))) return;
-  // Fresh row objects: membership in `unverifiedRows` is by object, and
-  // the surfaces re-read it when the rows they hold change.
-  setStateRestoring({ queue: queue.map((t) => ({ ...t })) });
+  // fetches; only the queue that was sent is reconciled.
+  const now = usePlayerStore.getState();
+  if (now.queue !== queue) return;
+  // The server's rows replace the local copies: they carry today's
+  // favorites and links, and a song a scan removed is not among them.
+  // They come in the order sent, so pairing by id in order finds which
+  // local rows the server dropped.
+  const fresh = stored.items;
+  const next: Track[] = [];
+  const remap = new Map<number, number>();
+  queue.forEach((t, i) => {
+    const row = fresh[next.length] as Track | undefined;
+    if (row?.id !== t.id) return;
+    remap.set(i, next.length);
+    next.push(row);
+  });
+  if (next.length !== fresh.length) return; // not the queue that was sent
+  const playing = remap.get(now.order[now.orderPos]);
+  if (playing == null) return; // the playing song itself is gone: it plays out unvouched
+  // A queued action's undo holds the old row objects: point them at the new.
+  queue.forEach((t, i) => {
+    const j = remap.get(i);
+    if (j != null) replacedRows.set(t, next[j]);
+  });
+  const newOrder = now.order.filter((i) => remap.has(i)).map((i) => remap.get(i)!);
+  setStateRestoring({ queue: next, order: newOrder, orderPos: newOrder.indexOf(playing) });
+  // Rows were dropped: the positions this browser sends from now on must
+  // be the server's. One more mirror makes sure the two agree.
+  if (next.length !== queue.length) writeQueueSnapshot();
 }
 
 /** The signed-in session is over. The sound stops at once — the app is
@@ -2239,7 +2307,23 @@ export function endPlayback({ forget }: { forget: boolean }): void {
   }
   usePlayerStore.setState({ isPlaying: false, sleep: null });
   clearSleepHandle();
-  if (forget) clearLocalSession();
+  applyLevels(); // a fade in progress is over
+  if (forget) {
+    // Nothing of this session may be written after it: cancel the pending
+    // saves, and keep the writers quiet until the next session begins.
+    // The element lets go of the song too, so no late tick reports it.
+    cancelPendingSaves();
+    if (audio) {
+      audio.removeAttribute("src");
+      audio.load();
+      loadedSrc = null;
+    }
+    sessionEnded = true;
+    clearLocalSession();
+    // Signing back in (without a reload) adopts the server's queue again.
+    sessionTouched = false;
+    adoptionAwaitingAuth = true;
+  }
 }
 
 /** Sign-in landed (or the status says Login is off): adopt the server's
