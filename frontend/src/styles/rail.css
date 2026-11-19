@@ -64,9 +64,15 @@
   }
 }
 
-/* Phones: the letters fit inside the view's 16px side padding, so no row
-   or card gives up width to them. */
+/* Narrow windows and phones: the letters sit in the view's right padding.
+   The usual 16px left them 1px from the album and artist cards, as if
+   stuck to them; a view showing the rail keeps 30px on the right, so
+   the letters stand clear like they do on a wide window. */
 @media (max-width: 640px) {
+  .view:has(.letterrail) {
+    --view-pad-right: 30px;
+  }
+
   .letterrail {
     right: calc(1px + env(safe-area-inset-right, 0px));
   }
