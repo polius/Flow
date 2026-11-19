@@ -118,7 +118,7 @@ export function VirtualTrackTable({
     play(index);
   };
   const canDrag = reorderable && onMove != null;
-  const { cursor, onKeyDown: onCursorKeyDown } = useRowCursor(tracks.length, activateAt, {
+  const { cursor, onKeyDown: onCursorKeyDown, setCursor } = useRowCursor(tracks.length, activateAt, {
     // Shift+F10 / ContextMenu: the same menu right-click opens.
     onMenu: (index) => openMenuAt(index),
     // Alt+↑/↓ (Favorites): the drag-free reorder, under the same rule as
@@ -153,6 +153,22 @@ export function VirtualTrackTable({
     const track = tracks[index];
     if (track != null && track.id === current?.id) togglePlay();
     else play(index);
+  };
+  /* A double-click on the row body: this row becomes the one playing.
+     The current track resumes if paused and is never restarted. */
+  const playFromRow = (index: number) => {
+    selection.clear();
+    const track = tracks[index];
+    if (track != null && track.id === current?.id) {
+      if (!isPlaying) togglePlay();
+    } else play(index);
+  };
+  /* A plain click on the row body puts the keyboard cursor there (the
+     arrows and Enter go on from the row you clicked); the selection
+     grammar then dissolves any live pill. */
+  const onRowClick: typeof selection.onRowClick = (track, index, e) => {
+    if (!e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey) setCursor(index);
+    return selection.onRowClick(track, index, e);
   };
   const openAddToPlaylist = useUiStore((s) => s.openAddToPlaylist);
   const addToQueue = usePlayerStore((s) => s.addToQueue);
@@ -286,10 +302,11 @@ export function VirtualTrackTable({
                 dataIdx={canDrag ? item.index : undefined}
                 onActivate={play}
                 onTitlePlay={playFromTitle}
+                onRowPlay={playFromRow}
                 onTogglePlay={togglePlay}
                 onToggleFavorite={toggleFavorite}
                 onTrackMenu={trackMenu}
-                onSelectClick={selection.onRowClick}
+                onSelectClick={onRowClick}
               />
             );
           })}

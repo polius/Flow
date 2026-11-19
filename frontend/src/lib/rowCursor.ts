@@ -51,6 +51,9 @@ export function useRowCursor(
 ): {
   cursor: number | null;
   onKeyDown: (e: KeyboardEvent) => void;
+  /** Puts the cursor on a row the pointer just clicked, so the arrows
+      and Enter continue from there. */
+  setCursor: (index: number) => void;
 } {
   const [cursor, setCursor] = useState<number | null>(null);
 
@@ -122,5 +125,5 @@ export function useRowCursor(
     }
   };
 
-  return { cursor, onKeyDown };
+  return { cursor, onKeyDown, setCursor };
 }
