@@ -1,11 +1,14 @@
 """The migration runner: atomic per-file transactions, a pre-migration
 backup, the newer-schema guard, and a v1.5.0 database upgrading with every
-piece of user data intact."""
+piece of user data intact. Also the connection lifecycle: one per thread,
+closed when its thread ends."""
 
 from __future__ import annotations
 
+import gc
 import json
 import sqlite3
+import threading
 
 import pytest
 
@@ -214,4 +217,42 @@ def test_only_the_newest_backups_are_kept(tmp_path, monkeypatch):
     kept = sorted(p.name for p in backups.iterdir())
     assert len(kept) == db_module.BACKUPS_KEPT
     assert "flow-v1-20200101T000000Z.db" not in kept
+    database.close_all()
+
+
+def test_a_threads_connection_is_closed_when_the_thread_ends(tmp_path):
+    """The server's worker threads come and go. Each one's connection used
+    to stay open for the life of the process: three file handles and a page
+    cache per retired thread."""
+    database = Database(tmp_path / "flow.db")
+    database.init()
+    assert database._all == []  # init closes the startup thread's own
+
+    seen: list[sqlite3.Connection] = []
+
+    def work():
+        conn = database.connect()
+        assert conn.execute("SELECT COUNT(*) FROM queue_state").fetchone()[0] == 1
+        assert database.connect() is conn  # one per thread
+        seen.append(conn)
+
+    for _ in range(5):
+        thread = threading.Thread(target=work)
+        thread.start()
+        thread.join()
+    gc.collect()
+
+    assert len(seen) == 5 and len({id(c) for c in seen}) == 5
+    assert database._all == []
+    for conn in seen:
+        with pytest.raises(sqlite3.ProgrammingError):  # closed, not just forgotten
+            conn.execute("SELECT 1")
+
+    # A live thread keeps its connection until it ends or closes it itself.
+    mine = database.connect()
+    assert database._all == [mine]
+    database.close_thread()
+    assert database._all == []
+    with pytest.raises(sqlite3.ProgrammingError):
+        mine.execute("SELECT 1")
     database.close_all()
