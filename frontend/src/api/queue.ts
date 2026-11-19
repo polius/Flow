@@ -114,6 +114,31 @@ export function saveServerQueue(
     });
 }
 
+/** PUT /api/queue, answered with what the server stored: its own rows
+    (current favorites and links), without any song a scan removed. The
+    claim of a session begun before the server's copy arrived uses it.
+    null when the server did not store it. */
+export function claimServerQueue(snapshot: {
+  tracks: Track[];
+  order: number[];
+  orderPos: number;
+  position: number;
+  origin?: QueueOrigin | null;
+}): Promise<QueueSnapshot | null> {
+  return api
+    .PUT("/api/queue", {
+      body: {
+        track_ids: snapshot.tracks.map((t) => t.id),
+        order: snapshot.order,
+        order_pos: snapshot.orderPos,
+        position: snapshot.position,
+        ...(snapshot.origin ? { origin: snapshot.origin } : {}),
+      },
+    })
+    .then(({ data }) => (data != null && "items" in data ? data : null))
+    .catch(() => null);
+}
+
 /** PATCH /api/queue — the playhead. `playedTrackId` rides the immediate
     start-of-play sync so the server can stamp played_at on the track
     that actually started — carried, never derived from stored state. */
