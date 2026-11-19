@@ -8,6 +8,7 @@ import sqlite3
 
 from fastapi import APIRouter, HTTPException, Query, Request
 
+from app import scrobble
 from app.db import retry_locked
 from app.routers.common import TxRoute, chunks as _chunks, utcnow as _now
 from app.routers.library import (
@@ -381,10 +382,12 @@ def patch_queue(request: Request, body: QueuePatchIn) -> QueuePlayheadOut:
             # One row of history per counted play (the client sends the id
             # once per listen, after 30 s or half the song).
             if stamped:
-                conn.execute(
+                play = conn.execute(
                     "INSERT INTO plays (track_id, played_at) VALUES (?, ?)",
                     (body.played_track_id, stamp),
                 )
+                # Queued for ListenBrainz only while a token is set.
+                scrobble.enqueue(conn, play.lastrowid)
         conn.execute(
             "UPDATE queue_state SET order_pos = ?, position = ?, updated_at = ? "
             "WHERE id = 0",
@@ -395,4 +398,6 @@ def patch_queue(request: Request, body: QueuePatchIn) -> QueuePlayheadOut:
     # Stamp and playhead share one retry window — a scan's write transaction
     # must not thin the played_at record either.
     _write_transaction(conn, _apply)
+    if body.played_track_id is not None:
+        request.app.state.scrobbler.kick()  # sends only with a token set
     return QueuePlayheadOut(order_pos=order_pos, position=position, updated_at=updated_at)
