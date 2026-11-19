@@ -138,7 +138,7 @@ export function SearchView() {
                       />
                       <span className="searchplaylists__name">{playlist.name}</span>
                       <span className="searchplaylists__meta">
-                        {playlist.track_count} track{playlist.track_count === 1 ? "" : "s"}
+                        {playlist.track_count} song{playlist.track_count === 1 ? "" : "s"}
                         {playlist.track_count > 0
                           ? ` · ${fmtMinutes(playlist.duration_total)}`
                           : ""}

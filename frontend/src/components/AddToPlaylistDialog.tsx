@@ -149,7 +149,7 @@ export function AddToPlaylistDialog() {
           <header className="addto__head">
             <h2 className="addto__title">New Playlist</h2>
             <p className="addto__sub">
-              {fmtCount(tracks.length)} {tracks.length === 1 ? "track" : "tracks"}
+              {fmtCount(tracks.length)} {tracks.length === 1 ? "song" : "songs"}
               {totalSeconds > 0 && <> · {fmtMinutes(totalSeconds)}</>} will land in it
             </p>
           </header>
@@ -224,7 +224,7 @@ export function AddToPlaylistDialog() {
                 <span className="addto__successsub">
                   {created.added
                     ? `“${created.name}” · ${fmtCount(tracks.length)} ${
-                        tracks.length === 1 ? "track" : "tracks"
+                        tracks.length === 1 ? "song" : "songs"
                       } added`
                     : `“${created.name}” — but the songs couldn't be added`}
                 </span>
@@ -281,7 +281,7 @@ export function AddToPlaylistDialog() {
         <header className="addto__head">
           <h2 className="addto__title">Add to Playlist</h2>
           <p className="addto__sub">
-            {fmtCount(tracks.length)} {tracks.length === 1 ? "track" : "tracks"}
+            {fmtCount(tracks.length)} {tracks.length === 1 ? "song" : "songs"}
             {totalSeconds > 0 && <> · {fmtMinutes(totalSeconds)}</>}
           </p>
         </header>

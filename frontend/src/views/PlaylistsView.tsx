@@ -299,7 +299,7 @@ function PlaylistCard({ playlist }: { playlist: PlaylistSummary }) {
         {playlist.name}
       </Link>
       <div className="album-card__meta">
-        {fmtCount(playlist.track_count)} track{playlist.track_count === 1 ? "" : "s"}
+        {fmtCount(playlist.track_count)} song{playlist.track_count === 1 ? "" : "s"}
         {playlist.track_count > 0 ? ` · ${fmtMinutes(playlist.duration_total)}` : ""}
       </div>
       {addingTracks && detail && (
