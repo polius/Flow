@@ -1516,7 +1516,12 @@ function skipFailed(track: Track, reason: string): void {
     return;
   }
   useUiStore.getState().showUndoNotice({
-    message: `Skipped “${track.title}” — file unavailable (${reason}).`,
+    // Apple Lossless with no FLAC copy (repair off, or no ffmpeg) is not
+    // a missing file: say what it is.
+    message:
+      track.format === "alac"
+        ? `Skipped “${track.title}” — Apple Lossless does not play in this browser.`
+        : `Skipped “${track.title}” — file unavailable (${reason}).`,
   });
   advance(1, true); // rest at the end of the queue, like a natural finish
 }

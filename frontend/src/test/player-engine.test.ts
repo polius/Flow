@@ -164,6 +164,23 @@ describe("stream failures", () => {
     expect(s.queue[s.order[s.orderPos]].id).toBe(2);
     expect(useUiStore.getState().undoNotice?.message).toContain("Skipped");
   });
+
+  it("an Apple Lossless song with no FLAC copy is named, not called missing", async () => {
+    const { usePlayerStore, useUiStore } = await importPlayer();
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    clientApi.api.GET.mockResolvedValue({
+      data: { enabled: false, authenticated: false },
+      response: new Response(null, { status: 200 }),
+    });
+    usePlayerStore.getState().playTracks([{ ...track(1), format: "alac" }, track(2)], 0);
+
+    fail(elements[0], 4);
+    await flush();
+
+    expect(useUiStore.getState().undoNotice?.message).toBe(
+      "Skipped “Track 1” — Apple Lossless does not play in this browser.",
+    );
+  });
 });
 
 describe("media session", () => {

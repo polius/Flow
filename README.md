@@ -64,8 +64,10 @@ Flow streams files as they are, without transcoding:
 | Format | Chrome, Edge, Firefox | Safari |
 | --- | --- | --- |
 | MP3, FLAC, M4A (AAC) | ✓ | ✓ |
-| M4A (ALAC) | ✗ | ✓ |
+| M4A (ALAC) | ✓ as a FLAC copy | ✓ as a FLAC copy |
 | OGG (Vorbis, Opus) | ✓ | Recent versions |
+
+Apple Lossless (ALAC) plays only in Safari, so Flow keeps a lossless FLAC copy of each ALAC file in `flow/data/repaired` and streams that. The original is never touched, and the copy is removed with it. Each copy takes about the original's size again, and the first scan of a large ALAC library takes longer. With `FLOW_REPAIR=off`, ALAC files are not copied and play in Safari only.
 
 On iPhone and iPad, songs change with a short gap and volume normalization is off. iOS keeps music playing with the screen locked only when the browser plays each file directly, one at a time.
 

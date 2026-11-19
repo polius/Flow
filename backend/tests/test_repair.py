@@ -785,3 +785,74 @@ def test_upgrade_keeps_existing_copies_and_fixes_misindexed_rows(
     parsed.clear()
     scanner.run_scan("test")  # marker written: no re-check the second time
     assert parsed == []
+
+
+# ---- Apple Lossless (P5) ----
+
+
+def make_alac(path: Path, *, title: str = "Lossless", artist: str = "A") -> Path:
+    subprocess.run(  # noqa: S603 - fixed argv, no shell
+        [
+            "ffmpeg", "-v", "error", "-f", "lavfi",
+            "-i", "sine=frequency=440:duration=1",
+            "-c:a", "alac", "-metadata", f"title={title}", "-metadata", f"artist={artist}",
+            "-y", str(path),
+        ],
+        check=True, capture_output=True,
+    )
+    return path
+
+
+@requires_ffmpeg
+def test_apple_lossless_streams_as_a_flac_copy(conn, music, scanner):
+    """ALAC plays in Safari only: it takes the repair path and streams as a
+    lossless FLAC copy; the original is untouched, and the copy goes with
+    it."""
+    src = make_alac(music / "Lossless.m4a")
+    make_mp3(music / "other.mp3", title="Other", artist="B")  # not an empty library after the removal
+    before = src.read_bytes()
+    scanner.run_scan("test")
+    row = track_row(conn, "Lossless.m4a")
+    assert row is not None
+    assert row["format"] == "flac"
+    copy = Path(row["media_path"])
+    assert copy.is_file() and copy.suffix == ".flac"
+    assert MP4(str(src)).info.codec == "alac"  # what it was
+    assert src.read_bytes() == before
+    assert row["title"] == "Lossless"
+
+    src.unlink()
+    scanner.run_scan("test")
+    assert track_row(conn, "Lossless.m4a") is None
+    assert not copy.exists()
+
+
+@requires_ffmpeg
+def test_apple_lossless_without_repair_says_what_it_is(conn, music, scanner, monkeypatch):
+    from app import config
+
+    monkeypatch.setattr(config, "REPAIR", False)
+    make_alac(music / "Lossless.m4a")
+    scanner.run_scan("test")
+    row = track_row(conn, "Lossless.m4a")
+    assert row is not None and row["media_path"] is None
+    assert row["format"] == "alac"
+    assert config.AUDIO_MIME["alac"] == "audio/mp4"
+
+
+@requires_ffmpeg
+def test_apple_lossless_indexed_by_an_older_release_is_rechecked_once(conn, music, scanner):
+    """An older release indexed ALAC as playable m4a. The detection upgrade
+    re-checks it once and repairs it, without a full rescan."""
+    from app.scanner import DETECT_VERSION_KEY
+
+    make_alac(music / "Lossless.m4a")
+    scanner.run_scan("test")
+    conn.execute(
+        "UPDATE tracks SET format = 'm4a', media_path = NULL WHERE path = 'Lossless.m4a'"
+    )
+    conn.execute("UPDATE settings SET value = '2' WHERE key = ?", (DETECT_VERSION_KEY,))
+    conn.commit()
+    scanner.run_scan("test")
+    row = track_row(conn, "Lossless.m4a")
+    assert row["format"] == "flac" and row["media_path"] is not None

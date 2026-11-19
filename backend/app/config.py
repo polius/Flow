@@ -34,6 +34,8 @@ AUDIO_MIME = {
     # off, no ffmpeg): an honest type beats audio/mpeg over AIFF bytes.
     "aiff": "audio/aiff",
     "aac": "audio/aac",
+    # Apple Lossless indexed without a FLAC copy: plays in Safari only.
+    "alac": "audio/mp4",
 }
 
 # Built frontend, served by FastAPI when present (prod convenience).

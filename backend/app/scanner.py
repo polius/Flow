@@ -50,7 +50,8 @@ ERROR_LOG_LIMIT = 500
 # reprocesses those whose stored format the bytes contradict — the upgrade
 # path for rows indexed by older releases, without re-reading a healthy
 # library. v2: container sniffing past ID3 tags; format from the bytes.
-DETECT_VERSION = 2
+# v3: Apple Lossless in an MP4 is not playable (it is repaired to FLAC).
+DETECT_VERSION = 3
 DETECT_VERSION_KEY = "scan_detect_version"
 # Wall-clock start of the last completed walk: a folder image changed after
 # it means that folder's tracks need their artwork re-resolved.
