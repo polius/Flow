@@ -151,7 +151,12 @@ export function PlayerBar() {
             <IconRepeat size={16} />
           </TransportButton>
         </div>
-        <div className="player__progress">
+        {/* The no-op click makes this strip a tap target in its own right.
+            On the phone mini bar it is an inert 24px band along the bar's
+            top edge (player.css): without a handler of its own, phone
+            browsers pass a tap that lands on it to the nearest element
+            that has one — the song row peeking out above the bar. */}
+        <div className="player__progress" onClick={() => {}}>
           <Scrubber />
         </div>
       </div>

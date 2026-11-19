@@ -246,8 +246,8 @@
 
 /* ---- phone mini bar ----
    Below the phone breakpoint the bar becomes the iOS mini-player: one row —
-   artwork · title/artist · prev/play/next — with the scrubber as a
-   full-width hairline straddling the bar's top edge. Everything that has a
+   artwork · title/artist · prev/play/next — with progress as a
+   full-width hairline along the bar's top edge. Everything that has a
    first-class home in Now Playing (shuffle, repeat, volume, time labels)
    leaves the mini bar; the artwork thumb opens that view. */
 
@@ -287,6 +287,43 @@
     border-radius: 0;
     background-color: transparent;
     background-size: 100% 3px;
+  }
+
+  /* The mini bar shows progress and does not take seeks: a live 24px
+     scrubber across its top edge caught thumbs aimed at Play or at the
+     last row of a list and jumped the song, and its thumb hung half off
+     the screen at 0:00. Here the bar's own scrubber is a 2px line with no
+     thumb and no pointer events; seeking is one tap away in Now Playing,
+     whose scrubber keeps the rule above.
+
+     The strip keeps the old scrubber's 24px box and swallows what lands
+     on it. Without it a thumb on the bar's edge is handed by the phone's
+     browser to the nearest tappable thing — the row peeking out above
+     the bar — and starts that song. (cursor: pointer is what makes a
+     plain element count as tappable for that; touch shows no cursor.) */
+  .player .player__progress {
+    top: -12px;
+    height: 24px;
+    cursor: pointer;
+  }
+
+  .player input[type="range"].range.player__scrubber {
+    height: 2px;
+    padding: 0;
+    background-size: 100% 2px;
+    pointer-events: none;
+  }
+
+  .player input[type="range"].range.player__scrubber::-webkit-slider-thumb {
+    width: 0;
+    height: 0;
+    box-shadow: none;
+  }
+
+  .player input[type="range"].range.player__scrubber::-moz-range-thumb {
+    width: 0;
+    height: 0;
+    box-shadow: none;
   }
 
   .player__time {
