@@ -2655,7 +2655,7 @@ export interface operations {
     get_artwork_api_artwork__artwork_id__get: {
         parameters: {
             query?: {
-                /** @description Edge length in px for a resized JPEG (64, 96, 128, 256, 512; other values snap up). Absent = the original bytes. */
+                /** @description Edge length in px for a resized JPEG (64, 96, 128, 256, 512, 1024; other values snap up). Absent = the original bytes. */
                 s?: number | null;
             };
             header?: never;
