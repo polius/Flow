@@ -98,7 +98,7 @@ export function PlayerBar() {
   const hasQueue = track != null;
 
   return (
-    <footer className={`player${hasQueue ? "" : " player--empty"}`}>
+    <footer id="player" className={`player${hasQueue ? "" : " player--empty"}`}>
       <div className="player__meta">
         <button
           type="button"
