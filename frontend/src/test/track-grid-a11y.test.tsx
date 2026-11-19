@@ -21,6 +21,7 @@ vi.mock("../api/queue", () => ({
 
 import { api } from "../api/client";
 import type { Track } from "../api/types";
+import { OrganizeRow } from "../components/OrganizeRow";
 import { TopBar } from "../components/TopBar";
 import { TrackTable } from "../components/TrackTable";
 import { TrackTableHead } from "../components/TrackTableHead";
@@ -118,6 +119,50 @@ describe("track grid semantics", () => {
     expect(within(rows[1]).getByRole("button", { name: "Play One" })).toBeInTheDocument();
   });
 
+  it("an artist's page lists the album, not the artist it already names", () => {
+    render(
+      wrap(
+        <TrackTable tracks={TRACKS} variant="artist" head={<TrackTableHead variant="artist" />} />,
+      ),
+    );
+    const grid = screen.getByRole("grid");
+    const headers = within(grid).getAllByRole("columnheader").map((h) => h.textContent);
+    expect(headers).toEqual(["#Number", "Title", "Album", "Time", "Favorite"]);
+    const row = within(grid).getAllByRole("row")[1];
+    expect(within(row).getAllByRole("gridcell")).toHaveLength(headers.length);
+    expect(within(row).getByRole("link", { name: "Album" })).toBeInTheDocument();
+    expect(within(row).queryByRole("link", { name: "Artist" })).toBeNull();
+  });
+
+  it("an album names a row's artist only when it is not the album's", () => {
+    const { unmount } = render(
+      wrap(<TrackTable tracks={TRACKS} variant="album" albumArtist="Artist" />),
+    );
+    expect(document.querySelector(".trackrow__subline")).toBeNull();
+    unmount();
+    render(wrap(<TrackTable tracks={TRACKS} variant="album" albumArtist="Various Artists" />));
+    const sublines = [...document.querySelectorAll(".trackrow__subline--always")];
+    expect(sublines.map((el) => el.textContent)).toEqual(["Artist", "Artist", "Artist"]);
+  });
+
+  it("a multi-disc album gets one heading per disc; a single disc gets none", () => {
+    const discs = [
+      { ...track(1, "One"), disc_no: 1 },
+      { ...track(2, "Two"), disc_no: 1 },
+      { ...track(3, "Three"), disc_no: 2, track_no: 1 },
+    ];
+    const { unmount } = render(wrap(<TrackTable tracks={discs} variant="album" />));
+    expect([...document.querySelectorAll(".trackdisc")].map((el) => el.textContent)).toEqual([
+      "Disc 1",
+      "Disc 2",
+    ]);
+    // The headings are not rows: the grid still counts three songs.
+    expect(within(screen.getByRole("grid")).getAllByRole("row")).toHaveLength(3);
+    unmount();
+    render(wrap(<TrackTable tracks={TRACKS} variant="album" />));
+    expect(document.querySelector(".trackdisc")).toBeNull();
+  });
+
   it("aria-activedescendant follows the keyboard cursor", () => {
     render(wrap(<TrackTable tracks={TRACKS} label="Songs" />));
     const grid = screen.getByRole("grid", { name: "Songs" });
@@ -208,5 +253,61 @@ describe("search combobox", () => {
     fireEvent.keyDown(input, { key: "ArrowDown" });
     expect(input).toHaveAttribute("aria-activedescendant", option.id);
     expect(option).toHaveAttribute("aria-selected", "true");
+  });
+});
+
+describe("Organize grid semantics", () => {
+  const noop = () => {};
+  const row = (compact: boolean) => (
+    <div role="grid" aria-label="Library songs">
+      <OrganizeRow
+        track={{ ...track(7, "Altitude"), album: "Sea of Clouds", genre: null }}
+        index={0}
+        checked={false}
+        isCursor={false}
+        isCurrent={false}
+        compact={compact}
+        editTitle={false}
+        onToggle={noop}
+        onOpenInfo={noop}
+        onCommitTitle={noop}
+        onCommitArtist={noop}
+        onCommitAlbum={noop}
+        onCommitGenre={noop}
+      />
+    </div>
+  );
+
+  it("every child of a row is a gridcell, one per column", () => {
+    render(row(false));
+    const cells = within(screen.getByRole("row")).getAllByRole("gridcell");
+    // Select, Title, Artist, Album, Genre, Added, File: the head's seven columns.
+    expect(cells).toHaveLength(7);
+    expect(screen.getByRole("row").children).toHaveLength(7);
+  });
+
+  it("an editable cell is named by its column and the value it shows", () => {
+    render(row(false));
+    const names = within(screen.getByRole("row"))
+      .getAllByRole("button")
+      .map((b) => b.getAttribute("aria-label"));
+    expect(names).toEqual([
+      "Title: Altitude, edit",
+      "Artist: Artist, edit",
+      "Album: Sea of Clouds, edit",
+      "Genre: No genre, edit",
+    ]);
+    // The name contains what is on screen (voice control can say it).
+    for (const button of within(screen.getByRole("row")).getAllByRole("button")) {
+      expect(button.getAttribute("aria-label")).toContain(button.textContent);
+    }
+    // Opened, the field is named for the song it edits.
+    fireEvent.click(screen.getByRole("button", { name: "Album: Sea of Clouds, edit" }));
+    expect(screen.getByRole("textbox", { name: "Album for Altitude" })).toHaveValue("Sea of Clouds");
+  });
+
+  it("the phone row has cells too", () => {
+    render(row(true));
+    expect(within(screen.getByRole("row")).getAllByRole("gridcell")).toHaveLength(2);
   });
 });

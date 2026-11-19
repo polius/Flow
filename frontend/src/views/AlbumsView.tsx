@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from "react";
+import { useCallback, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useSearchParams } from "react-router";
 
@@ -6,10 +6,24 @@ import { api } from "../api/client";
 import { AlbumCard } from "../components/AlbumCard";
 import { EmptyState } from "../components/EmptyState";
 import { ErrorState } from "../components/ErrorState";
+import { LetterRail } from "../components/LetterRail";
 import { LoadingState } from "../components/LoadingState";
 import { SortMenu, type SortOption } from "../components/SortMenu";
+import { VirtualCardGrid } from "../components/VirtualCardGrid";
 import { IconAlbums } from "../components/icons";
 import { fmtCount } from "../lib/format";
+import { usePagedList } from "../lib/pagedList";
+import { useCanvasTopOnChange } from "../lib/scroll";
+
+/* The grid is sized to the whole library from the first answer; pages of
+   albums are read where the window is. (One request for "the first 1,000"
+   used to be the whole grid: a library with more showed 1,000, said
+   "1,000 albums", and could not reach the rest.) */
+const PAGE_SIZE = 500;
+/** A card is its square art plus this much text below it (the title and the artist line):
+    with the exact figure the grid's height is right before a row is ever
+    measured, and nothing shifts as rows scroll in. */
+const CARD_TEXT_HEIGHT = 49.7;
 
 const SORT_OPTIONS: SortOption[] = [
   { key: "title", label: "Title" },
@@ -28,17 +42,28 @@ export function AlbumsView() {
   const sort = SORT_KEYS.has(urlSort) ? urlSort : "title";
   const dir = searchParams.get("dir") === "desc" ? "desc" : "asc";
 
-  const { data, isError, refetch } = useQuery({
-    queryKey: ["albums", q, sort, dir],
+  const list = usePagedList(["albums", q, sort, dir], PAGE_SIZE, async (offset, limit) => {
+    const { data } = await api.GET("/api/albums", {
+      params: { query: { limit, offset, sort, dir, ...(q ? { q } : {}) } },
+    });
+    return data;
+  });
+  const total = list.total ?? 0;
+
+  // The A to Z rail, for the one sort an alphabet indexes.
+  const { data: letters } = useQuery({
+    queryKey: ["albums", "letters", q, dir],
     queryFn: async () => {
-      const { data } = await api.GET("/api/albums", {
-        params: { query: { limit: 1000, sort, dir, ...(q ? { q } : {}) } },
+      const { data } = await api.GET("/api/letters", {
+        params: { query: { of: "albums", dir, ...(q ? { q } : {}) } },
       });
       return data;
     },
+    enabled: sort === "title",
   });
-
-  const albums = data?.items ?? [];
+  const [jump, setJump] = useState<{ index: number; nonce: number } | null>(null);
+  const railLetters = sort === "title" ? (letters?.letters ?? []) : [];
+  const railed = railLetters.length > 1;
 
   const onSort = useCallback(
     (key: string, nextDir: "asc" | "desc") => {
@@ -51,9 +76,7 @@ export function AlbumsView() {
   );
 
   // A new ordering is a new wall: land at its top.
-  useEffect(() => {
-    document.querySelector<HTMLElement>(".shell__canvas")?.scrollTo(0, 0);
-  }, [sort, dir]);
+  useCanvasTopOnChange(sort, dir);
 
   return (
     <section className="view">
@@ -61,11 +84,11 @@ export function AlbumsView() {
         <div>
           <h1 className="view__title">Albums</h1>
           {/* No count until there is one: a failed load is not "0 albums". */}
-          {data !== undefined && (
+          {list.total !== undefined && (
             <p className="view__subtitle">
               {q
-                ? `${fmtCount(albums.length)} ${albums.length === 1 ? "match" : "matches"} for “${q}”`
-                : `${fmtCount(albums.length)} ${albums.length === 1 ? "album" : "albums"}`}
+                ? `${fmtCount(total)} ${total === 1 ? "match" : "matches"} for “${q}”`
+                : `${fmtCount(total)} ${total === 1 ? "album" : "albums"}`}
             </p>
           )}
         </div>
@@ -79,11 +102,11 @@ export function AlbumsView() {
           />
         </div>
       </div>
-      {data === undefined && isError ? (
-        <ErrorState what="albums" retry={refetch} />
-      ) : data === undefined ? (
+      {list.isError ? (
+        <ErrorState what="albums" retry={list.refetch} />
+      ) : list.total === undefined ? (
         <LoadingState variant="grid" />
-      ) : albums.length === 0 ? (
+      ) : total === 0 ? (
         <EmptyState
           icon={<IconAlbums size={26} />}
           title={q ? `No albums match “${q}”` : "No albums yet"}
@@ -94,11 +117,36 @@ export function AlbumsView() {
           }
         />
       ) : (
-        <div className="covergrid">
-          {albums.map((album) => (
-            <AlbumCard key={album.id} album={album} />
-          ))}
-        </div>
+        <>
+          <VirtualCardGrid
+            count={total}
+            minColumn={168}
+            columnGap={20}
+            rowGap={24}
+            cardExtra={CARD_TEXT_HEIGHT}
+            onRangeChange={list.ensure}
+            jump={jump}
+            renderCard={(index) => {
+              const album = list.items[index];
+              return album ? (
+                <AlbumCard key={album.id} album={album} />
+              ) : (
+                <div key={`loading-${index}`} className="loading-card" aria-hidden="true">
+                  <div className="skeleton skeleton--square" />
+                  <div className="skeleton skeleton--line" style={{ width: "72%" }} />
+                  <div className="skeleton skeleton--line skeleton--thin" style={{ width: "46%" }} />
+                </div>
+              );
+            }}
+          />
+          {railed && (
+            <LetterRail
+              label="Albums"
+              letters={railLetters}
+              onJump={(index) => setJump((cur) => ({ index, nonce: (cur?.nonce ?? 0) + 1 }))}
+            />
+          )}
+        </>
       )}
     </section>
   );

@@ -113,10 +113,10 @@ export function OrganizeRow({
         aria-selected={checked}
         onClick={() => onOpenInfo(track)}
       >
-        <span className="orgrow__art">
+        <span className="orgrow__art" role="gridcell">
           <Artwork artworkId={track.artwork_id} size={34} radius="s" />
         </span>
-        <span className="orgrow__names">
+        <span className="orgrow__names" role="gridcell">
           <span className="orgrow__titletext">{track.title}</span>
           <span className="orgrow__meta">
             {track.artist ?? "No artist"} · {track.album ?? "No album"}
@@ -135,7 +135,9 @@ export function OrganizeRow({
       onClick={(e) => onToggle(track, index, mods(e))}
       onContextMenu={onContextMenu}
     >
-      <span className="orgrow__check" onClick={(e) => e.stopPropagation()}>
+      {/* Every direct child is a gridcell, one per columnheader in the
+          grid's head: a screen reader can say which column a value is in. */}
+      <span className="orgrow__check" role="gridcell" onClick={(e) => e.stopPropagation()}>
         <button
           type="button"
           role="checkbox"
@@ -149,41 +151,45 @@ export function OrganizeRow({
           {checked && <IconCheck size={11} />}
         </button>
       </span>
-      <span className="orgrow__titlecell" onClick={gateCellClick}>
+      <span className="orgrow__titlecell" role="gridcell" onClick={gateCellClick}>
         {/* Text only: the 24px artwork left the title cell — one icon per
             row read as noise in a mass-editing grid. */}
         <InlineEdit
           value={track.title}
           ariaLabel={`Rename ${track.title}`}
+          displayLabel={`Title: ${track.title}, edit`}
           className="orgrow__titletext"
           startInEdit={editTitle}
           onCommit={(title) => onCommitTitle(track, title)}
         />
       </span>
-      <span className="orgrow__cell" onClick={gateCellClick}>
+      <span className="orgrow__cell" role="gridcell" onClick={gateCellClick}>
         <InlineEdit
           value={track.artist ?? ""}
           ariaLabel={`Artist for ${track.title}`}
+          displayLabel={`Artist: ${track.artist || "No artist"}, edit`}
           placeholder="No artist"
           className="orgrow__celltext"
           allowEmpty
           onCommit={(artist) => onCommitArtist(track, artist)}
         />
       </span>
-      <span className="orgrow__cell" onClick={gateCellClick}>
+      <span className="orgrow__cell" role="gridcell" onClick={gateCellClick}>
         <InlineEdit
           value={track.album ?? ""}
           ariaLabel={`Album for ${track.title}`}
+          displayLabel={`Album: ${track.album || "No album"}, edit`}
           placeholder="No album"
           className="orgrow__celltext"
           allowEmpty
           onCommit={(album) => onCommitAlbum(track, album)}
         />
       </span>
-      <span className="orgrow__cell" onClick={gateCellClick}>
+      <span className="orgrow__cell" role="gridcell" onClick={gateCellClick}>
         <InlineEdit
           value={track.genre ?? ""}
           ariaLabel={`Genre for ${track.title}`}
+          displayLabel={`Genre: ${track.genre || "No genre"}, edit`}
           placeholder="No genre"
           className="orgrow__celltext"
           allowEmpty
@@ -192,11 +198,12 @@ export function OrganizeRow({
       </span>
       <span
         className="orgrow__added"
+        role="gridcell"
         title={track.added_at ? `Added ${track.added_at}` : undefined}
       >
         {fmtDateShort(track.added_at) ?? "—"}
       </span>
-      <span className="orgrow__file" title={track.path}>
+      <span className="orgrow__file" role="gridcell" title={track.path}>
         {fmtBasename(track.path)}
       </span>
     </div>

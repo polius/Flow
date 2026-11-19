@@ -5,7 +5,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 
 import { fmtDuration } from "../lib/format";
 import { usePlayerStore } from "../stores/player";
-import { IconPause, IconPlay } from "./icons";
+import { IconPause, IconPlay, IconVolume, IconVolumeMute } from "./icons";
 
 export function Scrubber() {
   const position = usePlayerStore((s) => s.position);
@@ -21,6 +21,8 @@ export function Scrubber() {
   const pendingSeek = useRef<number | null>(null);
   const seekRaf = useRef<number | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  /** The value was changed by the user since the last commit. */
+  const touched = useRef(false);
 
   const flushSeek = () => {
     seekRaf.current = null;
@@ -50,10 +52,15 @@ export function Scrubber() {
   const commit = () => {
     cancelPendingSeek();
     const el = inputRef.current;
-    if (el != null) {
+    // Only a scrub that happened is committed. The release paths (keyup,
+    // blur) also fire when focus merely passes over the slider: Tab in,
+    // Tab out used to seek twice to where the song already was — an
+    // audible hiccup for nothing.
+    if (el != null && touched.current) {
       const final = Number(el.value);
       if (Number.isFinite(final)) seek(final);
     }
+    touched.current = false;
     setScrub(null);
     setDragging(false);
   };
@@ -97,6 +104,7 @@ export function Scrubber() {
         disabled={max === 0}
         aria-label="Seek"
         onInput={(e) => {
+          touched.current = true;
           setDragging(true);
           const v = Number((e.target as HTMLInputElement).value);
           setScrub(v);
@@ -110,6 +118,7 @@ export function Scrubber() {
           // The system took the pointer mid-drag: release the visual hold
           // without committing a position the user didn't choose.
           cancelPendingSeek();
+          touched.current = false;
           setScrub(null);
           setDragging(false);
         }}
@@ -130,8 +139,11 @@ export function TransportButton({
   badge,
   primary,
   secondary,
+  hint,
 }: {
   label: string;
+  /** The key that does the same thing, shown in the tooltip only. */
+  hint?: string;
   active?: boolean;
   onClick: () => void;
   children: ReactNode;
@@ -152,7 +164,7 @@ export function TransportButton({
       disabled={disabled}
       aria-label={label}
       aria-pressed={active}
-      title={label}
+      title={hint ? `${label} (${hint})` : label}
     >
       {children}
       {badge != null && <span className="player__badge">{badge}</span>}
@@ -170,13 +182,18 @@ export function PlayPauseButton({
   disabled?: boolean;
 }) {
   const togglePlay = usePlayerStore((s) => s.togglePlay);
+  // Playing, but the stream has stalled: say so, instead of a Pause glyph
+  // over a frozen scrubber.
+  const buffering = usePlayerStore((s) => s.buffering) && isPlaying;
   return (
     <TransportButton
       label={isPlaying ? "Pause" : "Play"}
+      hint="Space"
       onClick={togglePlay}
       disabled={disabled}
       primary
     >
+      {buffering && <span className="transport-buffering" aria-hidden="true" />}
       <span className={`transport-glyph${isPlaying ? " transport-glyph--alt" : ""}`}>
         <span className="transport-glyph__pause">
           <IconPause size={19} />
@@ -186,5 +203,42 @@ export function PlayPauseButton({
         </span>
       </span>
     </TransportButton>
+  );
+}
+
+/* Volume: mute toggle + level slider, in the bar's right column and in
+   Now Playing. Not rendered on iOS, where element volume is ignored and
+   loudness is hardware-only; hidden at phone widths. The level persists
+   in this browser (flow.player.volume). */
+export function VolumeControl() {
+  const volume = usePlayerStore((s) => s.volume);
+  const muted = usePlayerStore((s) => s.muted);
+  const setVolume = usePlayerStore((s) => s.setVolume);
+  const toggleMute = usePlayerStore((s) => s.toggleMute);
+  const level = muted ? 0 : volume;
+  const pct = Math.round(level * 100);
+  return (
+    <div className="player__volume">
+      <TransportButton label="Mute" hint="M" active={muted} secondary onClick={toggleMute}>
+        {level === 0 ? <IconVolumeMute size={16} /> : <IconVolume size={16} />}
+      </TransportButton>
+      <input
+        type="range"
+        className="range player__volumeslider"
+        min={0}
+        max={1}
+        step={0.01}
+        value={level}
+        aria-label="Volume"
+        aria-valuetext={`${pct}%`}
+        title="Volume (Shift+↑ / Shift+↓)"
+        style={{
+          backgroundImage: `linear-gradient(to right,
+            var(--text-tertiary) 0% ${pct}%,
+            var(--scrubber-rest, var(--bg-active)) ${pct}% 100%)`,
+        }}
+        onChange={(e) => setVolume(Number(e.target.value))}
+      />
+    </div>
   );
 }

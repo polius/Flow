@@ -87,8 +87,8 @@ export function saveServerQueue(
     origin?: QueueOrigin | null;
   },
   keepalive = false,
-): void {
-  void api
+): Promise<number | null> {
+  return api
     .PUT("/api/queue", {
       params: { query: { minimal: true } },
       // The contract spells the flag `1` (a bool or an int param reads it
@@ -103,10 +103,40 @@ export function saveServerQueue(
       },
       ...(keepalive ? { keepalive: true } : {}),
     })
+    .then(({ data }) =>
+      // How many entries the server stored: ids a scan removed are dropped.
+      data != null && "count" in data ? data.count : null,
+    )
     .catch(() => {
       // Offline / server restart / blip: localStorage still holds the
       // session; the next plan change mirrors again.
+      return null;
     });
+}
+
+/** PUT /api/queue, answered with what the server stored: its own rows
+    (current favorites and links), without any song a scan removed. The
+    claim of a session begun before the server's copy arrived uses it.
+    null when the server did not store it. */
+export function claimServerQueue(snapshot: {
+  tracks: Track[];
+  order: number[];
+  orderPos: number;
+  position: number;
+  origin?: QueueOrigin | null;
+}): Promise<QueueSnapshot | null> {
+  return api
+    .PUT("/api/queue", {
+      body: {
+        track_ids: snapshot.tracks.map((t) => t.id),
+        order: snapshot.order,
+        order_pos: snapshot.orderPos,
+        position: snapshot.position,
+        ...(snapshot.origin ? { origin: snapshot.origin } : {}),
+      },
+    })
+    .then(({ data }) => (data != null && "items" in data ? data : null))
+    .catch(() => null);
 }
 
 /** PATCH /api/queue — the playhead. `playedTrackId` rides the immediate

@@ -57,7 +57,8 @@ export function OrganizeSheet() {
       aria-modal="true"
       aria-label="Organize"
     >
-      <header className="orgsheetwrap__bar">
+      {/* A plain head: a <header> here would be a second page banner. */}
+      <div className="orgsheetwrap__bar">
         <div className="orgsheetwrap__id">
           <span className="orgsheetwrap__mark" aria-hidden="true">
             <IconOrganize size={16} />
@@ -65,7 +66,7 @@ export function OrganizeSheet() {
           <div>
             <h1 className="orgsheetwrap__title">Organize</h1>
             <p className="orgsheetwrap__sub">
-              Group tracks into albums and artists. Edits live in Flow — your
+              Group songs into albums and artists. Edits live in Flow — your
               files are never touched.
             </p>
           </div>
@@ -78,7 +79,7 @@ export function OrganizeSheet() {
         >
           Done
         </button>
-      </header>
+      </div>
       <div className="shell__canvas orgsheetwrap__canvas">
         <OrganizeView />
       </div>

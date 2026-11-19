@@ -161,3 +161,26 @@ describe("marquee selection", () => {
     expect(result.current.selectedTracks.map((t) => t.id)).toEqual([1, 2]);
   });
 });
+
+describe("a shift range over rows a jump skipped", () => {
+  const click = { metaKey: false, ctrlKey: false, altKey: false, shiftKey: false };
+  it("asks for them, counts the whole range, and holds until they arrive", () => {
+    const all = Array.from({ length: 10 }, (_, i) => track(i + 1));
+    const holes: (Track | undefined)[] = all.map((t, i) => (i >= 3 && i <= 6 ? undefined : t));
+    const asked: [number, number][] = [];
+    const ensure = (a: number, b: number) => void asked.push([a, b]);
+    const { result, rerender } = renderHook(
+      ({ rows }: { rows: (Track | undefined)[] }) => useTrackSelection(rows, null, ensure),
+      { initialProps: { rows: holes } },
+    );
+    act(() => void result.current.onRowClick(all[1], 1, { ...click, metaKey: true }));
+    act(() => void result.current.onRowClick(all[8], 8, { ...click, shiftKey: true }));
+    expect(asked).toEqual([[1, 8]]);
+    expect(result.current.loading).toBe(true);
+    expect(result.current.count).toBe(8); // the range, not the 4 rows on hand
+    rerender({ rows: all });
+    expect(result.current.loading).toBe(false);
+    expect(result.current.count).toBe(8);
+    expect(result.current.selectedTracks.map((t) => t.id)).toEqual([2, 3, 4, 5, 6, 7, 8, 9]);
+  });
+});

@@ -71,7 +71,7 @@ export function ReviewStrip({ summary, activeReview, onPick, onPickAlbum }: Revi
   if (clean) {
     return (
       <p className="orgstrip orgstrip--clean" role="status">
-        Nothing needs attention — every track is grouped.
+        Nothing needs attention — every song is grouped.
       </p>
     );
   }
@@ -136,7 +136,7 @@ export function ReviewStrip({ summary, activeReview, onPick, onPickAlbum }: Revi
         >
           <p className="orgpop__hint">
             These album titles differ only by a variant suffix. Filter to one, then
-            select its tracks and set the corrected album name.
+            select its songs and set the corrected album name.
           </p>
           {summary.collision_groups.map((group) => (
             <div key={group.key} className="orgpop__group">

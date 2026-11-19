@@ -79,6 +79,80 @@ def test_albums_list_and_detail(client, library):
     assert missing.status_code == 404
 
 
+def test_recent_albums_default_to_newest_first(client, library):
+    """"Recently added" without a direction must not mean the oldest: the
+    Home shelf once sent exactly that and showed the twelve oldest albums."""
+    conn = client.app.state.db.connect()
+    conn.execute("UPDATE tracks SET added_at = '2020-01-01T00:00:00+00:00'")
+    conn.execute(
+        "UPDATE tracks SET added_at = '2026-01-01T00:00:00+00:00' WHERE album_id = "
+        "(SELECT id FROM albums WHERE title = 'Origin')"
+    )
+    conn.commit()
+
+    titles = lambda url: [a["title"] for a in client.get(url).json()["items"]]  # noqa: E731
+    assert titles("/api/albums?sort=recent")[0] == "Origin"
+    assert titles("/api/albums?sort=recent&dir=desc")[0] == "Origin"
+    assert titles("/api/albums?sort=recent&dir=asc")[-1] == "Origin"
+    # Every other sort still reads ascending unless told otherwise.
+    assert titles("/api/albums?sort=title") == sorted(titles("/api/albums?sort=title"), key=str.lower)
+
+
+def test_one_track_carries_the_file_facts(client, library):
+    """Get Info reads bitrate, sample rate and size from the single-track
+    endpoint; the list rows stay lean."""
+    listed = client.get("/api/tracks").json()["items"][0]
+    assert "bitrate" not in listed and "size" not in listed
+
+    one = client.get(f"/api/tracks/{listed['id']}").json()
+    assert one["title"] == listed["title"]
+    assert one["size"] > 0
+    assert one["sample_rate"] in (44100, 48000)
+    assert one["bitrate"] is None or one["bitrate"] > 0
+
+
+def test_letter_index_points_at_the_first_row_of_each_initial(client, music):
+    """The A to Z rail: for a list sorted by name, where each initial
+    starts. An index here must be the offset at which the list endpoint
+    returns the first row with that initial, in either direction."""
+    for i, title in enumerate(
+        ["apple", "Avocado", "banana", "Cherry", "cherry pie", "1999", "(intro)", "Élan", "zest"]
+    ):
+        make_mp3(music / f"{i}.mp3", title=title, artist=f"{title} band", album=f"{title} LP")
+    client.app.state.scanner.run_scan("test")
+
+    def check(of, list_url, field, extra=""):
+        for direction in ("asc", "desc"):
+            out = client.get(f"/api/letters?of={of}&dir={direction}{extra}").json()
+            sort = "name" if of == "artists" else "title"
+            rows = client.get(
+                f"{list_url}?sort={sort}&dir={direction}&limit=1000{extra}"
+            ).json()
+            assert out["total"] == rows["total"]
+            names = [r[field] for r in rows["items"]]
+            for entry in out["letters"]:
+                first = names[entry["index"]][0].upper()
+                if entry["letter"] == "#":
+                    assert not ("A" <= first <= "Z")
+                else:
+                    assert first == entry["letter"]
+                # ...and it is the FIRST such row in this direction.
+                if entry["index"] > 0 and entry["letter"] != "#":
+                    assert names[entry["index"] - 1][0].upper() != entry["letter"]
+        return out
+
+    out = check("tracks", "/api/tracks", "title")
+    assert [e["letter"] for e in out["letters"]] == ["#", "A", "B", "C", "F", "N", "Y", "Z"]
+    assert check("albums", "/api/albums", "title")["total"] == 11
+    check("artists", "/api/artists", "name")
+
+    # The same filter the list takes.
+    out = check("tracks", "/api/tracks", "title", "&q=cherry")
+    assert out["letters"] == [{"letter": "C", "index": 0}] and out["total"] == 2
+
+    assert client.get("/api/letters?of=playlists").status_code == 422
+
+
 def test_artists_list_and_detail(client, library):
     artists = client.get("/api/artists").json()
     assert artists["total"] == 3
@@ -238,9 +312,14 @@ def test_sized_artwork_is_rendered_cached_and_bounded(
     monkeypatch.undo()
     monkeypatch.setattr(config, "DATA_DIR", tmp_path / "data")
 
-    # Never upscaled; huge requests snap down to the largest size.
+    # Sizes snap up to the next step...
+    mid = client.get(f"/api/artwork/{artwork_id}", params={"s": 300})
+    assert _jpeg_size(mid.content) == (512, 341)
+    # ...huge requests snap down to the largest one (1024), and a cover is
+    # never upscaled: this one is 600 px wide and stays 600.
     big = client.get(f"/api/artwork/{artwork_id}", params={"s": 4000})
-    assert _jpeg_size(big.content) == (512, 341)
+    assert _jpeg_size(big.content) == (600, 400)
+    assert len(list(cache.glob(f"{artwork_id}-1024-*.jpg"))) == 1
     # No size → the original bytes.
     assert client.get(f"/api/artwork/{artwork_id}").content == real_cover
 

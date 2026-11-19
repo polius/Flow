@@ -20,6 +20,33 @@
   min-height: 0;
 }
 
+/* Skip links: off-screen until the keyboard lands on one. */
+.skiplink {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: var(--z-popover);
+  padding: 8px 14px;
+  border-radius: var(--radius-s);
+  background: var(--bg-elevated);
+  border: 1px solid var(--control-border-strong);
+  color: var(--text-primary);
+  font-size: var(--text-body);
+  font-weight: 600;
+  transform: translateY(-200%);
+}
+
+.skiplink:focus {
+  transform: none;
+}
+
+/* Focus lands on the page itself after "Skip to content": the next Tab
+   continues from its first control. The page is not a control, so it
+   wears no ring. */
+.shell__canvas:focus {
+  outline: none;
+}
+
 /* The server notice: floats under the top bar, over the page and over
    Now Playing (above the modal layer). */
 .servernotice-slot {

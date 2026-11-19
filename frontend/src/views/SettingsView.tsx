@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 
 import { api } from "../api/client";
-import { settingsQuery } from "../api/system";
+import { settingsQuery, useAppVersion } from "../api/system";
 import { fmtCount, fmtDateTime, scanStatusLabel } from "../lib/format";
 import { HOME_ICON_FILES } from "../lib/homeIcon";
 import { isIOS } from "../lib/platform";
@@ -99,6 +99,11 @@ export function SettingsView() {
   const setThemeMode = useUiStore((s) => s.setThemeMode);
   const homeIcon = useUiStore((s) => s.homeIcon);
   const setHomeIcon = useUiStore((s) => s.setHomeIcon);
+  // Whatever the serving backend says — never a second constant to keep
+  // in step. It lives here, not beside the logo on every screen.
+  const { data: version } = useAppVersion();
+  const letterKeys = useUiStore((s) => s.letterKeys);
+  const setLetterKeys = useUiStore((s) => s.setLetterKeys);
   const soundcheck = usePlayerStore((s) => s.soundcheck);
   const setSoundcheck = usePlayerStore((s) => s.setSoundcheck);
   const openOrganize = useUiStore((s) => s.openOrganize);
@@ -191,7 +196,7 @@ export function SettingsView() {
             </div>
             {/* The "?" sheet's pointer door — a shortcut list nobody can
                 find is no help. */}
-            <div className="settings-row">
+            <div className="settings-row settings-row--keyboard">
               <span className="settings-row__label">Keyboard shortcuts</span>
               <span className="settings-row__value">
                 Press <kbd className="settings-row__kbd">?</kbd> anywhere
@@ -202,6 +207,32 @@ export function SettingsView() {
                   aria-haspopup="dialog"
                 >
                   Show
+                </button>
+              </span>
+            </div>
+            <div className="settings-row settings-row--stack">
+              <span className="settings-row__label">
+                <span id="settings-letterkeys-label">Single-key shortcuts</span>
+                <span className="settings-row__hint" id="settings-letterkeys-hint">
+                  Keys such as M, S, Q and the digits. Turn this off if speech
+                  input or a switch device presses them by accident; shortcuts
+                  that use Space, the arrows or a modifier stay on.
+                </span>
+              </span>
+              <span className="settings-row__value">
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={letterKeys}
+                  aria-labelledby="settings-letterkeys-label"
+                  aria-describedby="settings-letterkeys-hint"
+                  className={`settingstoggle${letterKeys ? " settingstoggle--on" : ""}`}
+                  onClick={() => setLetterKeys(!letterKeys)}
+                >
+                  <span className="settingstoggle__knob" aria-hidden="true" />
+                  <span className="settingstoggle__label" aria-hidden="true">
+                    {letterKeys ? "On" : "Off"}
+                  </span>
                 </button>
               </span>
             </div>
@@ -276,7 +307,7 @@ export function SettingsView() {
               <span className="settings-row__label">
                 Organize
                 <span className="settings-row__hint">
-                  Group tracks into albums and artists, fix metadata in bulk —
+                  Group songs into albums and artists, fix metadata in bulk —
                   edits stay in the database, your music folder is never
                   touched.
                 </span>
@@ -294,7 +325,7 @@ export function SettingsView() {
                       ? `Organize — ${reviewCount} ${reviewCount === 1 ? "item needs" : "items need"} attention`
                       : "Organize"
                   }
-                  title="Organize — group tracks into albums and artists"
+                  title="Organize — group songs into albums and artists"
                 >
                   Open
                 </button>
@@ -316,10 +347,29 @@ export function SettingsView() {
             )}
           </div>
 
-          {/* Playback — but not on iOS: Sound Check rides the Web Audio
-              graph, and the graph is bypassed there (the OS suspends it in
-              the background, which would kill background playback). A
-              setting that can't apply must not present itself. */}
+          {/* Playback. On iOS Sound Check cannot run: it rides the Web
+              Audio graph, and the graph is bypassed there (the OS suspends
+              it in the background, which would kill background playback).
+              A switch that can't apply must not present itself — but the
+              row stays and says so, with the other thing that differs on
+              an iPhone, so nobody goes looking for a missing setting. */}
+          {isIOS && (
+            <div className="settings-group">
+              <h2>Playback</h2>
+              <div className="settings-row settings-row--stack">
+                <span className="settings-row__label">
+                  Normalize volume
+                  <span className="settings-row__hint">
+                    Not available on iPhone and iPad, and songs change with a
+                    short gap here. iOS keeps music playing with the screen
+                    off only when Flow hands it the audio untouched, one song
+                    at a time.
+                  </span>
+                </span>
+                <span className="settings-row__value">Off on this device</span>
+              </div>
+            </div>
+          )}
           {!isIOS && (
             <div className="settings-group">
               <h2>Playback</h2>
@@ -351,6 +401,15 @@ export function SettingsView() {
                     </span>
                   </button>
                 </span>
+              </div>
+            </div>
+          )}
+          {version && (
+            <div className="settings-group">
+              <h2>About</h2>
+              <div className="settings-row">
+                <span className="settings-row__label">Version</span>
+                <span className="settings-row__value">Flow {version}</span>
               </div>
             </div>
           )}

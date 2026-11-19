@@ -7,6 +7,8 @@ import type { PlaylistSummary, QueueOrigin } from "../api/types";
 import {
   useDeletePlaylist,
 } from "../api/mutations";
+import { CardMenu } from "../components/CardMenu";
+import { inCardSheet, useCardLongPress } from "../lib/cardMenu";
 import { CreatePlaylistDialog } from "../components/CreatePlaylistDialog";
 import { AddTracksDialog } from "../components/LazyAddTracksDialog";
 import { EmptyState } from "../components/EmptyState";
@@ -14,6 +16,7 @@ import { ErrorState } from "../components/ErrorState";
 import { LoadingState } from "../components/LoadingState";
 import {
   IconEllipsis,
+  IconHeartFill,
   IconNext,
   IconPlay,
   IconPlaylists,
@@ -23,6 +26,7 @@ import {
   IconTrash,
 } from "../components/icons";
 import { PlaylistArt } from "../components/PlaylistArt";
+import { useCardKeys } from "../lib/cardFocus";
 import { fmtCount, fmtMinutes } from "../lib/format";
 import { beginPlayRequest, usePlayerStore } from "../stores/player";
 import "../styles/library.css";
@@ -68,19 +72,67 @@ export function PlaylistsView() {
       ) : data === undefined ? (
         <LoadingState variant="grid" />
       ) : playlists.length === 0 ? (
-        <EmptyState
-          icon={<IconPlaylists size={26} />}
-          title="No playlists yet"
-          hint="Create a playlist and drag songs in — reorder them any time."
-        />
+        <>
+          <div className="covergrid covergrid--phoneonly">
+            <FavoritesTile />
+          </div>
+          <EmptyState
+            icon={<IconPlaylists size={26} />}
+            title="No playlists yet"
+            hint="Create a playlist and drag songs in — reorder them any time."
+            action={
+              <button
+                type="button"
+                className="btn empty-state__action"
+                onClick={() => setCreating(true)}
+              >
+                <IconPlus size={15} />
+                New Playlist
+              </button>
+            }
+          />
+        </>
       ) : (
         <div className="covergrid">
+          <FavoritesTile />
           {playlists.map((playlist) => (
             <PlaylistCard key={playlist.id} playlist={playlist} />
           ))}
         </div>
       )}
     </section>
+  );
+}
+
+/* Phones only: the tab bar holds five sections, so Favorites lives here
+   as the pinned first tile — the playlist Flow keeps for you. It keeps
+   its own address. */
+function FavoritesTile() {
+  const { data: count } = useQuery({
+    queryKey: ["tracks", "favorites", "count"],
+    queryFn: async () => {
+      const { data } = await api.GET("/api/tracks", {
+        params: { query: { favorite: true, limit: 1 } },
+      });
+      return data?.total ?? null;
+    },
+  });
+  return (
+    <div className="album-card album-card--phoneonly">
+      <div className="album-card__artwrap">
+        <Link to="/favorites" className="album-card__artlink" aria-label="Favorites">
+          <span className="album-card__art favoritestile" aria-hidden="true">
+            <IconHeartFill size={44} />
+          </span>
+        </Link>
+      </div>
+      <Link to="/favorites" className="album-card__title">
+        Favorites
+      </Link>
+      <div className="album-card__meta">
+        {count == null ? "\u00A0" : `${fmtCount(count)} ${count === 1 ? "song" : "songs"}`}
+      </div>
+    </div>
   );
 }
 
@@ -126,7 +178,7 @@ function PlaylistCard({ playlist }: { playlist: PlaylistSummary }) {
   useEffect(() => {
     if (!menuOpen) return;
     const onPointerDown = (e: PointerEvent) => {
-      if (menuRef.current?.contains(e.target as Node)) return;
+      if (menuRef.current?.contains(e.target as Node) || inCardSheet(e.target)) return;
       setMenuOpen(false);
     };
     const onKeyDown = (e: KeyboardEvent) => {
@@ -181,11 +233,26 @@ function PlaylistCard({ playlist }: { playlist: PlaylistSummary }) {
     playTracks(tracks, start, origin);
   };
   const loading = menuOpen && detail === undefined;
+  // Touch: no buttons on the cover — a long press on it opens the menu.
+  const longPress = useCardLongPress(() => setMenuOpen(true));
+
+  const { coverRef, onCoverKeyDown, onMenuKeyDown, onMenuBlur } = useCardKeys(
+    menuOpen,
+    setMenuOpen,
+    menuRef,
+  );
 
   return (
     <div className="album-card">
-      <div className="album-card__artwrap">
-        <Link to={`/playlists/${playlist.id}`} className="album-card__artlink" aria-label={playlist.name}>
+      <div className="album-card__artwrap" {...longPress}>
+        <Link
+          ref={coverRef}
+          to={`/playlists/${playlist.id}`}
+          className="album-card__artlink"
+          aria-label={playlist.name}
+          aria-haspopup="menu"
+          onKeyDown={onCoverKeyDown}
+        >
           <PlaylistArt
             artworkIds={playlist.artwork_ids}
             coverArtworkId={playlist.cover_artwork_id}
@@ -202,6 +269,7 @@ function PlaylistCard({ playlist }: { playlist: PlaylistSummary }) {
           <button
             type="button"
             className="album-card__play"
+            tabIndex={-1}
             onClick={play}
             aria-label={`Play ${playlist.name}`}
             title="Play playlist"
@@ -211,6 +279,7 @@ function PlaylistCard({ playlist }: { playlist: PlaylistSummary }) {
           <button
             type="button"
             className="album-card__more"
+            tabIndex={-1}
             aria-haspopup="menu"
             aria-expanded={menuOpen}
             aria-label={`More actions for ${playlist.name}`}
@@ -220,7 +289,14 @@ function PlaylistCard({ playlist }: { playlist: PlaylistSummary }) {
             <IconEllipsis size={16} />
           </button>
           {menuOpen && (
-            <div className="trackmenu album-card__menu" role="menu" aria-label={`Actions for ${playlist.name}`}>
+            <CardMenu
+              label={`Actions for ${playlist.name}`}
+              title={playlist.name}
+              subtitle="Playlist"
+              onClose={() => setMenuOpen(false)}
+              onKeyDown={onMenuKeyDown}
+              onBlur={onMenuBlur}
+            >
               <button type="button" role="menuitem" className="trackmenu__item" onClick={act(play)}>
                 <IconPlay size={15} />
                 Play
@@ -247,7 +323,7 @@ function PlaylistCard({ playlist }: { playlist: PlaylistSummary }) {
                 disabled={loading || tracks.length === 0}
               >
                 <IconQueue size={15} />
-                Add to Queue (end)
+                Add to Queue
               </button>
               {/* A playlist is a destination, not a source: where the album
                   menu files tracks elsewhere, this one fills the playlist. */}
@@ -259,7 +335,7 @@ function PlaylistCard({ playlist }: { playlist: PlaylistSummary }) {
                 disabled={detail === undefined}
               >
                 <IconPlus size={15} />
-                Add Tracks
+                Add Songs
               </button>
               <div className="trackmenu__separator" role="separator" />
               <button
@@ -281,15 +357,15 @@ function PlaylistCard({ playlist }: { playlist: PlaylistSummary }) {
                 <IconTrash size={15} />
                 {armed ? "Confirm Delete" : "Delete Playlist"}
               </button>
-            </div>
+            </CardMenu>
           )}
         </div>
       </div>
-      <Link to={`/playlists/${playlist.id}`} className="album-card__title">
+      <Link to={`/playlists/${playlist.id}`} className="album-card__title" tabIndex={-1}>
         {playlist.name}
       </Link>
       <div className="album-card__meta">
-        {fmtCount(playlist.track_count)} track{playlist.track_count === 1 ? "" : "s"}
+        {fmtCount(playlist.track_count)} song{playlist.track_count === 1 ? "" : "s"}
         {playlist.track_count > 0 ? ` · ${fmtMinutes(playlist.duration_total)}` : ""}
       </div>
       {addingTracks && detail && (

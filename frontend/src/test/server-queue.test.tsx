@@ -11,6 +11,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Track } from "../api/types";
 
 const queueApi = vi.hoisted(() => ({
+  claimServerQueue: vi.fn(),
   fetchServerQueue: vi.fn(),
   saveServerQueue: vi.fn(),
   saveServerPlayhead: vi.fn(),
@@ -55,6 +56,7 @@ const session = (orderPos: number, position?: number) => ({
 beforeEach(() => {
   localStorage.clear();
   queueApi.fetchServerQueue.mockReset();
+  queueApi.claimServerQueue.mockReset();
   queueApi.saveServerQueue.mockReset();
   queueApi.saveServerPlayhead.mockReset();
 });
@@ -152,6 +154,103 @@ describe("server-queue restore", () => {
     await new Promise((r) => setTimeout(r, 0));
 
     expect(usePlayerStore.getState().queue[0]?.title).toBe("Local Track");
+  });
+
+  it("pressing play before the saved queue arrives sends this queue up and takes the server's rows", async () => {
+    const local = [
+      { ...TRACKS[0], id: 7, title: "Local One" },
+      { ...TRACKS[0], id: 8, title: "Local Two" },
+    ];
+    // The compact local copy carries no heart: song 8 reads "not favorite".
+    localStorage.setItem(
+      "flow.player.queue",
+      JSON.stringify({ queue: local, order: [0, 1] }),
+    );
+    let release: (value: ReturnType<typeof session>) => void = () => {};
+    queueApi.fetchServerQueue.mockReturnValue(
+      new Promise((resolve) => {
+        release = resolve;
+      }),
+    );
+    // The server stores both rows and answers with its own: 8 is a favorite.
+    queueApi.claimServerQueue.mockResolvedValue({
+      ...serverSnapshot(1),
+      items: [
+        { ...TRACKS[0], id: 7, title: "Local One" },
+        { ...TRACKS[0], id: 8, title: "Local Two", favorite: true },
+      ],
+      order: [0, 1],
+    });
+
+    const { usePlayerStore, trackIsUnverified } = await import("../stores/player");
+    expect(trackIsUnverified(usePlayerStore.getState().queue[0])).toBe(true);
+
+    // Play, on the restored queue: no plan change, so nothing mirrored yet.
+    usePlayerStore.setState({ isPlaying: true, orderPos: 1 });
+    expect(queueApi.claimServerQueue).not.toHaveBeenCalled();
+
+    release(session(1)); // the server still held a different queue
+    await new Promise((r) => setTimeout(r, 0));
+
+    // The queue that is playing is the one the server now holds...
+    expect(queueApi.claimServerQueue).toHaveBeenCalledTimes(1);
+    const sent = queueApi.claimServerQueue.mock.calls[0][0] as {
+      tracks: { id: number }[];
+      orderPos: number;
+    };
+    expect(sent.tracks.map((t) => t.id)).toEqual([7, 8]);
+    expect(sent.orderPos).toBe(1);
+    // ...it was not replaced, its rows are vouched for (links, the heart
+    // and L work), and the heart says what the server knows.
+    const state = usePlayerStore.getState();
+    expect(state.queue.map((t) => t.title)).toEqual(["Local One", "Local Two"]);
+    expect(state.orderPos).toBe(1);
+    expect(state.queue.some((t) => trackIsUnverified(t))).toBe(false);
+    expect(state.queue[1].favorite).toBe(true);
+    expect(queueApi.saveServerQueue).not.toHaveBeenCalled(); // nothing to correct
+  });
+
+  it("a song a scan removed leaves the queue, and the positions follow the server's", async () => {
+    localStorage.setItem(
+      "flow.player.queue",
+      JSON.stringify({
+        queue: [{ ...TRACKS[0], id: 7 }, { ...TRACKS[0], id: 8 }, { ...TRACKS[0], id: 9 }],
+        order: [0, 1, 2],
+      }),
+    );
+    let release: (value: ReturnType<typeof session>) => void = () => {};
+    queueApi.fetchServerQueue.mockReturnValue(
+      new Promise((resolve) => {
+        release = resolve;
+      }),
+    );
+    // Song 8 no longer exists: the server stores 7 and 9.
+    queueApi.claimServerQueue.mockResolvedValue({
+      ...serverSnapshot(1),
+      items: [
+        { ...TRACKS[0], id: 7 },
+        { ...TRACKS[0], id: 9 },
+      ],
+      order: [0, 1],
+    });
+
+    const { usePlayerStore, trackIsUnverified } = await import("../stores/player");
+    usePlayerStore.setState({ isPlaying: true, orderPos: 2 }); // playing song 9
+    release(session(1));
+    await new Promise((r) => setTimeout(r, 0));
+
+    const state = usePlayerStore.getState();
+    expect(state.queue.map((t) => t.id)).toEqual([7, 9]);
+    expect(state.queue[state.order[state.orderPos]].id).toBe(9);
+    expect(state.orderPos).toBe(1);
+    expect(state.queue.some((t) => trackIsUnverified(t))).toBe(false);
+    // The browser's numbering is the server's again: one more mirror says so.
+    const mirrored = queueApi.saveServerQueue.mock.calls.at(-1)?.[0] as {
+      tracks: { id: number }[];
+      orderPos: number;
+    };
+    expect(mirrored.tracks.map((t) => t.id)).toEqual([7, 9]);
+    expect(mirrored.orderPos).toBe(1);
   });
 
   it("an unreachable server degrades to the localStorage snapshot, rows unverified", async () => {

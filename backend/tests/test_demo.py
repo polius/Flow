@@ -88,3 +88,26 @@ def test_prepare_library_never_touches_files(db, music, monkeypatch):
 
     assert demo.prepare_library(db) is None
     assert list(music.iterdir()) == [stray]  # nothing generated, stray untouched
+
+
+def test_full_catalog_has_a_two_disc_album_and_a_compilation(db, music, scanner):
+    """The two shapes a plain catalog never shows stay in the demo: the
+    album page's disc headings and per-track artists depend on them."""
+    expected = demo.generate_library(music)
+    scanner.run_scan("test")
+    conn = db.connect()
+    assert conn.execute("SELECT COUNT(*) AS c FROM tracks").fetchone()["c"] == expected
+
+    discs = conn.execute(
+        "SELECT t.disc_no, COUNT(*) AS c FROM tracks t JOIN albums al ON al.id = t.album_id "
+        "WHERE al.title = 'Live at the Breakwater' GROUP BY t.disc_no ORDER BY t.disc_no"
+    ).fetchall()
+    assert [(r["disc_no"], r["c"]) for r in discs] == [(1, 5), (2, 4)]
+
+    sampler = conn.execute(
+        "SELECT aar.name AS album_artist, COUNT(DISTINCT t.artist_id) AS artists "
+        "FROM tracks t JOIN albums al ON al.id = t.album_id "
+        "JOIN artists aar ON aar.id = al.artist_id WHERE al.title = 'Sidewalk Sampler'"
+    ).fetchone()
+    assert sampler["album_artist"] == "Various Artists"
+    assert sampler["artists"] == 8

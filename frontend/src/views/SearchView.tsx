@@ -53,7 +53,7 @@ export function SearchView() {
     results.playlists.length === 0;
 
   return (
-    <section className="view">
+    <section className="view view--capped">
       <h1 className="view__title">Search</h1>
 
       {!hasQuery ? (
@@ -76,7 +76,7 @@ export function SearchView() {
             <section className="searchgroup">
               <SectionHeader
                 title="Songs"
-                more={{ to: `/tracks?q=${encodeURIComponent(urlQuery)}`, label: "Show all in Tracks" }}
+                more={{ to: `/tracks?q=${encodeURIComponent(urlQuery)}`, label: "Show all in Songs" }}
               />
               <TrackTable
                 label={`Songs matching “${urlQuery}”`}
@@ -149,7 +149,7 @@ export function SearchView() {
                       />
                       <span className="searchplaylists__name">{playlist.name}</span>
                       <span className="searchplaylists__meta">
-                        {playlist.track_count} track{playlist.track_count === 1 ? "" : "s"}
+                        {playlist.track_count} song{playlist.track_count === 1 ? "" : "s"}
                         {playlist.track_count > 0
                           ? ` · ${fmtMinutes(playlist.duration_total)}`
                           : ""}

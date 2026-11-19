@@ -1,5 +1,5 @@
 import { Suspense, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { Navigate, Outlet, useLocation } from "react-router";
+import { Navigate, NavigationType, Outlet, useLocation, useNavigationType } from "react-router";
 
 import { useAuthStatus } from "../api/auth";
 import { ensureScanSync, stopScanSync } from "../api/scanSync";
@@ -12,7 +12,7 @@ import { ShortcutSheet } from "./ShortcutSheet";
 import { TopBar } from "./TopBar";
 import { TrackActionsMenu } from "./TrackActionsMenu";
 import { UndoToast } from "./UndoToast";
-import { resumeServerAdoption } from "../stores/player";
+import { endPlayback, resumeServerAdoption } from "../stores/player";
 import { useUiStore } from "../stores/ui";
 import "../styles/shell.css";
 
@@ -59,20 +59,68 @@ export function AppShell() {
     ensureScanSync();
     resumeServerAdoption();
   }, [apiOpen]);
+  // The session ended under a playing song (it expired, or was closed from
+  // elsewhere): the sound stops with it. The queue stays for the sign-in
+  // that follows; an explicit sign-out clears it (AccessSettings).
+  const signedOut = authStatus != null && authStatus.enabled && !authStatus.authenticated;
+  useEffect(() => {
+    if (signedOut) endPlayback({ forget: false });
+  }, [signedOut]);
 
   // The canvas is one shared scroll container across views, so an offset from
   // one section would leak into the next — the new view could land mid-list
-  // (or pinned past its content) on first open. Reset synchronously before
-  // paint (useLayoutEffect) so the leaked offset is never visible. Search-term
-  // updates keep their scroll: only the pathname is reset.
+  // (or pinned past its content) on first open. A new page starts at the
+  // top; going Back or Forward returns to where that page was left (a long
+  // grid would otherwise restart from its first row every time an album
+  // was opened from it). Set synchronously before paint (useLayoutEffect)
+  // so the leaked offset is never visible. Search-term updates keep their
+  // scroll: only a pathname change moves it.
+  const navigationType = useNavigationType();
+  const scrollByEntry = useRef(new Map<string, number>());
+  const shownKey = useRef(location.key);
+  const lastScroll = useRef(0);
+  useEffect(() => {
+    const el = canvasRef.current;
+    if (!el) return;
+    const onScroll = () => {
+      lastScroll.current = el.scrollTop;
+    };
+    el.addEventListener("scroll", onScroll, { passive: true });
+    return () => el.removeEventListener("scroll", onScroll);
+  }, []);
   useLayoutEffect(() => {
-    canvasRef.current?.scrollTo(0, 0);
+    const el = canvasRef.current;
+    if (!el) return;
+    // Leaving: remember where the entry that was on screen had got to.
+    if (shownKey.current !== location.key)
+      scrollByEntry.current.set(shownKey.current, lastScroll.current);
+    const back = navigationType === NavigationType.Pop;
+    const saved = back ? (scrollByEntry.current.get(location.key) ?? 0) : 0;
+    let frame = 0;
+    let tries = 0;
+    // The page may still be laying out (a windowed grid measures itself
+    // first): keep asking until the canvas is tall enough, for a moment.
+    const restore = () => {
+      el.scrollTo(0, saved);
+      lastScroll.current = el.scrollTop;
+      if (Math.abs(el.scrollTop - saved) > 1 && tries++ < 30)
+        frame = requestAnimationFrame(restore);
+    };
+    restore();
+    return () => cancelAnimationFrame(frame);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.pathname]);
+  useEffect(() => {
+    shownKey.current = location.key;
+  });
 
   // ⌘F / Ctrl+F focuses the top-bar search field from anywhere.
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "f") {
+      if ((e.metaKey || e.ctrlKey) && !e.altKey && !e.shiftKey && e.key.toLowerCase() === "f") {
+        // Pressed again from the search field itself, the key goes to
+        // the browser: its own find-in-page is one more press away.
+        if (document.activeElement?.closest?.(".topbar__search") != null) return;
         e.preventDefault();
         focusSearch();
       }
@@ -98,9 +146,33 @@ export function AppShell() {
 
   return (
     <div className="shell">
+      {/* The first two Tab stops, shown only when focused: past the top
+          bar to the page, or past the page to the player. */}
+      <a
+        href="#content"
+        className="skiplink"
+        onClick={(e) => {
+          e.preventDefault();
+          canvasRef.current?.focus();
+        }}
+      >
+        Skip to content
+      </a>
+      <a
+        href="#player"
+        className="skiplink"
+        onClick={(e) => {
+          e.preventDefault();
+          document
+            .querySelector<HTMLElement>(".player button:not(:disabled), .player a[href]")
+            ?.focus();
+        }}
+      >
+        Skip to player
+      </a>
       <div className="shell__main">
         <TopBar />
-        <main ref={canvasRef} className="shell__canvas">
+        <main ref={canvasRef} id="content" tabIndex={-1} className="shell__canvas">
           <Outlet />
         </main>
         <PlayerBar />

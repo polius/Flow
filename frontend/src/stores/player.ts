@@ -11,6 +11,7 @@ import { AUTH_STATUS_KEY } from "../api/auth";
 import { api } from "../api/client";
 import { queryClient } from "../api/queryClient";
 import {
+  claimServerQueue,
   fetchServerQueue,
   saveServerPlayhead,
   saveServerQueue,
@@ -68,6 +69,9 @@ interface PlayerState {
   position: number; // seconds
   duration: number; // seconds (from the audio element once known)
   buffered: number; // seconds buffered ahead
+  /** The element is playing but waiting for data: the play button shows
+      a spinner instead of claiming sound that is not there. */
+  buffering: boolean;
   shuffle: boolean;
   repeat: RepeatMode;
   /** Sound Check: apply the scan's loudness analysis so albums play at a
@@ -244,6 +248,9 @@ function clearSleepHandle(): void {
   }
 }
 
+/** What the persist middleware last wrote, per key (see its setItem). */
+const persistedValues = new Map<string, string>();
+
 export const usePlayerStore = create<PlayerState>()(
   persist(
     (set, get) => ({
@@ -254,6 +261,7 @@ export const usePlayerStore = create<PlayerState>()(
       position: 0,
       duration: 0,
       buffered: 0,
+      buffering: false,
       shuffle: false,
       repeat: "off",
       soundcheck: true,
@@ -345,7 +353,9 @@ export const usePlayerStore = create<PlayerState>()(
       removeQueued: (tracks) => {
         if (tracks.length === 0) return;
         const { queue, order, orderPos } = get();
-        const dropped = new Set(tracks); // reference identity: duplicates by id elsewhere stay
+        // Reference identity: duplicates by id elsewhere stay. A row the
+        // session claim replaced is found through its replacement.
+        const dropped = new Set(tracks.map((t) => replacedRows.get(t) ?? t));
         const currentQueueIndex = order[orderPos];
         // The playing row's own slot is never dropped — even when the same
         // object was ALSO just inserted (Play Next on the playing track),
@@ -396,12 +406,15 @@ export const usePlayerStore = create<PlayerState>()(
       },
 
       clearQueue: () => {
-        const { queue, order, orderPos, position, origin } = get();
+        const { queue, order, orderPos, position, origin, duration, buffered } = get();
         if (queue.length === 0) return;
         // The exact session, captured for the undo: restoring brings the
         // playhead AND the origin back — everything but the sound. A plain
         // set re-mirrors the snapshot to the server like any queue edit.
-        const snapshot = { queue, order, orderPos, position, origin };
+        // The song's length comes back with it: the element still holds
+        // the song, so nothing would report the duration again, and at
+        // zero the scrubber is disabled and the seek keys do nothing.
+        const snapshot = { queue, order, orderPos, position, origin, duration, buffered };
         playEpoch++;
         intendPlay = false;
         clearStallWatch();
@@ -425,7 +438,13 @@ export const usePlayerStore = create<PlayerState>()(
         useUiStore.getState().showUndoNotice({
           message: `Cleared the queue — ${queue.length} ${noun}`,
           undo: async () => {
+            const current = snapshot.queue[snapshot.order[snapshot.orderPos]];
+            // Something else was played since the clear: the element holds
+            // that song now. The restored one goes back in, paused at its
+            // place, so the name on screen is the sound that would play.
+            const moved = current != null && loadedSrc !== trackSrc(current);
             usePlayerStore.setState(snapshot);
+            if (moved) load(current, false, snapshot.position);
           },
         });
       },
@@ -516,12 +535,20 @@ export const usePlayerStore = create<PlayerState>()(
 
       next: () => {
         errorSkipStreak = 0;
+        // A press, like Play: after a reload this may be the first one, and
+        // the only place the audio graph can start. Without it the song
+        // plays outside Sound Check — at full level, however loud its file.
+        // (The end-of-song advance is not a gesture and stays out of this.)
+        ensureGraph();
+        resumeGraph();
         // The preloaded next track is ready to go: start it rather than
         // throwing the buffer away and fetching it again.
         if (!swapToStandby()) advance(1, false);
       },
       prev: () => {
         errorSkipStreak = 0;
+        ensureGraph();
+        resumeGraph();
         if (get().position > 3) {
           get().seek(0);
           return;
@@ -533,6 +560,9 @@ export const usePlayerStore = create<PlayerState>()(
         if (!audio) return;
         audio.currentTime = seconds;
         set({ position: seconds });
+        // Waiting on the network: the reload resumes where the listener
+        // put the playhead, not where the connection dropped.
+        if (networkHold != null) networkHold.position = seconds;
         syncPositionState();
       },
 
@@ -569,21 +599,15 @@ export const usePlayerStore = create<PlayerState>()(
         clearSleepHandle();
         if (choice == null) {
           set({ sleep: null });
-          return;
-        }
-        if (choice === "track") {
+        } else if (choice === "track") {
           set({ sleep: { kind: "track" } });
-          return;
+        } else {
+          const ms = choice * 60_000;
+          set({ sleep: { kind: "minutes", minutes: choice, endsAt: Date.now() + ms } });
+          sleepTimerHandle = window.setTimeout(fallAsleep, ms);
         }
-        const ms = choice * 60_000;
-        set({ sleep: { kind: "minutes", minutes: choice, endsAt: Date.now() + ms } });
-        sleepTimerHandle = window.setTimeout(() => {
-          sleepTimerHandle = null;
-          set({ sleep: null });
-          intendPlay = false;
-          clearNetworkHold(); // asleep means asleep: no reconnect resumes it
-          audio?.pause();
-        }, ms);
+        // Changed during the last seconds' fade: the level comes back.
+        applyLevels();
       },
 
       cycleRepeat: () => {
@@ -606,6 +630,11 @@ export const usePlayerStore = create<PlayerState>()(
           }
         },
         setItem: (key, value) => {
+          // The middleware writes on every store update, and the position
+          // updates four times a second while a song plays: the three
+          // preferences it holds are only written when one of them changed.
+          if (persistedValues.get(key) === value) return;
+          persistedValues.set(key, value);
           try {
             localStorage.setItem(key, value);
           } catch {
@@ -656,6 +685,8 @@ let audio: HTMLAudioElement | null = audioA;
     gain-matched, ready to start the instant the playing one ends. */
 let standby: HTMLAudioElement | null = audioB;
 let standbyTrack: Track | null = null;
+/** The track whose preload failed, until another song is loaded. */
+let standbyFailedId: number | null = null;
 
 /** The stream URL the active element currently holds — null until the first
     real load. A restored session plays from a populated store with a virgin
@@ -696,7 +727,7 @@ function outputLevel(): number {
   const { volume, muted } = usePlayerStore.getState();
   // Squared: a linear slider tracks perceived loudness far better than raw
   // amplitude — the bottom half of the travel isn't all near-silence.
-  return muted ? 0 : volume * volume;
+  return muted ? 0 : volume * volume * sleepFade();
 }
 
 /** Re-apply gain (Sound Check × volume) to both elements. */
@@ -781,6 +812,23 @@ function recoverGraph(): void {
     .catch(() => {});
 }
 
+/** The Sound Check correction for a track. While an album is playing every
+    song on it gets the same one — the album's loudest song sets it — so
+    the quiet interlude stays quiet next to the single, as mastered. Any
+    other queue levels each song on its own. */
+function soundCheckDb(track: Track): number | null {
+  const { origin, queue } = usePlayerStore.getState();
+  // A song with no album is no album's: it is levelled on its own.
+  if (origin?.kind !== "album" || track.gain_db == null || track.album_id == null) {
+    return track.gain_db ?? null;
+  }
+  let album = track.gain_db;
+  for (const t of queue) {
+    if (t.album_id === track.album_id && t.gain_db != null && t.gain_db < album) album = t.gain_db;
+  }
+  return album;
+}
+
 function applyGain(el: HTMLAudioElement | null, track: Track | null): void {
   if (el == null) return;
   const level = outputLevel();
@@ -793,7 +841,7 @@ function applyGain(el: HTMLAudioElement | null, track: Track | null): void {
   }
   if (el.volume !== 1) el.volume = 1;
   const { soundcheck } = usePlayerStore.getState();
-  const db = soundcheck && track != null ? track.gain_db : null;
+  const db = soundcheck && track != null ? soundCheckDb(track) : null;
   // setTargetAtTime glides the step so a Sound Check toggle, a volume
   // drag, or the first apply mid-play never clicks.
   gain.gain.setTargetAtTime(
@@ -867,7 +915,9 @@ let lastTitleKey = "";
 function syncWindowTitle(): void {
   if (typeof document === "undefined") return;
   const track = currentTrack();
-  const key = track ? `${track.id}` : "";
+  // The names are part of the key: a rename of the playing song is a new
+  // title, though the song is the same.
+  const key = track ? `${track.id}|${track.artist ?? ""}|${track.title}` : "";
   if (key === lastTitleKey) return;
   lastTitleKey = key;
   document.title = track
@@ -878,7 +928,9 @@ function syncWindowTitle(): void {
 let lastMetadataKey = "";
 function syncMediaSessionMetadata(track: Track | null): void {
   if (typeof navigator === "undefined" || !("mediaSession" in navigator)) return;
-  const key = track ? `${track.id}:${track.artwork_id}` : "";
+  const key = track
+    ? `${track.id}:${track.artwork_id}|${track.title}|${track.artist ?? ""}|${track.album ?? ""}`
+    : "";
   if (key === lastMetadataKey) return;
   lastMetadataKey = key;
   if (track == null) {
@@ -906,6 +958,47 @@ function syncNowPlayingSurfaces(): void {
   syncMediaSessionMetadata(currentTrack());
 }
 
+/* -- what counts as a play ----------------------------------------------------
+   "Recently played" used to be stamped the moment a song started: skip
+   through ten songs and ten albums became recently played. A play counts
+   once the song has been HEARD for 30 seconds, or for half of it when it
+   is shorter than a minute — time listened, not the position reached, so
+   scrubbing to the end counts for nothing. One stamp per load. */
+const PLAY_COUNTS_AFTER_S = 30;
+let listenedSeconds = 0;
+let listenedAt: number | null = null; // the clock at the last tick
+let playCounted = false;
+let listeningId: number | null = null; // the song the count belongs to
+
+function resetListening(): void {
+  listenedSeconds = 0;
+  listenedAt = null;
+  playCounted = false;
+}
+
+/** Called on every tick of the song's clock. */
+function noteListening(el: HTMLAudioElement): void {
+  if (playCounted) return;
+  const now = el.currentTime;
+  // Paused, the clock only moves when the listener scrubs: not listening.
+  if (!usePlayerStore.getState().isPlaying) {
+    listenedAt = now;
+    return;
+  }
+  // A tick is ~0.25 s; a larger jump (or a step back) is a seek.
+  if (listenedAt != null && now > listenedAt && now - listenedAt < 2) {
+    listenedSeconds += now - listenedAt;
+  }
+  listenedAt = now;
+  const length = Number.isFinite(el.duration) && el.duration > 0 ? el.duration : Infinity;
+  if (listenedSeconds >= Math.min(PLAY_COUNTS_AFTER_S, length / 2)) {
+    playCounted = true;
+    // The stamp rides a playhead sync, carrying the track id so the server
+    // marks the right row even while the plan mirror is still in flight.
+    writePlayhead(true);
+  }
+}
+
 /** Whether the user means sound to be coming out: set by every play and
     pause the user (or the plan) asks for, never by a pause the engine
     makes itself — so a network hold knows whether to resume. */
@@ -914,6 +1007,13 @@ let intendPlay = false;
 function load(track: Track, autoplay: boolean, startAt?: number): void {
   if (!audio || !track) return;
   blockedPlayAt = null; // a new load supersedes a blocked play
+  standbyFailedId = null;
+  // A reload of the same song at its playhead (a network hold, a retry
+  // after an error) continues the listen: what was heard still counts,
+  // and a listen already counted is not counted again. Anything else is a
+  // new listen.
+  if (track.id !== listeningId || !(startAt != null && startAt > 0.25)) resetListening();
+  listeningId = track.id;
   const src = trackSrc(track);
   loadedSrc = src;
   intendPlay = autoplay;
@@ -970,6 +1070,10 @@ function prepareStandby(): void {
     return;
   }
   if (standbyTrack?.id === next.track.id) return;
+  // It already failed to preload for this song: `ended` will load it the
+  // classic way. Asking again on every tick of the last ten seconds only
+  // repeats the failure.
+  if (standbyFailedId === next.track.id) return;
   standbyTrack = next.track;
   standby.src = trackSrc(next.track);
   applyGain(standby, next.track);
@@ -991,6 +1095,8 @@ function swapToStandby(): boolean {
   loadedSrc = trackSrc(next.track);
   intendPlay = true;
   standbyTrack = null;
+  standbyFailedId = null;
+  resetListening();
   clearStallWatch();
   clearNetworkHold();
   resetStandby(); // the finished element becomes the next standby
@@ -1100,6 +1206,40 @@ function advance(step: number, auto: boolean): void {
   const track = state.queue[state.order[pos]];
   usePlayerStore.setState({ orderPos: pos });
   load(track, true);
+}
+
+/** The sleep timer's minutes ran out: the music stops. Reached by the
+    timer, and by the song's own clock (`checkSleep`) — a timeout alone is
+    late after the laptop slept or the tab was throttled, and the pill read
+    0:00 over music that kept playing. */
+function fallAsleep(): void {
+  clearSleepHandle();
+  usePlayerStore.setState({ sleep: null });
+  intendPlay = false;
+  clearNetworkHold(); // asleep means asleep: no reconnect resumes it
+  audio?.pause();
+  applyLevels(); // the fade is over: the next play starts at full level
+}
+
+/** The last seconds before sleep fade out (where a graph or the element
+    can carry a level at all). 1 outside that window. */
+const SLEEP_FADE_MS = 8000;
+
+function sleepFade(): number {
+  const { sleep } = usePlayerStore.getState();
+  if (sleep?.kind !== "minutes") return 1;
+  const left = sleep.endsAt - Date.now();
+  return left >= SLEEP_FADE_MS ? 1 : Math.max(0, left / SLEEP_FADE_MS);
+}
+
+/** Called as the song advances: stop when the end time has passed, and
+    step the fade while it approaches. */
+function checkSleep(): void {
+  const { sleep } = usePlayerStore.getState();
+  if (sleep?.kind !== "minutes") return;
+  const left = sleep.endsAt - Date.now();
+  if (left <= 0) fallAsleep();
+  else if (left < SLEEP_FADE_MS) applyLevels();
 }
 
 /** Sleep timer, "end of track": the music stops at the boundary and the
@@ -1429,13 +1569,14 @@ for (const el of elements()) {
     yieldedToOtherTab = false;
     tabChannel?.postMessage({ type: "playing", tab: TAB_ID });
     armFrozenWatch(el);
-    // A real start is what played_at means: sync the playhead now,
-    // not on the 3 s cadence, carrying the track id so the server stamps
-    // the right row even while the plan mirror is still in flight.
-    writePlayhead(true);
+    // Sync the playhead now, not on the 3 s cadence: another device that
+    // opens Flow sees what just started. The played stamp is not sent
+    // here — it waits until the song has been listened to (noteListening).
+    writePlayhead();
   });
   el.addEventListener("playing", () => {
     if (!live()) return;
+    usePlayerStore.setState({ buffering: false });
     clearStallWatch();
     networkRetries = 0; // bytes are flowing again
     // The clock restarts now: a buffering wait was not a freeze.
@@ -1443,13 +1584,14 @@ for (const el of elements()) {
   });
   el.addEventListener("waiting", () => {
     if (!live() || el.paused) return;
+    usePlayerStore.setState({ buffering: true });
     armStallWatch(el);
   });
   el.addEventListener("pause", () => {
     if (!live()) return;
     clearStallWatch();
     clearFrozenWatch();
-    usePlayerStore.setState({ isPlaying: false });
+    usePlayerStore.setState({ isPlaying: false, buffering: false });
     setPlaybackState("paused");
     syncPositionState();
   });
@@ -1460,6 +1602,8 @@ for (const el of elements()) {
   el.addEventListener("timeupdate", () => {
     if (!live()) return;
     usePlayerStore.setState({ position: el.currentTime });
+    noteListening(el);
+    checkSleep();
     if (
       Number.isFinite(el.duration) &&
       el.duration - el.currentTime <= PRELOAD_AHEAD_SECONDS
@@ -1492,6 +1636,7 @@ for (const el of elements()) {
     }
     if (state.repeat === "one") {
       el.currentTime = 0;
+      resetListening(); // the same song again is another play
       void el.play();
       return;
     }
@@ -1507,6 +1652,7 @@ for (const el of elements()) {
     if (el !== audio) {
       // The standby failed to load: drop it so `ended` uses the fallback.
       if (el === standby) {
+        standbyFailedId = standbyTrack?.id ?? null;
         standbyTrack = null;
         el.removeAttribute("src");
       }
@@ -1706,6 +1852,17 @@ function setStateRestoring(partial: Partial<PlayerState>): void {
 let queueSaveTimer: number | null = null;
 let playheadSaveTimer: number | null = null;
 let playheadDirty = false;
+/** Set by an explicit sign-out: the writers stay quiet until a new
+    session begins here (a plan change, or the server's adopted). */
+let sessionEnded = false;
+
+function cancelPendingSaves(): void {
+  if (queueSaveTimer != null) window.clearTimeout(queueSaveTimer);
+  if (playheadSaveTimer != null) window.clearTimeout(playheadSaveTimer);
+  queueSaveTimer = null;
+  playheadSaveTimer = null;
+  playheadDirty = false;
+}
 
 function clearLocalKeys(): void {
   try {
@@ -1736,12 +1893,14 @@ function writeLocalQueue(): void {
 }
 
 function writeQueueSnapshot(keepalive = false): void {
+  if (sessionEnded) return;
   writeLocalQueue();
   const { queue, order, orderPos, position, origin } = usePlayerStore.getState();
-  saveServerQueue({ tracks: queue, order, orderPos, position, origin }, keepalive);
+  void saveServerQueue({ tracks: queue, order, orderPos, position, origin }, keepalive);
 }
 
 function writePlayhead(started = false, keepalive = false): void {
+  if (sessionEnded) return;
   const { queue, order, orderPos, position } = usePlayerStore.getState();
   if (localQueueSaved) {
     try {
@@ -1798,6 +1957,9 @@ if (typeof window !== "undefined") {
     const planChanged =
       state.order !== prev.order ||
       (state.queue !== prev.queue && !sameIds(state.queue, prev.queue));
+    // Signed out: the element's last ticks are not the listener acting.
+    // Only a new plan begins a session again.
+    if (sessionEnded && !planChanged) return;
     // Session identity is the plan and the playhead. Preference writes
     // (the persist middleware's rehydration, a volume nudge) don't make
     // the session owned — they must not block the server adoption.
@@ -1812,6 +1974,7 @@ if (typeof window !== "undefined") {
     if (planChanged) {
       // Editing the plan here is acting here: this tab speaks again.
       yieldedToOtherTab = false;
+      sessionEnded = false;
       if (queueSaveTimer == null) {
         queueSaveTimer = window.setTimeout(() => {
           queueSaveTimer = null;
@@ -1868,6 +2031,10 @@ if (typeof window !== "undefined") {
    keys go too, or the next reload resurrects the same ghosts), and rows
    restored locally are tagged unverified — surfaces render TEXT, not
    links, for them until the server replaces them wholesale. */
+
+/** Rows the session claim swapped for the server's own (old -> new), so
+    an undo captured before the swap still finds what it added. */
+const replacedRows = new WeakMap<Track, Track>();
 
 /** Rows the server has not vouched for. Tagged at local restore; emptied
     only by wholesale replacement (server adoption, clearing, or any live
@@ -2037,7 +2204,12 @@ async function adoptServerSession(attempt = 0): Promise<void> {
     return;
   }
   adoptionAwaitingNetwork = false;
-  if (sessionTouched) return; // this browser's session already began
+  if (sessionTouched) {
+    // This browser's session already began: the server's copy is not
+    // adopted — it is replaced.
+    void claimSession();
+    return;
+  }
   if (result.status === "empty") {
     // The server answered and its truth is "nothing is playing" —
     // authoritative for clearing, never a reason to degrade to a local
@@ -2070,6 +2242,7 @@ async function adoptServerSession(attempt = 0): Promise<void> {
     position: at,
     duration: track.duration || 0,
   });
+  sessionEnded = false; // a session again: its edits are mirrored
   syncWindowTitle();
   // The offline layer holds what the server holds: a browser that only
   // ever adopted this queue still shows it while the server is gone.
@@ -2084,6 +2257,87 @@ async function adoptServerSession(attempt = 0): Promise<void> {
     } catch {
       // best-effort, like every write here
     }
+  }
+}
+
+/** The listener acted on the local queue before the server's copy arrived
+    (pressed Play on a restored session). The playhead writes that follow
+    are positions in THIS queue, and the server would apply them to
+    whatever queue it still held — the next reload, or another device,
+    then got that other queue at an arbitrary song. So the server is told
+    which queue is playing. When it stores every row (none were removed by
+    a scan since this browser saved them), the rows are vouched for: the
+    surfaces get their links, the heart and L back. */
+async function claimSession(): Promise<void> {
+  const { queue, order, orderPos, position, origin } = usePlayerStore.getState();
+  if (queue.length === 0) return;
+  const stored = await claimServerQueue({ tracks: queue, order, orderPos, position, origin });
+  if (stored == null) return;
+  // An edit made meanwhile mirrors itself, and its rows came from live
+  // fetches; only the queue that was sent is reconciled.
+  const now = usePlayerStore.getState();
+  if (now.queue !== queue) return;
+  // The server's rows replace the local copies: they carry today's
+  // favorites and links, and a song a scan removed is not among them.
+  // They come in the order sent, so pairing by id in order finds which
+  // local rows the server dropped.
+  const fresh = stored.items;
+  const next: Track[] = [];
+  const remap = new Map<number, number>();
+  queue.forEach((t, i) => {
+    const row = fresh[next.length] as Track | undefined;
+    if (row?.id !== t.id) return;
+    remap.set(i, next.length);
+    next.push(row);
+  });
+  if (next.length !== fresh.length) return; // not the queue that was sent
+  const playing = remap.get(now.order[now.orderPos]);
+  if (playing == null) return; // the playing song itself is gone: it plays out unvouched
+  // A queued action's undo holds the old row objects: point them at the new.
+  queue.forEach((t, i) => {
+    const j = remap.get(i);
+    if (j != null) replacedRows.set(t, next[j]);
+  });
+  const newOrder = now.order.filter((i) => remap.has(i)).map((i) => remap.get(i)!);
+  setStateRestoring({ queue: next, order: newOrder, orderPos: newOrder.indexOf(playing) });
+  // Rows were dropped: the positions this browser sends from now on must
+  // be the server's. One more mirror makes sure the two agree.
+  if (next.length !== queue.length) writeQueueSnapshot();
+}
+
+/** The signed-in session is over. The sound stops at once — the app is
+    about to show the sign-in page, and music with no control on screen is
+    a room nobody can turn off. An explicit sign-out (`forget`) also drops
+    the queue and this browser's saved copy of it: the next person at this
+    browser starts clean. A session that merely expired keeps both, so
+    signing back in resumes it. */
+export function endPlayback({ forget }: { forget: boolean }): void {
+  playEpoch++; // any pending async play is now stale
+  intendPlay = false;
+  clearStallWatch();
+  clearNetworkHold();
+  if (audio) {
+    audio.pause();
+    if (standbyTrack != null) resetStandby();
+  }
+  usePlayerStore.setState({ isPlaying: false, sleep: null });
+  clearSleepHandle();
+  applyLevels(); // a fade in progress is over
+  if (forget) {
+    // Nothing of this session may be written after it: cancel the pending
+    // saves, and keep the writers quiet until the next session begins.
+    // The element lets go of the song too, so no late tick reports it.
+    cancelPendingSaves();
+    if (audio) {
+      audio.removeAttribute("src");
+      audio.load();
+      loadedSrc = null;
+    }
+    sessionEnded = true;
+    clearLocalSession();
+    // Signing back in (without a reload) adopts the server's queue again.
+    sessionTouched = false;
+    adoptionAwaitingAuth = true;
   }
 }
 

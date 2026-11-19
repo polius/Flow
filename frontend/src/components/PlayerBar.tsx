@@ -1,23 +1,20 @@
-/* Translucent bottom player bar, persistent across views. The artwork
-   thumb opens the full-screen Now Playing view. */
+/* Translucent bottom player bar, persistent across views. The right
+   column holds the sleep timer, the queue, the volume and the door to
+   the full-screen Now Playing view, which the artwork thumb also opens. */
 
 import { Link } from "react-router";
 
 import type { Track } from "../api/types";
+import { useMediaQuery } from "../lib/media";
 import { isIOS } from "../lib/platform";
 import { trackIsUnverified, useCurrentTrack, usePlayerStore } from "../stores/player";
 import { useUiStore } from "../stores/ui";
 import { Artwork } from "./Artwork";
 import { FavoriteButton } from "./FavoriteButton";
-import {
-  IconNext,
-  IconPrev,
-  IconRepeat,
-  IconShuffle,
-  IconVolume,
-  IconVolumeMute,
-} from "./icons";
-import { PlayPauseButton, Scrubber, TransportButton } from "./transport";
+import { IconChevronUp, IconNext, IconPrev, IconQueue, IconRepeat, IconShuffle } from "./icons";
+import { SleepTimer } from "./SleepTimer";
+import { MOD_KEY } from "../lib/platform";
+import { PlayPauseButton, Scrubber, TransportButton, VolumeControl } from "./transport";
 import "../styles/player.css";
 
 function TrackLine({ track }: { track: Track | null }) {
@@ -48,42 +45,6 @@ function TrackLine({ track }: { track: Track | null }) {
   );
 }
 
-/* Desktop volume: mute toggle + level slider in the bar's right column.
-   Not rendered on iOS, where element volume is ignored and loudness is
-   hardware-only; hidden on the phone mini bar. The level persists in this
-   browser (flow.player.volume). */
-function VolumeControl() {
-  const volume = usePlayerStore((s) => s.volume);
-  const muted = usePlayerStore((s) => s.muted);
-  const setVolume = usePlayerStore((s) => s.setVolume);
-  const toggleMute = usePlayerStore((s) => s.toggleMute);
-  const level = muted ? 0 : volume;
-  const pct = Math.round(level * 100);
-  return (
-    <div className="player__volume">
-      <TransportButton label="Mute" active={muted} secondary onClick={toggleMute}>
-        {level === 0 ? <IconVolumeMute size={16} /> : <IconVolume size={16} />}
-      </TransportButton>
-      <input
-        type="range"
-        className="range player__volumeslider"
-        min={0}
-        max={1}
-        step={0.01}
-        value={level}
-        aria-label="Volume"
-        aria-valuetext={`${pct}%`}
-        style={{
-          backgroundImage: `linear-gradient(to right,
-            var(--text-tertiary) 0% ${pct}%,
-            var(--scrubber-rest, var(--bg-active)) ${pct}% 100%)`,
-        }}
-        onChange={(e) => setVolume(Number(e.target.value))}
-      />
-    </div>
-  );
-}
-
 export function PlayerBar() {
   const track = useCurrentTrack();
   const isPlaying = usePlayerStore((s) => s.isPlaying);
@@ -94,20 +55,24 @@ export function PlayerBar() {
   const setShuffle = usePlayerStore((s) => s.setShuffle);
   const cycleRepeat = usePlayerStore((s) => s.cycleRepeat);
   const openNowPlaying = useUiStore((s) => s.openNowPlaying);
+  const openQueue = useUiStore((s) => s.openQueue);
+
+  // The phone mini player is a 60px row: its cover is 40px, not 46.
+  const phone = useMediaQuery("(max-width: 640px)");
 
   const hasQueue = track != null;
 
   return (
-    <footer className={`player${hasQueue ? "" : " player--empty"}`}>
+    <footer id="player" className={`player${hasQueue ? "" : " player--empty"}`}>
       <div className="player__meta">
         <button
           type="button"
           className="player__art"
           onClick={openNowPlaying}
           aria-label="Open Now Playing"
-          title="Now Playing"
+          title="Now Playing (N)"
         >
-          <Artwork artworkId={track?.artwork_id ?? null} size={46} />
+          <Artwork artworkId={track?.artwork_id ?? null} size={phone ? 40 : 46} />
         </button>
         <div className="player__titles">
           <TrackLine track={track} />
@@ -124,21 +89,33 @@ export function PlayerBar() {
         <div className="player__transport">
           <TransportButton
             label="Shuffle"
+            hint="S"
             active={shuffle}
             secondary
             onClick={() => setShuffle(!shuffle)}
           >
             <IconShuffle size={16} />
           </TransportButton>
-          <TransportButton label="Previous track" onClick={prev} disabled={!hasQueue}>
+          <TransportButton
+            label="Previous song"
+            hint={`${MOD_KEY}←`}
+            onClick={prev}
+            disabled={!hasQueue}
+          >
             <IconPrev size={17} />
           </TransportButton>
           <PlayPauseButton isPlaying={isPlaying} disabled={!hasQueue} />
-          <TransportButton label="Next track" onClick={next} disabled={!hasQueue}>
+          <TransportButton
+            label="Next song"
+            hint={`${MOD_KEY}→`}
+            onClick={next}
+            disabled={!hasQueue}
+          >
             <IconNext size={17} />
           </TransportButton>
           <TransportButton
             label={`Repeat: ${repeat}`}
+            hint="R"
             active={repeat !== "off"}
             badge={repeat === "one" ? "1" : undefined}
             secondary
@@ -147,12 +124,28 @@ export function PlayerBar() {
             <IconRepeat size={16} />
           </TransportButton>
         </div>
-        <div className="player__progress">
+        {/* The no-op click makes this strip a tap target in its own right.
+            On the phone mini bar it is an inert 24px band along the bar's
+            top edge (player.css): without a handler of its own, phone
+            browsers pass a tap that lands on it to the nearest element
+            that has one — the song row peeking out above the bar. */}
+        <div className="player__progress" onClick={() => {}}>
           <Scrubber />
         </div>
       </div>
 
-      {!isIOS && <VolumeControl />}
+      {/* The right column. Everything here also lives in Now Playing,
+          so the phone mini bar drops the whole group. */}
+      <div className="player__side">
+        <SleepTimer compact />
+        <TransportButton label="Queue" hint="Q" secondary onClick={openQueue}>
+          <IconQueue size={17} />
+        </TransportButton>
+        {!isIOS && <VolumeControl />}
+        <TransportButton label="Open Now Playing" hint="N" secondary onClick={openNowPlaying}>
+          <IconChevronUp size={17} />
+        </TransportButton>
+      </div>
     </footer>
   );
 }

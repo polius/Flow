@@ -191,6 +191,21 @@ describe("media session", () => {
     );
   });
 
+  it("a rename of the playing song reaches the tab title and the lock screen", async () => {
+    const { usePlayerStore } = await importPlayer();
+    usePlayerStore.getState().playTracks([track(1), track(2)], 0);
+    expect(document.title).toBe("Artist — Track 1 · Flow");
+
+    // What an edit does: the queue's own copy of the row is replaced.
+    usePlayerStore.setState((s) => ({
+      queue: [{ ...s.queue[0], title: "A Better Name", artist: "Someone" }, s.queue[1]],
+    }));
+
+    expect(document.title).toBe("Someone — A Better Name · Flow");
+    const metadata = navigator.mediaSession.metadata as unknown as { init: { title: string } };
+    expect(metadata.init.title).toBe("A Better Name");
+  });
+
   it("clearing the queue clears the lock screen and the title", async () => {
     const { usePlayerStore } = await importPlayer();
     usePlayerStore.getState().playTracks([track(1)], 0);
@@ -478,5 +493,335 @@ describe("volume", () => {
     });
     expect(() => usePlayerStore.getState().setVolume(2)).not.toThrow();
     expect(usePlayerStore.getState().volume).toBe(1);
+  });
+});
+
+describe("clear the queue, then undo", () => {
+  it("brings back the duration, so the scrubber and the seek keys work again", async () => {
+    const { usePlayerStore, useUiStore } = await importPlayer();
+    usePlayerStore.getState().playTracks([track(1), track(2)], 0);
+    // The element reported the song's length and how much is buffered.
+    usePlayerStore.setState({ duration: 200, buffered: 80, position: 42 });
+
+    usePlayerStore.getState().clearQueue();
+    expect(usePlayerStore.getState().duration).toBe(0);
+    await useUiStore.getState().undoNotice?.undo?.();
+
+    // The element still holds the song: nothing will report its length again.
+    const restored = usePlayerStore.getState();
+    expect(restored.queue).toHaveLength(2);
+    expect(restored.position).toBe(42);
+    expect(restored.duration).toBe(200);
+    expect(restored.buffered).toBe(80);
+
+    // The → key's seek (shortcuts.ts refuses to seek at zero duration).
+    restored.seek(Math.min(restored.duration, restored.position + 10));
+    expect(usePlayerStore.getState().position).toBe(52);
+  });
+});
+
+describe("the session ends", () => {
+  it("a session that expired stops the sound and keeps the queue", async () => {
+    const { usePlayerStore, endPlayback } = await importPlayer();
+    usePlayerStore.getState().playTracks([track(1), track(2)], 0);
+    elements[0].dispatchEvent(new Event("play"));
+    expect(usePlayerStore.getState().isPlaying).toBe(true);
+
+    endPlayback({ forget: false });
+
+    expect(elements[0].pause).toHaveBeenCalled();
+    expect(usePlayerStore.getState().isPlaying).toBe(false);
+    expect(usePlayerStore.getState().queue).toHaveLength(2);
+  });
+
+  it("signing out also forgets the queue, here and in this browser's storage", async () => {
+    const { usePlayerStore, endPlayback } = await importPlayer();
+    usePlayerStore.getState().playTracks([track(1), track(2)], 0);
+    await new Promise((r) => setTimeout(r, 500)); // past the debounced local save
+    expect(localStorage.getItem("flow.player.queue")).not.toBeNull();
+
+    endPlayback({ forget: true });
+
+    expect(elements[0].pause).toHaveBeenCalled();
+    expect(usePlayerStore.getState().queue).toHaveLength(0);
+    expect(localStorage.getItem("flow.player.queue")).toBeNull();
+    expect(document.title).toBe("Flow");
+  });
+});
+
+/* The element's clock, driven by hand: jsdom's never moves. */
+function clock(el: HTMLAudioElement, duration = 200) {
+  let now = 0;
+  Object.defineProperty(el, "currentTime", {
+    configurable: true,
+    get: () => now,
+    set: (v: number) => {
+      now = v;
+    },
+  });
+  Object.defineProperty(el, "duration", { configurable: true, get: () => duration });
+  return {
+    /** Play on for `seconds`, a quarter second per tick like the real event. */
+    listen(seconds: number) {
+      for (let t = 0; t < seconds; t += 0.25) {
+        now += 0.25;
+        el.dispatchEvent(new Event("timeupdate"));
+      }
+    },
+    seek(to: number) {
+      now = to;
+      el.dispatchEvent(new Event("timeupdate"));
+    },
+  };
+}
+
+describe("what counts as a play", () => {
+  const stamps = () =>
+    queueApi.saveServerPlayhead.mock.calls
+      .map(([patch]) => (patch as { playedTrackId?: number }).playedTrackId)
+      .filter((id) => id != null);
+
+  it("a song is stamped as played after 30 seconds of listening, once", async () => {
+    const { usePlayerStore } = await importPlayer();
+    usePlayerStore.getState().playTracks([track(1), track(2)], 0);
+    const time = clock(elements[0]);
+    elements[0].dispatchEvent(new Event("play"));
+    // Starting is not playing: the start syncs the playhead with no stamp.
+    expect(queueApi.saveServerPlayhead).toHaveBeenCalled();
+    expect(stamps()).toEqual([]);
+
+    time.listen(29);
+    expect(stamps()).toEqual([]);
+    time.listen(2);
+    expect(stamps()).toEqual([1]);
+    time.listen(60);
+    expect(stamps()).toEqual([1]);
+  });
+
+  it("skipping through songs stamps none of them, and scrubbing ahead is not listening", async () => {
+    const { usePlayerStore } = await importPlayer();
+    usePlayerStore.getState().playTracks([track(1), track(2), track(3)], 0);
+    const time = clock(elements[0]);
+    elements[0].dispatchEvent(new Event("play"));
+    time.listen(5);
+    usePlayerStore.getState().next();
+    time.seek(0);
+    time.listen(5);
+    usePlayerStore.getState().next();
+    time.seek(0);
+    time.listen(10);
+    time.seek(150); // dragged to near the end
+    time.listen(10);
+    expect(stamps()).toEqual([]);
+    time.listen(11); // 31 seconds heard of the third song
+    expect(stamps()).toEqual([3]);
+  });
+
+  it("a short song counts at half its length", async () => {
+    const { usePlayerStore } = await importPlayer();
+    usePlayerStore.getState().playTracks([{ ...track(1), duration: 40 }], 0);
+    const time = clock(elements[0], 40);
+    elements[0].dispatchEvent(new Event("play"));
+    time.listen(19);
+    expect(stamps()).toEqual([]);
+    time.listen(2);
+    expect(stamps()).toEqual([1]);
+  });
+});
+
+describe("smaller engine behaviour", () => {
+  it("the play button knows when the stream is buffering", async () => {
+    const { usePlayerStore } = await importPlayer();
+    usePlayerStore.getState().playTracks([track(1)], 0);
+    const [audio] = elements;
+    Object.defineProperty(audio, "paused", { configurable: true, get: () => false });
+    audio.dispatchEvent(new Event("play"));
+    expect(usePlayerStore.getState().buffering).toBe(false);
+    audio.dispatchEvent(new Event("waiting"));
+    expect(usePlayerStore.getState().buffering).toBe(true);
+    audio.dispatchEvent(new Event("playing"));
+    expect(usePlayerStore.getState().buffering).toBe(false);
+    audio.dispatchEvent(new Event("waiting"));
+    audio.dispatchEvent(new Event("pause"));
+    expect(usePlayerStore.getState().buffering).toBe(false);
+  });
+
+  it("the sleep timer stops on the song's clock when its timeout is late", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] }); // the wall clock moves; timeouts do not fire
+    const { usePlayerStore } = await importPlayer();
+    usePlayerStore.getState().playTracks([track(1)], 0);
+    const time = clock(elements[0]);
+    usePlayerStore.getState().setSleepTimer(15);
+
+    vi.setSystemTime(Date.now() + 14 * 60_000);
+    time.listen(1);
+    expect(usePlayerStore.getState().sleep).not.toBeNull();
+
+    // The laptop slept through the timeout: 16 minutes later, a tick.
+    vi.setSystemTime(Date.now() + 2 * 60_000);
+    vi.mocked(elements[0].pause).mockClear();
+    time.listen(0.25);
+    expect(usePlayerStore.getState().sleep).toBeNull();
+    expect(elements[0].pause).toHaveBeenCalled();
+  });
+
+  it("the last seconds before sleep fade out", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    const contexts = stubAudioContext();
+    const { usePlayerStore } = await importPlayer();
+    usePlayerStore.getState().playTracks([track(1)], 0);
+    const time = clock(elements[0]);
+    usePlayerStore.getState().setSleepTimer(15);
+    const level = () => contexts[0].gains[0].value;
+
+    vi.setSystemTime(Date.now() + 15 * 60_000 - 20_000);
+    time.listen(0.25);
+    expect(level()).toBe(1);
+    vi.setSystemTime(Date.now() + 16_000); // 4 s left of an 8 s fade
+    time.listen(0.25);
+    expect(level()).toBeCloseTo(0.5, 1);
+    vi.setSystemTime(Date.now() + 5_000);
+    time.listen(0.25);
+    // Asleep — and the level is back for the next play.
+    expect(usePlayerStore.getState().sleep).toBeNull();
+    expect(level()).toBe(1);
+  });
+
+  it("a seek made while the connection is lost is where playback resumes", async () => {
+    const { usePlayerStore } = await importPlayer();
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    usePlayerStore.getState().playTracks([track(1), track(2)], 0);
+    usePlayerStore.setState({ position: 42 });
+    const [audio] = elements;
+    const online = vi.spyOn(navigator, "onLine", "get").mockReturnValue(false);
+    fail(audio, 2); // MEDIA_ERR_NETWORK: held at 42
+
+    usePlayerStore.getState().seek(120);
+    online.mockReturnValue(true);
+    window.dispatchEvent(new Event("online"));
+    await flush();
+
+    expect(audio.currentTime).toBe(120);
+    expect(usePlayerStore.getState().position).toBe(120);
+  });
+
+  it("a next song that failed to preload is not requested again on every tick", async () => {
+    const { usePlayerStore } = await importPlayer();
+    usePlayerStore.getState().playTracks([track(1), track(2)], 0);
+    const [audio, standby] = elements;
+    const time = clock(audio, 200);
+    vi.mocked(standby.load).mockClear();
+    time.seek(195); // inside the last ten seconds: the next song preloads
+    expect(standby.load).toHaveBeenCalledTimes(1);
+    expect(standby.src).toContain("/api/stream/2");
+
+    standby.dispatchEvent(new Event("error"));
+    vi.mocked(standby.load).mockClear();
+    time.listen(3);
+    expect(standby.load).not.toHaveBeenCalled();
+    expect(standby.getAttribute("src")).toBeNull();
+  });
+
+  it("the preferences are not rewritten to storage while a song plays", async () => {
+    const { usePlayerStore } = await importPlayer();
+    usePlayerStore.getState().playTracks([track(1)], 0);
+    const setItem = vi.spyOn(Storage.prototype, "setItem");
+    const time = clock(elements[0]);
+    time.listen(5); // twenty position updates
+    const writes = setItem.mock.calls.filter(([key]) => key === "flow.player").length;
+    expect(writes).toBeLessThanOrEqual(1);
+    usePlayerStore.getState().setShuffle(true); // a real change is still written
+    expect(setItem.mock.calls.filter(([key]) => key === "flow.player").length).toBe(writes + 1);
+  });
+
+  it("an album plays every song at the album's level; a mix levels each song", async () => {
+    const contexts = stubAudioContext();
+    const { usePlayerStore } = await importPlayer();
+    const quiet = { ...track(1), gain_db: 4 }; // a quiet interlude
+    const loud = { ...track(2), gain_db: -6 }; // the single
+    const level = () => contexts[0].gains[0].value;
+
+    usePlayerStore.getState().playTracks([quiet, loud], 0, { kind: "album", label: "Album", href: "/albums/1" });
+    // The interlude is NOT pulled up: it gets the album's -6 dB.
+    expect(level()).toBeCloseTo(Math.pow(10, -6 / 20), 3);
+
+    usePlayerStore.getState().playTracks([quiet, loud], 0, { kind: "playlist", label: "Mix", href: "/playlists/1" });
+    expect(level()).toBeCloseTo(Math.pow(10, 4 / 20), 3);
+  });
+});
+
+/* A Web Audio stand-in: counts contexts and records the gain each
+   element's node was last told to reach. */
+function stubAudioContext() {
+  const contexts: { gains: { value: number }[] }[] = [];
+  class FakeContext {
+    state = "running";
+    currentTime = 0;
+    destination = {};
+    gains: { value: number }[] = [];
+    constructor() {
+      contexts.push(this);
+    }
+    createMediaElementSource() {
+      return { connect() {} };
+    }
+    createGain() {
+      const gain = { value: 1 };
+      this.gains.push(gain);
+      return {
+        gain: {
+          setTargetAtTime: (value: number) => {
+            gain.value = value;
+          },
+        },
+        connect() {},
+      };
+    }
+    resume() {
+      return Promise.resolve();
+    }
+    suspend() {
+      return Promise.resolve();
+    }
+  }
+  vi.stubGlobal("AudioContext", FakeContext);
+  return contexts;
+}
+
+describe("sound check after a reload", () => {
+  const loud = (id: number): Track => ({ ...track(id), gain_db: -9 });
+
+  it("Next builds the audio graph, so the first song is normalized", async () => {
+    const contexts = stubAudioContext();
+    const { usePlayerStore } = await importPlayer();
+    // A restored session: populated store, nothing played yet, no graph.
+    usePlayerStore.setState({ queue: [track(1), loud(2)], order: [0, 1], orderPos: 0 });
+    expect(contexts).toHaveLength(0);
+
+    usePlayerStore.getState().next();
+
+    expect(elements[0].src).toContain("/api/stream/2");
+    expect(contexts).toHaveLength(1);
+    // -9 dB at full volume: the live element's node, not unity.
+    expect(contexts[0].gains[0].value).toBeCloseTo(0.355, 3);
+    // A second press does not build a second graph.
+    usePlayerStore.getState().next();
+    expect(contexts).toHaveLength(1);
+  });
+
+  it("Previous builds it too, and so does the hardware Next key", async () => {
+    let contexts = stubAudioContext();
+    let { usePlayerStore } = await importPlayer();
+    usePlayerStore.setState({ queue: [loud(1), track(2)], order: [0, 1], orderPos: 1 });
+    usePlayerStore.getState().prev();
+    expect(contexts).toHaveLength(1);
+    expect(contexts[0].gains[0].value).toBeCloseTo(0.355, 3);
+
+    contexts = stubAudioContext();
+    ({ usePlayerStore } = await importPlayer());
+    usePlayerStore.setState({ queue: [track(1), loud(2)], order: [0, 1], orderPos: 0 });
+    handlers.nexttrack({ action: "nexttrack" });
+    expect(contexts).toHaveLength(1);
+    expect(contexts[0].gains[0].value).toBeCloseTo(0.355, 3);
   });
 });
