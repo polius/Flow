@@ -60,6 +60,17 @@
   pointer-events: none;
 }
 
+/* Phones: the notice sits in the middle of the screen. At the top it
+   covered the page title, and on a small screen a message there is easy
+   to read past. The slot still lets every touch through around it. */
+@media (max-width: 640px) {
+  .servernotice-slot {
+    top: 0;
+    bottom: 0;
+    align-items: center;
+  }
+}
+
 .servernotice {
   pointer-events: auto;
   display: flex;
