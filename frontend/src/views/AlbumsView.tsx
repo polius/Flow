@@ -12,6 +12,7 @@ import { SortMenu, type SortOption } from "../components/SortMenu";
 import { VirtualCardGrid } from "../components/VirtualCardGrid";
 import { IconAlbums } from "../components/icons";
 import { fmtCount } from "../lib/format";
+import { useMediaQuery } from "../lib/media";
 import { usePagedList } from "../lib/pagedList";
 import { useCanvasTopOnChange } from "../lib/scroll";
 
@@ -49,6 +50,11 @@ export function AlbumsView() {
     return data;
   });
   const total = list.total ?? 0;
+  // Phones: two albums a row, like Playlists, never one full-width cover.
+  // 124px rather than Playlists' 132px: the A to Z rail's wider right
+  // padding leaves 274px at 320px, and two columns must still fit there.
+  // Three from about 460px.
+  const phone = useMediaQuery("(max-width: 640px)");
 
   // The A to Z rail, for the one sort an alphabet indexes.
   const { data: letters } = useQuery({
@@ -120,7 +126,7 @@ export function AlbumsView() {
         <>
           <VirtualCardGrid
             count={total}
-            minColumn={168}
+            minColumn={phone ? 124 : 168}
             columnGap={20}
             rowGap={24}
             cardExtra={CARD_TEXT_HEIGHT}
