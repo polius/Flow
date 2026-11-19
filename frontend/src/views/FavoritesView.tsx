@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "react-router";
 
@@ -15,6 +15,7 @@ import { LoadingState } from "../components/LoadingState";
 import { IconHeart, IconPlay, IconShuffle } from "../components/icons";
 import { fmtCount } from "../lib/format";
 import { beginPlayRequest, usePlayerStore } from "../stores/player";
+import { useCanvasTopOnChange } from "../lib/scroll";
 
 /* Favorites is a curated list — no sort menu. The order is the drag-written
    manual one (favorite_position 1..n, persisted server-side); a search
@@ -196,12 +197,10 @@ export function FavoritesView() {
     [tracks, q, queryClient, reorderFavorites],
   );
 
-  useEffect(() => {
-    document.querySelector<HTMLElement>(".shell__canvas")?.scrollTo(0, 0);
-  }, [q]);
+  useCanvasTopOnChange(q);
 
   return (
-    <section className="view">
+    <section className="view view--capped">
       <div className="view__head">
         <div>
           <h1 className="view__title">Favorites</h1>
@@ -216,34 +215,34 @@ export function FavoritesView() {
                 : `${fmtCount(total)} ${total === 1 ? "song" : "songs"} you’ve loved`}
           </p>
         </div>
-        <div className="view__actions">
-          {total > 0 && (
-            <button
-              type="button"
-              className="view__action"
-              onClick={shuffleAll}
-              disabled={shuffling}
-              aria-label="Shuffle favorites"
-              title="Shuffle all favorites"
-            >
-              <IconShuffle size={13} />
-              Shuffle
-            </button>
-          )}
-          {tracks.length > 0 && (
-            <button
-              type="button"
-              className="view__action view__action--play"
-              onClick={() => playFromHere(0)}
-              aria-label="Play favorites"
-              title="Play all favorites"
-            >
-              <IconPlay size={13} />
-              Play
-            </button>
-          )}
-        </div>
       </div>
+      {/* Play, then Shuffle, under the title: where every album, artist
+          and playlist page puts them. */}
+      {total > 0 && (
+        <div className="collactions view__collactions">
+          <button
+            type="button"
+            className="btn--primary"
+            onClick={() => playFromHere(0)}
+            disabled={tracks.length === 0}
+            aria-label="Play favorites"
+          >
+            <IconPlay size={15} />
+            Play
+          </button>
+          <button
+            type="button"
+            className="view__action"
+            onClick={shuffleAll}
+            disabled={shuffling}
+            aria-label="Shuffle favorites"
+            title="Shuffle all favorites"
+          >
+            <IconShuffle size={15} />
+            Shuffle
+          </button>
+        </div>
+      )}
       {query.data === undefined && query.isError ? (
         <ErrorState what="your favorites" retry={query.refetch} />
       ) : query.isPending ? (

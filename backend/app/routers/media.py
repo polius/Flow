@@ -11,7 +11,15 @@ from fastapi.responses import FileResponse
 
 from app import config
 from app import lyrics as lyrics_files
-from app.artwork import MIME_OCTET, THUMB_CACHE_DIR, THUMB_SIZES, served_mime, thumbnail_path
+from app.artwork import (
+    MIME_OCTET,
+    THUMB_CACHE_DIR,
+    THUMB_SIZES,
+    cached_thumbnail,
+    served_mime,
+    snap_size,
+    thumbnail_path,
+)
 from app.routers.common import TxRoute
 from app.schemas import LyricsLine, LyricsOut
 
@@ -95,19 +103,33 @@ def get_artwork(
     ),
 ) -> Response:
     conn = request.app.state.db.connect()
-    row = conn.execute(
-        "SELECT blob, hash FROM artwork WHERE id = ?", (artwork_id,)
-    ).fetchone()
+    # The hash first: a revalidation or a cached thumbnail needs nothing
+    # else, and the original can be megabytes.
+    row = conn.execute("SELECT hash FROM artwork WHERE id = ?", (artwork_id,)).fetchone()
     if row is None:
         raise HTTPException(status_code=404, detail="Artwork not found")
+    digest = row["hash"]
 
     # Artwork ids are content-addressed (sha1 dedup), so the bytes for a
-    # given id can never change — cache aggressively.
-    mime = served_mime(row["blob"])
-    if s is not None and mime != MIME_OCTET:
-        thumb = thumbnail_path(
-            config.DATA_DIR / THUMB_CACHE_DIR, artwork_id, row["hash"], row["blob"], s
-        )
+    # given id can never change — cache aggressively, and answer a
+    # revalidation from the hash alone.
+    etag = f'"{digest[:16]}-{snap_size(s) if s is not None else "o"}"'
+    headers = {**_ARTWORK_HEADERS, "ETag": etag}
+    if etag in request.headers.get("if-none-match", ""):
+        return Response(status_code=304, headers=headers)
+    cache_dir = config.DATA_DIR / THUMB_CACHE_DIR
+    if s is not None:
+        thumb = cached_thumbnail(cache_dir, artwork_id, digest, s)
         if thumb is not None:
-            return FileResponse(thumb, media_type="image/jpeg", headers=_ARTWORK_HEADERS)
-    return Response(content=row["blob"], media_type=mime, headers=_ARTWORK_HEADERS)
+            return FileResponse(thumb, media_type="image/jpeg", headers=headers)
+
+    original = conn.execute("SELECT blob FROM artwork WHERE id = ?", (artwork_id,)).fetchone()
+    if original is None:  # pruned between the two reads
+        raise HTTPException(status_code=404, detail="Artwork not found")
+    blob = original["blob"]
+    mime = served_mime(blob)
+    if s is not None and mime != MIME_OCTET:
+        thumb = thumbnail_path(cache_dir, artwork_id, digest, blob, s)
+        if thumb is not None:
+            return FileResponse(thumb, media_type="image/jpeg", headers=headers)
+    return Response(content=blob, media_type=mime, headers=headers)

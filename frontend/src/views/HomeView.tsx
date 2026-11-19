@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Link } from "react-router";
+import { Link, useSearchParams } from "react-router";
 
 import { api, fetchAllTracks } from "../api/client";
+import { settingsQuery } from "../api/system";
 import { playByFilter } from "../api/queue";
 import type { QueueOrigin } from "../api/types";
 import { AlbumCard } from "../components/AlbumCard";
@@ -32,55 +33,48 @@ function ContinueListening() {
       ? `${fmtCount(upNext)} ${upNext === 1 ? "song" : "songs"} up next`
       : null;
 
+  // The link in the second line may only be offered once the server has
+  // vouched for the restored session.
+  const artistLink =
+    !trackIsUnverified(current) && current.artist_id != null && current.artist ? (
+      <Link to={`/artists/${current.artist_id}`} className="continuecard__artistlink">
+        {current.artist}
+      </Link>
+    ) : (
+      (current.artist ?? current.album)
+    );
+  const tail = [stateBit, nextBit].filter(Boolean);
+
   return (
-    <div className="libsection">
-      <div className="libsection__head">
-        <h2>Continue listening</h2>
-      </div>
-      <div
-        className="continuecard"
-        role="button"
-        tabIndex={0}
-        onClick={togglePlay}
-        onKeyDown={(e) => {
-          // The artist link owns the keyboard when focused.
-          if (e.target instanceof Element && e.target.closest("a")) return;
-          if (e.key === "Enter" || e.key === " ") {
-            e.preventDefault();
-            togglePlay();
-          }
-        }}
-        aria-label={`${isPlaying ? "Pause" : "Resume"} ${current.title} — ${
-          [current.artist ?? current.album, stateBit, nextBit]
-            .filter(Boolean)
-            .join(" · ")
-        }`}
-      >
-        <Artwork artworkId={current.artwork_id} size={56} radius="m" />
-        <span className="continuecard__meta">
-          <span className="continuecard__title">{current.title}</span>
-          {(current.artist != null || stateBit != null || nextBit != null) && (
-            <span className="continuecard__sub">
-              {!trackIsUnverified(current) && current.artist_id != null && current.artist ? (
-                // Text, not a link, until the server has vouched for the
-                // restored session.
-                <Link
-                  to={`/artists/${current.artist_id}`}
-                  className="continuecard__artistlink"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  {current.artist}
-                </Link>
-              ) : (
-                (current.artist ?? current.album)
-              )}
-              {[stateBit, nextBit].filter(Boolean).length > 0 &&
-                " · " + [stateBit, nextBit].filter(Boolean).join(" · ")}
+    <div className="homehero__item">
+      <h2 className="homehero__title">Continue listening</h2>
+      {/* The card is one button (play or pause) and, laid over its second
+          line, the artist link as a sibling — a link inside a button is a
+          control inside a control, which assistive technology cannot
+          reach. The button's name is the title it shows. */}
+      <div className="continuecard">
+        <button
+          type="button"
+          className="continuecard__button"
+          onClick={togglePlay}
+          aria-describedby="continue-sub"
+        >
+          <Artwork artworkId={current.artwork_id} size={56} radius="m" />
+          <span className="continuecard__meta">
+            <span className="continuecard__title">
+              {current.title}
+              <span className="sr-only">{isPlaying ? ", pause" : ", resume"}</span>
             </span>
-          )}
-        </span>
-        <span className="continuecard__action" aria-hidden="true">
-          {isPlaying ? <IconPause size={20} /> : <IconPlay size={20} />}
+            {/* Holds the second line's place; the line itself sits on top. */}
+            <span className="continuecard__subspace" aria-hidden="true" />
+          </span>
+          <span className="continuecard__action" aria-hidden="true">
+            {isPlaying ? <IconPause size={20} /> : <IconPlay size={20} />}
+          </span>
+        </button>
+        <span className="continuecard__sub" id="continue-sub">
+          {artistLink}
+          {tail.length > 0 && (artistLink ? " · " : "") + tail.join(" · ")}
         </span>
       </div>
     </div>
@@ -247,29 +241,132 @@ function ShuffleAll({ count }: { count: number }) {
       .finally(() => setBusy(false));
   };
 
+  // The installed app's "Shuffle everything" shortcut opens /?start=shuffle.
+  const [params, setParams] = useSearchParams();
+  const fromShortcut = params.get("start") === "shuffle";
+  useEffect(() => {
+    if (!fromShortcut || count === 0) return;
+    // After the render, and once: the cleanup cancels a second arrival
+    // (StrictMode), and dropping the parameter ends the first.
+    const timer = window.setTimeout(() => {
+      setParams({}, { replace: true });
+      shuffleEverything();
+    }, 0);
+    return () => window.clearTimeout(timer);
+    // shuffleEverything is a fresh function each render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fromShortcut, count]);
+
   return (
-    <div className="libsection">
-      <div className="libsection__head">
-        <h2>Shuffle all</h2>
-      </div>
-      <button
-        type="button"
-        className="shufflecard"
-        onClick={shuffleEverything}
-        disabled={busy}
-        aria-label={`Shuffle all ${fmtCount(count)} songs`}
-      >
+    <div className="homehero__item">
+      {/* Named by what it shows: no aria-label to drift from the words. */}
+      <button type="button" className="shufflecard" onClick={shuffleEverything} disabled={busy}>
         <span className="shufflecard__tile" aria-hidden="true">
           <IconShuffle size={20} />
         </span>
         <span className="shufflecard__meta">
-          <span className="shufflecard__title">{busy ? "Shuffling…" : "Everything, shuffled"}</span>
+          <span className="shufflecard__title">{busy ? "Shuffling…" : "Shuffle all"}</span>
           <span className="shufflecard__sub">
-            {fmtCount(count)} songs · the whole library, in random order
+            {fmtCount(count)} {count === 1 ? "song" : "songs"}, in random order
           </span>
         </span>
       </button>
     </div>
+  );
+}
+
+/* Albums that have gone quiet: last played more than six months ago, or
+   never. Offered only once the library has a listening record at all —
+   on a fresh library every album is "never played", and the shelf would
+   just be the first twelve. */
+const LATELY_MS = 183 * 24 * 60 * 60 * 1000;
+
+function NotPlayedLately() {
+  const { data } = useQuery({
+    queryKey: ["albums", "not-played-lately"],
+    queryFn: async () => {
+      const { data } = await api.GET("/api/albums", {
+        // Ascending by last play: never-played first, then the oldest.
+        params: { query: { sort: "played", dir: "asc", limit: 12 } },
+      });
+      return data;
+    },
+  });
+  const { data: played } = useQuery({
+    queryKey: ["albums", "recently-played"],
+    queryFn: async () => {
+      const { data } = await api.GET("/api/albums", {
+        params: { query: { sort: "played", dir: "desc", limit: 12 } },
+      });
+      return data;
+    },
+  });
+  const hasRecord = (played?.items ?? []).some((a) => a.played_at != null);
+  const [cutoff] = useState(() => Date.now() - LATELY_MS);
+  const albums = (data?.items ?? []).filter(
+    (a) => a.played_at == null || new Date(a.played_at).getTime() < cutoff,
+  );
+  if (!hasRecord || albums.length === 0) return null;
+  return (
+    <Shelf title="Not played lately">
+      {albums.map((album) => (
+        <AlbumCard key={album.id} album={album} />
+      ))}
+    </Shelf>
+  );
+}
+
+/* The first favorites, in the order Favorites keeps them. A card plays the
+   whole of Favorites from that song. */
+function FavoritesShelf() {
+  const playSnapshot = usePlayerStore((s) => s.playSnapshot);
+  const playTracks = usePlayerStore((s) => s.playTracks);
+  const { data } = useQuery({
+    queryKey: ["tracks", "favorites", "home"],
+    queryFn: async () => {
+      const { data } = await api.GET("/api/tracks", {
+        params: { query: { favorite: true, sort: "favorite", dir: "asc", limit: 12 } },
+      });
+      return data;
+    },
+  });
+  const tracks = data?.items ?? [];
+  if (tracks.length === 0) return null;
+
+  const origin: QueueOrigin = { kind: "filter", label: "Favorites", href: "/favorites" };
+  const play = (index: number) => {
+    if (tracks.length >= (data?.total ?? 0)) {
+      playTracks(tracks, index, origin);
+      return;
+    }
+    // More favorites than the shelf shows: the server resolves them all.
+    const isCurrent = beginPlayRequest();
+    void playByFilter({ favorite: true, sort: "favorite", dir: "asc", start: index, origin }).then(
+      (snapshot) => {
+        if (!isCurrent()) return;
+        if (snapshot) playSnapshot(snapshot);
+        else playTracks(tracks, index, origin);
+      },
+    );
+  };
+
+  return (
+    <Shelf title="Favorites" more={{ to: "/favorites", label: "Show all" }}>
+      {tracks.map((track, index) => (
+        <button
+          key={track.id}
+          type="button"
+          className="album-card album-card--song"
+          onClick={() => play(index)}
+        >
+          <span className="album-card__artwrap">
+            <Artwork artworkId={track.artwork_id} size={180} radius="m" className="album-card__art" />
+          </span>
+          <span className="album-card__title">{track.title}</span>
+          <span className="album-card__meta">{track.artist ?? "Unknown artist"}</span>
+        </button>
+      ))}
+    </Shelf>
   );
 }
 
@@ -281,19 +378,13 @@ export function HomeView() {
     data: settings,
     isError: settingsFailed,
     refetch: refetchSettings,
-  } = useQuery({
-    queryKey: ["settings"],
-    queryFn: async () => {
-      const { data } = await api.GET("/api/settings");
-      return data;
-    },
-  });
+  } = useQuery(settingsQuery);
 
   const { data: recent } = useQuery({
     queryKey: ["albums", "recent"],
     queryFn: async () => {
       const { data } = await api.GET("/api/albums", {
-        params: { query: { sort: "recent", limit: 12 } },
+        params: { query: { sort: "recent", dir: "desc", limit: 12 } },
       });
       return data;
     },
@@ -328,15 +419,18 @@ export function HomeView() {
         <p className="view__subtitle">{scanning && scan ? scanStatusLabel(scan) : summary}</p>
       )}
 
-      {hasLibrary && <ContinueListening />}
+      {/* Resume and shuffle share one row: stacked, each was a narrow card
+          under its own heading and half the first screen was empty. */}
+      {hasLibrary && counts && (
+        <div className="homehero">
+          <ContinueListening />
+          <ShuffleAll count={counts.tracks} />
+        </div>
+      )}
 
       {hasLibrary && <RecentlyPlayed />}
 
       {hasLibrary && (counts?.plays ?? 0) >= MOST_PLAYED_AFTER && <MostPlayed />}
-
-      {hasLibrary && counts && counts.tracks > 0 && (
-        <ShuffleAll count={counts.tracks} />
-      )}
 
       {hasLibrary && recentAlbums.length > 0 && (
         // "Show all" keeps the shelf's order: Albums opens sorted by
@@ -350,6 +444,10 @@ export function HomeView() {
           ))}
         </Shelf>
       )}
+
+      {hasLibrary && <FavoritesShelf />}
+
+      {hasLibrary && <NotPlayedLately />}
 
       {hasLibrary && (playlistsData?.items.length ?? 0) > 0 && (
         <Shelf title="Playlists" more={{ to: "/playlists", label: "Show all" }}>

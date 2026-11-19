@@ -2346,6 +2346,7 @@ async function adoptServerSession(attempt = 0): Promise<void> {
   const pos = Math.min(Math.max(order_pos, 0), items.length - 1);
   const track = items[playOrder[pos]];
   if (!track) return;
+  const at = Math.max(0, Math.min(position, track.duration || position));
   setStateRestoring({
     queue: items,
     order: playOrder,
@@ -2354,7 +2355,7 @@ async function adoptServerSession(attempt = 0): Promise<void> {
     // Always paused, like every restore: state loss is never total,
     // sound never starts uninvited.
     isPlaying: false,
-    position: Math.max(0, Math.min(position, track.duration || position)),
+    position: at,
     duration: track.duration || 0,
     // The switches the queue was played with (P3).
     ...(typeof result.snapshot.shuffle === "boolean" ? { shuffle: result.snapshot.shuffle } : {}),
@@ -2362,6 +2363,20 @@ async function adoptServerSession(attempt = 0): Promise<void> {
   });
   sessionEnded = false; // a session again: its edits are mirrored
   syncWindowTitle();
+  // The offline layer holds what the server holds: a browser that only
+  // ever adopted this queue still shows it while the server is gone.
+  // Local keys only; nothing is echoed back to the server.
+  writeLocalQueue();
+  if (localQueueSaved) {
+    try {
+      localStorage.setItem(
+        PLAYHEAD_KEY,
+        JSON.stringify({ orderPos: pos, position: at, savedAt: Date.now() }),
+      );
+    } catch {
+      // best-effort, like every write here
+    }
+  }
 }
 
 /** The listener acted on the local queue before the server's copy arrived

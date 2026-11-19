@@ -79,6 +79,80 @@ def test_albums_list_and_detail(client, library):
     assert missing.status_code == 404
 
 
+def test_recent_albums_default_to_newest_first(client, library):
+    """"Recently added" without a direction must not mean the oldest: the
+    Home shelf once sent exactly that and showed the twelve oldest albums."""
+    conn = client.app.state.db.connect()
+    conn.execute("UPDATE tracks SET added_at = '2020-01-01T00:00:00+00:00'")
+    conn.execute(
+        "UPDATE tracks SET added_at = '2026-01-01T00:00:00+00:00' WHERE album_id = "
+        "(SELECT id FROM albums WHERE title = 'Origin')"
+    )
+    conn.commit()
+
+    titles = lambda url: [a["title"] for a in client.get(url).json()["items"]]  # noqa: E731
+    assert titles("/api/albums?sort=recent")[0] == "Origin"
+    assert titles("/api/albums?sort=recent&dir=desc")[0] == "Origin"
+    assert titles("/api/albums?sort=recent&dir=asc")[-1] == "Origin"
+    # Every other sort still reads ascending unless told otherwise.
+    assert titles("/api/albums?sort=title") == sorted(titles("/api/albums?sort=title"), key=str.lower)
+
+
+def test_one_track_carries_the_file_facts(client, library):
+    """Get Info reads bitrate, sample rate and size from the single-track
+    endpoint; the list rows stay lean."""
+    listed = client.get("/api/tracks").json()["items"][0]
+    assert "bitrate" not in listed and "size" not in listed
+
+    one = client.get(f"/api/tracks/{listed['id']}").json()
+    assert one["title"] == listed["title"]
+    assert one["size"] > 0
+    assert one["sample_rate"] in (44100, 48000)
+    assert one["bitrate"] is None or one["bitrate"] > 0
+
+
+def test_letter_index_points_at_the_first_row_of_each_initial(client, music):
+    """The A to Z rail: for a list sorted by name, where each initial
+    starts. An index here must be the offset at which the list endpoint
+    returns the first row with that initial, in either direction."""
+    for i, title in enumerate(
+        ["apple", "Avocado", "banana", "Cherry", "cherry pie", "1999", "(intro)", "Élan", "zest"]
+    ):
+        make_mp3(music / f"{i}.mp3", title=title, artist=f"{title} band", album=f"{title} LP")
+    client.app.state.scanner.run_scan("test")
+
+    def check(of, list_url, field, extra=""):
+        for direction in ("asc", "desc"):
+            out = client.get(f"/api/letters?of={of}&dir={direction}{extra}").json()
+            sort = "name" if of == "artists" else "title"
+            rows = client.get(
+                f"{list_url}?sort={sort}&dir={direction}&limit=1000{extra}"
+            ).json()
+            assert out["total"] == rows["total"]
+            names = [r[field] for r in rows["items"]]
+            for entry in out["letters"]:
+                first = names[entry["index"]][0].upper()
+                if entry["letter"] == "#":
+                    assert not ("A" <= first <= "Z")
+                else:
+                    assert first == entry["letter"]
+                # ...and it is the FIRST such row in this direction.
+                if entry["index"] > 0 and entry["letter"] != "#":
+                    assert names[entry["index"] - 1][0].upper() != entry["letter"]
+        return out
+
+    out = check("tracks", "/api/tracks", "title")
+    assert [e["letter"] for e in out["letters"]] == ["#", "A", "B", "C", "F", "N", "Y", "Z"]
+    assert check("albums", "/api/albums", "title")["total"] == 11
+    check("artists", "/api/artists", "name")
+
+    # The same filter the list takes.
+    out = check("tracks", "/api/tracks", "title", "&q=cherry")
+    assert out["letters"] == [{"letter": "C", "index": 0}] and out["total"] == 2
+
+    assert client.get("/api/letters?of=playlists").status_code == 422
+
+
 def test_artists_list_and_detail(client, library):
     artists = client.get("/api/artists").json()
     assert artists["total"] == 3
@@ -275,6 +349,39 @@ def test_sized_artwork_cache_follows_the_content(client, library, real_cover, tm
     (cache / "999999-64-0123456789abcdef.jpg").write_bytes(b"orphan")
     assert prune_thumbnail_cache(conn, cache) == 1
     assert sorted(cache.iterdir()) == [second]
+
+
+def test_artwork_revalidates_and_serves_cached_thumbnails_from_the_hash(
+    client, library, real_cover, tmp_path, monkeypatch
+):
+    """A thumbnail on disk is served from the id and hash alone, without
+    reading the original; If-None-Match with the current ETag is a 304."""
+    from app import config
+
+    monkeypatch.setattr(config, "DATA_DIR", tmp_path / "data")
+    artwork_id = _store(client, real_cover)
+    first = client.get(f"/api/artwork/{artwork_id}", params={"s": 128})
+    etag = first.headers["etag"]
+    assert etag != client.get(f"/api/artwork/{artwork_id}").headers["etag"]  # per size
+
+    again = client.get(
+        f"/api/artwork/{artwork_id}", params={"s": 100}, headers={"If-None-Match": etag}
+    )
+    assert again.status_code == 304
+    assert again.content == b""
+    assert "immutable" in again.headers["cache-control"]
+    assert client.get(
+        f"/api/artwork/{artwork_id}", params={"s": 128}, headers={"If-None-Match": '"other"'}
+    ).status_code == 200
+
+    # The original is no longer read for a cached size: make it unreadable
+    # as an image (same hash) and the thumbnail is still what comes back.
+    conn = client.app.state.db.connect()
+    conn.execute("UPDATE artwork SET blob = ? WHERE id = ?", (b"not an image", artwork_id))
+    conn.commit()
+    cached = client.get(f"/api/artwork/{artwork_id}", params={"s": 128})
+    assert cached.headers["content-type"] == "image/jpeg"
+    assert cached.content == first.content
 
 
 def test_sized_artwork_falls_back_to_the_original(client, library, tmp_path, monkeypatch):

@@ -51,7 +51,7 @@ export function AlbumDetailView() {
 
   if (album === null || !Number.isFinite(albumId)) {
     return (
-      <section className="view">
+      <section className="view view--capped">
         <EmptyState
           icon={<IconAlbums size={26} />}
           title="Album not found"
@@ -69,7 +69,7 @@ export function AlbumDetailView() {
 
   if (album === undefined && isError) {
     return (
-      <section className="view">
+      <section className="view view--capped">
         <ErrorState what="this album" retry={refetch} />
       </section>
     );
@@ -77,7 +77,7 @@ export function AlbumDetailView() {
 
   if (album === undefined) {
     return (
-      <section className="view">
+      <section className="view view--capped">
         <LoadingState variant="detail" />
       </section>
     );
@@ -152,7 +152,7 @@ export function AlbumDetailView() {
   };
 
   return (
-    <section className="view view--ambient">
+    <section className="view view--capped view--ambient">
       <Ambience artworkId={album.cover_artwork_id ?? album.artwork_id} variant="banner" />
       <header className="detailhead">
         <CoverEdit
@@ -206,6 +206,7 @@ export function AlbumDetailView() {
         label={`Songs on ${album.title}`}
         tracks={album.tracks}
         variant="album"
+        albumArtist={album.artist}
         origin={{ kind: "album", label: album.title, href: `/albums/${album.id}` }}
         onMove={reorderable ? move : undefined}
       />

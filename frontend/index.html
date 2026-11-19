@@ -33,6 +33,13 @@
           ((mode === null || mode === "system") &&
             matchMedia("(prefers-color-scheme: dark)").matches);
         document.documentElement.dataset.theme = dark ? "dark" : "light";
+        // A manual theme sets the browser's colour bar too — mirrors
+        // lib/theme.ts.
+        if (mode === "light" || mode === "dark") {
+          document.querySelectorAll('meta[name="theme-color"]').forEach(function (m) {
+            m.setAttribute("content", mode === "dark" ? "#161618" : "#f5f5f7");
+          });
+        }
         // The chosen Home Screen icon — mirrors lib/homeIcon.ts.
         if (stored.state && stored.state.homeIcon === "dark") {
           document

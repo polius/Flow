@@ -306,6 +306,30 @@ export interface paths {
         patch: operations["update_artist_api_artists__artist_id__patch"];
         trace?: never;
     };
+    "/api/letters": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Letter Index
+         * @description The A to Z rail's map for a list sorted by title (tracks, albums) or
+         *     name (artists), under the same filter the list itself takes: for each
+         *     initial, the index of its first row. Rows are counted per first
+         *     character in the list's own collation, so an index here is an offset
+         *     the list endpoint answers with that row.
+         */
+        get: operations["letter_index_api_letters_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/genres": {
         parameters: {
             query?: never;
@@ -981,6 +1005,25 @@ export interface components {
             /** Version */
             version: string;
         };
+        /** LetterIndex */
+        LetterIndex: {
+            /** Letter */
+            letter: string;
+            /** Index */
+            index: number;
+        };
+        /**
+         * LetterIndexOut
+         * @description Where each initial starts in a name-sorted list: the row index of the
+         *     first title (or name) beginning with it. "#" stands for everything that
+         *     sorts before A; initials with no rows are absent.
+         */
+        LetterIndexOut: {
+            /** Letters */
+            letters: components["schemas"]["LetterIndex"][];
+            /** Total */
+            total: number;
+        };
         /** LibraryCounts */
         LibraryCounts: {
             /** Tracks */
@@ -1449,6 +1492,57 @@ export interface components {
              */
             listenbrainz: components["schemas"]["ListenBrainzStatus"];
         };
+        /**
+         * TrackDetailOut
+         * @description One track, with the file facts Get Info shows. Lists stay on the
+         *     lean TrackOut: these are read for one song at a time.
+         */
+        TrackDetailOut: {
+            /** Id */
+            id: number;
+            /** Title */
+            title: string;
+            /** Artist */
+            artist: string | null;
+            /** Artist Id */
+            artist_id: number | null;
+            /** Album */
+            album: string | null;
+            /** Album Id */
+            album_id: number | null;
+            /** Album Artist */
+            album_artist?: string | null;
+            /** Track No */
+            track_no: number | null;
+            /** Disc No */
+            disc_no: number | null;
+            /** Year */
+            year: number | null;
+            /** Duration */
+            duration: number;
+            /** Format */
+            format: string;
+            /** Favorite */
+            favorite: boolean;
+            /** Artwork Id */
+            artwork_id: number | null;
+            /** Path */
+            path: string;
+            /** Gain Db */
+            gain_db?: number | null;
+            /** Played At */
+            played_at?: string | null;
+            /** Genre */
+            genre?: string | null;
+            /** Added At */
+            added_at?: string | null;
+            /** Bitrate */
+            bitrate?: number | null;
+            /** Sample Rate */
+            sample_rate?: number | null;
+            /** Size */
+            size?: number | null;
+        };
         /** TrackListOut */
         TrackListOut: {
             /** Items */
@@ -1869,7 +1963,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["TrackOut"];
+                    "application/json": components["schemas"]["TrackDetailOut"];
                 };
             };
             /** @description Validation Error */
@@ -1923,7 +2017,7 @@ export interface operations {
             query?: {
                 q?: string | null;
                 sort?: string;
-                dir?: string;
+                dir?: string | null;
                 limit?: number;
                 offset?: number;
             };
@@ -2120,12 +2214,46 @@ export interface operations {
             };
         };
     };
+    letter_index_api_letters_get: {
+        parameters: {
+            query: {
+                of: "tracks" | "albums" | "artists";
+                q?: string | null;
+                genre_id?: number | null;
+                dir?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LetterIndexOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_genres_api_genres_get: {
         parameters: {
             query?: {
                 q?: string | null;
                 sort?: string;
-                dir?: string;
+                dir?: string | null;
                 limit?: number;
                 offset?: number;
             };

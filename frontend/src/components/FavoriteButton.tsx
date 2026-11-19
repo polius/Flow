@@ -29,7 +29,8 @@ export function FavoriteButton({
       className={`favbtn${circled ? " favbtn--circled" : ""}${favorite ? " favbtn--on" : ""}${className ? ` ${className}` : ""}`}
       aria-pressed={favorite}
       aria-label={favorite ? "Remove from Favorites" : "Add to Favorites"}
-      title={favorite ? "Remove from Favorites" : "Add to Favorites"}
+      // FavoriteButton only ever shows the playing song, which is what L acts on.
+      title={`${favorite ? "Remove from Favorites" : "Add to Favorites"} (L)`}
       onClick={() => toggleFavorite(track)}
     >
       {/* The glyph stack: outline retires as the fill settles in — the

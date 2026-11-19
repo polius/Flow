@@ -1,7 +1,7 @@
 /* Top bar — the full-width chrome bar. Brand and scan status sit left, the
    search field floats centered in the free space, and the section nav sits
    right in three forms: icon + text on wide windows, the icon-only row
-   below that, and an overflow pull-down sheet on phones. Chrome stays
+   below that, and on phones a tab bar at the bottom of the screen. Chrome stays
    near-monochrome: the accent appears only as the active section's icon
    and label on a quiet pill — the same active-nav language the sidebar
    used. */
@@ -73,14 +73,6 @@
 /* The version rides inside the wordmark span, so the ≤760px rule that
    hides the name hides it too — the phone bar keeps just the mark.
    Quiet by design: a footnote to the brand, not a second brand. */
-.topbar__brand-version {
-  margin-left: 6px;
-  font-size: var(--text-small);
-  font-weight: 500;
-  letter-spacing: 0;
-  color: var(--text-secondary);
-}
-
 /* ---- scan status — the retired sidebar's global indicator ---- */
 
 .topbar__scan {
@@ -448,12 +440,13 @@
 /* ---- labeled nav (wide windows) ----
    HIG: show a label whenever space allows — icons earn text before the
    layout starts spending it. From the labeled breakpoint up every item,
-   Settings included, wears its text beside the icon. The breakpoint is
-   measured, not chosen: below it the six labeled items would leave the
-   search field cramped, so the icon-only row holds the search wider for
-   longer — the search is the last thing squeezed, and only past 1200px do
-   the labels earn their width. */
-@media (min-width: 1200px) {
+   Settings included, wears its text beside the icon. A half-screen window
+   on a laptop is about 1000px wide, and icons alone there were easy to
+   confuse (Tracks and Playlists most of all): from 1000px the labels show
+   and the search field gives up the room — it shrinks to its floor before
+   a label is dropped. Measured: below about 955px the six labels, the
+   brand and the field's 140px floor no longer fit in one row. */
+@media (min-width: 1000px) {
   .topbar__nav-item--labeled {
     width: auto;
     gap: 7px;
@@ -485,83 +478,17 @@
   }
 }
 
-/* ---- overflow nav (phones) ----
-   Below the phone breakpoint the icon row is replaced by one 32px toolbar
-   button (the nav items' grammar) that opens a pull-down sheet anchored to
-   the bar's right edge. The sheet reuses the context menu's surface
-   language: elevated panel, hairline border, short scale-in from
-   the button. */
+/* ---- phone forms ----
+   Items that exist for one form only: Home is the tab bar's first item
+   (on a desktop the brand lockup is Home), and the top bar's Settings
+   icon stands where the section menu used to be. */
+.topbar__nav-item--phone,
+.topbar__settings-btn {
+  display: none;
+}
 
-.topbar__navmenu-btn {
+.topbar__settings-btn {
   flex: none;
-  display: none; /* desktop shows the icon row instead */
-}
-
-.topbar__navmenu-btn--open {
-  color: var(--text-primary);
-  background: var(--bg-active);
-}
-
-.topbar__sheet {
-  position: absolute;
-  top: calc(100% + 6px);
-  right: 20px;
-  z-index: var(--z-modal);
-  width: min(224px, calc(100vw - 40px));
-  padding: 5px;
-  border-radius: var(--radius-m);
-  border: 1px solid var(--separator);
-  background: var(--bg-elevated);
-  box-shadow: var(--shadow-popover);
-  transform-origin: top right;
-  animation: sheet-in var(--dur-fast) var(--ease-out);
-}
-
-@keyframes sheet-in {
-  from {
-    opacity: 0;
-    transform: scale(0.96) translateY(-4px);
-  }
-}
-
-.topbar__sheet-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  width: 100%;
-  height: 44px; /* the HIG touch-target floor */
-  padding: 0 12px;
-  border-radius: var(--radius-s);
-  font-size: var(--text-regular);
-  font-weight: 500;
-  color: var(--text-primary);
-  transition: background-color var(--dur-fast) var(--ease-out);
-}
-
-.topbar__sheet-item:hover {
-  background: var(--bg-hover);
-}
-
-.topbar__sheet-item:active {
-  background: var(--bg-active);
-}
-
-/* The established active-nav language: the active section's
-   icon at full ink on a quiet pill. */
-.topbar__sheet-item--active,
-.topbar__sheet-item--active:hover {
-  background: var(--bg-active);
-}
-
-.topbar__sheet-item--active svg {
-  color: var(--text-primary);
-}
-
-/* Hairline group break, mirroring the desktop nav's separator. */
-.topbar__sheet-sep {
-  height: 1px;
-  margin: 4px 6px;
-  background: var(--separator);
 }
 
 /* ---- narrow windows: the wordmark goes first, then the scan text ---- */
@@ -573,9 +500,60 @@
 }
 
 @media (max-width: 640px) {
-  /* The icon row gives way to the overflow sheet: six 32px targets
-     plus separator leave the search field ~140px at iPhone widths. */
+  /* The tab bar: the section nav leaves the top bar and pins to the
+     bottom of the screen, under the mini player (player.css lifts the
+     player by --tabbar-height). Five items, icon over word, the current
+     one in full ink. It clears the home indicator by its own padding. */
   .topbar__nav {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: var(--z-player);
+    height: var(--tabbar-height);
+    gap: 0;
+    align-items: stretch;
+    padding: 0 env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px)
+      env(safe-area-inset-left, 0px);
+    background: var(--bg-canvas);
+    border-top: 1px solid var(--separator);
+  }
+
+  .topbar__nav .topbar__nav-item {
+    flex: 1;
+    flex-direction: column;
+    gap: 3px;
+    width: auto;
+    height: auto;
+    padding: 0;
+    border-radius: 0;
+    background: none;
+    color: var(--text-muted);
+  }
+
+  .topbar__nav .topbar__nav-item--active {
+    color: var(--text-primary);
+  }
+
+  .topbar__nav .topbar__nav-label {
+    display: block;
+    font-size: 10.5px;
+    font-weight: 600;
+  }
+
+  /* The whole cell is the target: no slop needed (and none may overlap
+     the neighbouring tab). */
+  .topbar__nav .topbar__nav-item::before {
+    content: none;
+  }
+
+  .topbar__nav-item--phone,
+  .topbar__settings-btn {
+    display: flex;
+  }
+
+  .topbar__nav-sep,
+  .topbar__nav-item--desktop {
     display: none;
   }
 
@@ -583,24 +561,51 @@
     padding-right: 0;
   }
 
-  .topbar__navmenu-btn {
-    display: flex;
-  }
-
   .topbar__searchzone {
     margin-left: 16px;
     margin-right: 16px;
   }
 
-  .topbar__scan {
+  /* The field is squeezed between the logo and the Settings icon, and a
+     panel as narrow as the field cut nine suggestions in ten. Here the
+     panel pins to the screen edges instead, and each suggestion takes two
+     lines: the name, then who it is by. */
+  .suggest {
+    position: fixed;
+    top: calc(env(safe-area-inset-top, 0px) + 58px);
+    left: calc(env(safe-area-inset-left, 0px) + 8px);
+    right: calc(env(safe-area-inset-right, 0px) + 8px);
+    max-height: 72vh;
+  }
+
+  .suggest__item {
+    grid-template-columns: 28px minmax(0, 1fr);
+    column-gap: 12px;
+    row-gap: 1px;
+    min-height: 52px;
+  }
+
+  /* The cover (or the artist's round portrait) spans both lines. */
+  .suggest__item > :first-child {
+    grid-row: 1 / span 2;
+  }
+
+  .suggest__name {
+    grid-column: 2;
+    align-self: end;
+  }
+
+  .suggest__meta {
+    grid-column: 2;
+    align-self: start;
+  }
+
+  /* Touch has no hover or arrow keys to reveal it: the row is the target. */
+  .suggest__play {
     display: none;
   }
-}
 
-/* Belt and braces for the resize edge: the sheet unmounts on crossing back
-   to desktop (matchMedia in TopBar), but it must never paint there. */
-@media (min-width: 641px) {
-  .topbar__sheet {
+  .topbar__scan {
     display: none;
   }
 }

@@ -6,8 +6,21 @@
    short, ease-out; no movement. Skipped under prefers-reduced-motion via the
    global override in base.css. */
 .view {
-  padding: 34px 40px 48px;
+  --view-pad-x: 40px;
+  padding: 34px var(--view-pad-x) 48px;
   animation: fade-in var(--dur-normal) var(--ease-out);
+}
+
+/* Song lists and detail pages keep their rows readable on a wide window:
+   the content column stops at 1200px and sits centred. Without the cap a
+   row at 1920px ran its title and its duration 1,700px apart. The cap is
+   side padding, not a max-width, so the view itself stays as wide as the
+   canvas and a full-bleed layer (the album banner) still reaches the
+   edges. Grids of covers are not capped: more room is more covers. */
+@media (min-width: 641px) {
+  .view--capped {
+    --view-pad-x: max(40px, calc((100% - 1200px) / 2));
+  }
 }
 
 /* Phones: 40px side padding is desktop chrome; iOS-scale insets give
@@ -15,11 +28,12 @@
    padding so it stays anchored to the canvas edges. */
 @media (max-width: 640px) {
   .view {
-    padding: 24px 16px 40px;
+    --view-pad-x: 16px;
+    padding: 24px var(--view-pad-x) 40px;
   }
 
   .view--ambient .ambience--banner {
-    inset: -24px -16px auto -16px;
+    inset: -24px calc(-1 * var(--view-pad-x)) auto;
   }
 
   /* The header's action pills cannot shrink (flex: none) and carry live
@@ -57,7 +71,7 @@
 }
 
 .view--ambient .ambience--banner {
-  inset: -34px -40px auto -40px;
+  inset: -34px calc(-1 * var(--view-pad-x)) auto;
   height: 480px;
   z-index: -1;
   -webkit-mask-image: linear-gradient(to bottom, black 46%, transparent 66%);
@@ -75,6 +89,12 @@
 .view__subtitle {
   margin: 4px 0 0;
   color: var(--text-secondary);
+}
+
+/* Play / Shuffle under a list view's title (Favorites), where the detail
+   pages keep theirs. */
+.view__collactions {
+  margin: 16px 0 6px;
 }
 
 /* Empty state: centered, quiet, instructive — never a broken-looking list. */
@@ -381,6 +401,15 @@
 }
 
 /* An inline keycap in a value ("Press ? anywhere"). */
+/* A phone or tablet has no keyboard to press "?" on: the row would only
+   be words broken across lines ("Pres/s", "anywher/e") about something
+   that is not there. */
+@media (hover: none) and (pointer: coarse) {
+  .settings-row--keyboard {
+    display: none;
+  }
+}
+
 .settings-row__kbd {
   display: inline-flex;
   align-items: center;

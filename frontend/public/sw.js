@@ -1,30 +1,43 @@
-/* Flow's offline shell: the installed PWA answers even when uvicorn is
-   restarting (a container update, a crash loop) — a moment the browser
-   would otherwise answer with its own offline dinosaur. The scope is
-   deliberately the shell only:
+/* Flow's offline shell: the installed app opens even when the server is
+   gone (stopped, restarting, a reverse proxy answering "bad gateway"),
+   and says so in place instead of showing the browser's own error page.
 
-   - hashed assets (/assets/…) are cache-first: Vite content-hashes them, so
-     a hit is always the bytes that URL names (immutable, like nginx's);
-   - /api is network-only — data is never cached (the queue is server
-     truth), and the app's own error states are the offline story for calls;
-   - navigations try the network and fall back to one calm offline page.
+   - Install stores this build's shell: index.html and every script and
+     stylesheet it can load, so the app starts and every section opens
+     with no connection.
+   - /api is network-only. Data is never cached (the queue is server
+     truth); the app shows what it already holds and says the server is
+     unreachable.
+   - A page load tries the network first. With no answer, or a 5xx, it gets
+     the stored shell (and if even that is missing, a one-page notice).
+   - /assets/ are content-hashed, so they are served from the store first.
 
-   Hand-written, no build step — like the manifest and icons beside it. Bump
-   VERSION to drop every cache on deploy (activate removes the old ones). */
+   BUILD and PRECACHE are written by the build (vite.config.ts): every
+   build has its own cache name, and activating a new build removes the
+   old one. This file is never edited per release. */
 
-const VERSION = "flow-shell-v2";
-const SHELL_CACHE = `${VERSION}-shell`;
-const ASSET_CACHE = `${VERSION}-assets`;
+const BUILD = "__FLOW_BUILD__";
+const PRECACHE = ["__FLOW_PRECACHE__"];
+
+const CACHE = `flow-${BUILD}`;
+const SHELL_URL = "/";
 const OFFLINE_URL = "/offline.html";
-/* The runtime cache is bounded — old builds' hashes churn out slowly, but
-   a cache that only ever grows would eventually fill the device. */
-const MAX_ASSETS = 128;
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
     caches
-      .open(SHELL_CACHE)
-      .then((cache) => cache.add(OFFLINE_URL))
+      .open(CACHE)
+      .then((cache) =>
+        cache.addAll([
+          // "reload": the shell must come from the server, never from an
+          // HTTP cache that may still hold the previous build's page.
+          ...[SHELL_URL, OFFLINE_URL].map((url) => new Request(url, { cache: "reload" })),
+          // Hashed assets never change under their name: the copies the
+          // page already fetched (and an upgrade did not rename) come from
+          // the HTTP cache instead of the network a second time.
+          ...PRECACHE,
+        ]),
+      )
       .then(() => self.skipWaiting()),
   );
 });
@@ -33,13 +46,7 @@ self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches
       .keys()
-      .then((keys) =>
-        Promise.all(
-          keys
-            .filter((key) => !key.startsWith(VERSION))
-            .map((key) => caches.delete(key)),
-        ),
-      )
+      .then((keys) => Promise.all(keys.filter((key) => key !== CACHE).map((key) => caches.delete(key))))
       .then(() => self.clients.claim()),
   );
 });
@@ -50,55 +57,36 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return;
 
-  // Data is network-only. A stale queue, scan status, or artwork would lie;
-  // the app renders its own honest empty/error states without us.
   if (url.pathname.startsWith("/api")) return;
 
-  // Navigations: network first (the app is live data over a thin shell);
-  // an unreachable server gets the one fallback page, retry button inside.
-  // cache: "reload" bypasses the HTTP cache — a navigation served from a
-  // stale heuristic entry would pin the whole shell to an old build.
   if (req.mode === "navigate") {
-    event.respondWith(
-      fetch(req, { cache: "reload" }).catch(() =>
-        caches
-          .open(SHELL_CACHE)
-          .then((cache) => cache.match(OFFLINE_URL))
-          .then((res) => res ?? Response.error()),
-      ),
-    );
+    event.respondWith(navigate(req));
     return;
   }
 
-  // Hashed assets are immutable: cache-first, populate on first fetch.
   if (url.pathname.startsWith("/assets/")) {
     event.respondWith(
-      caches.open(ASSET_CACHE).then(async (cache) => {
-        const hit = await cache.match(req);
-        if (hit) return hit;
-        try {
-          const res = await fetch(req);
-          if (res.ok) {
-            await cache.put(req, res.clone());
-            trimAssets(cache);
-          }
-          return res;
-        } catch {
-          // Never cached and unreachable: the console noise is the honest
-          // state — inventing a body would be worse.
-          return Response.error();
-        }
-      }),
+      caches.match(req, { cacheName: CACHE }).then((hit) => hit ?? fetch(req)),
     );
   }
 });
 
-/** Keep the runtime cache bounded: oldest entries go first. */
-function trimAssets(cache) {
-  cache.keys().then((keys) => {
-    if (keys.length <= MAX_ASSETS) return;
-    for (const key of keys.slice(0, keys.length - MAX_ASSETS)) {
-      cache.delete(key);
-    }
-  });
+// A server that hangs (a sleeping NAS, a weak signal) gets this long
+// before the stored shell answers instead.
+const NAVIGATE_TIMEOUT_MS = 5000;
+
+async function navigate(req) {
+  try {
+    const res = await Promise.race([
+      fetch(req, { cache: "reload" }),
+      new Promise((_, reject) => setTimeout(() => reject(new Error("timeout")), NAVIGATE_TIMEOUT_MS)),
+    ]);
+    if (res.status < 500) return res;
+  } catch {
+    // No answer, or none in time: the stored shell below.
+  }
+  const cache = await caches.open(CACHE);
+  return (
+    (await cache.match(SHELL_URL)) ?? (await cache.match(OFFLINE_URL)) ?? Response.error()
+  );
 }

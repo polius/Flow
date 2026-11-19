@@ -298,7 +298,7 @@ export function useUndoTrackEdit() {
     void refreshPlayingRow();
     if (data.applied > 0) {
       showUndoNotice({
-        message: `Restored ${data.applied.toLocaleString()} ${data.applied === 1 ? "track" : "tracks"}`,
+        message: `Restored ${data.applied.toLocaleString()} ${data.applied === 1 ? "song" : "songs"}`,
       });
     }
     return data.applied;
@@ -323,7 +323,7 @@ export function useReorderTracks() {
       void queryClient.invalidateQueries({ queryKey: ["review"] });
       if ((data?.applied ?? 0) > 0) {
         showUndoNotice({
-          message: `Reordered ${data!.applied.toLocaleString()} ${data!.applied === 1 ? "track" : "tracks"}`,
+          message: `Reordered ${data!.applied.toLocaleString()} ${data!.applied === 1 ? "song" : "songs"}`,
           undo: async () => {
             await undoEdit();
           },
@@ -377,7 +377,7 @@ export function useAddToPlaylist() {
       const added = Number(response.headers.get("x-tracks-added") ?? trackIds.length);
       const skipped = Number(response.headers.get("x-tracks-skipped") ?? 0);
       if (skipped > 0) {
-        const parts = [`Added ${added} ${added === 1 ? "track" : "tracks"}`];
+        const parts = [`Added ${added} ${added === 1 ? "song" : "songs"}`];
         if (added === 0) parts[0] = "Already in this playlist";
         else parts.push(`${skipped} already ${skipped === 1 ? "was" : "were"} in it`);
         showUndoNotice({ message: parts.join(" · ") });

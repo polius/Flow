@@ -115,6 +115,54 @@ describe("scan stream", () => {
   });
 });
 
+describe("scan stream while hidden", () => {
+  const snapshot = (state: string, phase: string | null, finished: string | null) => ({
+    data: {
+      library_path: "/music",
+      library_exists: true,
+      scan: { state, phase, current: 0, total: 0, errors: 0, finished_at: finished, mount_guard: false },
+      counts: { tracks: 1, albums: 1, artists: 1, playlists: 0 },
+    },
+    response: new Response(null),
+  });
+  const setVisibility = (v: "hidden" | "visible") => {
+    Object.defineProperty(document, "visibilityState", { value: v, configurable: true });
+    document.dispatchEvent(new Event("visibilitychange"));
+  };
+
+  it("closes when hidden, and catches up on a scan that ran meanwhile", async () => {
+    vi.useFakeTimers();
+    clientApi.api.GET.mockResolvedValue(snapshot("idle", null, "2026-01-01T00:00:00Z"));
+    const { ensureScanSync, stopScanSync } = await import("../api/scanSync");
+    const { queryClient } = await import("../api/queryClient");
+    ensureScanSync();
+    await vi.advanceTimersByTimeAsync(10);
+    const invalidate = vi.spyOn(queryClient, "invalidateQueries");
+
+    setVisibility("hidden");
+    expect(FakeEventSource.instances[0].closed).toBe(true);
+
+    // A scan started and finished while the tab was hidden.
+    clientApi.api.GET.mockResolvedValue(snapshot("idle", null, "2026-01-01T00:05:00Z"));
+    await vi.advanceTimersByTimeAsync(3000); // past the snapshot's 2 s reuse
+    setVisibility("visible");
+    await vi.advanceTimersByTimeAsync(10);
+    expect(FakeEventSource.instances).toHaveLength(2);
+    const keys = invalidate.mock.calls.map((c) => (c[0] as { queryKey: string[] }).queryKey[0]);
+    expect(keys).toEqual(expect.arrayContaining(["albums", "tracks"]));
+    stopScanSync();
+    setVisibility("visible");
+  });
+
+  it("a failed snapshot is not an unhandled error", async () => {
+    clientApi.api.GET.mockResolvedValue({ data: undefined, response: new Response(null, { status: 502 }) });
+    const { ensureScanSync, stopScanSync } = await import("../api/scanSync");
+    ensureScanSync();
+    await new Promise((r) => setTimeout(r, 0));
+    stopScanSync();
+  });
+});
+
 describe("server-queue adoption", () => {
   it("waits for sign-in instead of giving up", async () => {
     queueApi.fetchServerQueue.mockResolvedValueOnce({ status: "unauthorized" });

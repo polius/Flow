@@ -20,6 +20,98 @@
   min-height: 0;
 }
 
+/* Skip links: off-screen until the keyboard lands on one. */
+.skiplink {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: var(--z-popover);
+  padding: 8px 14px;
+  border-radius: var(--radius-s);
+  background: var(--bg-elevated);
+  border: 1px solid var(--control-border-strong);
+  color: var(--text-primary);
+  font-size: var(--text-body);
+  font-weight: 600;
+  transform: translateY(-200%);
+}
+
+.skiplink:focus {
+  transform: none;
+}
+
+/* Focus lands on the page itself after "Skip to content": the next Tab
+   continues from its first control. The page is not a control, so it
+   wears no ring. */
+.shell__canvas:focus {
+  outline: none;
+}
+
+/* The server notice: floats under the top bar, over the page and over
+   Now Playing (above the modal layer). */
+.servernotice-slot {
+  position: fixed;
+  top: calc(env(safe-area-inset-top, 0px) + 64px);
+  left: 0;
+  right: 0;
+  z-index: var(--z-popover);
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.servernotice {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: fit-content;
+  max-width: calc(100% - 32px);
+  padding: 7px 8px 7px 16px;
+  border: 1px solid var(--separator);
+  border-radius: 19px; /* a pill on one line, a soft card when it wraps */
+  background: var(--bg-elevated);
+  box-shadow: var(--shadow-popover);
+}
+
+.servernotice__msg {
+  font-size: var(--text-body);
+  color: var(--text-primary);
+}
+
+.servernotice__action {
+  flex: none;
+  padding: 5px 12px;
+  border-radius: 999px;
+  font-size: var(--text-body);
+  font-weight: 600;
+  color: var(--text-primary);
+  transition: background var(--dur-fast) var(--ease-out);
+}
+
+.servernotice__action:hover,
+.servernotice__close:hover {
+  background: var(--bg-hover);
+}
+
+.servernotice__close {
+  position: relative;
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  color: var(--text-secondary);
+}
+
+/* Drawn at 26 px, answers a 44 px touch. */
+.servernotice__close::after {
+  content: "";
+  position: absolute;
+  inset: -9px;
+}
+
 .shell__canvas {
   flex: 1;
   overflow-y: auto;

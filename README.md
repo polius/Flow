@@ -41,7 +41,7 @@
 docker run --rm -e DEMO=true -p 8080:8080 poliuscorp/flow
 ```
 
-Open http://localhost:8080. The demo tracks are silent placeholders.
+Open http://localhost:8080. The demo songs are silent placeholders.
 
 ## Set up
 
@@ -150,7 +150,7 @@ All optional.
 | `FLOW_AUTO_HEAL` | `on` | `off` skips the file re-check after an upgrade. |
 | `FLOW_LOG_LEVEL` | `INFO` | `DEBUG`, `INFO`, `WARNING`, or `ERROR`. |
 | `FLOW_LISTENBRAINZ_URL` | `https://api.listenbrainz.org` | A self-hosted ListenBrainz. Use `https`: the token travels with every request. |
-| `DEMO` | – | `true` fills an empty library with silent demo tracks. |
+| `DEMO` | – | `true` fills an empty library with silent demo songs. |
 
 ## Security
 

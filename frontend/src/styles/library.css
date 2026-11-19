@@ -11,6 +11,55 @@
   margin-top: 24px;
 }
 
+/* Phones only (the tab bar has no room for Favorites): the pinned
+   Favorites tile in Playlists, and the one-tile grid that carries it
+   while there are no playlists yet. */
+.album-card--phoneonly,
+.covergrid--phoneonly {
+  display: none;
+}
+
+@media (max-width: 640px) {
+  .album-card--phoneonly {
+    display: block;
+  }
+
+  .covergrid--phoneonly {
+    display: grid;
+  }
+}
+
+/* The tile's art: a quiet inset square with the heart, in the shape and
+   radius of a cover. */
+.album-card__art.favoritestile {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-m);
+  background: var(--bg-inset);
+  color: var(--text-secondary);
+}
+
+/* The windowed grid (VirtualCardGrid): the container is as tall as the
+   whole list and each row of cards is placed in it; the row carries the
+   grid's gaps so its measured height is the row pitch. */
+.cardgrid {
+  position: relative;
+  margin-top: 24px;
+}
+
+.cardgrid__row {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  display: grid;
+}
+
+.cardgrid--artists {
+  margin-top: 28px;
+}
+
 /* Home shelves scroll sideways. A horizontal scroller clips vertically
    too, so the row keeps 48px of headroom for the card's upward "…" menu —
    pulled back under the section head by an equal negative margin, so the
@@ -212,28 +261,60 @@
   margin-top: 36px;
 }
 
+/* Home's first row: resume and shuffle side by side, the wider share to
+   the song. A card that is alone in the row keeps its column. */
+.homehero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+  gap: 16px;
+  align-items: end;
+  margin-top: 28px;
+}
+
+.homehero__item {
+  min-width: 0;
+}
+
+.homehero__title {
+  margin: 0 0 14px;
+  font-size: var(--text-title);
+  font-weight: 700;
+  letter-spacing: var(--tracking-tight);
+}
+
+@media (max-width: 640px) {
+  .homehero {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 /* Continue listening: the restored session as one quiet row —
    monochrome, inset like the app's other resting surfaces; the artwork is
-   the only color it needs. The row is content-bounded at the app's
-   560px content width (the Settings group's) — stretching 56px of content
-   across a 1,300px canvas read as vacancy, not generosity. */
+   the only color it needs. The whole card is one button (play or pause);
+   its second line is laid over the button so the artist link in it is a
+   sibling, not a control inside a control. The two lines have fixed
+   heights so the overlay lands exactly on the place the button keeps
+   for it. */
 .continuecard {
+  position: relative;
+}
+
+.continuecard__button {
   display: flex;
   align-items: center;
   gap: 14px;
   width: 100%;
-  max-width: 560px;
   padding: 10px 16px 10px 10px;
   border-radius: var(--radius-m);
   background: var(--bg-inset);
   text-align: left;
   transition: background var(--dur-fast) var(--ease-out);
 }
-.continuecard:hover,
-.continuecard:focus-visible {
+.continuecard__button:hover,
+.continuecard__button:focus-visible {
   background: var(--bg-active);
 }
-.continuecard:active {
+.continuecard__button:active {
   transform: scale(0.995);
 }
 .continuecard__meta {
@@ -245,21 +326,36 @@
 .continuecard__title {
   font-size: var(--text-body);
   font-weight: 600;
+  line-height: 20px;
   color: var(--text-primary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.continuecard__subspace {
+  height: 16px;
+}
 .continuecard__sub {
+  position: absolute;
+  /* art (10 + 56) + gap → the meta column; the action disc on the right. */
+  left: 80px;
+  right: 84px;
+  /* The meta column is centered: title 20 + gap 2 + this line 16. */
+  top: calc(50% + 3px);
   font-size: var(--text-caption);
+  line-height: 16px;
   color: var(--text-secondary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  /* The button underneath keeps the click; only the link takes its own. */
+  pointer-events: none;
 }
 
-/* The artist name inside the card is a link (the card keeps
-   play/pause) — the link's activation stops before it reaches the row. */
+.continuecard__sub a {
+  pointer-events: auto;
+}
+
 .continuecard__sub a:hover {
   text-decoration: underline;
 }
@@ -534,10 +630,9 @@
 
 /* ---- Home: shuffle-all card --------------------------------------- */
 
-/* Content-bounded like the Continue card — same 560px row grammar. */
+/* Fills its column of Home's first row, beside the Continue card. */
 .shufflecard {
   width: 100%;
-  max-width: 560px;
   display: flex;
   align-items: center;
   gap: 14px;
@@ -585,6 +680,17 @@
 .shufflecard__sub {
   font-size: var(--text-small);
   color: var(--text-secondary);
+}
+
+/* A song on a Home shelf (Favorites): a cover card that plays. */
+.album-card--song {
+  display: block;
+  text-align: left;
+}
+
+.album-card--song .album-card__title,
+.album-card--song .album-card__meta {
+  display: block;
 }
 
 /* ---- track table --------------------------------------------------------- */
@@ -678,6 +784,16 @@
   opacity: 1;
 }
 
+/* A long sortable list (Songs, an artist's songs) has no ordinal either,
+   but a glyph on every one of its rows would be the same noise in a new
+   shape: where hover exists the slot stays empty until the pointer or the
+   keyboard is on the row. Touch keeps its glyph (the rule below). */
+@media (hover: hover) {
+  .tracktable--quietindex .trackrow--noindex:not(.trackrow--playing):not(:hover) .trackrow__play:not(:focus-visible) {
+    opacity: 0;
+  }
+}
+
 .trackrow__title {
   overflow: hidden;
   text-overflow: ellipsis;
@@ -761,6 +877,38 @@
   display: none;
 }
 
+/* An album row by someone other than the album's artist names them under
+   the title at every width (a compilation is otherwise a list of titles
+   with nobody's name on them). Same dress as the phone line. */
+.trackrow__subline--always,
+.trackrow:has(.trackrow__subline--always) .trackrow__titletext {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.trackrow__subline--always {
+  margin-top: 1px;
+  font-size: var(--text-small);
+  font-weight: 400;
+  color: var(--text-secondary);
+}
+
+/* "Disc 2": a small heading between the discs of a multi-disc album. */
+.trackdisc {
+  padding: 16px 12px 6px;
+  font-size: var(--text-caption);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.trackdisc:first-child {
+  padding-top: 6px;
+}
+
 /* Current track — the queue drawer's quiet grammar: a soft
    --bg-active fill (both themes) plus the accent bars in the index slot,
    not a full inversion: near-black on the light canvas was far too much
@@ -804,6 +952,19 @@
    still glide beneath the translucent player bar. */
 .tracktable--virtual {
   position: relative;
+}
+
+/* A row whose page has not arrived: one quiet bar across the title
+   column, at the row's own height. */
+.tracktable--virtual .trackrow--loading {
+  cursor: default;
+  pointer-events: none;
+}
+
+.trackrow--loading .skeleton {
+  grid-column: 2;
+  width: 46%;
+  margin: 0;
 }
 
 .tracktable--virtual .trackrow {
@@ -1021,21 +1182,26 @@ button.trackhead__sort:hover {
     opacity: 0;
   }
 
-  /* The action pair is always visible — touch has no hover to reveal it. */
+  /* Covers are left alone on touch: no hover exists to reveal the action
+     pair, and showing it for good put two buttons on every cover of every
+     grid. A tap opens the album, where Play is the first button; a long
+     press opens the card's menu as a sheet (CardMenu.tsx). The hold must
+     not raise the browser's own link preview or start a text selection. */
   .album-card__play,
   .album-card__more {
-    opacity: 1;
-    transform: none;
-  }
-
-  /* Swipe owns removal on touch: the inline minus folds away, and
-     with it the trailing slot — the row and its head both lose the column
-     so nothing misaligns. (At tablet widths the now-empty last column
-     stays: the desktop template just ends one column early.) */
-  .trackrow__remove,
-  .trackhead__remove {
     display: none;
   }
+
+  .album-card__artlink {
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  /* Swipe owns removal on touch: the inline minus and its slot fold away
+     (editing.css, beside the slot's own rule). At tablet widths the
+     now-empty last column stays: the desktop template just ends one
+     column early. */
 }
 
 /* Touch phones: the playlist row is a four-column row — the 30px the
@@ -1045,6 +1211,76 @@ button.trackhead__sort:hover {
   .trackrow--playlist,
   .trackhead--playlist {
     grid-template-columns: 32px minmax(0, 1fr) minmax(0, 60px) 30px;
+  }
+}
+
+/* Phone lists carry no desktop furniture.
+
+   The column header ("# · TITLE · TIME") names columns a phone row does
+   not have, above a list whose sort has its own button. */
+@media (max-width: 640px) {
+  .trackhead {
+    display: none;
+  }
+
+  .tracklist {
+    margin-top: 14px;
+  }
+
+  .artistcard__songs {
+    display: none;
+  }
+}
+
+/* The play glyph on every row: once a tap anywhere on the row plays it,
+   the glyph is 32px of repetition — and on an album it sat where the
+   track numbers belong. Numbered lists (albums, playlists) get their
+   numbers back, with the bars on the playing row; the Play button stays
+   in place for assistive technology, unseen. Unnumbered lists (Songs,
+   Favorites, an artist's songs, search) drop the column, and their
+   playing row leads with the bars. */
+@media (hover: none) and (max-width: 640px) {
+  /* The :hover twins matter: a phone leaves the row it last tapped in
+     :hover, and the desktop hover rules (glyph in, number and bars out)
+     would otherwise win on exactly that row. */
+  .trackrow__play,
+  .trackrow:hover .trackrow__play {
+    opacity: 0;
+  }
+
+  .trackrow__num,
+  .trackrow:hover .trackrow__num {
+    opacity: 1;
+  }
+
+  .trackrow--playing .trackrow__num,
+  .trackrow--playing:hover .trackrow__num {
+    opacity: 0;
+  }
+
+  .trackrow--playing .trackrow__eq,
+  .trackrow--playing:hover .trackrow__eq {
+    opacity: 1;
+  }
+
+  .trackrow--all,
+  .trackrow--artist {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 60px) 30px;
+  }
+
+  .trackrow--all .trackrow__index,
+  .trackrow--artist .trackrow__index {
+    display: none;
+  }
+
+  .trackrow--all.trackrow--playing,
+  .trackrow--artist.trackrow--playing {
+    grid-template-columns: 18px minmax(0, 1fr) minmax(0, 60px) 30px;
+  }
+
+  .trackrow--all.trackrow--playing .trackrow__index,
+  .trackrow--artist.trackrow--playing .trackrow__index {
+    display: flex;
   }
 }
 

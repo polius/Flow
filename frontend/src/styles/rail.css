@@ -1,0 +1,65 @@
+/* The A to Z rail — pinned to the right edge of the canvas, in the space
+   between the top bar and the player, over the view's own side padding.
+   Quiet: small muted letters, no surface of its own. */
+
+.letterrail {
+  position: fixed;
+  top: calc(64px + env(safe-area-inset-top, 0px));
+  bottom: calc(var(--player-height) + 8px);
+  right: calc(8px + env(safe-area-inset-right, 0px));
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* 27 letters share the height: 20px each where there is room, less where
+   there is not. */
+.letterrail__letter {
+  flex: 0 1 20px;
+  min-height: 0;
+  width: 22px;
+  font-size: var(--text-caption);
+  font-weight: 600;
+  line-height: 1;
+  color: var(--text-muted);
+  border-radius: 6px;
+}
+
+/* An initial the list does not have: still a target (it jumps to the next
+   one), drawn back. */
+.letterrail__letter--absent {
+  opacity: 0.4;
+}
+
+@media (hover: hover) {
+  .letterrail__letter:hover {
+    color: var(--text-primary);
+    background: var(--bg-hover);
+    opacity: 1;
+  }
+}
+
+/* Very short windows have no room for 27 letters between the bars. */
+@media (max-height: 520px) {
+  .letterrail {
+    display: none;
+  }
+}
+
+/* Phones: the letters fit inside the view's 16px side padding, so no row
+   or card gives up width to them. */
+@media (max-width: 640px) {
+  .letterrail {
+    right: calc(1px + env(safe-area-inset-right, 0px));
+  }
+
+  .letterrail__letter {
+    width: 14px;
+    font-size: 10px;
+  }
+}

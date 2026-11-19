@@ -9,6 +9,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
 
 import { useMediaQuery } from "../lib/media";
+import { isIOS, MOD_KEY } from "../lib/platform";
 import { isTextEditingTarget } from "../lib/shortcuts";
 import { trackIsUnverified, useCurrentTrack, usePlayerStore } from "../stores/player";
 import { useUiStore } from "../stores/ui";
@@ -29,11 +30,21 @@ import { useLyrics } from "../lib/lyrics";
 import { LyricsPanel } from "./Lyrics";
 import { QueuePanel } from "./QueuePanel";
 import { SleepTimer } from "./SleepTimer";
-import { PlayPauseButton, Scrubber, TransportButton } from "./transport";
+import { PlayPauseButton, Scrubber, TransportButton, VolumeControl } from "./transport";
 import { useModalFocus } from "../lib/focus";
 import "../styles/nowplaying.css";
 
 const NARROW_BP = "(max-width: 940px)";
+
+/* Swipe down to close (touch): the view follows the finger once the drag
+   commits downward, closes past a third of the screen or on a flick, and
+   springs back otherwise. The drag never starts on a control (the
+   scrubber keeps its sideways drag) or inside the queue, and never while
+   the stage is scrolled. */
+const DISMISS_LOCK_PX = 10;
+const DISMISS_RATIO = 1 / 3;
+const DISMISS_FLICK_PX_MS = 0.6;
+const DISMISS_SETTLE_MS = 200;
 
 export function NowPlaying() {
   const open = useUiStore((s) => s.nowPlayingOpen);
@@ -50,7 +61,10 @@ export function NowPlaying() {
   const cycleRepeat = usePlayerStore((s) => s.cycleRepeat);
 
   const narrow = useMediaQuery(NARROW_BP);
-  const [queueOpen, setQueueOpen] = useState(false);
+  // The queue sheet (narrow windows) lives in the UI store so the player
+  // bar's Queue button and the Q key can open Now Playing straight on it.
+  const queueOpen = useUiStore((s) => s.queueSheetOpen);
+  const setQueueOpen = useUiStore((s) => s.setQueueSheetOpen);
   // Lyrics take the queue's column on a desktop and the cover's place on
   // a phone. The choice holds from song to song; a song with no lyrics
   // shows neither the button nor the panel.
@@ -64,9 +78,54 @@ export function NowPlaying() {
   // inside it, and closing restores focus to whatever opened it.
   useModalFocus(surfaceRef, open);
 
-  const handleClose = () => {
-    setQueueOpen(false);
-    close();
+  const handleClose = close; // closing also folds the queue sheet (ui store)
+
+  const dragRef = useRef<{ y: number; x: number; at: number; locked: boolean; dy: number } | null>(
+    null,
+  );
+  const slide = (dy: number, animate: boolean) => {
+    const el = surfaceRef.current;
+    if (!el) return;
+    el.style.transition = animate ? `transform ${DISMISS_SETTLE_MS}ms var(--ease-out)` : "none";
+    el.style.transform = dy === 0 && animate ? "" : `translateY(${dy}px)`;
+  };
+  const onTouchStart = (e: React.TouchEvent) => {
+    dragRef.current = null;
+    if (e.touches.length !== 1 || !(e.target instanceof Element)) return;
+    if (e.target.closest("button, a, input, .queue") != null) return;
+    const stage = e.target.closest<HTMLElement>(".nowplaying__stage");
+    if (stage != null && stage.scrollTop > 0) return;
+    const t = e.touches[0];
+    dragRef.current = { y: t.clientY, x: t.clientX, at: performance.now(), locked: false, dy: 0 };
+  };
+  const onTouchMove = (e: React.TouchEvent) => {
+    const d = dragRef.current;
+    if (!d) return;
+    const t = e.touches[0];
+    const dy = t.clientY - d.y;
+    const dx = t.clientX - d.x;
+    if (!d.locked) {
+      if (Math.abs(dx) > DISMISS_LOCK_PX && Math.abs(dx) > Math.abs(dy)) {
+        dragRef.current = null; // sideways: not this gesture
+        return;
+      }
+      if (dy < DISMISS_LOCK_PX) return;
+      d.locked = true;
+    }
+    d.dy = Math.max(0, dy);
+    slide(d.dy, false);
+  };
+  const onTouchEnd = () => {
+    const d = dragRef.current;
+    dragRef.current = null;
+    if (!d?.locked) return;
+    const velocity = d.dy / Math.max(performance.now() - d.at, 1);
+    if (d.dy > window.innerHeight * DISMISS_RATIO || velocity > DISMISS_FLICK_PX_MS) {
+      slide(window.innerHeight, true);
+      window.setTimeout(handleClose, DISMISS_SETTLE_MS);
+    } else {
+      slide(0, true);
+    }
   };
 
   // Esc closes the takeover — but yields to whatever sits above it:
@@ -85,7 +144,7 @@ export function NowPlaying() {
         return;
       if (isTextEditingTarget(document.activeElement)) return;
       e.preventDefault();
-      if (queueOpen) {
+      if (narrow && queueOpen) {
         setQueueOpen(false);
         return;
       }
@@ -93,7 +152,7 @@ export function NowPlaying() {
     };
     window.addEventListener("keydown", onKeyDown, true);
     return () => window.removeEventListener("keydown", onKeyDown, true);
-  }, [open, close, queueOpen]);
+  }, [open, close, narrow, queueOpen, setQueueOpen]);
 
   if (!open) return null;
 
@@ -116,7 +175,13 @@ export function NowPlaying() {
       role="dialog"
       aria-modal="true"
       aria-label="Now Playing"
+      onTouchStart={onTouchStart}
+      onTouchMove={onTouchMove}
+      onTouchEnd={onTouchEnd}
+      onTouchCancel={onTouchEnd}
     >
+      {/* Says "this sheet pulls down" on touch; the chevron stays. */}
+      <span className="nowplaying__grabber" aria-hidden="true" />
       <Ambience artworkId={track?.artwork_id ?? null} />
 
       <button
@@ -137,6 +202,7 @@ export function NowPlaying() {
           aria-haspopup="dialog"
           aria-controls="queue-panel"
           aria-expanded={queueOpen}
+          aria-label="Queue"
           title="Queue"
         >
           <IconQueue size={18} />
@@ -213,20 +279,22 @@ export function NowPlaying() {
               <div className="nowplaying__transport">
                 <TransportButton
                   label="Shuffle"
+                  hint="S"
                   active={shuffle}
                   onClick={() => setShuffle(!shuffle)}
                 >
                   <IconShuffle size={16} />
                 </TransportButton>
-                <TransportButton label="Previous track" onClick={prev}>
+                <TransportButton label="Previous song" hint={`${MOD_KEY}←`} onClick={prev}>
                   <IconPrev size={19} />
                 </TransportButton>
                 <PlayPauseButton isPlaying={isPlaying} />
-                <TransportButton label="Next track" onClick={next}>
+                <TransportButton label="Next song" hint={`${MOD_KEY}→`} onClick={next}>
                   <IconNext size={19} />
                 </TransportButton>
                 <TransportButton
                   label={`Repeat: ${repeat}`}
+                  hint="R"
                   active={repeat !== "off"}
                   badge={repeat === "one" ? "1" : undefined}
                   onClick={cycleRepeat}
@@ -274,6 +342,13 @@ export function NowPlaying() {
                 )}
                 <SleepTimer />
               </div>
+              {/* The takeover covers the bar, so the volume comes along
+                  (desktop only: phones use their hardware keys). */}
+              {!isIOS && (
+                <div className="nowplaying__volume">
+                  <VolumeControl />
+                </div>
+              )}
             </div>
           </div>
         ) : (
@@ -284,7 +359,7 @@ export function NowPlaying() {
               </span>
               <h1 className="nowplaying__title">Nothing Playing</h1>
               <p className="nowplaying__hint">
-                Add tracks to the queue, then tap one to start — or play an
+                Add songs to the queue, then tap one to start — or play an
                 album or playlist anywhere in Flow.
               </p>
             </div>

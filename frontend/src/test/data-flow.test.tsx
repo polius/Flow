@@ -1,8 +1,8 @@
 /* Smaller data-flow guarantees: the row menu's Play is the row click
    (one whole-view request, not a page-by-page fetch), a failed playlist
    removal puts the optimistically dropped row back, a reorder that did
-   not save goes back and says so, and a rename reaches the song that is
-   playing. */
+   not save goes back and says so, a rename reaches the song that is
+   playing, and Home's "Recently added" shelf asks for the newest albums. */
 
 import { act, cleanup, fireEvent, render, renderHook, screen } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -30,6 +30,7 @@ import {
   useReorderTracks,
 } from "../api/mutations";
 import { usePlayerStore } from "../stores/player";
+import { HomeView } from "../views/HomeView";
 import { TrackActionsMenu } from "../components/TrackActionsMenu";
 import { useUiStore } from "../stores/ui";
 
@@ -111,6 +112,25 @@ describe("playlist removal", () => {
       await expect(result.current(4, 1)).rejects.toThrow();
     });
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ["playlist", 4] });
+  });
+});
+
+describe("Home's Recently added shelf", () => {
+  it("asks for the newest albums first", async () => {
+    clientApi.api.GET.mockResolvedValue({ data: undefined });
+    render(
+      <MemoryRouter>
+        <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+          <HomeView />
+        </QueryClientProvider>
+      </MemoryRouter>,
+    );
+    await act(async () => {});
+    type Call = [string, { params?: { query?: { sort?: string; dir?: string } } }?];
+    const recent = (clientApi.api.GET.mock.calls as Call[]).find(
+      ([path, init]) => path === "/api/albums" && init?.params?.query?.sort === "recent",
+    );
+    expect(recent?.[1]?.params?.query?.dir).toBe("desc");
   });
 });
 

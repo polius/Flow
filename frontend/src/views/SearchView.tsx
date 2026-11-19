@@ -1,6 +1,7 @@
 /* The query lives in the URL so deep links work; the top bar's field owns
    the typing → /search?q=… flow. */
 
+import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useSearchParams } from "react-router";
 
@@ -13,6 +14,7 @@ import { PlaylistArt } from "../components/PlaylistArt";
 import { TrackTable } from "../components/TrackTable";
 import { ArtistPortrait } from "../components/ArtistPortrait";
 import { fmtMinutes } from "../lib/format";
+import { useUiStore } from "../stores/ui";
 import "../styles/library.css";
 
 export function SearchView() {
@@ -34,6 +36,15 @@ export function SearchView() {
   });
 
   const hasQuery = urlQuery.trim().length > 0;
+
+  // Opened with nothing to search for (the installed app's Search
+  // shortcut): the field is where the next keystroke belongs.
+  const focusSearch = useUiStore((s) => s.focusSearch);
+  useEffect(() => {
+    if (!hasQuery) focusSearch();
+    // On arrival only, not each time the field is cleared.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const results = hasQuery ? data : undefined;
   const nothing =
     results?.tracks.length === 0 &&
@@ -42,7 +53,7 @@ export function SearchView() {
     results.playlists.length === 0;
 
   return (
-    <section className="view">
+    <section className="view view--capped">
       <h1 className="view__title">Search</h1>
 
       {!hasQuery ? (
@@ -65,7 +76,7 @@ export function SearchView() {
             <section className="searchgroup">
               <SectionHeader
                 title="Songs"
-                more={{ to: `/tracks?q=${encodeURIComponent(urlQuery)}`, label: "Show all in Tracks" }}
+                more={{ to: `/tracks?q=${encodeURIComponent(urlQuery)}`, label: "Show all in Songs" }}
               />
               <TrackTable
                 label={`Songs matching “${urlQuery}”`}
@@ -138,7 +149,7 @@ export function SearchView() {
                       />
                       <span className="searchplaylists__name">{playlist.name}</span>
                       <span className="searchplaylists__meta">
-                        {playlist.track_count} track{playlist.track_count === 1 ? "" : "s"}
+                        {playlist.track_count} song{playlist.track_count === 1 ? "" : "s"}
                         {playlist.track_count > 0
                           ? ` · ${fmtMinutes(playlist.duration_total)}`
                           : ""}

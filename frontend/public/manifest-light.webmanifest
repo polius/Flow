@@ -33,5 +33,20 @@
       "type": "image/png",
       "purpose": "maskable"
     }
+  ],
+  "shortcuts": [
+    {
+      "name": "Shuffle Everything",
+      "short_name": "Shuffle",
+      "url": "/?start=shuffle"
+    },
+    {
+      "name": "Favorites",
+      "url": "/favorites"
+    },
+    {
+      "name": "Search",
+      "url": "/search"
+    }
   ]
 }
