@@ -212,28 +212,60 @@
   margin-top: 36px;
 }
 
+/* Home's first row: resume and shuffle side by side, the wider share to
+   the song. A card that is alone in the row keeps its column. */
+.homehero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+  gap: 16px;
+  align-items: end;
+  margin-top: 28px;
+}
+
+.homehero__item {
+  min-width: 0;
+}
+
+.homehero__title {
+  margin: 0 0 14px;
+  font-size: var(--text-title);
+  font-weight: 700;
+  letter-spacing: var(--tracking-tight);
+}
+
+@media (max-width: 640px) {
+  .homehero {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 /* Continue listening: the restored session as one quiet row —
    monochrome, inset like the app's other resting surfaces; the artwork is
-   the only color it needs. The row is content-bounded at the app's
-   560px content width (the Settings group's) — stretching 56px of content
-   across a 1,300px canvas read as vacancy, not generosity. */
+   the only color it needs. The whole card is one button (play or pause);
+   its second line is laid over the button so the artist link in it is a
+   sibling, not a control inside a control. The two lines have fixed
+   heights so the overlay lands exactly on the place the button keeps
+   for it. */
 .continuecard {
+  position: relative;
+}
+
+.continuecard__button {
   display: flex;
   align-items: center;
   gap: 14px;
   width: 100%;
-  max-width: 560px;
   padding: 10px 16px 10px 10px;
   border-radius: var(--radius-m);
   background: var(--bg-inset);
   text-align: left;
   transition: background var(--dur-fast) var(--ease-out);
 }
-.continuecard:hover,
-.continuecard:focus-visible {
+.continuecard__button:hover,
+.continuecard__button:focus-visible {
   background: var(--bg-active);
 }
-.continuecard:active {
+.continuecard__button:active {
   transform: scale(0.995);
 }
 .continuecard__meta {
@@ -245,21 +277,36 @@
 .continuecard__title {
   font-size: var(--text-body);
   font-weight: 600;
+  line-height: 20px;
   color: var(--text-primary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.continuecard__subspace {
+  height: 16px;
+}
 .continuecard__sub {
+  position: absolute;
+  /* art (10 + 56) + gap → the meta column; the action disc on the right. */
+  left: 80px;
+  right: 84px;
+  /* The meta column is centered: title 20 + gap 2 + this line 16. */
+  top: calc(50% + 3px);
   font-size: var(--text-caption);
+  line-height: 16px;
   color: var(--text-secondary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  /* The button underneath keeps the click; only the link takes its own. */
+  pointer-events: none;
 }
 
-/* The artist name inside the card is a link (the card keeps
-   play/pause) — the link's activation stops before it reaches the row. */
+.continuecard__sub a {
+  pointer-events: auto;
+}
+
 .continuecard__sub a:hover {
   text-decoration: underline;
 }
@@ -534,10 +581,9 @@
 
 /* ---- Home: shuffle-all card --------------------------------------- */
 
-/* Content-bounded like the Continue card — same 560px row grammar. */
+/* Fills its column of Home's first row, beside the Continue card. */
 .shufflecard {
   width: 100%;
-  max-width: 560px;
   display: flex;
   align-items: center;
   gap: 14px;
@@ -585,6 +631,17 @@
 .shufflecard__sub {
   font-size: var(--text-small);
   color: var(--text-secondary);
+}
+
+/* A song on a Home shelf (Favorites): a cover card that plays. */
+.album-card--song {
+  display: block;
+  text-align: left;
+}
+
+.album-card--song .album-card__title,
+.album-card--song .album-card__meta {
+  display: block;
 }
 
 /* ---- track table --------------------------------------------------------- */
