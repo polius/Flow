@@ -67,6 +67,8 @@ Flow streams files as they are, without transcoding:
 | M4A (ALAC) | ✗ | ✓ |
 | OGG (Vorbis, Opus) | ✓ | Recent versions |
 
+On iPhone and iPad, songs change with a short gap and volume normalization is off. iOS keeps music playing with the screen locked only when the browser plays each file directly, one at a time.
+
 ## On your phone
 
 Open Flow in the browser and add it to the Home Screen (**Share → Add to Home Screen** on iPhone, **Install app** on Android). Pick a light or dark icon in **Settings → Appearance**.
