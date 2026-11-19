@@ -505,6 +505,35 @@ describe("clear the queue, then undo", () => {
   });
 });
 
+describe("the session ends", () => {
+  it("a session that expired stops the sound and keeps the queue", async () => {
+    const { usePlayerStore, endPlayback } = await importPlayer();
+    usePlayerStore.getState().playTracks([track(1), track(2)], 0);
+    elements[0].dispatchEvent(new Event("play"));
+    expect(usePlayerStore.getState().isPlaying).toBe(true);
+
+    endPlayback({ forget: false });
+
+    expect(elements[0].pause).toHaveBeenCalled();
+    expect(usePlayerStore.getState().isPlaying).toBe(false);
+    expect(usePlayerStore.getState().queue).toHaveLength(2);
+  });
+
+  it("signing out also forgets the queue, here and in this browser's storage", async () => {
+    const { usePlayerStore, endPlayback } = await importPlayer();
+    usePlayerStore.getState().playTracks([track(1), track(2)], 0);
+    await new Promise((r) => setTimeout(r, 500)); // past the debounced local save
+    expect(localStorage.getItem("flow.player.queue")).not.toBeNull();
+
+    endPlayback({ forget: true });
+
+    expect(elements[0].pause).toHaveBeenCalled();
+    expect(usePlayerStore.getState().queue).toHaveLength(0);
+    expect(localStorage.getItem("flow.player.queue")).toBeNull();
+    expect(document.title).toBe("Flow");
+  });
+});
+
 /* A Web Audio stand-in: counts contexts and records the gain each
    element's node was last told to reach. */
 function stubAudioContext() {

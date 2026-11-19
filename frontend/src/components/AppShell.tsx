@@ -12,7 +12,7 @@ import { ShortcutSheet } from "./ShortcutSheet";
 import { TopBar } from "./TopBar";
 import { TrackActionsMenu } from "./TrackActionsMenu";
 import { UndoToast } from "./UndoToast";
-import { resumeServerAdoption } from "../stores/player";
+import { endPlayback, resumeServerAdoption } from "../stores/player";
 import { useUiStore } from "../stores/ui";
 import "../styles/shell.css";
 
@@ -58,6 +58,13 @@ export function AppShell() {
     ensureScanSync();
     resumeServerAdoption();
   }, [apiOpen]);
+  // The session ended under a playing song (it expired, or was closed from
+  // elsewhere): the sound stops with it. The queue stays for the sign-in
+  // that follows; an explicit sign-out clears it (AccessSettings).
+  const signedOut = authStatus != null && authStatus.enabled && !authStatus.authenticated;
+  useEffect(() => {
+    if (signedOut) endPlayback({ forget: false });
+  }, [signedOut]);
 
   // The canvas is one shared scroll container across views, so an offset from
   // one section would leak into the next — the new view could land mid-list
