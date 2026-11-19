@@ -185,7 +185,11 @@ def create_app() -> FastAPI:
             target=_prune_artwork_cache, args=(db,), name="flow-artwork-cache", daemon=True
         ).start()
         watcher = LibraryWatcher(scanner, config.MUSIC_DIR)
-        watcher.start()
+        # The watcher's first look at the library (a polling observer reads
+        # every folder: seconds on a big library) must not hold the server
+        # back: the API answered 502 until it was done. A stop() that comes
+        # first is honored when the start finishes.
+        threading.Thread(target=watcher.start, name="flow-watcher-start", daemon=True).start()
         try:
             # First-run UX (Plex-like): an empty index next to a non-empty
             # folder means nobody has scanned yet — don't make them find

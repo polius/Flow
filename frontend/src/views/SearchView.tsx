@@ -1,6 +1,7 @@
 /* The query lives in the URL so deep links work; the top bar's field owns
    the typing → /search?q=… flow. */
 
+import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useSearchParams } from "react-router";
 
@@ -13,6 +14,7 @@ import { PlaylistArt } from "../components/PlaylistArt";
 import { TrackTable } from "../components/TrackTable";
 import { ArtistPortrait } from "../components/ArtistPortrait";
 import { fmtMinutes } from "../lib/format";
+import { useUiStore } from "../stores/ui";
 import "../styles/library.css";
 
 export function SearchView() {
@@ -34,6 +36,15 @@ export function SearchView() {
   });
 
   const hasQuery = urlQuery.trim().length > 0;
+
+  // Opened with nothing to search for (the installed app's Search
+  // shortcut): the field is where the next keystroke belongs.
+  const focusSearch = useUiStore((s) => s.focusSearch);
+  useEffect(() => {
+    if (!hasQuery) focusSearch();
+    // On arrival only, not each time the field is cleared.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const results = hasQuery ? data : undefined;
   const nothing =
     results?.tracks.length === 0 &&

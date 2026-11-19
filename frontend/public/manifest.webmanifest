@@ -7,7 +7,7 @@
   "scope": "/",
   "display": "standalone",
   "background_color": "#161618",
-  "theme_color": "#f5f5f7",
+  "theme_color": "#161618",
   "icons": [
     {
       "src": "/icons/icon-192.png",
@@ -32,6 +32,21 @@
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Shuffle Everything",
+      "short_name": "Shuffle",
+      "url": "/?start=shuffle"
+    },
+    {
+      "name": "Favorites",
+      "url": "/favorites"
+    },
+    {
+      "name": "Search",
+      "url": "/search"
     }
   ]
 }

@@ -10,6 +10,7 @@
    redirect. */
 
 import {
+  Suspense,
   useEffect,
   useMemo,
   useRef,
@@ -21,6 +22,7 @@ import { useQuery } from "@tanstack/react-query";
 
 import { api } from "../api/client";
 import { useDebouncedValue } from "../lib/debounce";
+import { lazyPart } from "../lib/lazyParts";
 import { fmtCount, scanProgressFraction, scanStatusLabel } from "../lib/format";
 import { useMediaQuery } from "../lib/media";
 import { MOD_KEY } from "../lib/platform";
@@ -29,7 +31,6 @@ import { usePlayerStore } from "../stores/player";
 import { useUiStore } from "../stores/ui";
 import { Artwork } from "./Artwork";
 import { PlaylistArt } from "./PlaylistArt";
-import { ScanErrorsDialog } from "./ScanErrors";
 import {
   IconAlbums,
   IconArtists,
@@ -46,6 +47,9 @@ import {
 import "../styles/topbar.css";
 
 const DEBOUNCE_MS = 200;
+
+// The skipped-files list opens from the scan pill: its code loads then.
+const ScanErrorsDialog = lazyPart(() => import("./ScanErrors"), (m) => m.ScanErrorsDialog);
 
 interface NavEntry {
   to: string;
@@ -178,10 +182,12 @@ export function TopBar() {
       )}
 
       {scanErrorsOpen && (
-        <ScanErrorsDialog
-          onClose={() => setScanErrorsOpen(false)}
-          live={scanning}
-        />
+        <Suspense fallback={null}>
+          <ScanErrorsDialog
+            onClose={() => setScanErrorsOpen(false)}
+            live={scanning}
+          />
+        </Suspense>
       )}
 
       <SearchZone

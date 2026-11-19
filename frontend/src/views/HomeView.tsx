@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Link } from "react-router";
+import { Link, useSearchParams } from "react-router";
 
 import { api, fetchAllTracks } from "../api/client";
+import { settingsQuery } from "../api/system";
 import { playByFilter } from "../api/queue";
 import type { QueueOrigin } from "../api/types";
 import { AlbumCard } from "../components/AlbumCard";
@@ -214,6 +215,22 @@ function ShuffleAll({ count }: { count: number }) {
       .finally(() => setBusy(false));
   };
 
+  // The installed app's "Shuffle everything" shortcut opens /?start=shuffle.
+  const [params, setParams] = useSearchParams();
+  const fromShortcut = params.get("start") === "shuffle";
+  useEffect(() => {
+    if (!fromShortcut || count === 0) return;
+    // After the render, and once: the cleanup cancels a second arrival
+    // (StrictMode), and dropping the parameter ends the first.
+    const timer = window.setTimeout(() => {
+      setParams({}, { replace: true });
+      shuffleEverything();
+    }, 0);
+    return () => window.clearTimeout(timer);
+    // shuffleEverything is a fresh function each render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fromShortcut, count]);
+
   return (
     <div className="homehero__item">
       {/* Named by what it shows: no aria-label to drift from the words. */}
@@ -335,13 +352,7 @@ export function HomeView() {
     data: settings,
     isError: settingsFailed,
     refetch: refetchSettings,
-  } = useQuery({
-    queryKey: ["settings"],
-    queryFn: async () => {
-      const { data } = await api.GET("/api/settings");
-      return data;
-    },
-  });
+  } = useQuery(settingsQuery);
 
   const { data: recent } = useQuery({
     queryKey: ["albums", "recent"],

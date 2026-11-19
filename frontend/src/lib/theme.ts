@@ -11,8 +11,17 @@ export function resolvedTheme(mode: ThemeMode): "light" | "dark" {
   return mode === "dark" || (mode === "system" && systemDark) ? "dark" : "light";
 }
 
+/* The browser's colour bar: index.html gives each system scheme its own
+   theme-color. A manual Light or Dark points both at the chosen ramp, so
+   the bar matches the app rather than the system. */
+const BAR = { light: "#f5f5f7", dark: "#161618" } as const;
+
 export function applyTheme(mode: ThemeMode): void {
   document.documentElement.dataset.theme = resolvedTheme(mode);
+  for (const meta of document.querySelectorAll<HTMLMetaElement>('meta[name="theme-color"]')) {
+    const scheme = meta.getAttribute("media")?.includes("dark") ? "dark" : "light";
+    meta.content = BAR[mode === "system" ? scheme : mode];
+  }
 }
 
 let initialized = false;

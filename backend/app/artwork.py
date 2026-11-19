@@ -211,6 +211,13 @@ def _thumb_name(artwork_id: int, size: int, digest: str) -> str:
     return f"{artwork_id}-{size}-{digest[:16]}.jpg"
 
 
+def cached_thumbnail(cache_dir: Path, artwork_id: int, digest: str, size: int) -> Path | None:
+    """The rendered thumbnail when it is already on disk: found from the
+    id and hash alone, so serving it never reads the original image."""
+    target = cache_dir / _thumb_name(artwork_id, snap_size(size), digest)
+    return target if target.is_file() else None
+
+
 def thumbnail_path(
     cache_dir: Path, artwork_id: int, digest: str, blob: bytes, size: int
 ) -> Path | None:

@@ -1,7 +1,8 @@
+import { useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 
 import { api } from "../api/client";
-import { useAppVersion } from "../api/system";
+import { settingsQuery, useAppVersion } from "../api/system";
 import { fmtCount, fmtDateTime, scanStatusLabel } from "../lib/format";
 import { HOME_ICON_FILES } from "../lib/homeIcon";
 import { isIOS } from "../lib/platform";
@@ -108,14 +109,16 @@ export function SettingsView() {
   const openOrganize = useUiStore((s) => s.openOrganize);
   const reviewCount = useReviewCount();
 
-  const { data: settings } = useQuery({
-    queryKey: ["settings"],
-    queryFn: async () => {
-      const { data } = await api.GET("/api/settings");
-      return data;
-    },
-    refetchInterval: scanning ? 2000 : false,
-  });
+  const { data: settings, refetch: refetchSettings } = useQuery(settingsQuery);
+  // During a scan the library counts grow: follow the stream's progress,
+  // at most every five seconds (no timer of its own on top of the stream).
+  const lastCountsAt = useRef(0);
+  const progress = scanning ? scan?.current : undefined;
+  useEffect(() => {
+    if (progress == null || Date.now() - lastCountsAt.current < 5000) return;
+    lastCountsAt.current = Date.now();
+    void refetchSettings();
+  }, [progress, refetchSettings]);
 
   const rescan = async () => {
     // 409 (already running) is expected and harmless; SSE carries the state.
