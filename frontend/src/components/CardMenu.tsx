@@ -3,7 +3,7 @@
    a long press opens the menu (lib/cardMenu.ts) — the same bottom sheet
    song rows use. */
 
-import type { ReactNode } from "react";
+import type { FocusEventHandler, KeyboardEventHandler, ReactNode } from "react";
 import { createPortal } from "react-dom";
 
 import { TOUCH_MQ } from "../lib/cardMenu";
@@ -16,6 +16,8 @@ export function CardMenu({
   title,
   subtitle,
   onClose,
+  onKeyDown,
+  onBlur,
   children,
 }: {
   label: string;
@@ -24,12 +26,21 @@ export function CardMenu({
   title: string;
   subtitle?: string | null;
   onClose: () => void;
+  /** The keyboard's menu (Up/Down walk the items, focus leaving closes). */
+  onKeyDown?: KeyboardEventHandler<HTMLElement>;
+  onBlur?: FocusEventHandler<HTMLElement>;
   children: ReactNode;
 }) {
   const touch = useMediaQuery(TOUCH_MQ);
   if (!touch) {
     return (
-      <div className="trackmenu album-card__menu" role="menu" aria-label={label}>
+      <div
+        className="trackmenu album-card__menu"
+        role="menu"
+        aria-label={label}
+        onKeyDown={onKeyDown}
+        onBlur={onBlur}
+      >
         {children}
       </div>
     );

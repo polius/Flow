@@ -145,9 +145,33 @@ export function AppShell() {
 
   return (
     <div className="shell">
+      {/* The first two Tab stops, shown only when focused: past the top
+          bar to the page, or past the page to the player. */}
+      <a
+        href="#content"
+        className="skiplink"
+        onClick={(e) => {
+          e.preventDefault();
+          canvasRef.current?.focus();
+        }}
+      >
+        Skip to content
+      </a>
+      <a
+        href="#player"
+        className="skiplink"
+        onClick={(e) => {
+          e.preventDefault();
+          document
+            .querySelector<HTMLElement>(".player button:not(:disabled), .player a[href]")
+            ?.focus();
+        }}
+      >
+        Skip to player
+      </a>
       <div className="shell__main">
         <TopBar />
-        <main ref={canvasRef} className="shell__canvas">
+        <main ref={canvasRef} id="content" tabIndex={-1} className="shell__canvas">
           <Outlet />
         </main>
         <PlayerBar />

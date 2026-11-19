@@ -394,7 +394,13 @@ export function OrganizeGrid({
       onDragStart={(e) => e.preventDefault()}
     >
       <div className="orghead" role="row">
-        <span className="orgrow__check orghead__check" onClick={(e) => e.stopPropagation()}>
+        {/* A columnheader like its six neighbours: a row may only hold
+            cells, and this one names the selection column. */}
+        <span
+          className="orgrow__check orghead__check"
+          role="columnheader"
+          onClick={(e) => e.stopPropagation()}
+        >
           <button
             type="button"
             role="checkbox"

@@ -26,6 +26,7 @@ import {
   IconTrash,
 } from "../components/icons";
 import { PlaylistArt } from "../components/PlaylistArt";
+import { useCardKeys } from "../lib/cardFocus";
 import { fmtCount, fmtMinutes } from "../lib/format";
 import { beginPlayRequest, usePlayerStore } from "../stores/player";
 import "../styles/library.css";
@@ -235,10 +236,23 @@ function PlaylistCard({ playlist }: { playlist: PlaylistSummary }) {
   // Touch: no buttons on the cover — a long press on it opens the menu.
   const longPress = useCardLongPress(() => setMenuOpen(true));
 
+  const { coverRef, onCoverKeyDown, onMenuKeyDown, onMenuBlur } = useCardKeys(
+    menuOpen,
+    setMenuOpen,
+    menuRef,
+  );
+
   return (
     <div className="album-card">
       <div className="album-card__artwrap" {...longPress}>
-        <Link to={`/playlists/${playlist.id}`} className="album-card__artlink" aria-label={playlist.name}>
+        <Link
+          ref={coverRef}
+          to={`/playlists/${playlist.id}`}
+          className="album-card__artlink"
+          aria-label={playlist.name}
+          aria-haspopup="menu"
+          onKeyDown={onCoverKeyDown}
+        >
           <PlaylistArt
             artworkIds={playlist.artwork_ids}
             coverArtworkId={playlist.cover_artwork_id}
@@ -255,6 +269,7 @@ function PlaylistCard({ playlist }: { playlist: PlaylistSummary }) {
           <button
             type="button"
             className="album-card__play"
+            tabIndex={-1}
             onClick={play}
             aria-label={`Play ${playlist.name}`}
             title="Play playlist"
@@ -264,6 +279,7 @@ function PlaylistCard({ playlist }: { playlist: PlaylistSummary }) {
           <button
             type="button"
             className="album-card__more"
+            tabIndex={-1}
             aria-haspopup="menu"
             aria-expanded={menuOpen}
             aria-label={`More actions for ${playlist.name}`}
@@ -278,6 +294,8 @@ function PlaylistCard({ playlist }: { playlist: PlaylistSummary }) {
               title={playlist.name}
               subtitle="Playlist"
               onClose={() => setMenuOpen(false)}
+              onKeyDown={onMenuKeyDown}
+              onBlur={onMenuBlur}
             >
               <button type="button" role="menuitem" className="trackmenu__item" onClick={act(play)}>
                 <IconPlay size={15} />
@@ -343,7 +361,7 @@ function PlaylistCard({ playlist }: { playlist: PlaylistSummary }) {
           )}
         </div>
       </div>
-      <Link to={`/playlists/${playlist.id}`} className="album-card__title">
+      <Link to={`/playlists/${playlist.id}`} className="album-card__title" tabIndex={-1}>
         {playlist.name}
       </Link>
       <div className="album-card__meta">

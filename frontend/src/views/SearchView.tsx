@@ -42,7 +42,7 @@ export function SearchView() {
     results.playlists.length === 0;
 
   return (
-    <section className="view">
+    <section className="view view--capped">
       <h1 className="view__title">Search</h1>
 
       {!hasQuery ? (

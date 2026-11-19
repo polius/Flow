@@ -768,45 +768,50 @@ export function QueuePanel({ onCollapse }: QueuePanelProps) {
                     <span className="queue__swipebg" aria-hidden="true">
                       <IconTrash size={15} />
                     </span>
+                    {/* The row is a plain container: a pointer may click it
+                        anywhere to play, but it is not itself a control —
+                        a role=button around the artist link nested one
+                        control in another, and assistive technology could
+                        not reach the inner one. The control is the cover,
+                        a real button; the link and the ✕ are its siblings. */}
                     <div
                       className={`queue__main${swiping ? " queue__main--swiping" : ""}`}
-                      role="button"
-                      tabIndex={0}
-                      aria-current={isCurrent ? "true" : undefined}
                       onClick={activate}
-                      onKeyDown={(e) => {
-                        // A link inside the row (the artist) owns the
-                        // keyboard: Enter activates the link, never the row.
-                        if (e.target instanceof Element && e.target.closest("a"))
-                          return;
-                        if (e.key === "Enter" || e.key === " ") {
-                          e.preventDefault();
-                          activate();
-                          return;
-                        }
-                        // Pointer-free reorder: Option+↑/↓ nudges the
-                        // focused row one slot at a time.
-                        if (e.altKey && (e.key === "ArrowUp" || e.key === "ArrowDown")) {
-                          e.preventDefault();
-                          const direction = e.key === "ArrowUp" ? -1 : 1;
-                          const to = idx + direction;
-                          if (to < 0 || to >= order.length) return;
-                          moveInQueue(idx, nudgeSlot(idx, direction));
-                          requestAnimationFrame(() => {
-                            listRef.current
-                              ?.querySelector<HTMLElement>(
-                                `[data-idx="${to}"] .queue__main`,
-                              )
-                              ?.focus();
-                          });
-                        }
-                      }}
                       title={isCurrent ? undefined : `Play ${t.title}`}
                       style={
                         swiping ? { transform: `translateX(${swipe.dx}px)` } : undefined
                       }
                     >
-                      <div className="queue__art">
+                      <button
+                        type="button"
+                        className="queue__art queue__play"
+                        aria-label={
+                          isCurrent ? `${isPlaying ? "Pause" : "Play"} ${t.title}` : `Play ${t.title}`
+                        }
+                        aria-current={isCurrent ? "true" : undefined}
+                        onClick={(e) => {
+                          e.stopPropagation(); // the row's own click would play twice
+                          activate();
+                        }}
+                        onKeyDown={(e) => {
+                          // Pointer-free reorder: Option+↑/↓ nudges the
+                          // focused row one slot at a time.
+                          if (e.altKey && (e.key === "ArrowUp" || e.key === "ArrowDown")) {
+                            e.preventDefault();
+                            const direction = e.key === "ArrowUp" ? -1 : 1;
+                            const to = idx + direction;
+                            if (to < 0 || to >= order.length) return;
+                            moveInQueue(idx, nudgeSlot(idx, direction));
+                            requestAnimationFrame(() => {
+                              listRef.current
+                                ?.querySelector<HTMLElement>(
+                                  `[data-idx="${to}"] .queue__play`,
+                                )
+                                ?.focus();
+                            });
+                          }
+                        }}
+                      >
                         <Artwork artworkId={t.artwork_id} size={38} radius="s" />
                         {isCurrent && (
                           <>
@@ -830,7 +835,7 @@ export function QueuePanel({ onCollapse }: QueuePanelProps) {
                             </span>
                           </>
                         )}
-                      </div>
+                      </button>
                       <div className="queue__meta">
                         <span className="queue__name">{t.title}</span>
                         <span className="queue__sub">

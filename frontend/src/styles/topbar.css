@@ -440,12 +440,13 @@
 /* ---- labeled nav (wide windows) ----
    HIG: show a label whenever space allows — icons earn text before the
    layout starts spending it. From the labeled breakpoint up every item,
-   Settings included, wears its text beside the icon. The breakpoint is
-   measured, not chosen: below it the six labeled items would leave the
-   search field cramped, so the icon-only row holds the search wider for
-   longer — the search is the last thing squeezed, and only past 1200px do
-   the labels earn their width. */
-@media (min-width: 1200px) {
+   Settings included, wears its text beside the icon. A half-screen window
+   on a laptop is about 1000px wide, and icons alone there were easy to
+   confuse (Tracks and Playlists most of all): from 1000px the labels show
+   and the search field gives up the room — it shrinks to its floor before
+   a label is dropped. Measured: below about 955px the six labels, the
+   brand and the field's 140px floor no longer fit in one row. */
+@media (min-width: 1000px) {
   .topbar__nav-item--labeled {
     width: auto;
     gap: 7px;

@@ -63,7 +63,9 @@ export function LoginView() {
   if (status?.authenticated) return <Navigate to={from} replace />;
 
   return (
-    <div className="login">
+    // The page's one landmark: without it the heading and the form sat
+    // outside any region.
+    <main className="login">
       <div
         className={`login__float${shake ? " login__float--shake" : ""}`}
         onAnimationEnd={() => setShake(false)}
@@ -163,6 +165,6 @@ export function LoginView() {
           </button>
         </form>
       </div>
-    </div>
+    </main>
   );
 }

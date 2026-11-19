@@ -54,7 +54,7 @@ export function GetInfoPanel() {
   const patchTrack = usePatchTrack();
   const toggleFavorite = useToggleFavorite();
   const undoEdit = useUndoTrackEdit();
-  const surfaceRef = useRef<HTMLElement>(null);
+  const surfaceRef = useRef<HTMLDivElement>(null);
 
   // Modal focus. The panel itself takes focus — not a field: Esc
   // defers inside text (the "cancel the edit" grammar), and an auto-focused
@@ -171,14 +171,16 @@ export function GetInfoPanel() {
   return (
     <>
       <div className="getinfo__scrim" onClick={closeGetInfo} aria-hidden="true" />
-      <aside
+      {/* A plain element wearing the dialog role: an <aside> may not carry
+          it, and a <header> in here would be a second page banner. */}
+      <div
         ref={surfaceRef}
         className="getinfo"
         role="dialog"
         aria-label="Get Info"
         aria-modal="true"
       >
-        <header className="getinfo__head">
+        <div className="getinfo__head">
           <h2 className="getinfo__title">Get Info</h2>
           <button
             type="button"
@@ -188,7 +190,7 @@ export function GetInfoPanel() {
           >
             <IconClose size={16} />
           </button>
-        </header>
+        </div>
 
         {track && (
           <div className="getinfo__body">
@@ -249,7 +251,7 @@ export function GetInfoPanel() {
             </div>
           </div>
         )}
-      </aside>
+      </div>
     </>
   );
 }

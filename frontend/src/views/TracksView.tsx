@@ -201,7 +201,7 @@ export function TracksView() {
   );
 
   return (
-    <section className="view">
+    <section className="view view--capped">
       <div className="view__head">
         <div>
           <h1 className="view__title">Songs</h1>
