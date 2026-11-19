@@ -1076,9 +1076,9 @@
 }
 
 /* ---- desktop: the controls in Apple Music's grammar ----
-   Under the transport, three rows of one width, the column's:
+   Under the transport, three rows centred in the column:
    - the scrubber, with elapsed and total time under its two ends;
-   - the volume as wide as the scrubber, a quiet glyph at each end;
+   - the volume, centred and half as wide, a quiet glyph at each end;
    - the song's actions as borderless glyphs spread evenly across the
      width, muted at rest, a soft fill under the pointer, full ink and a
      soft circle when on. A running sleep timer adds its time beside
@@ -1119,6 +1119,15 @@
     flex-direction: column;
     align-items: stretch;
     gap: 10px;
+  }
+
+  /* The volume is secondary to the scrubber: half its width, centred
+     under it, with more room above so the two bars don't read as a
+     pair. */
+  .nowplaying__volume {
+    align-self: center;
+    width: min(260px, 100%);
+    margin-top: 10px;
   }
 
   .nowplaying__volume .player__volume {
