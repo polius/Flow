@@ -14,5 +14,5 @@ Only the latest release gets security fixes. Upgrading is a `docker compose pull
 
 Flow is built for a home network. Before exposing it to the internet:
 
-- Set a password ([Password](README.md#password)). Flow has none by default.
-- Put it behind HTTPS ([HTTPS and reverse proxies](README.md#https-and-reverse-proxies)).
+- Set a password ([Password](docs/guide.md#password)). Flow has none by default.
+- Put it behind HTTPS ([HTTPS and reverse proxies](docs/guide.md#https-and-reverse-proxies)).
