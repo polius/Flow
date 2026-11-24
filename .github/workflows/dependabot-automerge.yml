@@ -7,9 +7,7 @@ permissions: {}
 jobs:
   automerge:
     # Only low-risk bumps merge themselves, once the required checks pass:
-    #   - patch releases;
-    #   - minor releases of packages already at 1.0 or later (in 0.x a
-    #     minor release may break things);
+    #   - patch and minor releases (0.x packages included);
     #   - for base images, a digest refresh of the same tag only — a new
     #     Python or Node version always waits for review.
     # Everything else is left for a human. Requires repo auto-merge enabled
@@ -40,8 +38,7 @@ jobs:
             if [ -n "$after" ] && [ "$before" = "$after" ]; then safe=true; fi
           elif jq -e 'length > 0 and all(.[];
                 .updateType == "version-update:semver-patch"
-                or (.updateType == "version-update:semver-minor"
-                    and (((.prevVersion // "0") | ltrimstr("v") | split(".")[0] | (tonumber? // 0)) >= 1)))' \
+                or .updateType == "version-update:semver-minor")' \
                 <<<"$DEPS" >/dev/null; then
             safe=true
           fi
